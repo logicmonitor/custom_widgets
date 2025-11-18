@@ -1,0 +1,556 @@
+<!-- 
+	DYNAMIC DASHBOARD LIST v2.0
+
+	This script was created in response to a customer needing a quick way to drill-down from an overview dashboard to various specific dashboards. While straightforward to manually make a list in a text widget, we wanted a way to dynamically list dashboards as they were added or changed. To further enhance the functionality, if a 'defaultResourceGroup' token is set on a dashboard group then the script will fetch current alert status for that group (can be disabled via the 'fetchGroupAlertStatus' variable in the script if API limits are an issue).
+	NOTE: while this script leverages standard LogicMonitor APIs and features, this script itself is not officially supported by LogicMonitor.
+
+	To use this, just add a Text widget to your dashboard and in the widget's configuration screen click the "source" view then paste in this code. You can also just clone this widget to another dashboard on the same portal.
+
+	---
+
+	DASHBOARD TOKENS:
+	'ShowFullDashboardPath': Show the dashboard group's full path vs it's short name. Default: true.
+	'defaultDashboardGroup': (optional) The "parent" dashboard group you want to list dashboards under. If not set then the script will default to showing all dashboard groups.
+	'DashboardsToExclude': (optional) A regular expression to filter any dashboards you DON'T want listed. Example: .*[Tt]+emplate.*
+
+-->
+
+<script>
+	// Set the following to false if you don't want to fetch group alert status...
+	const fetchGroupAlertStatus = true;
+	
+	// Maximum number of dashboards to retrieve...
+	const maxGroups = 500;
+	
+	// How often to automatically refresh the list...
+	const statusUpdateIntervalMinutes = 2;
+	
+	// Whether to show the group's short name or full path (can alternatively be set via a 'ShowFullDashboardPath' dashboard token)...
+	let showFullPath = true;
+	
+	// An optional regular expression with any dashboards we don't want listed (can alternative be set via a 'DashboardsToExclude' dashboard token)...
+	let exclusionRE = "";
+</script>
+
+
+<link href="https://static-prod.logicmonitor.com/sbui133-1/commons/stylesheets2/startup.css?v=220429" rel="stylesheet" />
+<link href="ace/css/ace-chrome" rel="stylesheet" />
+
+<style type="text/css">
+	#dashboardListContainer {
+		display: flex;
+		flex-direction: column;
+		flex-wrap: nowrap;
+		align-items: stretch;
+		height: 100%;
+	}
+	.dashboardItem {
+		display: flex;
+		border: 1px solid #ccc;
+		padding: 3px;
+		margin: 5px;
+		border-radius: 5px;
+		flex-wrap: nowrap;
+		background-color: #fafafa;
+		height: 100%;
+		box-shadow: 0px 1px 4px rgba(0, 0, 0, 0.2);
+	}
+	.dashboardItem > div {
+		padding: 5px 3px;
+	}
+	.dashboardItem > div:nth-child(1) {
+		display: flex;
+		align-self: stretch;
+		width: 100%;
+		flex-direction: column;
+		justify-content: center;
+	}
+	.dashboardItem > div:nth-child(2) {
+		display: flex;
+		align-self: stretch;
+		width: 50px;
+		align-items: center;
+		justify-content: center;
+	}
+	.groupName {
+		font-weight: 700;
+		font-size: medium;
+		padding-bottom: 5px;
+	}
+	.dashboardItem.clear {
+		background-color: #eaffea;
+	}
+	.dashboardItem.warn {
+		background-color: lightyellow;
+		color: inherit;
+	}
+	.dashboardItem.error {
+		background-color: #ffe9dc;
+		color: inherit;
+	}
+	.dashboardItem.critical {
+		background-color: #ffe9e6;
+		color: inherit;
+	}
+	.dashboardListGroupStatus {
+		font-weight: bold;
+	}
+	.dashboardListItem {
+		padding-left: 15px;
+	}
+	.dashboardListItem:hover {
+		background-color: white;
+	}
+	.warning {
+		background-color: rgb(245, 202, 29);
+		padding: 3px;
+		border-radius: 3px;
+	}
+	.error {
+		background-color: rgb(245, 114, 0);
+		color: white;
+		padding: 3px;
+		border-radius: 3px;
+	}
+	.critical {
+		background-color: rgb(224, 53, 27);
+		color: white;
+		padding: 3px;
+		border-radius: 3px;
+	}
+	.cleared {
+		background-color: #81ae49;
+		color: white;
+		padding: 3px;
+		border-radius: 3px;
+	}
+	.hidden {
+		display: none;
+	}
+</style>
+
+<div id="dashboardListContainer">&nbsp;</div>
+
+
+<script>
+	// Capture from token whether to hide the map options...
+	let showFullPathToken = "##ShowFullDashboardPath##";
+	// If the token value was't set then use the value hard-coded above at the beginning of this script...
+	if (showFullPathToken.toLowerCase() == "false" || showFullPathToken.toLowerCase() == "no"|| showFullPathToken.toLowerCase() == "0") {
+		showFullPath = false;
+	};
+
+	// Capture information from specific dashboard tokens we'll be using...
+
+	// Capture if an exclusion pattern is defined...
+	let exclusionREToken = "##DashboardsToExclude##";
+	if (exclusionREToken != "\#\#DashboardsToExclude\#\#") {
+		exclusionRE = new RegExp(exclusionREToken);
+	};
+
+	// Capture the current values of the tokens...
+	// (Like any token inserted into the Text widget, LogicMonitor automatically inserts these token values as the page is being rendered so Javascript is able to pick them as if the values were there originally. If a token isn't set then the variable's value will be literally what's shown below, including the double-hashtags.)
+	let defaultDashboardGroupValue = "##defaultDashboardGroup##";
+
+	// ---
+
+	// Capture information about the current dashboard for use in subsequent REST calls...
+	const locationHash = parent.window.location.hash; // example result: "#dashboard=21"
+	const dashboardID = locationHash.replace("#dashboard=", "");
+	const pathName = parent.window.location.pathname;
+	
+	// Variable for referencing our HTML element...
+	const dynamicTable = document.getElementById("dashboardListContainer");
+	let resourceGroups = [];
+
+	// Icon definitions for our different alert severities...
+	const warningIcon = '<svg id="icon-alertsWarning-26" viewBox="0 0 1024 1024"> <title>Warning</title> <path fill="#ffcc00" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M866.462 669.538l-275.692-433.231c-43.323-70.892-114.215-70.892-157.538 0l-275.692 433.231c-43.323 70.892-3.938 157.538 78.769 157.538h551.385c82.708 0 122.092-86.646 78.769-157.538v0 0z"></path> <path fill="#ffcc00" d="M551.385 748.308h-78.769v-78.769h78.769v78.769zM551.385 630.154h-78.769v-275.692h78.769v275.692z"></path> </svg>';
+	const errorIcon = '<svg id="icon-alertsError-26" viewBox="0 0 1024 1024"> <title>Error</title> <path fill="#f26522" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M866.462 669.538l-275.692-433.231c-43.323-70.892-114.215-70.892-157.538 0l-275.692 433.231c-43.323 70.892-3.938 157.538 78.769 157.538h551.385c82.708 0 122.092-86.646 78.769-157.538v0 0z"></path> <path fill="#f26522" d="M551.385 748.308h-78.769v-78.769h78.769v78.769zM551.385 630.154h-78.769v-275.692h78.769v275.692z"></path> </svg>';
+	const criticalIcon = '<svg id="icon-alertsCritical-26" viewBox="0 0 1024 1024"> <title>Critical</title> <path fill="#ed1e24" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M827.077 590.769c-133.908-232.369-39.385-354.462-39.385-354.462s-173.292 43.323-157.538 157.538c-35.446-31.508-216.615-86.646-114.215-271.754v-3.938h-3.938c-3.938 0-55.138 23.631-94.523 74.831-39.385 47.262-110.277 106.338-63.015 240.246 31.508 74.831 39.385 94.523-39.385 157.538 3.938-15.754 11.815-51.2 0-78.769-27.569-63.015-78.769-78.769-78.769-78.769s43.323 66.954 0 118.154c-39.385 43.323-55.138 129.969-35.446 200.862 15.754 59.077 70.892 106.338 157.538 137.846-7.877-3.938 110.277 43.323 244.185 3.938 59.077-19.692 137.846-43.323 185.108-106.338 39.385-51.2 74.831-129.969 39.385-196.923v0 0z"></path> <path fill="#ed1e24" d="M551.385 827.077h-78.769v-78.769h78.769v78.769zM551.385 708.923h-78.769v-275.692h78.769v275.692z"></path> </svg>';
+	const clearedIcon = '<svg id="icon-alertsCleared-26" viewBox="0 0 1024 1024"> <title>Cleared</title> <path fill="#81ae49" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M866.462 669.538l-275.692-433.231c-43.323-70.892-114.215-70.892-157.538 0l-275.692 433.231c-43.323 70.892-3.938 157.538 78.769 157.538h551.385c82.708 0 122.092-86.646 78.769-157.538v0 0z"></path> </svg>';
+
+	// Call the function to populate the dashboard list...
+	populateDashboardList();
+	
+	// Set a timer to refresh the table on a regular basis...
+	if (fetchGroupAlertStatus) {
+		const dataRefresher = setInterval(function() {
+			// populateDashboardList();
+			refreshGroupStatus();
+			console.log("Dynamic dashboard list refreshed.");
+		}, statusUpdateIntervalMinutes*1000*60);
+	};
+	
+
+	// ----- FUNCTIONS
+	
+	/**
+	* Fetches a Cross-Site Request Forgery (CSRF) token required for subsequent API calls.
+	*
+	* This function makes a preliminary request to a dummy endpoint solely to retrieve
+	* the CSRF token from the response headers.
+	*
+	* @async
+	* @function fetchCsrfToken
+	* @returns {Promise<string>} A promise that resolves with the CSRF token.
+	* @throws {Error} If the fetch request fails or the token is not found in headers.
+	*/
+	async function fetchCsrfToken() {
+		// console.debug('Fetching CSRF token...');
+		const response = await fetch('/santaba/rest/functions/dummy', {
+			method: 'GET',
+			headers: {
+				'X-Csrf-Token': 'Fetch', // Specific header to request the token
+				'Accept': 'application/json',
+				'X-Version': '3', // Specify API version if required by this endpoint
+			},
+			credentials: 'include', // Include cookies for session management/CSRF
+		});
+	
+		if (!response.ok) {
+			throw new Error(`Failed to fetch CSRF token: ${response.status} ${response.statusText}`);
+		}
+	
+		const token = response.headers.get('X-Csrf-Token');
+		if (!token) {
+			throw new Error('CSRF token not found in response headers.');
+		}
+		// console.debug('CSRF Token fetched successfully.');
+		
+		return token;
+	}
+	
+	/**
+		* Performs an HTTP request to the LogicMonitor REST API.
+		*
+		* This function handles fetching a CSRF token, constructing the API request,
+		* sending the request, and processing the response. It supports common HTTP verbs
+		* and automatically includes necessary headers and credentials.
+		*
+		* @async
+		* @function LMClient
+		* @param {object} options - The options for the API request.
+		* @param {string} options.resourcePath - The specific API resource path (e.g., /device/devices).
+		* @param {string} [options.queryParams=''] - Optional query parameters string (e.g., ?filter=name:value).
+		* @param {'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'} options.httpVerb - The HTTP method to use.
+		* @param {object | Array<unknown>} [options.postBody] - The JSON payload for POST/PUT/PATCH requests.
+		* @param {string} [options.apiVersion='3'] - The API version to use. Default is "3".
+		* @returns {Promise<object>} A promise that resolves with the JSON response body on success.
+		* @throws {Error} Throws an Error on API errors (>=300 status), network issues,
+		*                 token fetching problems, or JSON handling errors. The error object
+		*                 may contain 'status' and 'statusText' properties for API errors.
+	*/
+	async function LMClient({
+		resourcePath,
+		queryParams = '', // Default queryParams to empty string
+		httpVerb,
+		postBody,
+		apiVersion = '3',
+	}) {
+		console.debug('LMClient called with:', { resourcePath, queryParams, httpVerb, postBody, apiVersion });
+		// Validate required parameters
+		if (!resourcePath || !httpVerb) {
+			throw new Error('Missing required parameters: resourcePath and httpVerb must be provided.');
+		}
+		const validVerbs = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+		if (!validVerbs.includes(httpVerb)) {
+			throw new Error(`Invalid httpVerb: ${httpVerb}. Must be one of ${validVerbs.join(', ')}`);
+		}
+	
+		console.debug(`Initiating LogicMonitor API call: ${httpVerb} ${resourcePath}${queryParams}`);
+	
+		try {
+			// 1. Fetch the CSRF token
+			const csrfToken = await fetchCsrfToken();
+	
+			// 2. Construct the API URL and request options
+			const apiUrl = `/santaba/rest${resourcePath}${queryParams}`;
+			const headers = {
+				'Content-Type': 'application/json', // Consistently set Content-Type
+				'Accept': 'application/json', // Expect JSON response
+				'X-Csrf-Token': csrfToken,
+				'X-Version': apiVersion, // Use the appropriate API version for the main request
+			};
+	
+			const requestOptions = {
+				method: httpVerb,
+				headers: headers,
+				credentials: 'include', // Necessary for session/cookie-based auth
+			};
+	
+			// 3. Add body only for relevant methods
+			if (postBody && (httpVerb === 'POST' || httpVerb === 'PUT' || httpVerb === 'PATCH')) {
+				try {
+					requestOptions.body = JSON.stringify(postBody);
+					console.debug('Request body included:', postBody);
+				} catch (stringifyError) {
+					console.error('Failed to stringify postBody:', stringifyError);
+					// Add user-friendly message to the error
+					stringifyError.message = `Invalid postBody provided. Could not stringify to JSON. Original error: ${stringifyError.message}`;
+					throw stringifyError;
+				}
+			}
+	
+			// 4. Make the API call
+			console.debug(`Executing fetch to: ${apiUrl}`);
+			const response = await fetch(apiUrl, requestOptions);
+			console.debug(`Received response status: ${response.status} ${response.statusText}`);
+	
+			// 5. Process the response
+			if (response.ok) { // ok is true for statuses 200-299
+				// Handle potential empty response body for certain success statuses (e.g., 204 No Content)
+				if (response.status === 204) {
+					console.debug('Received 204 No Content response.');
+					return {}; // Return an empty object for 204
+				}
+				try {
+					// Assume response is JSON if status is ok and not 204
+					const data = await response.json();
+					console.debug('API call successful, response data received.'); // Avoid logging potentially sensitive data by default
+					return data;
+				} catch (jsonError) {
+					console.error('Failed to parse JSON response:', jsonError);
+					// Create a new error with more context
+					const parseError = new Error(`Successfully received response (${response.status}), but failed to parse JSON body. Original error: ${jsonError.message}`);
+					parseError.status = response.status; // Attach status for context
+					parseError.statusText = response.statusText;
+					throw parseError;
+				}
+			} else {
+				// Handle API errors (status >= 300)
+				const error = new Error(`API Error: ${response.status} ${response.statusText}`);
+				error.status = response.status;
+				error.statusText = response.statusText;
+	
+				// Attempt to get more details from the error response body
+				try {
+					const errorBody = await response.text(); // Use text first in case it's not JSON
+					error.body = errorBody || 'No additional error details provided.'; // Attach body to error
+					console.warn(`API Error Body: ${error.body}`); // Log the raw error body
+				} catch (bodyError) {
+					console.warn('Could not read error response body:', bodyError);
+					error.body = 'Could not read error response body.';
+				}
+				console.error('LogicMonitor API Error:', { status: error.status, statusText: error.statusText });
+				throw error; // Throw the augmented error object
+			}
+		} catch (error) {
+			// Catch errors from fetchCsrfToken, fetch itself (network errors), or JSON parsing/stringifying
+			console.error('An error occurred in LMClient:', error.message || error);
+	
+			// Re-throw the error to be handled by the caller.
+			// Ensure it's always an Error object.
+			if (error instanceof Error) {
+				throw error;
+			} else {
+				// If it's not an Error object (e.g., the thrown API error object), wrap it
+				const wrappedError = new Error(error.message || 'An unexpected error occurred during the API call.');
+				// Copy relevant properties if they exist
+				if (error && typeof error === 'object') {
+					if ('status' in error) wrappedError.status = error.status;
+					if ('statusText' in error) wrappedError.statusText = error.statusText;
+					if ('body' in error) wrappedError.body = error.body;
+				}
+				throw wrappedError;
+			};
+		};
+	};
+
+	// Removes duplicate values from an array...
+	function removeDuplicates(arr) {
+		let obj = {};
+		let ret_arr = [];
+		for (let i = 0; i < arr.length; i++) {
+			obj[arr[i]] = true;
+		}
+		for (let key in obj) {
+			ret_arr.push(key);
+		}
+		return ret_arr;
+	}
+
+	// Function for retrieving a list of groups from LogicMonitor and populating the appropriate drop-down...
+	async function populateDashboardList() {
+		// Reset our list in the widget...
+		dynamicTable.innerHTML = "";
+		
+		let sortBy = "name";
+		if (showFullPath) {
+			sortBy = "fullPath";
+		};
+		
+		// API request details...
+		let httpVerb = "GET";
+		let resourcePath = "/dashboard/groups";
+		let queryParams = "";
+		if (defaultDashboardGroupValue == "\#\#defaultDashboardGroup\#\#") {
+			queryParams = `?sort=${sortBy}&size=${maxGroups}&filter=numOfDashboards>0`;
+		} else {
+			queryParams = `?sort=${sortBy}&size=${maxGroups}&filter=fullPath~"${defaultDashboardGroupValue}",numOfDashboards>0`;
+		};
+
+		console.log("Fetching the dashboard list...");
+		// Call the LogicMonitor API to get a list of dashboards...
+		const data = await LMClient({
+			resourcePath: resourcePath,
+			queryParams: queryParams,
+			httpVerb: httpVerb,
+			postBody: null,
+			apiVersion: '3',
+		});
+		// console.debug('Dashboard Group request succeeded with JSON response', data);
+
+		// Start populating the table...
+		data.items.forEach(thisItem => {
+			// Test whether to list this dashboard...
+			let proceed = true;
+			if (thisItem.fullPath == "") {
+				proceed = false;
+			}
+			// if (exclusionRE != "" && exclusionRE.test(thisItem.name)) {
+			if (exclusionRE != "" && exclusionRE.test(thisItem.fullPath)) {
+				proceed = false;
+			}
+			
+			let groupTitle = thisItem.fullPath;
+			if (!showFullPath) {
+				groupTitle = thisItem.name;
+			};
+
+			if (proceed) {
+				let tmpRowID = "dashRow" + thisItem.id;
+				let dashGroupToken = "";
+
+				// Look to see if the dashboard group has a 'defaultResourceGroup' token set...
+				if (thisItem.widgetTokens.length > 0) {
+					thisItem.widgetTokens.forEach(thisToken => {
+						if (thisToken.name == "defaultResourceGroup") {
+							dashGroupToken = thisToken.value;
+						};
+					});
+				
+					// If a 'defaultResourceGroup' token was found...
+					if (dashGroupToken != "") {
+						// Capture the 'defaultResourceGroup' value in a data element attached to the HTML row...
+						resourceGroups.push(dashGroupToken);
+					};
+				};
+				
+				// Create an HTML element where we'll be constructing our content...
+				const dashboardNode = document.createElement("div");
+				dashboardNode.classList.add("dashboardItem");
+				dashboardNode.dataset.groupname = dashGroupToken;
+				
+				// Create an HTML element to hold the dashboard group info & list...
+				let content = `<div><div class="groupName">${groupTitle}</div><ul id="${tmpRowID}">`;
+				
+				// List the group's dashboards...
+				if (thisItem.numOfDirectDashboards > 0) {
+					thisItem.dashboards.forEach(thisDash => {
+						let pathName = "santaba/uiv4/dashboards/dashboards-" + thisDash.id;
+						content = `${content}<li class="dashboardListItem"><a href="${window.location.origin}/${pathName}" target="_parent">${thisDash.name}</a></li>`;
+					});
+				};
+				// Close out the first cell...
+				content = content + "</ul></div>";
+				
+				// Make a cell for the alert icon (if applicable)...
+				if (fetchGroupAlertStatus) {
+					content = `${content}<div class="dashboardListGroupStatus"></div>`
+				};
+				
+				// Add our content to the widget...
+				dashboardNode.innerHTML = content;
+				dynamicTable.appendChild(dashboardNode);
+			};
+		});
+
+		// If any of the groups had a 'defaultResourceGroup' token set...
+		if (fetchGroupAlertStatus && resourceGroups.length > 0) {
+			// First, let's deduplicate the list...
+			resourceGroups = removeDuplicates(resourceGroups);
+
+			// Fetch the current alert status of the resource groups...
+			// resourceGroups.forEach(thisGroup => {
+			// 	let groupInfo = getResourceGroupStatus(thisGroup);
+			// });
+			refreshGroupStatus();
+		};
+	};
+	
+	function refreshGroupStatus() {
+		if (fetchGroupAlertStatus && resourceGroups.length > 0) {
+			// Fetch the current alert status of the resource groups...
+			resourceGroups.forEach(thisGroup => {
+				let groupInfo = getResourceGroupStatus(thisGroup);
+			});
+		};
+	};
+
+	// Function for getting status of the resource group based on 'defaultResourceGroup' tokens...
+	async function getResourceGroupStatus(resourceGroup) {
+		let encodedResourceGroup = encodeURIComponent(resourceGroup);
+
+		// API request details...
+		let httpVerb = "GET";
+		let epoch = (new Date).getTime();
+		let resourcePath = "/device/groups";
+		let queryParams = '?size=' + maxGroups + '&filter=fullPath:"' + encodedResourceGroup + '"&fields=id,fullPath,alertStatus,sdtStatus,alertDisableStatus,disableAlerting';
+
+		// console.debug("Fetching resource group status for " + resourceGroup + "...");
+
+		try {
+			const data = await LMClient({
+				resourcePath: resourcePath,
+				queryParams: queryParams,
+				httpVerb: httpVerb,
+				postBody: null,
+				apiVersion: '3',
+			});
+	
+			// console.log('Resource Group request succeeded with JSON response', data)
+	
+			if (data.total != 0) {
+				let highestSeverity = "clear";
+	
+				data.items.forEach(thisItem => {
+					// console.log(thisItem.alertStatus)
+					let alertStatusArray = thisItem.alertStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
+					// console.log("alertStatusArray for " + resourceGroup + ": " + alertStatusArray)
+					if (alertStatusArray) {
+						let alertStatus = alertStatusArray[1];
+						let alertSeverity = alertStatusArray[2];
+	
+						if ((alertSeverity == "warn" && highestSeverity == "") || (alertSeverity == "error" && highestSeverity != "critical") || (alertSeverity == "critical")) {
+							highestSeverity = alertSeverity;
+							// console.log("highestSeverity for " + resourceGroup + " is " + highestSeverity)
+						};
+					};
+				});
+	
+				// Remove previous severity classes from the row...
+				const tmpRow = document.querySelector("#dashboardListContainer > [data-groupname='" + resourceGroup + "']");
+				tmpRow.classList.remove("clear", "warn", "error", "critical");
+				
+				let sevIcon = clearedIcon;
+				if (highestSeverity != "clear") {
+					if (highestSeverity == "warn") {
+						sevIcon = warningIcon;
+					} else if (highestSeverity == "error") {
+						sevIcon = errorIcon;
+					} else if (highestSeverity == "critical") {
+						sevIcon = criticalIcon;
+					};
+					tmpRow.classList.add(highestSeverity);
+				} else {
+					tmpRow.classList.add("clear");
+				};
+	
+				// Add the severity class/icon to the appropriate places in the HTML table...
+				document.querySelector("#dashboardListContainer > [data-groupname='" + resourceGroup + "'] div.dashboardListGroupStatus").innerHTML = sevIcon;
+			};
+		} catch (error) {
+			console.error('Error fetching data:', error);
+		};
+	}
+</script>

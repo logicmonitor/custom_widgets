@@ -1,0 +1,515 @@
+<!--
+	Dashboard Theming Widget
+	Developed by Kevin Ford
+	Version 1.66 - Integrated Authentication Version
+	Integrated authentication improvements by Steve Villardi
+-->
+
+<script>
+	// Default background RGB color values...
+	let bgRed = 40;
+	let bgGreen = 49;
+	let bgBlue = 71;
+	let bgColors = {r:40, g:49, b:71};
+
+	// Helper function to convert an RGB component value to hex...
+	const componentToHex = (c) => {
+		const hex = c.toString(16);
+		return hex.length === 1 ? "0" + hex : hex;
+	};
+	// Helper function to convert an RGB color to hex...
+	const rgbToHex = (r, g, b) => {
+		return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+	};
+	// Helper function to convert a hex color to RGB values...
+	const hex2RGB = (hex) => {
+		const r = parseInt(hex.slice(1, 3), 16);
+		const g = parseInt(hex.slice(3, 5), 16);
+		const b = parseInt(hex.slice(5, 7), 16);
+		return { r, g, b };
+	};
+	// Helper function to get a cookie value...
+	const getCookie = (name) => {
+		const value = `; ${document.cookie}`;
+		const parts = value.split(`; ${name}=`);
+		if (parts.length === 2) return parts.pop().split(';').shift();
+		return null;
+	};
+</script>
+
+<link href="https://static-prod.logicmonitor.com/sbui133-1/commons/stylesheets2/startup.css?v=220429" rel="stylesheet" />
+<!-- We'll use FontAwesome icons to help pretty up things... -->
+<script src="https://use.fontawesome.com/releases/v6.2.0/js/all.js"></script>
+<style>
+	#dashboardThemerWidget .lm-button {
+		height: 28px;
+		line-height: 28px;
+		text-wrap-mode: nowrap;
+		filter: grayscale(1);
+	}
+	.fadeOut {
+		opacity: 0;
+		visibility: hidden;
+		transition: opacity 2s ease-in-out, visibility 0s 2s ease-in-out;
+	}
+</style>
+
+<div id="dashboardThemerWidget" style="display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 15px; padding-top: 5px;">
+	<div style="width: 100%;">
+		<div style="padding-bottom: 3px;">
+			<label for="backgroundColorPicker" style="color: var(--customTextColor);">Background color</label>
+		</div>
+		<div style="display: flex; flex-wrap: nowrap; align-items: center;">
+			<input type="color" id="backgroundColorPicker" name="backgroundColorPicker" style="margin-right: 5px; min-height: 30px;" />
+			<div id="bgColorLabel" style="color: var(--customTextColor);"></div>
+		</div>
+		<div id="prefSavedMessage" class="fadeOut" style="margin-top: 10px; font-weight: bold;">Saved</div>
+	</div>
+	<div style="display: flex; flex-wrap: nowrap;flex-direction: column; gap: 5px; align-items: stretch;">
+		<button id="updateCookieButton" class="lm-button blue small animate" title="Saves the color as a personal default in a browser cookie"><i class="fa-solid fa-user"></i> Save</button>
+		<button id="updateDashboardButton" class="lm-button blue small animate" title="Saves the color as the default for all users of this dashboard in a dashboard token"><i class="fa-solid fa-users"></i> Save</button>
+		<button id="deleteCookieButton" class="lm-button blue small animate" title="Resets your personal color preference back to the dashboard&apos;s default">Reset</button>
+	</div>
+</div>
+
+<script>
+	// Get document cookie to see if user has a color saved there...
+	let cookieColor = getCookie("dashboardThemerColor");
+	console.debug("Color saved in cookie: ", cookieColor);
+
+
+	// Initialize our color picker...
+	let defaultColor = rgbToHex(bgRed, bgGreen, bgBlue);
+	let colorPicker = document.getElementById("backgroundColorPicker");
+	let colorLabel = document.getElementById("bgColorLabel");
+	colorPicker.addEventListener("input", colorsChanged, false);
+	document.getElementById("updateDashboardButton").addEventListener("click", updateDashboard);
+	document.getElementById("updateCookieButton").addEventListener("click", updateCookie);
+	document.getElementById("deleteCookieButton").addEventListener("click", deleteCookie);
+
+	// Get the DOM objects we'll be modifying styles for...
+	let widgetsGridObjects = parent.document.querySelectorAll("#dashboard-widgets-grid");
+	// // let filterBar = parent.document.querySelectorAll(".mt-8");
+	// let bgCObjects = parent.document.querySelectorAll(".bg-c");
+	// let subHeaders = parent.document.querySelectorAll("p[class*='SubHeader__StyledP']");
+	// let styledWidgetObjects = parent.document.querySelectorAll("div[class^='DashboardWidgetsGrid__StyledWidget']");
+	// let widgetText = parent.document.querySelectorAll("[data-testid='WidgetLayout'] > div > div > div > p[class*='Header__StyledTruncatedBody1'], #dashboard-widgets-grid .MuiButton-text, #dashboard-widgets-grid .MuiIconButton-root.v4-button.widget, #dashboard-widgets-grid .MuiIconButton-colorPrimary");
+	// // let bigNumberWidgets = parent.document.querySelectorAll("section[data-testid='big-number-widget'] .b-s");
+	// let bigNumberWidgets = parent.document.querySelectorAll("[data-testid='big-number-widget'] #numberText, [data-testid='sla-widget'] #numberText");
+	// let thisWidgetLabels = document.querySelectorAll(".thisWidgetLabel");
+
+	// Look to see if a background color has been saved...
+	const dashboardBGToken = "##BackgroundColor##";
+	// If the token values weren't set then use the values hard-coded above in this script...
+	if (dashboardBGToken != "\#\#BackgroundColor\#\#") {
+		if (/#[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/.test(dashboardBGToken)) {
+			defaultColor = hex2RGB(dashboardBGToken);
+			bgColors = defaultColor;
+			console.debug("Existing color token found.", bgColors);
+		};
+	} else {
+		console.debug("No previous color token found. Using the default.");
+		bgColors = defaultColor;
+	};
+
+	// If a color is saved in the cookie, use it instead...
+	if (cookieColor) {
+		bgColors = hex2RGB(cookieColor);
+		console.debug("Color saved in cookie found. Using it.");
+	};
+
+	// Update the color picker...
+	let bgColorHex = rgbToHex(bgColors.r, bgColors.g, bgColors.b);
+	colorPicker.value = bgColorHex;
+	bgColorLabel.innerHTML = bgColorHex;
+
+	// Set our colors...
+	setColors();
+
+	const myStyle = parent.document.createElement("style");
+	myStyle.innerHTML = " \
+		.mt-8 { \
+			margin-top: 4px; \
+			margin-bottom: 4px; \
+		} \
+		section[data-testid='big-number-widget'] .b-s, [data-testid='sla-widget'] .b-s { \
+			background-color: var(--customBigNumberBackground); \
+			border: 1px solid rgba(255, 255, 255, 0.2); \
+			box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.1), 1px 1px 0.12px rgba(255, 255, 255, 0.4); \
+		} \
+		/* [data-testid='big-number-widget'] #numberText, [data-testid='sla-widget'] #numberText { \
+			filter: drop-shadow(0px 0px 2px rgba(255, 255, 255, 0.4)); \
+		} */ \
+		.lm-multiline-tooltip { \
+			background-color: rgb(255, 255, 255, 0.8) !important; \
+			border-radius: 5px; \
+			backdrop-filter: blur(2px) !important; \
+		} \
+		.lm-multiline-tooltip-item { \
+			filter: drop-shadow(0 0 5px rgba(255, 255, 255, 1)) !important; \
+		} \
+	";
+	parent.document.head.appendChild(myStyle);
+
+
+	function colorsChanged() {
+		let newColor = colorPicker.value;
+		bgColors = hex2RGB(newColor);
+		bgColorLabel.innerHTML = newColor;
+		// console.debug("Color changed to " + newColor);
+		setColors();
+	};
+
+
+	function setColors() {
+		console.debug("Setting background color to ", bgColors);
+
+		// Get the DOM objects we'll be modifying styles for...
+		let bgCObjects = parent.document.querySelectorAll(".bg-c");
+		let subHeaders = parent.document.querySelectorAll("p[class*='SubHeader__StyledP']");
+		let styledWidgetObjects = parent.document.querySelectorAll("div[class^='DashboardWidgetsGrid__StyledWidget']");
+		let widgetText = parent.document.querySelectorAll("[data-testid='WidgetLayout'] > div > div > div > p[class*='Header__StyledTruncatedBody1'], #dashboard-widgets-grid .MuiButton-text, #dashboard-widgets-grid .MuiIconButton-root.v4-button.widget, #dashboard-widgets-grid .MuiIconButton-colorPrimary");
+		// let bigNumberWidgets = parent.document.querySelectorAll("section[data-testid='big-number-widget'] .b-s");
+		let bigNumberWidgets = parent.document.querySelectorAll("[data-testid='big-number-widget'] #numberText, [data-testid='sla-widget'] #numberText");
+		let thisWidgetLabels = document.querySelectorAll(".thisWidgetLabel");
+
+		// Adjust our text color (white or black) based on the perceived brightness of the background color...
+		const brightness = Math.round(((parseInt(bgColors.r) * 299) + (parseInt(bgColors.g) * 587) + (parseInt(bgColors.b) * 114)) / 1000);
+		console.debug("Calculated brightness: " + brightness);
+		const textColor = (brightness > 125) ? '0, 0, 0' : '255, 255, 255'
+
+		// Set our document-level (:root) CSS variables...
+		parent.document.documentElement.style.setProperty("--customBG", `rgb(${bgColors.r}, ${bgColors.g}, ${bgColors.b})`);
+		parent.document.documentElement.style.setProperty("--customTextColor", `rgb(${textColor})`);
+		parent.document.documentElement.style.setProperty("--customBigNumberBackground", `rgba(${textColor}, 0.1)`);
+		document.documentElement.style.setProperty("--customTextColor", `rgb(${textColor})`);
+
+		// Apply our properties to the dashboard...
+		for (let i = 0; i < widgetsGridObjects.length; i++) {
+			widgetsGridObjects[i].style.backgroundColor = "var(--customBG)";
+			widgetsGridObjects[i].style.background = "linear-gradient(35deg, hsl(from var(--customBG) h s calc(l - 10)) 0%, hsl(from var(--customBG) h s calc(l - 25)) 40%, var(--customBG) 100%)";
+			widgetsGridObjects[i].style.boxShadow = "inset 0 3px 4px -3px black";
+		};
+		// Removes existing backgrounds from widgets...
+		for (let i = 0; i < styledWidgetObjects.length; i++) {
+			styledWidgetObjects[i].style.background = "none";
+			styledWidgetObjects[i].style.border = "none";
+		};
+		// Dashboard widgets...
+		for (let i = 0; i < bgCObjects.length; i++) {
+			bgCObjects[i].style.background = "rgba(255, 255, 255, 0.4)";
+			// bgCObjects[i].style.border = "1px solid rgba(255, 255, 255, 0.5)";
+			bgCObjects[i].style.border = "1px solid rgba(234, 235, 238, 0.15)";
+			bgCObjects[i].style.backdropFilter = "blur(10px) invert(10%) saturate(1.1)";
+			bgCObjects[i].style.boxShadow = "inset 1px 1px 0.12px rgba(255, 255, 255, 0.4), 1px 1px 3px rgba(0, 0, 0, 0.1)";
+		};
+		// Widget subheader text, like widget time...
+		for (let i = 0; i < subHeaders.length; i++) {
+			subHeaders[i].style.filter = "contrast(0.5)";
+			subHeaders[i].style.color = "var(--customTextColor)";
+		};
+		// Sets color of widget titles and icons...
+		for (let i = 0; i < widgetText.length; i++) {
+			widgetText[i].style.color = "var(--customTextColor)";
+		};
+		// Sets background of Big Number and SLA widgets...
+		for (let i = 0; i < bigNumberWidgets.length; i++) {
+			// console.debug("computed color: ", window.getComputedStyle(bigNumberWidgets[i]).color);
+			if (window.getComputedStyle(bigNumberWidgets[i]).color != "rgb(255, 255, 255)") {
+				bigNumberWidgets[i].style.filter = "drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.5))";
+			};
+		};
+		// Changes label colors of this widget as needed...
+		for (let i = 0; i < thisWidgetLabels.length; i++) {
+			thisWidgetLabels[i].style.color = textColor;
+		};
+	};
+
+
+	async function updateDashboard() {
+		// Capture information about the current dashboard for use in subsequent REST calls...
+		let dashboardID = "";
+		let hostName = parent.window.location.host;
+		let locationHash = parent.window.location.hash; // example result: "#dashboard=21"
+		// In UIv4 dashboards use a direct path instead of a URL hash, so adjust based on the URL being used...
+		if (locationHash != "") {
+			dashboardID = locationHash.replace("#dashboard=", "");
+		} else {
+			locationHash = parent.window.location.pathname.match(/dashboards\-(\d+)$/g)[0];
+			dashboardID = locationHash.replace("dashboards-", "");
+		};
+
+		// Encoder to convert strings to Uint8Array for API signatures...
+		let enc = new TextEncoder("utf-8");
+
+		// Request Details...
+		let httpVerb = "GET";
+		let epoch = (new Date).getTime();
+		let resourcePath = "/dashboard/dashboards/" + dashboardID;
+		let queryParams = "";
+
+		// Construct signature...
+		let requestVars = httpVerb + epoch + resourcePath;
+
+		// Prep our URL & query for the REST call...
+		let apiURL = "https://" + hostName + "/santaba/rest" + resourcePath + queryParams;
+
+		// Get the current version of the dashboard...
+		const dashData = await LMClient({
+			resourcePath: resourcePath,
+			queryParams: queryParams,
+			httpVerb: httpVerb,
+			postBody: null,
+			apiVersion: '3',
+		});
+		// console.debug("dashData: ", dashData);
+
+		// Loop through the dashboard's tokens looking for the one(s) we want to change...
+		let previousTokenFound = false;
+		console.debug("widgetTokens: ", dashData.widgetTokens);
+		dashData.widgetTokens.forEach(thisToken => {
+			console.debug("widgetToken: ", thisToken);
+			// Update the dashboard token...
+			if (thisToken.name == "BackgroundColor") {
+				thisToken.value = rgbToHex(bgColors.r, bgColors.g, bgColors.b);
+				previousTokenFound = true;
+			};
+		});
+		// If this is the first time saving, add the token to the dashboard...
+		if (!previousTokenFound) {
+			let newToken = {type: "owned", name: "BackgroundColor", value: rgbToHex(bgColors.r, bgColors.g, bgColors.b), inheritList: []};
+			dashData.widgetTokens.push(newToken);
+		};
+
+		// Build the JSON body we'll be posting to update the dashboard data...
+		// let dashData = data.data
+		let postBody = {"groupId":dashData.groupId, "widgetsConfig":dashData.widgetsConfig, "name":dashData.name, "description":dashData.description, "sharable":dashData.sharable, "owner":dashData.owner, "groupName":dashData.groupName, "useDynamicWidget":dashData.useDynamicWidget, "widgetTokens":dashData.widgetTokens};
+		// postBody = JSON.stringify({"groupId":dashData.groupId, "widgetsConfig":dashData.widgetsConfig, "name":dashData.name, "description":dashData.description, "sharable":dashData.sharable, "owner":dashData.owner, "groupName":dashData.groupName, "useDynamicWidget":dashData.useDynamicWidget, "widgetTokens":dashData.widgetTokens});
+		console.debug("postBody: ", postBody);
+
+		// Prep details for the call to update the dashboard...
+		httpVerb = "PUT";
+		epoch = (new Date).getTime();
+		resourcePath = "/dashboard/dashboards/" + dashboardID;
+		queryParams = "";
+
+		// Construct signature...
+		requestVars = httpVerb + epoch + postBody + resourcePath;
+
+		// Prep our URL & query for the REST call...
+		console.debug("Posting...");
+		apiURL = "https://" + hostName + "/santaba/rest" + resourcePath + queryParams
+		const dashPost = await LMClient({
+			resourcePath: resourcePath,
+			queryParams: queryParams,
+			httpVerb: httpVerb,
+			postBody: postBody,
+			apiVersion: '3',
+		});
+
+		if (dashPost) {
+			// Reload the page to reflect the new token values...
+			console.log('Update Dashboard request succeeded with JSON response', dashPost);
+			parent.location.reload();
+		};
+	};
+
+
+	function updateCookie() {
+		// Set a cookie with the current color...
+		document.cookie = "dashboardThemerColor=" + rgbToHex(bgColors.r, bgColors.g, bgColors.b) + "; path=/";
+		console.debug("Color saved in cookie: ", document.cookie);
+		const prefSavedMessage = document.getElementById("prefSavedMessage");
+		prefSavedMessage.classList.remove("fadeOut");
+		setInterval(function () {
+			prefSavedMessage.classList.add("fadeOut");
+		}, 2000);
+	};
+
+
+	function deleteCookie() {
+		// Delete the cookie...
+		document.cookie = "dashboardThemerColor=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+		console.debug("Color deleted from cookie: ", document.cookie);
+		// Reset the color to the default...
+		bgColors = defaultColor;
+		// Update the color picker...
+		let bgColorHex = rgbToHex(bgColors.r, bgColors.g, bgColors.b);
+		colorPicker.value = bgColorHex;
+		bgColorLabel.innerHTML = bgColorHex;
+		setColors();
+	};
+
+
+	/**
+	* Fetches a Cross-Site Request Forgery (CSRF) token required for subsequent API calls.
+	*
+	* This function makes a preliminary request to a dummy endpoint solely to retrieve
+	* the CSRF token from the response headers.
+	*
+	* @async
+	* @function fetchCsrfToken
+	* @returns {Promise<string>} A promise that resolves with the CSRF token.
+	* @throws {Error} If the fetch request fails or the token is not found in headers.
+	*/
+	async function fetchCsrfToken() {
+		// console.debug('Fetching CSRF token...');
+		const response = await fetch('/santaba/rest/functions/dummy', {
+			method: 'GET',
+			headers: {
+				'X-Csrf-Token': 'Fetch', // Specific header to request the token
+				'Accept': 'application/json',
+				'X-Version': '3', // Specify API version if required by this endpoint
+			},
+			credentials: 'include', // Include cookies for session management/CSRF
+		});
+
+		if (!response.ok) {
+			throw new Error(`Failed to fetch CSRF token: ${response.status} ${response.statusText}`);
+		};
+
+		const token = response.headers.get('X-Csrf-Token');
+		if (!token) {
+			throw new Error('CSRF token not found in response headers.');
+		};
+		// console.debug('CSRF Token fetched successfully.');
+
+		return token;
+	};
+
+	/**
+		* Performs an HTTP request to the LogicMonitor REST API.
+		*
+		* This function handles fetching a CSRF token, constructing the API request,
+		* sending the request, and processing the response. It supports common HTTP verbs
+		* and automatically includes necessary headers and credentials.
+		*
+		* @async
+		* @function LMClient
+		* @param {object} options - The options for the API request.
+		* @param {string} options.resourcePath - The specific API resource path (e.g., /device/devices).
+		* @param {string} [options.queryParams=''] - Optional query parameters string (e.g., ?filter=name:value).
+		* @param {'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'} options.httpVerb - The HTTP method to use.
+		* @param {object | Array<unknown>} [options.postBody] - The JSON payload for POST/PUT/PATCH requests.
+		* @param {string} [options.apiVersion='3'] - The API version to use. Default is "3".
+		* @returns {Promise<object>} A promise that resolves with the JSON response body on success.
+		* @throws {Error} Throws an Error on API errors (>=300 status), network issues,
+		*                 token fetching problems, or JSON handling errors. The error object
+		*                 may contain 'status' and 'statusText' properties for API errors.
+	*/
+	async function LMClient({
+		resourcePath,
+		queryParams = '', // Default queryParams to empty string
+		httpVerb,
+		postBody,
+		apiVersion = '3',
+	}) {
+		// console.debug('LMClient called with:', { resourcePath, queryParams, httpVerb, postBody, apiVersion });
+		// Validate required parameters
+		if (!resourcePath || !httpVerb) {
+			throw new Error('Missing required parameters: resourcePath and httpVerb must be provided.');
+		}
+		const validVerbs = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+		if (!validVerbs.includes(httpVerb)) {
+			throw new Error(`Invalid httpVerb: ${httpVerb}. Must be one of ${validVerbs.join(', ')}`);
+		}
+
+		// console.debug(`Initiating LogicMonitor API call: ${httpVerb} ${resourcePath}${queryParams}`);
+
+		try {
+			// 1. Fetch the CSRF token
+			const csrfToken = await fetchCsrfToken();
+
+			// 2. Construct the API URL and request options
+			const apiUrl = `/santaba/rest${resourcePath}${queryParams}`;
+			const headers = {
+				'Content-Type': 'application/json', // Consistently set Content-Type
+				'Accept': 'application/json', // Expect JSON response
+				'X-Csrf-Token': csrfToken,
+				'X-Version': apiVersion, // Use the appropriate API version for the main request
+			};
+
+			const requestOptions = {
+				method: httpVerb,
+				headers: headers,
+				credentials: 'include', // Necessary for session/cookie-based auth
+			};
+
+			// 3. Add body only for relevant methods
+			if (postBody && (httpVerb === 'POST' || httpVerb === 'PUT' || httpVerb === 'PATCH')) {
+				try {
+					requestOptions.body = JSON.stringify(postBody);
+					// console.debug('Request body included:', postBody);
+				} catch (stringifyError) {
+					console.error('Failed to stringify postBody:', stringifyError);
+					// Add user-friendly message to the error
+					stringifyError.message = `Invalid postBody provided. Could not stringify to JSON. Original error: ${stringifyError.message}`;
+					throw stringifyError;
+				}
+			}
+
+			// 4. Make the API call
+			// console.debug(`Executing fetch to: ${apiUrl}`);
+			const response = await fetch(apiUrl, requestOptions);
+			// console.debug(`Received response status: ${response.status} ${response.statusText}`);
+
+			// 5. Process the response
+			if (response.ok) { // ok is true for statuses 200-299
+				// Handle potential empty response body for certain success statuses (e.g., 204 No Content)
+				if (response.status === 204) {
+					console.debug('Received 204 No Content response.');
+					return {}; // Return an empty object for 204
+				}
+				try {
+					// Assume response is JSON if status is ok and not 204
+					const data = await response.json();
+					// console.debug('API call successful, response data received.'); // Avoid logging potentially sensitive data by default
+					return data;
+				} catch (jsonError) {
+					console.error('Failed to parse JSON response:', jsonError);
+					// Create a new error with more context
+					const parseError = new Error(`Successfully received response (${response.status}), but failed to parse JSON body. Original error: ${jsonError.message}`);
+					parseError.status = response.status; // Attach status for context
+					parseError.statusText = response.statusText;
+					throw parseError;
+				}
+			} else {
+				// Handle API errors (status >= 300)
+				const error = new Error(`API Error: ${response.status} ${response.statusText}`);
+				error.status = response.status;
+				error.statusText = response.statusText;
+
+				// Attempt to get more details from the error response body
+				try {
+					const errorBody = await response.text(); // Use text first in case it's not JSON
+					error.body = errorBody || 'No additional error details provided.'; // Attach body to error
+					console.warn(`API Error Body: ${error.body}`); // Log the raw error body
+				} catch (bodyError) {
+					console.warn('Could not read error response body:', bodyError);
+					error.body = 'Could not read error response body.';
+				}
+				console.error('LogicMonitor API Error:', { status: error.status, statusText: error.statusText });
+				throw error; // Throw the augmented error object
+			}
+		} catch (error) {
+			// Catch errors from fetchCsrfToken, fetch itself (network errors), or JSON parsing/stringifying
+			console.error('An error occurred in LMClient:', error.message || error);
+
+			// Re-throw the error to be handled by the caller.
+			// Ensure it's always an Error object.
+			if (error instanceof Error) {
+				throw error;
+			} else {
+				// If it's not an Error object (e.g., the thrown API error object), wrap it
+				const wrappedError = new Error(error.message || 'An unexpected error occurred during the API call.');
+				// Copy relevant properties if they exist
+				if (error && typeof error === 'object') {
+					if ('status' in error) wrappedError.status = error.status;
+					if ('statusText' in error) wrappedError.statusText = error.statusText;
+					if ('body' in error) wrappedError.body = error.body;
+				}
+				throw wrappedError;
+			}
+		}
+	}
+</script>
