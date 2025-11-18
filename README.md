@@ -1,4 +1,3 @@
-# Custom Widgets
 A collection of custom-scripted LogicMonitor dashboard widgets that have proven handy for various tasks.
 
 ---
