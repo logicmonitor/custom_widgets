@@ -1,5 +1,7 @@
 A collection of custom-scripted LogicMonitor dashboard widgets that have proven handy for various tasks.
 
+**NOTE:** While this work is provided for use by the LogicMonitor community, they were created as personal projects and are *not* officially supported by LogicMonitor.
+
 ---
 # Better Map Widget
 A fully custom-made widget to overcome some limitations of LogicMonitor's core Map widget. The ideas behind it are:
@@ -35,7 +37,7 @@ Visibility of the toolbar along the top of the widget can be toggled using the b
 
 ### Optional Customization
 
-Behavior of the widget can be customized using the following optional dashboard tokens.
+Behavior of the widget can be customized using the following optional dashboard tokens:
 
 - **MapSourceType**: Whether to map "groups", "resources", or "services". Default is "groups".
 - **MapGroupPathFilter**: Allows setting a default group path to start. Default is "\*".
@@ -60,3 +62,18 @@ To configure, go to the specific instance of one of those datasources and add an
 {Connection Title} > {Hostname/IP of the connected resource}
 
 For example: "London WAN > 192.168.1.10" would show a line titled "London WAN" representing this specific interface connected from that resource's location to the resource monitored as 192.168.1.10. A PropertySource - "Set Better Map Widget Connections" - automatically configures those instance-level properties as resource-level properties along with other necessary data for the widget to use.
+
+---
+# Dynamic Dashboard List
+
+This script was created in response to a customer needing a quick way to drill-down from an overview dashboard to various specific dashboards. While straightforward to manually make a list in a text widget, we wanted a way to dynamically list dashboards as they were added or changed. To further enhance the functionality, if a 'defaultResourceGroup' token is set on a dashboard group then the script will fetch current alert status for that group (can be disabled via the 'fetchGroupAlertStatus' variable in the script if API limits are an issue).
+
+To use this, just add a Text widget to your dashboard and in the widget's configuration screen click the "source" view then paste in this code. You can also just clone this widget to another dashboard on the same portal.
+
+### Optional Customization
+
+Behavior of the widget can be customized using the following optional dashboard tokens:
+
+- **ShowFullDashboardPath**: Show the dashboard group's full path vs it's short name. Default: true.
+- **defaultDashboardGroup**: (optional) The "parent" dashboard group you want to list dashboards under. If not set then the script will default to showing all dashboard groups.
+- **DashboardsToExclude**: (optional) A regular expression to filter any dashboards you DON'T want listed. Example: .\*[Tt]+emplate.\*
