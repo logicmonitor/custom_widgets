@@ -1,0 +1,2139 @@
+{
+  "santabaRelease": 229,
+  "defaultDashboardFilters": {
+    "defaultDashboardFilterDetails": []
+  },
+  "widgetTokens": [
+    {
+      "name": "defaultInstanceName",
+      "value": "*"
+    },
+    {
+      "name": "defaultResourceGroup",
+      "value": "Devices by Type/Network"
+    },
+    {
+      "name": "defaultResourceName",
+      "value": "*"
+    },
+    {
+      "name": "BackgroundColor",
+      "value": "#3a63b6"
+    }
+  ],
+  "name": "Dashboard Themer",
+  "description": "",
+  "overwriteGroupFields": false,
+  "widgetsConfigVersion": 2,
+  "type": "dashboard",
+  "widgets": [
+    {
+      "position": {
+        "col": 9,
+        "sizex": 4,
+        "row": 5,
+        "sizey": 3
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Aggregate Inbound Interface Throughput (Trend)",
+        "description": "",
+        "theme": "newBorderDarkBlue",
+        "interval": 3,
+        "graphInfo": {
+          "virtualDataPoints": [],
+          "minValue": 0,
+          "topX": 0,
+          "maxValue": "NaN",
+          "dataPoints": [
+            {
+              "dataPointName": "InMbps",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+              "consolidateFunction": "average",
+              "display": {
+                "color": "Auto",
+                "legend": "##RESOURCENAME##",
+                "type": "area",
+                "option": "custom"
+              },
+              "name": "InMbps",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            }
+          ],
+          "verticalLabel": "Mbps",
+          "aggregate": true,
+          "desc": true,
+          "scaleUnit": 1000,
+          "globalConsolidateFunction": "VaST"
+        },
+        "type": "cgraph",
+        "timescale": "12hour",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 9,
+        "sizex": 4,
+        "row": 8,
+        "sizey": 3
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Aggregate Outbound Interface Throughput (Trend)",
+        "description": "",
+        "theme": "newBorderDarkBlue",
+        "interval": 3,
+        "graphInfo": {
+          "virtualDataPoints": [],
+          "minValue": 0,
+          "topX": 0,
+          "maxValue": "NaN",
+          "dataPoints": [
+            {
+              "dataPointName": "OutMbps",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+              "consolidateFunction": "average",
+              "display": {
+                "color": "Auto",
+                "legend": "##RESOURCENAME##",
+                "type": "area",
+                "option": "custom"
+              },
+              "name": "OutMbps",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            }
+          ],
+          "verticalLabel": "Mbps",
+          "aggregate": true,
+          "desc": true,
+          "scaleUnit": 1000,
+          "globalConsolidateFunction": "VaST"
+        },
+        "type": "cgraph",
+        "timescale": "8hour",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 5,
+        "row": 26,
+        "sizey": 3
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Average SSH Port Response Time",
+        "description": "",
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "graphInfo": {
+          "virtualDataPoints": [],
+          "minValue": "NaN",
+          "topX": 10,
+          "maxValue": "NaN",
+          "dataPoints": [
+            {
+              "dataPointName": "ResponseTime",
+              "instanceName": {
+                "isGlob": true,
+                "value": "*"
+              },
+              "dataSourceFullName": "Port-",
+              "consolidateFunction": "average",
+              "display": {
+                "color": "Auto",
+                "legend": "##RESOURCENAME## port ##INSTANCE##",
+                "type": "area",
+                "option": "custom"
+              },
+              "name": "ResponseTime",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            }
+          ],
+          "verticalLabel": "ms",
+          "aggregate": false,
+          "desc": true,
+          "scaleUnit": 1000,
+          "globalConsolidateFunction": "VaST"
+        },
+        "type": "cgraph",
+        "timescale": "5hour",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 9,
+        "sizex": 4,
+        "row": 3,
+        "sizey": 2
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Maximum Ping Response Time",
+        "description": "",
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "graphInfo": {
+          "virtualDataPoints": [],
+          "minValue": "NaN",
+          "topX": 10,
+          "maxValue": "NaN",
+          "dataPoints": [
+            {
+              "dataPointName": "maxrtt",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "Ping",
+              "consolidateFunction": "max",
+              "display": {
+                "color": "Auto",
+                "legend": "##RESOURCENAME##",
+                "type": "area",
+                "option": "custom"
+              },
+              "name": "maxrtt",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            }
+          ],
+          "verticalLabel": "ms",
+          "aggregate": false,
+          "desc": true,
+          "scaleUnit": 1000,
+          "globalConsolidateFunction": "default"
+        },
+        "type": "cgraph",
+        "timescale": "5hour",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 12,
+        "row": 37,
+        "sizey": 4
+      },
+      "config": {
+        "displaySettings": {
+          "isShowAll": false,
+          "showFilter": false,
+          "columns": [
+            {
+              "visible": false,
+              "columnLabel": "Severity",
+              "columnKey": "alert-severity"
+            },
+            {
+              "visible": true,
+              "columnLabel": "Began",
+              "columnSize": 220,
+              "columnKey": "alert-began"
+            },
+            {
+              "visible": true,
+              "columnLabel": "Resource/Website",
+              "columnSize": 212,
+              "columnKey": "alert-device"
+            },
+            {
+              "visible": true,
+              "columnLabel": "LogicModule",
+              "columnSize": 169,
+              "columnKey": "alert-datasource"
+            },
+            {
+              "visible": true,
+              "columnLabel": "Instance",
+              "columnSize": 246,
+              "columnKey": "alert-datasource-instance"
+            },
+            {
+              "visible": true,
+              "columnLabel": "Datapoint",
+              "columnSize": 126,
+              "columnKey": "alert-datapoint"
+            },
+            {
+              "visible": true,
+              "columnLabel": "Value",
+              "columnSize": 281,
+              "columnKey": "alert-value"
+            },
+            {
+              "visible": false,
+              "columnLabel": "Group",
+              "columnKey": "alert-group"
+            },
+            {
+              "visible": true,
+              "columnLabel": "Notes",
+              "columnSize": 84,
+              "columnKey": "alert-notes"
+            },
+            {
+              "visible": true,
+              "columnLabel": "Acknowledged By",
+              "columnSize": 120,
+              "columnKey": "alert-acked-by"
+            },
+            {
+              "visible": false,
+              "columnLabel": "Acknowledged On",
+              "columnKey": "alert-acked-on"
+            },
+            {
+              "visible": false,
+              "columnLabel": "Cleared On",
+              "columnKey": "alert-cleared-on"
+            },
+            {
+              "visible": false,
+              "columnLabel": "In SDT",
+              "columnKey": "alert-in-sdt"
+            },
+            {
+              "visible": false,
+              "columnLabel": "Alert Rule",
+              "columnKey": "alert-rule-name"
+            },
+            {
+              "visible": false,
+              "columnLabel": "Escalation Chain",
+              "columnKey": "alert-escalation-chain"
+            },
+            {
+              "visible": false,
+              "columnLabel": "Instance Description",
+              "columnKey": "alert-datasource-instance-description"
+            },
+            {
+              "visible": false,
+              "columnLabel": "Full Path",
+              "columnKey": "alert-full-path"
+            },
+            {
+              "visible": false,
+              "columnLabel": "Routing State",
+              "columnKey": "alert-routing-state"
+            },
+            {
+              "visible": false,
+              "columnLabel": "Dependency Role",
+              "columnKey": "alert-dependency-role"
+            },
+            {
+              "visible": true,
+              "columnLabel": "Static Threshold",
+              "columnSize": 103,
+              "columnKey": "alert-static-threshold"
+            },
+            {
+              "visible": true,
+              "columnLabel": "Dynamic Threshold",
+              "columnSize": 182,
+              "columnKey": "alert-dynamic-threshold"
+            },
+            {
+              "visible": false,
+              "columnLabel": "Dependent Alerts",
+              "columnKey": "alert-dependent-alerts"
+            }
+          ],
+          "playSound": {
+            "criticalAlertAudioFileName": "",
+            "errorAlertAudioFileName": "",
+            "warningAlertAudioFileName": "",
+            "shouldPlay": false
+          },
+          "fontsize": "normal-font",
+          "sort": "-startEpoch"
+        },
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Network Alerts",
+        "description": "",
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "filters": {
+          "severity": "",
+          "sdted": "all",
+          "chain": "",
+          "instance": "",
+          "anomaly": "all",
+          "dataPoint": "",
+          "rule": "",
+          "acked": "all",
+          "dependencyRoutingState": "",
+          "dependencyRole": "",
+          "host": "%23%23defaultResourceName%23%23",
+          "keyword": "",
+          "dataSource": "",
+          "cleared": "no",
+          "group": "%23%23defaultResourceGroup%23%23*"
+        },
+        "type": "alert",
+        "timescale": "day",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 8,
+        "sizex": 5,
+        "row": 33,
+        "sizey": 4
+      },
+      "config": {
+        "ackChecked": true,
+        "displaySettings": {
+          "showTypeIcon": true,
+          "displayAs": "table"
+        },
+        "displayWarnAlert": true,
+        "supportCustomProperty": false,
+        "description": "",
+        "type": "noc",
+        "version": 2,
+        "displayErrorAlert": true,
+        "isSupportCustomProperty": false,
+        "displayColumn": 2,
+        "name": "Network Interfaces: Alert Status",
+        "displayCriticalAlert": true,
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "sortBy": "alertSeverity",
+        "timescale": "day",
+        "sdtChecked": true,
+        "items": [
+          {
+            "dataPointName": "*",
+            "instanceName": "*",
+            "name": "##INSTANCE## - ##RESOURCENAME##",
+            "dataSourceDisplayName": "Network Interfaces",
+            "groupBy": "instance",
+            "type": "device",
+            "deviceGroupFullPath": "##defaultResourceGroup##",
+            "deviceDisplayName": "##defaultResourceName##"
+          }
+        ]
+      }
+    },
+    {
+      "position": {
+        "col": 5,
+        "sizex": 3,
+        "row": 33,
+        "sizey": 4
+      },
+      "config": {
+        "displaySettings": {},
+        "timezone": "America/Los_Angeles",
+        "supportCustomProperty": false,
+        "description": "What percentage of time in the last 30 days did the monitored resource(s) stay within the defined thresholds of the SLA?",
+        "type": "deviceSLA",
+        "version": 2,
+        "calculationMethod": 0,
+        "daysInWeek": "1,2,3,4,5,6,7",
+        "displayType": 0,
+        "isSupportCustomProperty": false,
+        "topX": 1,
+        "bottomLabel": "Time Available",
+        "name": "Overall Average Availability (30 Days)",
+        "displayPercentageBar": false,
+        "periodInOneDay": "*",
+        "theme": "newSolidDarkBlue",
+        "interval": 5,
+        "metrics": [
+          {
+            "groupName": "##defaultResourceGroup##",
+            "instances": "*",
+            "metric": "idleInterval",
+            "dataSourceFullName": "Host Status (HostStatus)",
+            "bottomLabel": "##RESOURCENAME##",
+            "threshold": "< 300",
+            "deviceName": "##defaultResourceName##",
+            "exclusionSDTType": "ResourceSDT"
+          }
+        ],
+        "timescale": "Last 7 days",
+        "unmonitoredTimeType": 0,
+        "colorThresholds": [
+          {
+            "level": 2,
+            "threshold": 98,
+            "relation": "<"
+          },
+          {
+            "level": 3,
+            "threshold": 94,
+            "relation": "<"
+          },
+          {
+            "level": 4,
+            "threshold": 90,
+            "relation": "<"
+          }
+        ]
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 10,
+        "row": 1,
+        "sizey": 2
+      },
+      "config": {
+        "ackChecked": true,
+        "displaySettings": {
+          "showTypeIcon": true,
+          "displayAs": "table"
+        },
+        "displayWarnAlert": true,
+        "supportCustomProperty": false,
+        "description": "",
+        "type": "noc",
+        "version": 2,
+        "displayErrorAlert": true,
+        "isSupportCustomProperty": false,
+        "displayColumn": 7,
+        "name": "Resource Alerts",
+        "displayCriticalAlert": true,
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "sortBy": "alertSeverity",
+        "timescale": "day",
+        "sdtChecked": true,
+        "items": [
+          {
+            "dataPointName": "*",
+            "instanceName": "##defaultInstanceName##",
+            "name": "##RESOURCENAME##",
+            "dataSourceDisplayName": "*",
+            "groupBy": "device",
+            "type": "device",
+            "deviceGroupFullPath": "##defaultResourceGroup##",
+            "deviceDisplayName": "##defaultResourceName##"
+          }
+        ]
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 4,
+        "row": 33,
+        "sizey": 4
+      },
+      "config": {
+        "displaySettings": {},
+        "timezone": "America/Los_Angeles",
+        "supportCustomProperty": false,
+        "description": "What percentage of time in the last 30 days did the monitored resource stay within the defined thresholds of the SLA?",
+        "type": "deviceSLA",
+        "version": 2,
+        "calculationMethod": 0,
+        "daysInWeek": "1,2,3,4,5,6,7",
+        "displayType": 2,
+        "isSupportCustomProperty": false,
+        "topX": 25,
+        "bottomLabel": "Time Available",
+        "name": "Resource Time Available: Last 30 Days",
+        "displayPercentageBar": false,
+        "periodInOneDay": "*",
+        "theme": "newSolidDarkBlue",
+        "interval": 5,
+        "metrics": [
+          {
+            "groupName": "##defaultResourceGroup##",
+            "instances": "*",
+            "metric": "idleInterval",
+            "dataSourceFullName": "Host Status (HostStatus)",
+            "bottomLabel": "##RESOURCENAME##",
+            "threshold": "< 300",
+            "deviceName": "##defaultResourceName##",
+            "exclusionSDTType": "ResourceSDT"
+          }
+        ],
+        "timescale": "Last 7 days",
+        "unmonitoredTimeType": 0,
+        "colorThresholds": [
+          {
+            "level": 2,
+            "threshold": 98,
+            "relation": "<"
+          },
+          {
+            "level": 3,
+            "threshold": 94,
+            "relation": "<"
+          },
+          {
+            "level": 4,
+            "threshold": 90,
+            "relation": "<"
+          }
+        ]
+      }
+    },
+    {
+      "position": {
+        "col": 6,
+        "sizex": 7,
+        "row": 21,
+        "sizey": 8
+      },
+      "config": {
+        "displaySettings": {
+          "columns": [
+            {
+              "visible": true,
+              "columnLabel": "\n        Name\n        \n    ",
+              "columnSize": 308,
+              "columnKey": "device-name-1452842526600"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Discards (In)\n            \n        ",
+              "columnSize": 91,
+              "columnKey": "0"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Discard Percent (In)\n            \n        ",
+              "columnSize": 122,
+              "columnKey": "1"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Errors (In)\n            \n        ",
+              "columnSize": 74,
+              "columnKey": "2"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Discards (Out)\n            \n        ",
+              "columnSize": 94,
+              "columnKey": "3"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Discard Percent (Out)\n            \n        ",
+              "columnSize": 137,
+              "columnKey": "4"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Errors (Out)\n            \n        ",
+              "columnSize": 79,
+              "columnKey": "5"
+            }
+          ],
+          "pageSize": "15"
+        },
+        "columns": [
+          {
+            "rpn": "",
+            "dataPointName": "InDiscards",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " pkts/sec.",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Discards (In)",
+            "enableForecast": false,
+            "roundingDecimal": 2
+          },
+          {
+            "rpn": "",
+            "dataPointName": "InDiscardPercent",
+            "displayType": "colorBar",
+            "minValue": 0,
+            "unitLabel": "%",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Discard Percent (In)",
+            "enableForecast": false,
+            "roundingDecimal": 2
+          },
+          {
+            "rpn": "",
+            "dataPointName": "InErrors",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " pkts/sec.",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Errors (In)",
+            "enableForecast": false,
+            "roundingDecimal": 2
+          },
+          {
+            "rpn": "",
+            "dataPointName": "OutDiscards",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " pkts/sec.",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Discards (Out)",
+            "enableForecast": false,
+            "roundingDecimal": 2
+          },
+          {
+            "rpn": "",
+            "dataPointName": "OutDiscardPercent",
+            "displayType": "colorBar",
+            "minValue": 0,
+            "unitLabel": "%",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "OutDiscardPercent",
+            "enableForecast": false,
+            "roundingDecimal": 2
+          },
+          {
+            "rpn": "",
+            "dataPointName": "OutErrors",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " pkts/sec.",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Errors (Out)",
+            "enableForecast": false,
+            "roundingDecimal": 2
+          }
+        ],
+        "supportCustomProperty": false,
+        "description": "",
+        "forecast": {
+          "severity": "warn",
+          "confidence": 70,
+          "timeRange": "Last 30 days",
+          "algorithm": "Linear"
+        },
+        "type": "dynamicTable",
+        "rows": [
+          {
+            "instanceName": "*",
+            "label": "##INSTANCE## - ##RESOURCENAME##",
+            "deviceDisplayName": "##defaultResourceName##",
+            "groupFullPath": "##defaultResourceGroup##"
+          }
+        ],
+        "version": 2,
+        "isSupportCustomProperty": false,
+        "topX": -1,
+        "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+        "sortOrder": "descending",
+        "name": "Top Interfaces by Discards and Errors",
+        "theme": "newSolidDarkBlue",
+        "interval": 5,
+        "timescale": "day"
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 6,
+        "row": 29,
+        "sizey": 4
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Top Interfaces by Relative Inbound Bandwidth",
+        "description": "",
+        "theme": "newBorderDarkBlue",
+        "interval": 3,
+        "type": "pieChart",
+        "timescale": "day",
+        "pieChartInfo": {
+          "maxSlicesCanBeShown": 10,
+          "virtualDataPoints": [],
+          "showLabelsAndLinesOnPC": true,
+          "counters": [],
+          "dataPoints": [
+            {
+              "dataPointName": "InMbps",
+              "top10": true,
+              "instanceName": "*",
+              "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+              "name": "InMbps",
+              "aggregateFunction": "SUM",
+              "deviceGroupFullPath": "##defaultResourceGroup##",
+              "deviceDisplayName": "##defaultResourceName##",
+              "aggregate": false
+            }
+          ],
+          "hideZeroPercentSlices": true,
+          "groupRemainingAsOthers": true,
+          "pieChartItems": [
+            {
+              "dataPointName": "InMbps",
+              "color": "Auto",
+              "legend": "##INSTANCE## - ##RESOURCENAME##"
+            }
+          ],
+          "title": "Top Interfaces by Relative Inbound Bandwidth"
+        },
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 7,
+        "sizex": 6,
+        "row": 29,
+        "sizey": 4
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Top Interfaces by Relative Outbound Bandwidth",
+        "description": "",
+        "theme": "newBorderDarkBlue",
+        "interval": 3,
+        "type": "pieChart",
+        "timescale": "day",
+        "pieChartInfo": {
+          "maxSlicesCanBeShown": 10,
+          "virtualDataPoints": [],
+          "showLabelsAndLinesOnPC": true,
+          "counters": [],
+          "dataPoints": [
+            {
+              "dataPointName": "OutMbps",
+              "top10": true,
+              "instanceName": "*",
+              "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+              "name": "OutMbps",
+              "aggregateFunction": "SUM",
+              "deviceGroupFullPath": "##defaultResourceGroup##",
+              "deviceDisplayName": "##defaultResourceName##",
+              "aggregate": false
+            }
+          ],
+          "hideZeroPercentSlices": true,
+          "groupRemainingAsOthers": true,
+          "pieChartItems": [
+            {
+              "dataPointName": "OutMbps",
+              "color": "Auto",
+              "legend": "##INSTANCE## - ##RESOURCENAME##"
+            }
+          ],
+          "title": "Top Interfaces by Relative Outbound Bandwidth"
+        },
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 5,
+        "row": 21,
+        "sizey": 3
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Top Interfaces by TCP Connection Rate",
+        "description": "",
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "graphInfo": {
+          "virtualDataPoints": [],
+          "minValue": 0,
+          "topX": 10,
+          "maxValue": "NaN",
+          "dataPoints": [
+            {
+              "dataPointName": "tcpAttemptFails",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "TCP UDP stats (snmpTCPUDP)",
+              "consolidateFunction": "max",
+              "display": {
+                "color": "Auto",
+                "legend": "##RESOURCENAME## failed connections/sec",
+                "type": "line",
+                "option": "custom"
+              },
+              "name": "TCPFails",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            },
+            {
+              "dataPointName": "tcpPassiveOpens",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "TCP UDP stats (snmpTCPUDP)",
+              "consolidateFunction": "max",
+              "display": {
+                "color": "Auto",
+                "legend": "##RESOURCENAME## Syns received on listening ports",
+                "type": "line",
+                "option": "custom"
+              },
+              "name": "tcpPassiveOpens",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            }
+          ],
+          "verticalLabel": "Connections/sec",
+          "aggregate": false,
+          "desc": true,
+          "scaleUnit": 1000,
+          "globalConsolidateFunction": "VaST"
+        },
+        "type": "cgraph",
+        "timescale": "5hour",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 5,
+        "row": 24,
+        "sizey": 2
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Top Interfaces by TCP Retransmission %",
+        "description": "",
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "graphInfo": {
+          "virtualDataPoints": [],
+          "minValue": 0,
+          "topX": 10,
+          "maxValue": 100,
+          "dataPoints": [
+            {
+              "dataPointName": "RetransPercent",
+              "instanceName": {
+                "isGlob": true,
+                "value": "*"
+              },
+              "dataSourceFullName": "TCP UDP stats (snmpTCPUDP)",
+              "consolidateFunction": "average",
+              "display": {
+                "color": "Auto",
+                "legend": "##RESOURCENAME## Retransmissions",
+                "type": "line",
+                "option": "custom"
+              },
+              "name": "RetransPercent",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            }
+          ],
+          "verticalLabel": "%",
+          "aggregate": false,
+          "desc": true,
+          "scaleUnit": 1000,
+          "globalConsolidateFunction": "VaST"
+        },
+        "type": "cgraph",
+        "timescale": "5hour",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 12,
+        "row": 11,
+        "sizey": 7
+      },
+      "config": {
+        "displaySettings": {
+          "columns": [
+            {
+              "visible": true,
+              "columnLabel": "\n        Name\n        \n    ",
+              "columnSize": 478,
+              "columnKey": "device-name-1452842526600"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Broadcast (In)\n            \n        ",
+              "columnSize": 93,
+              "columnKey": "0"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Multicast (In)\n            \n        ",
+              "columnSize": 90,
+              "columnKey": "1"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Unicast (In)\n            \n        ",
+              "columnSize": 92,
+              "columnKey": "2"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Octets (In)\n            \n        ",
+              "columnSize": 109,
+              "columnKey": "3"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Inbound Mbps\n            \n        ",
+              "columnSize": 145,
+              "columnKey": "4"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Broadcast (Out)\n            \n        ",
+              "columnSize": 104,
+              "columnKey": "5"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Multicast (Out)\n            \n        ",
+              "columnSize": 100,
+              "columnKey": "6"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Unicast (Out)\n            \n        ",
+              "columnSize": 91,
+              "columnKey": "7"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Octets (Out)\n            \n        ",
+              "columnSize": 113,
+              "columnKey": "8"
+            },
+            {
+              "visible": true,
+              "columnLabel": "\n            Outbound Mbps\n            \n        ",
+              "columnSize": 145,
+              "columnKey": "9"
+            }
+          ],
+          "propertyColumns": [],
+          "pageSize": "15",
+          "columnsV4": [
+            {
+              "maxValue": 100,
+              "index": 0,
+              "enableForecast": false,
+              "roundingDecimal": 0,
+              "propertiesOptions": "1",
+              "rpn": "",
+              "dataPointName": "InBroadcastPkts",
+              "displayType": "raw",
+              "minValue": 0,
+              "unitLabel": " pkts/sec.",
+              "position": 0,
+              "id": "undefined_0",
+              "colorThresholds": [],
+              "columnName": "Broadcast (In)"
+            },
+            {
+              "maxValue": 100,
+              "index": 1,
+              "enableForecast": false,
+              "roundingDecimal": 0,
+              "propertiesOptions": "1",
+              "rpn": "",
+              "dataPointName": "InMulticastPkts",
+              "displayType": "raw",
+              "minValue": 0,
+              "unitLabel": " pkts/sec.",
+              "position": 1,
+              "id": "undefined_1",
+              "colorThresholds": [],
+              "columnName": "Multicast (In)"
+            },
+            {
+              "maxValue": 100,
+              "index": 2,
+              "enableForecast": false,
+              "roundingDecimal": 0,
+              "propertiesOptions": "1",
+              "rpn": "",
+              "dataPointName": "InUcastPkts",
+              "displayType": "raw",
+              "minValue": 0,
+              "unitLabel": " Pkts/sec.",
+              "position": 2,
+              "id": "undefined_2",
+              "colorThresholds": [],
+              "columnName": "Unicast (In)"
+            },
+            {
+              "maxValue": 100,
+              "index": 3,
+              "enableForecast": false,
+              "roundingDecimal": 0,
+              "propertiesOptions": "1",
+              "rpn": "",
+              "dataPointName": "InOctets",
+              "displayType": "raw",
+              "minValue": 0,
+              "unitLabel": " oct/sec.",
+              "position": 3,
+              "id": "undefined_3",
+              "colorThresholds": [],
+              "columnName": "Octets (In)"
+            },
+            {
+              "maxValue": 100,
+              "index": 4,
+              "enableForecast": false,
+              "roundingDecimal": 2,
+              "propertiesOptions": "1",
+              "rpn": "",
+              "dataPointName": "InMbps",
+              "displayType": "raw",
+              "minValue": 0,
+              "unitLabel": " Mbps",
+              "position": 4,
+              "id": "undefined_4",
+              "colorThresholds": [],
+              "columnName": "Inbound Mbps"
+            },
+            {
+              "maxValue": 100,
+              "index": 5,
+              "enableForecast": false,
+              "roundingDecimal": 0,
+              "propertiesOptions": "1",
+              "rpn": "",
+              "dataPointName": "OutBroadcastPkts",
+              "displayType": "raw",
+              "minValue": 0,
+              "unitLabel": " pkts/sec.",
+              "position": 5,
+              "id": "undefined_5",
+              "colorThresholds": [],
+              "columnName": "Broadcast (Out)"
+            },
+            {
+              "maxValue": 100,
+              "index": 6,
+              "enableForecast": false,
+              "roundingDecimal": 0,
+              "propertiesOptions": "1",
+              "rpn": "",
+              "dataPointName": "OutMulticastPkts",
+              "displayType": "raw",
+              "minValue": 0,
+              "unitLabel": " pkts/sec.",
+              "position": 6,
+              "id": "undefined_6",
+              "colorThresholds": [],
+              "columnName": "Multicast (Out)"
+            },
+            {
+              "maxValue": 100,
+              "index": 7,
+              "enableForecast": false,
+              "roundingDecimal": 0,
+              "propertiesOptions": "1",
+              "rpn": "",
+              "dataPointName": "OutUcastPkts",
+              "displayType": "raw",
+              "minValue": 0,
+              "unitLabel": " pkts/sec.",
+              "position": 7,
+              "id": "undefined_7",
+              "colorThresholds": [],
+              "columnName": "Unicast (Out)"
+            },
+            {
+              "maxValue": 100,
+              "index": 8,
+              "enableForecast": false,
+              "roundingDecimal": 0,
+              "propertiesOptions": "1",
+              "rpn": "",
+              "dataPointName": "OutOctets",
+              "displayType": "raw",
+              "minValue": 0,
+              "unitLabel": " oct/sec.",
+              "position": 8,
+              "id": "undefined_8",
+              "colorThresholds": [],
+              "columnName": "Octets (Out)"
+            },
+            {
+              "maxValue": 100,
+              "index": 9,
+              "enableForecast": false,
+              "roundingDecimal": 2,
+              "propertiesOptions": "1",
+              "rpn": "",
+              "dataPointName": "OutMbps",
+              "displayType": "raw",
+              "minValue": 0,
+              "unitLabel": " Mpbs",
+              "position": 9,
+              "id": "undefined_9",
+              "colorThresholds": [],
+              "columnName": "Outbound Mbps"
+            }
+          ]
+        },
+        "columns": [
+          {
+            "rpn": "",
+            "dataPointName": "InBroadcastPkts",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " pkts/sec.",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Broadcast (In)",
+            "enableForecast": false,
+            "roundingDecimal": 0
+          },
+          {
+            "rpn": "",
+            "dataPointName": "InMulticastPkts",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " pkts/sec.",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Multicast (In)",
+            "enableForecast": false,
+            "roundingDecimal": 0
+          },
+          {
+            "rpn": "",
+            "dataPointName": "InUcastPkts",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " Pkts/sec.",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Unicast (In)",
+            "enableForecast": false,
+            "roundingDecimal": 0
+          },
+          {
+            "rpn": "",
+            "dataPointName": "InOctets",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " oct/sec.",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Octets (In)",
+            "enableForecast": false,
+            "roundingDecimal": 0
+          },
+          {
+            "rpn": "",
+            "dataPointName": "InMbps",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " Mbps",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Inbound Mbps",
+            "enableForecast": false,
+            "roundingDecimal": 2
+          },
+          {
+            "rpn": "",
+            "dataPointName": "OutBroadcastPkts",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " pkts/sec.",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Broadcast (Out)",
+            "enableForecast": false,
+            "roundingDecimal": 0
+          },
+          {
+            "rpn": "",
+            "dataPointName": "OutMulticastPkts",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " pkts/sec.",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Multicast (Out)",
+            "enableForecast": false,
+            "roundingDecimal": 0
+          },
+          {
+            "rpn": "",
+            "dataPointName": "OutUcastPkts",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " pkts/sec.",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Unicast (Out)",
+            "enableForecast": false,
+            "roundingDecimal": 0
+          },
+          {
+            "rpn": "",
+            "dataPointName": "OutOctets",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " oct/sec.",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Octets (Out)",
+            "enableForecast": false,
+            "roundingDecimal": 0
+          },
+          {
+            "rpn": "",
+            "dataPointName": "OutMbps",
+            "displayType": "raw",
+            "minValue": 0,
+            "unitLabel": " Mpbs",
+            "maxValue": 100,
+            "colorThresholds": [],
+            "columnName": "Outbound Mbps",
+            "enableForecast": false,
+            "roundingDecimal": 2
+          }
+        ],
+        "supportCustomProperty": false,
+        "description": "",
+        "forecast": {
+          "severity": "warn",
+          "confidence": 70,
+          "timeRange": "Last 30 days",
+          "algorithm": "ARIMA"
+        },
+        "type": "dynamicTable",
+        "rows": [
+          {
+            "instanceName": "*",
+            "label": "##INSTANCE## - ##RESOURCENAME##",
+            "deviceDisplayName": "##defaultResourceName##",
+            "groupFullPath": "##defaultResourceGroup##"
+          }
+        ],
+        "version": 2,
+        "isSupportCustomProperty": false,
+        "topX": 25,
+        "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+        "sortOrder": "descending",
+        "name": "Top Interfaces: Throughput Statistics",
+        "theme": "newSolidDarkBlue",
+        "interval": 5,
+        "timescale": "day"
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 4,
+        "row": 8,
+        "sizey": 3
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Top Network Interfaces by Inbound Throughput",
+        "description": "",
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "graphInfo": {
+          "virtualDataPoints": [],
+          "minValue": 0,
+          "topX": 25,
+          "maxValue": "NaN",
+          "dataPoints": [
+            {
+              "dataPointName": "InMbps",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+              "consolidateFunction": "average",
+              "display": {
+                "color": "Auto",
+                "legend": "##INSTANCE## - ##RESOURCENAME##",
+                "type": "line",
+                "option": "custom"
+              },
+              "name": "InMbps",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            }
+          ],
+          "verticalLabel": "Mbps",
+          "aggregate": false,
+          "desc": true,
+          "scaleUnit": 1000,
+          "globalConsolidateFunction": "VaST"
+        },
+        "type": "cgraph",
+        "timescale": "2hour",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 5,
+        "sizex": 4,
+        "row": 8,
+        "sizey": 3
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Top Network Interfaces by Outbound Throughput",
+        "description": "",
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "graphInfo": {
+          "virtualDataPoints": [],
+          "minValue": 0,
+          "topX": 10,
+          "maxValue": "NaN",
+          "dataPoints": [
+            {
+              "dataPointName": "OutMbps",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+              "consolidateFunction": "average",
+              "display": {
+                "color": "Auto",
+                "legend": "##INSTANCE## - ##RESOURCENAME##",
+                "type": "line",
+                "option": "custom"
+              },
+              "name": "OutMbps",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            }
+          ],
+          "verticalLabel": "Mbps",
+          "aggregate": false,
+          "desc": true,
+          "scaleUnit": 1000,
+          "globalConsolidateFunction": "default"
+        },
+        "type": "cgraph",
+        "timescale": "2hour",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 8,
+        "row": 5,
+        "sizey": 3
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Top Network Interfaces by Total Throughput",
+        "description": "",
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "graphInfo": {
+          "virtualDataPoints": [
+            {
+              "rpn": "InMbps + OutMbps",
+              "display": {
+                "color": "Auto",
+                "legend": "##INSTANCE## - ##RESOURCENAME##",
+                "type": "line",
+                "option": "custom"
+              },
+              "name": "totalMbps"
+            }
+          ],
+          "minValue": 0,
+          "topX": 25,
+          "maxValue": "NaN",
+          "dataPoints": [
+            {
+              "dataPointName": "InMbps",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+              "consolidateFunction": "average",
+              "display": {
+                "color": null,
+                "legend": null,
+                "type": "line",
+                "option": "none"
+              },
+              "name": "InMbps",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            },
+            {
+              "dataPointName": "OutMbps",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+              "consolidateFunction": "average",
+              "display": {
+                "color": null,
+                "legend": null,
+                "type": "line",
+                "option": "none"
+              },
+              "name": "OutMbps",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            }
+          ],
+          "verticalLabel": "Mbps",
+          "aggregate": false,
+          "desc": true,
+          "scaleUnit": 1000,
+          "globalConsolidateFunction": "VaST"
+        },
+        "type": "cgraph",
+        "timescale": "2days",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 3,
+        "row": 18,
+        "sizey": 3
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Top Resources by TCP Connections",
+        "description": "",
+        "theme": "newBorderDarkBlue",
+        "interval": 3,
+        "graphInfo": {
+          "virtualDataPoints": [],
+          "minValue": 0,
+          "topX": 10,
+          "maxValue": "NaN",
+          "dataPoints": [
+            {
+              "dataPointName": "tcpCurrEstab",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "TCP UDP stats (snmpTCPUDP)",
+              "consolidateFunction": "max",
+              "display": {
+                "color": "Auto",
+                "legend": "##RESOURCENAME## Connections EST or in Close Wait",
+                "type": "line",
+                "option": "custom"
+              },
+              "name": "CurrEstab",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            }
+          ],
+          "verticalLabel": "connections",
+          "aggregate": false,
+          "desc": true,
+          "scaleUnit": 1000,
+          "globalConsolidateFunction": "VaST"
+        },
+        "type": "cgraph",
+        "timescale": "5hour",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 4,
+        "sizex": 3,
+        "row": 18,
+        "sizey": 3
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Top Resources by TCP Segments",
+        "description": "",
+        "theme": "newBorderDarkBlue",
+        "interval": 3,
+        "graphInfo": {
+          "virtualDataPoints": [],
+          "minValue": 0,
+          "topX": 10,
+          "maxValue": "NaN",
+          "dataPoints": [
+            {
+              "dataPointName": "tcpOutSegs",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "TCP UDP stats (snmpTCPUDP)",
+              "consolidateFunction": "average",
+              "display": {
+                "color": "Auto",
+                "legend": "##RESOURCENAME## tcpOutSegs",
+                "type": "line",
+                "option": "custom"
+              },
+              "name": "tcpOutSegs",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            },
+            {
+              "dataPointName": "tcpRetransSegs",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "TCP UDP stats (snmpTCPUDP)",
+              "consolidateFunction": "average",
+              "display": {
+                "color": "Auto",
+                "legend": "##RESOURCENAME## tcpRetransSegs",
+                "type": "line",
+                "option": "custom"
+              },
+              "name": "tcpRetransSegs",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            }
+          ],
+          "verticalLabel": "packets",
+          "aggregate": false,
+          "desc": true,
+          "scaleUnit": 1000,
+          "globalConsolidateFunction": "VaST"
+        },
+        "type": "cgraph",
+        "timescale": "5hour",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 7,
+        "sizex": 3,
+        "row": 18,
+        "sizey": 3
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Top Resources by UDP Datagrams",
+        "description": "",
+        "theme": "newBorderDarkBlue",
+        "interval": 3,
+        "graphInfo": {
+          "virtualDataPoints": [],
+          "minValue": 0,
+          "topX": 25,
+          "maxValue": "NaN",
+          "dataPoints": [
+            {
+              "dataPointName": "UDPInDatagrams",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "TCP UDP stats (snmpTCPUDP)",
+              "consolidateFunction": "average",
+              "display": {
+                "color": "Auto",
+                "legend": "##RESOURCENAME## In",
+                "type": "line",
+                "option": "custom"
+              },
+              "name": "UDPInDatagrams",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            },
+            {
+              "dataPointName": "UDPOutDatagrams",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "TCP UDP stats (snmpTCPUDP)",
+              "consolidateFunction": "average",
+              "display": {
+                "color": "Auto",
+                "legend": "##RESOURCENAME## Out",
+                "type": "line",
+                "option": "custom"
+              },
+              "name": "UDPOutDatagrams",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            }
+          ],
+          "verticalLabel": "packets/second",
+          "aggregate": false,
+          "desc": true,
+          "scaleUnit": 1000,
+          "globalConsolidateFunction": "VaST"
+        },
+        "type": "cgraph",
+        "timescale": "5hour",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 10,
+        "sizex": 3,
+        "row": 18,
+        "sizey": 3
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Top Resources by UDP Errors",
+        "description": "",
+        "theme": "newBorderDarkBlue",
+        "interval": 3,
+        "graphInfo": {
+          "virtualDataPoints": [],
+          "minValue": 0,
+          "topX": 10,
+          "maxValue": "NaN",
+          "dataPoints": [
+            {
+              "dataPointName": "udpInErrors",
+              "instanceName": {
+                "isGlob": true,
+                "value": "##defaultInstanceName##"
+              },
+              "dataSourceFullName": "TCP UDP stats (snmpTCPUDP)",
+              "consolidateFunction": "average",
+              "display": {
+                "color": "Auto",
+                "legend": "##RESOURCENAME## UDP Drops",
+                "type": "line",
+                "option": "custom"
+              },
+              "name": "UDPDrops",
+              "aggregateFunction": "SUM",
+              "deviceDisplayName": {
+                "isGlob": true,
+                "value": "##defaultResourceName##"
+              },
+              "deviceGroupFullPath": {
+                "isGlob": true,
+                "value": "##defaultResourceGroup##"
+              }
+            }
+          ],
+          "verticalLabel": "drops/sec",
+          "aggregate": false,
+          "desc": true,
+          "scaleUnit": 1000,
+          "globalConsolidateFunction": "VaST"
+        },
+        "type": "cgraph",
+        "timescale": "5hour",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 2,
+        "row": 3,
+        "sizey": 2
+      },
+      "config": {
+        "bigNumberInfo": {
+          "virtualDataPoints": [],
+          "counters": [],
+          "dataPoints": [
+            {
+              "dataPointName": "InMbps",
+              "instanceName": "##defaultInstanceName##",
+              "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+              "name": "InMbps",
+              "aggregateFunction": "SUM",
+              "deviceGroupFullPath": "##defaultResourceGroup##",
+              "deviceDisplayName": "##defaultResourceName##"
+            }
+          ],
+          "bigNumberItems": [
+            {
+              "dataPointName": "InMbps",
+              "useCommaSeparators": false,
+              "bottomLabel": "",
+              "rounding": 0,
+              "position": 1,
+              "rightLabel": "Inbound Mbps",
+              "colorThresholds": null,
+              "actions": []
+            }
+          ]
+        },
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Traffic Statistics",
+        "description": "",
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "type": "bigNumber",
+        "timescale": "day",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 3,
+        "sizex": 2,
+        "row": 3,
+        "sizey": 2
+      },
+      "config": {
+        "bigNumberInfo": {
+          "virtualDataPoints": [],
+          "counters": [],
+          "dataPoints": [
+            {
+              "dataPointName": "OutMbps",
+              "instanceName": "##defaultInstanceName##",
+              "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+              "name": "OutMbps",
+              "aggregateFunction": "SUM",
+              "deviceGroupFullPath": "##defaultResourceGroup##",
+              "deviceDisplayName": "##defaultResourceName##"
+            }
+          ],
+          "bigNumberItems": [
+            {
+              "dataPointName": "OutMbps",
+              "useCommaSeparators": false,
+              "bottomLabel": "",
+              "rounding": 0,
+              "position": 1,
+              "rightLabel": "Outbound Mbps",
+              "colorThresholds": null,
+              "actions": []
+            }
+          ]
+        },
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Traffic Statistics",
+        "description": "",
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "type": "bigNumber",
+        "timescale": "day",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 5,
+        "sizex": 2,
+        "row": 3,
+        "sizey": 2
+      },
+      "config": {
+        "bigNumberInfo": {
+          "virtualDataPoints": [],
+          "counters": [],
+          "dataPoints": [
+            {
+              "dataPointName": "InErrors",
+              "instanceName": "##defaultInstanceName##",
+              "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+              "name": "InErrors",
+              "aggregateFunction": "SUM",
+              "deviceGroupFullPath": "##defaultResourceGroup##",
+              "deviceDisplayName": "##defaultResourceName##"
+            }
+          ],
+          "bigNumberItems": [
+            {
+              "dataPointName": "InErrors",
+              "useCommaSeparators": false,
+              "bottomLabel": "",
+              "rounding": 2,
+              "position": 1,
+              "rightLabel": "Inbound Errors",
+              "colorThresholds": [
+                {
+                  "level": 2,
+                  "threshold": 0,
+                  "relation": ">"
+                },
+                {
+                  "level": 3,
+                  "threshold": 0,
+                  "relation": ">"
+                },
+                {
+                  "level": 4,
+                  "threshold": 0,
+                  "relation": ">"
+                }
+              ],
+              "actions": []
+            }
+          ]
+        },
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Traffic Statistics",
+        "description": "",
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "type": "bigNumber",
+        "timescale": "day",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 7,
+        "sizex": 2,
+        "row": 3,
+        "sizey": 2
+      },
+      "config": {
+        "bigNumberInfo": {
+          "virtualDataPoints": [],
+          "counters": [],
+          "dataPoints": [
+            {
+              "dataPointName": "OutErrors",
+              "instanceName": "##defaultInstanceName##",
+              "dataSourceFullName": "Network Interfaces (SNMP_Network_Interfaces)",
+              "name": "OutErrors",
+              "aggregateFunction": "SUM",
+              "deviceGroupFullPath": "##defaultResourceGroup##",
+              "deviceDisplayName": "##defaultResourceName##"
+            }
+          ],
+          "bigNumberItems": [
+            {
+              "dataPointName": "OutErrors",
+              "useCommaSeparators": false,
+              "bottomLabel": "",
+              "rounding": 2,
+              "position": 1,
+              "rightLabel": "Outbound Errors",
+              "colorThresholds": null,
+              "actions": []
+            }
+          ]
+        },
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Traffic Statistics",
+        "description": "",
+        "theme": "newSolidDarkBlue",
+        "interval": 3,
+        "type": "bigNumber",
+        "timescale": "day",
+        "version": 2
+      }
+    },
+    {
+      "position": {
+        "col": 11,
+        "sizex": 2,
+        "row": 1,
+        "sizey": 2
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Dashboard Themer",
+        "description": "",
+        "theme": "newBorderGray",
+        "interval": 15,
+        "type": "text",
+        "timescale": "day",
+        "version": 2,
+        "content": "<!--\n\tDashboard Theming Widget\n\tDeveloped by Kevin Ford\n\tVersion 1.66 - Integrated Authentication Version\n\tIntegrated authentication improvements by Steve Villardi\n--><script>\n\t// Default background RGB color values...\n\tlet bgRed = 40;\n\tlet bgGreen = 49;\n\tlet bgBlue = 71;\n\tlet bgColors = {r:40, g:49, b:71};\n\n\t// Helper function to convert an RGB component value to hex...\n\tconst componentToHex = (c) => {\n\t\tconst hex = c.toString(16);\n\t\treturn hex.length === 1 ? \"0\" + hex : hex;\n\t};\n\t// Helper function to convert an RGB color to hex...\n\tconst rgbToHex = (r, g, b) => {\n\t\treturn \"#\" + componentToHex(r) + componentToHex(g) + componentToHex(b);\n\t};\n\t// Helper function to convert a hex color to RGB values...\n\tconst hex2RGB = (hex) => {\n\t\tconst r = parseInt(hex.slice(1, 3), 16);\n\t\tconst g = parseInt(hex.slice(3, 5), 16);\n\t\tconst b = parseInt(hex.slice(5, 7), 16);\n\t\treturn { r, g, b };\n\t};\n\t// Helper function to get a cookie value...\n\tconst getCookie = (name) => {\n\t\tconst value = `; ${document.cookie}`;\n\t\tconst parts = value.split(`; ${name}=`);\n\t\tif (parts.length === 2) return parts.pop().split(';').shift();\n\t\treturn null;\n\t};\n</script><p><link href=\"https://static-prod.logicmonitor.com/sbui133-1/commons/stylesheets2/startup.css?v=220429\" rel=\"stylesheet\"></p><!-- We'll use FontAwesome icons to help pretty up things... --><script src=\"https://use.fontawesome.com/releases/v6.2.0/js/all.js\"></script><style>\n\t#dashboardThemerWidget .lm-button {\n\t\theight: 28px;\n\t\tline-height: 28px;\n\t\ttext-wrap-mode: nowrap;\n\t\tfilter: grayscale(1);\n\t}\n\t.fadeOut {\n\t\topacity: 0;\n\t\tvisibility: hidden;\n\t\ttransition: opacity 2s ease-in-out, visibility 0s 2s ease-in-out;\n\t}\n</style><div id=\"dashboardThemerWidget\" style=\"display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 15px; padding-top: 5px;\"><div style=\"width: 100%;\"><div style=\"padding-bottom: 3px;\"><label for=\"backgroundColorPicker\" style=\"color: var(--customTextColor);\">Background color</label></div><div style=\"display: flex; flex-wrap: nowrap; align-items: center;\"><input type=\"color\" id=\"backgroundColorPicker\" name=\"backgroundColorPicker\" style=\"margin-right: 5px; min-height: 30px;\"><div id=\"bgColorLabel\" style=\"color: var(--customTextColor);\"><br></div></div><div id=\"prefSavedMessage\" class=\"fadeOut\" style=\"margin-top: 10px; font-weight: bold;\">Saved</div></div><div style=\"display: flex; flex-wrap: nowrap;flex-direction: column; gap: 5px; align-items: stretch;\"><button id=\"updateCookieButton\" class=\"lm-button blue small animate\" title=\"Saves the color as a personal default in a browser cookie\"><i class=\"fa-solid fa-user\"></i> Save</button> <button id=\"updateDashboardButton\" class=\"lm-button blue small animate\" title=\"Saves the color as the default for all users of this dashboard in a dashboard token\"><i class=\"fa-solid fa-users\"></i> Save</button> <button id=\"deleteCookieButton\" class=\"lm-button blue small animate\" title=\"Resets your personal color preference back to the dashboard's default\">Reset</button></div></div><script>\n\t// Get document cookie to see if user has a color saved there...\n\tlet cookieColor = getCookie(\"dashboardThemerColor\");\n\tconsole.debug(\"Color saved in cookie: \", cookieColor);\n\n\n\t// Initialize our color picker...\n\tlet defaultColor = rgbToHex(bgRed, bgGreen, bgBlue);\n\tlet colorPicker = document.getElementById(\"backgroundColorPicker\");\n\tlet colorLabel = document.getElementById(\"bgColorLabel\");\n\tcolorPicker.addEventListener(\"input\", colorsChanged, false);\n\tdocument.getElementById(\"updateDashboardButton\").addEventListener(\"click\", updateDashboard);\n\tdocument.getElementById(\"updateCookieButton\").addEventListener(\"click\", updateCookie);\n\tdocument.getElementById(\"deleteCookieButton\").addEventListener(\"click\", deleteCookie);\n\n\t// Get the DOM objects we'll be modifying styles for...\n\tlet widgetsGridObjects = parent.document.querySelectorAll(\"#dashboard-widgets-grid\");\n\t// // let filterBar = parent.document.querySelectorAll(\".mt-8\");\n\t// let bgCObjects = parent.document.querySelectorAll(\".bg-c\");\n\t// let subHeaders = parent.document.querySelectorAll(\"p[class*='SubHeader__StyledP']\");\n\t// let styledWidgetObjects = parent.document.querySelectorAll(\"div[class^='DashboardWidgetsGrid__StyledWidget']\");\n\t// let widgetText = parent.document.querySelectorAll(\"[data-testid='WidgetLayout'] > div > div > div > p[class*='Header__StyledTruncatedBody1'], #dashboard-widgets-grid .MuiButton-text, #dashboard-widgets-grid .MuiIconButton-root.v4-button.widget, #dashboard-widgets-grid .MuiIconButton-colorPrimary\");\n\t// // let bigNumberWidgets = parent.document.querySelectorAll(\"section[data-testid='big-number-widget'] .b-s\");\n\t// let bigNumberWidgets = parent.document.querySelectorAll(\"[data-testid='big-number-widget'] #numberText, [data-testid='sla-widget'] #numberText\");\n\t// let thisWidgetLabels = document.querySelectorAll(\".thisWidgetLabel\");\n\n\t// Look to see if a background color has been saved...\n\tconst dashboardBGToken = \"##BackgroundColor##\";\n\t// If the token values weren't set then use the values hard-coded above in this script...\n\tif (dashboardBGToken != \"\\#\\#BackgroundColor\\#\\#\") {\n\t\tif (/#[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/.test(dashboardBGToken)) {\n\t\t\tdefaultColor = hex2RGB(dashboardBGToken);\n\t\t\tbgColors = defaultColor;\n\t\t\tconsole.debug(\"Existing color token found.\", bgColors);\n\t\t};\n\t} else {\n\t\tconsole.debug(\"No previous color token found. Using the default.\");\n\t\tbgColors = defaultColor;\n\t};\n\n\t// If a color is saved in the cookie, use it instead...\n\tif (cookieColor) {\n\t\tbgColors = hex2RGB(cookieColor);\n\t\tconsole.debug(\"Color saved in cookie found. Using it.\");\n\t};\n\n\t// Update the color picker...\n\tlet bgColorHex = rgbToHex(bgColors.r, bgColors.g, bgColors.b);\n\tcolorPicker.value = bgColorHex;\n\tbgColorLabel.innerHTML = bgColorHex;\n\n\t// Set our colors...\n\tsetColors();\n\n\tconst myStyle = parent.document.createElement(\"style\");\n\tmyStyle.innerHTML = \" \\\n\t\t.mt-8 { \\\n\t\t\tmargin-top: 4px; \\\n\t\t\tmargin-bottom: 4px; \\\n\t\t} \\\n\t\tsection[data-testid='big-number-widget'] .b-s, [data-testid='sla-widget'] .b-s { \\\n\t\t\tbackground-color: var(--customBigNumberBackground); \\\n\t\t\tborder: 1px solid rgba(255, 255, 255, 0.2); \\\n\t\t\tbox-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.1), 1px 1px 0.12px rgba(255, 255, 255, 0.4); \\\n\t\t} \\\n\t\t/* [data-testid='big-number-widget'] #numberText, [data-testid='sla-widget'] #numberText { \\\n\t\t\tfilter: drop-shadow(0px 0px 2px rgba(255, 255, 255, 0.4)); \\\n\t\t} */ \\\n\t\t.lm-multiline-tooltip { \\\n\t\t\tbackground-color: rgb(255, 255, 255, 0.8) !important; \\\n\t\t\tborder-radius: 5px; \\\n\t\t\tbackdrop-filter: blur(2px) !important; \\\n\t\t} \\\n\t\t.lm-multiline-tooltip-item { \\\n\t\t\tfilter: drop-shadow(0 0 5px rgba(255, 255, 255, 1)) !important; \\\n\t\t} \\\n\t\";\n\tparent.document.head.appendChild(myStyle);\n\n\n\tfunction colorsChanged() {\n\t\tlet newColor = colorPicker.value;\n\t\tbgColors = hex2RGB(newColor);\n\t\tbgColorLabel.innerHTML = newColor;\n\t\t// console.debug(\"Color changed to \" + newColor);\n\t\tsetColors();\n\t};\n\n\n\tfunction setColors() {\n\t\tconsole.debug(\"Setting background color to \", bgColors);\n\n\t\t// Get the DOM objects we'll be modifying styles for...\n\t\tlet bgCObjects = parent.document.querySelectorAll(\".bg-c\");\n\t\tlet subHeaders = parent.document.querySelectorAll(\"p[class*='SubHeader__StyledP']\");\n\t\tlet styledWidgetObjects = parent.document.querySelectorAll(\"div[class^='DashboardWidgetsGrid__StyledWidget']\");\n\t\tlet widgetText = parent.document.querySelectorAll(\"[data-testid='WidgetLayout'] > div > div > div > p[class*='Header__StyledTruncatedBody1'], #dashboard-widgets-grid .MuiButton-text, #dashboard-widgets-grid .MuiIconButton-root.v4-button.widget, #dashboard-widgets-grid .MuiIconButton-colorPrimary\");\n\t\t// let bigNumberWidgets = parent.document.querySelectorAll(\"section[data-testid='big-number-widget'] .b-s\");\n\t\tlet bigNumberWidgets = parent.document.querySelectorAll(\"[data-testid='big-number-widget'] #numberText, [data-testid='sla-widget'] #numberText\");\n\t\tlet thisWidgetLabels = document.querySelectorAll(\".thisWidgetLabel\");\n\n\t\t// Adjust our text color (white or black) based on the perceived brightness of the background color...\n\t\tconst brightness = Math.round(((parseInt(bgColors.r) * 299) + (parseInt(bgColors.g) * 587) + (parseInt(bgColors.b) * 114)) / 1000);\n\t\tconsole.debug(\"Calculated brightness: \" + brightness);\n\t\tconst textColor = (brightness > 125) ? '0, 0, 0' : '255, 255, 255'\n\n\t\t// Set our document-level (:root) CSS variables...\n\t\tparent.document.documentElement.style.setProperty(\"--customBG\", `rgb(${bgColors.r}, ${bgColors.g}, ${bgColors.b})`);\n\t\tparent.document.documentElement.style.setProperty(\"--customTextColor\", `rgb(${textColor})`);\n\t\tparent.document.documentElement.style.setProperty(\"--customBigNumberBackground\", `rgba(${textColor}, 0.1)`);\n\t\tdocument.documentElement.style.setProperty(\"--customTextColor\", `rgb(${textColor})`);\n\n\t\t// Apply our properties to the dashboard...\n\t\tfor (let i = 0; i < widgetsGridObjects.length; i++) {\n\t\t\twidgetsGridObjects[i].style.backgroundColor = \"var(--customBG)\";\n\t\t\twidgetsGridObjects[i].style.background = \"linear-gradient(35deg, hsl(from var(--customBG) h s calc(l - 10)) 0%, hsl(from var(--customBG) h s calc(l - 25)) 40%, var(--customBG) 100%)\";\n\t\t\twidgetsGridObjects[i].style.boxShadow = \"inset 0 3px 4px -3px black\";\n\t\t};\n\t\t// Removes existing backgrounds from widgets...\n\t\tfor (let i = 0; i < styledWidgetObjects.length; i++) {\n\t\t\tstyledWidgetObjects[i].style.background = \"none\";\n\t\t\tstyledWidgetObjects[i].style.border = \"none\";\n\t\t};\n\t\t// Dashboard widgets...\n\t\tfor (let i = 0; i < bgCObjects.length; i++) {\n\t\t\tbgCObjects[i].style.background = \"rgba(255, 255, 255, 0.4)\";\n\t\t\t// bgCObjects[i].style.border = \"1px solid rgba(255, 255, 255, 0.5)\";\n\t\t\tbgCObjects[i].style.border = \"1px solid rgba(234, 235, 238, 0.15)\";\n\t\t\tbgCObjects[i].style.backdropFilter = \"blur(10px) invert(10%) saturate(1.1)\";\n\t\t\tbgCObjects[i].style.boxShadow = \"inset 1px 1px 0.12px rgba(255, 255, 255, 0.4), 1px 1px 3px rgba(0, 0, 0, 0.1)\";\n\t\t};\n\t\t// Widget subheader text, like widget time...\n\t\tfor (let i = 0; i < subHeaders.length; i++) {\n\t\t\tsubHeaders[i].style.filter = \"contrast(0.5)\";\n\t\t\tsubHeaders[i].style.color = \"var(--customTextColor)\";\n\t\t};\n\t\t// Sets color of widget titles and icons...\n\t\tfor (let i = 0; i < widgetText.length; i++) {\n\t\t\twidgetText[i].style.color = \"var(--customTextColor)\";\n\t\t};\n\t\t// Sets background of Big Number and SLA widgets...\n\t\tfor (let i = 0; i < bigNumberWidgets.length; i++) {\n\t\t\t// console.debug(\"computed color: \", window.getComputedStyle(bigNumberWidgets[i]).color);\n\t\t\tif (window.getComputedStyle(bigNumberWidgets[i]).color != \"rgb(255, 255, 255)\") {\n\t\t\t\tbigNumberWidgets[i].style.filter = \"drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.5))\";\n\t\t\t};\n\t\t};\n\t\t// Changes label colors of this widget as needed...\n\t\tfor (let i = 0; i < thisWidgetLabels.length; i++) {\n\t\t\tthisWidgetLabels[i].style.color = textColor;\n\t\t};\n\t};\n\n\n\tasync function updateDashboard() {\n\t\t// Capture information about the current dashboard for use in subsequent REST calls...\n\t\tlet dashboardID = \"\";\n\t\tlet hostName = parent.window.location.host;\n\t\tlet locationHash = parent.window.location.hash; // example result: \"#dashboard=21\"\n\t\t// In UIv4 dashboards use a direct path instead of a URL hash, so adjust based on the URL being used...\n\t\tif (locationHash != \"\") {\n\t\t\tdashboardID = locationHash.replace(\"#dashboard=\", \"\");\n\t\t} else {\n\t\t\tlocationHash = parent.window.location.pathname.match(/dashboards\\-(\\d+)$/g)[0];\n\t\t\tdashboardID = locationHash.replace(\"dashboards-\", \"\");\n\t\t};\n\n\t\t// Encoder to convert strings to Uint8Array for API signatures...\n\t\tlet enc = new TextEncoder(\"utf-8\");\n\n\t\t// Request Details...\n\t\tlet httpVerb = \"GET\";\n\t\tlet epoch = (new Date).getTime();\n\t\tlet resourcePath = \"/dashboard/dashboards/\" + dashboardID;\n\t\tlet queryParams = \"\";\n\n\t\t// Construct signature...\n\t\tlet requestVars = httpVerb + epoch + resourcePath;\n\n\t\t// Prep our URL & query for the REST call...\n\t\tlet apiURL = \"https://\" + hostName + \"/santaba/rest\" + resourcePath + queryParams;\n\n\t\t// Get the current version of the dashboard...\n\t\tconst dashData = await LMClient({\n\t\t\tresourcePath: resourcePath,\n\t\t\tqueryParams: queryParams,\n\t\t\thttpVerb: httpVerb,\n\t\t\tpostBody: null,\n\t\t\tapiVersion: '3',\n\t\t});\n\t\t// console.debug(\"dashData: \", dashData);\n\n\t\t// Loop through the dashboard's tokens looking for the one(s) we want to change...\n\t\tlet previousTokenFound = false;\n\t\tconsole.debug(\"widgetTokens: \", dashData.widgetTokens);\n\t\tdashData.widgetTokens.forEach(thisToken => {\n\t\t\tconsole.debug(\"widgetToken: \", thisToken);\n\t\t\t// Update the dashboard token...\n\t\t\tif (thisToken.name == \"BackgroundColor\") {\n\t\t\t\tthisToken.value = rgbToHex(bgColors.r, bgColors.g, bgColors.b);\n\t\t\t\tpreviousTokenFound = true;\n\t\t\t};\n\t\t});\n\t\t// If this is the first time saving, add the token to the dashboard...\n\t\tif (!previousTokenFound) {\n\t\t\tlet newToken = {type: \"owned\", name: \"BackgroundColor\", value: rgbToHex(bgColors.r, bgColors.g, bgColors.b), inheritList: []};\n\t\t\tdashData.widgetTokens.push(newToken);\n\t\t};\n\n\t\t// Build the JSON body we'll be posting to update the dashboard data...\n\t\t// let dashData = data.data\n\t\tlet postBody = {\"groupId\":dashData.groupId, \"widgetsConfig\":dashData.widgetsConfig, \"name\":dashData.name, \"description\":dashData.description, \"sharable\":dashData.sharable, \"owner\":dashData.owner, \"groupName\":dashData.groupName, \"useDynamicWidget\":dashData.useDynamicWidget, \"widgetTokens\":dashData.widgetTokens};\n\t\t// postBody = JSON.stringify({\"groupId\":dashData.groupId, \"widgetsConfig\":dashData.widgetsConfig, \"name\":dashData.name, \"description\":dashData.description, \"sharable\":dashData.sharable, \"owner\":dashData.owner, \"groupName\":dashData.groupName, \"useDynamicWidget\":dashData.useDynamicWidget, \"widgetTokens\":dashData.widgetTokens});\n\t\tconsole.debug(\"postBody: \", postBody);\n\n\t\t// Prep details for the call to update the dashboard...\n\t\thttpVerb = \"PUT\";\n\t\tepoch = (new Date).getTime();\n\t\tresourcePath = \"/dashboard/dashboards/\" + dashboardID;\n\t\tqueryParams = \"\";\n\n\t\t// Construct signature...\n\t\trequestVars = httpVerb + epoch + postBody + resourcePath;\n\n\t\t// Prep our URL & query for the REST call...\n\t\tconsole.debug(\"Posting...\");\n\t\tapiURL = \"https://\" + hostName + \"/santaba/rest\" + resourcePath + queryParams\n\t\tconst dashPost = await LMClient({\n\t\t\tresourcePath: resourcePath,\n\t\t\tqueryParams: queryParams,\n\t\t\thttpVerb: httpVerb,\n\t\t\tpostBody: postBody,\n\t\t\tapiVersion: '3',\n\t\t});\n\n\t\tif (dashPost) {\n\t\t\t// Reload the page to reflect the new token values...\n\t\t\tconsole.log('Update Dashboard request succeeded with JSON response', dashPost);\n\t\t\tparent.location.reload();\n\t\t};\n\t};\n\n\n\tfunction updateCookie() {\n\t\t// Set a cookie with the current color...\n\t\tdocument.cookie = \"dashboardThemerColor=\" + rgbToHex(bgColors.r, bgColors.g, bgColors.b) + \"; path=/\";\n\t\tconsole.debug(\"Color saved in cookie: \", document.cookie);\n\t\tconst prefSavedMessage = document.getElementById(\"prefSavedMessage\");\n\t\tprefSavedMessage.classList.remove(\"fadeOut\");\n\t\tsetInterval(function () {\n\t\t\tprefSavedMessage.classList.add(\"fadeOut\");\n\t\t}, 2000);\n\t};\n\n\n\tfunction deleteCookie() {\n\t\t// Delete the cookie...\n\t\tdocument.cookie = \"dashboardThemerColor=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT\";\n\t\tconsole.debug(\"Color deleted from cookie: \", document.cookie);\n\t\t// Reset the color to the default...\n\t\tbgColors = defaultColor;\n\t\t// Update the color picker...\n\t\tlet bgColorHex = rgbToHex(bgColors.r, bgColors.g, bgColors.b);\n\t\tcolorPicker.value = bgColorHex;\n\t\tbgColorLabel.innerHTML = bgColorHex;\n\t\tsetColors();\n\t};\n\n\n\t/**\n\t* Fetches a Cross-Site Request Forgery (CSRF) token required for subsequent API calls.\n\t*\n\t* This function makes a preliminary request to a dummy endpoint solely to retrieve\n\t* the CSRF token from the response headers.\n\t*\n\t* @async\n\t* @function fetchCsrfToken\n\t* @returns {Promise<string>} A promise that resolves with the CSRF token.\n\t* @throws {Error} If the fetch request fails or the token is not found in headers.\n\t*/\n\tasync function fetchCsrfToken() {\n\t\t// console.debug('Fetching CSRF token...');\n\t\tconst response = await fetch('/santaba/rest/functions/dummy', {\n\t\t\tmethod: 'GET',\n\t\t\theaders: {\n\t\t\t\t'X-Csrf-Token': 'Fetch', // Specific header to request the token\n\t\t\t\t'Accept': 'application/json',\n\t\t\t\t'X-Version': '3', // Specify API version if required by this endpoint\n\t\t\t},\n\t\t\tcredentials: 'include', // Include cookies for session management/CSRF\n\t\t});\n\n\t\tif (!response.ok) {\n\t\t\tthrow new Error(`Failed to fetch CSRF token: ${response.status} ${response.statusText}`);\n\t\t};\n\n\t\tconst token = response.headers.get('X-Csrf-Token');\n\t\tif (!token) {\n\t\t\tthrow new Error('CSRF token not found in response headers.');\n\t\t};\n\t\t// console.debug('CSRF Token fetched successfully.');\n\n\t\treturn token;\n\t};\n\n\t/**\n\t\t* Performs an HTTP request to the LogicMonitor REST API.\n\t\t*\n\t\t* This function handles fetching a CSRF token, constructing the API request,\n\t\t* sending the request, and processing the response. It supports common HTTP verbs\n\t\t* and automatically includes necessary headers and credentials.\n\t\t*\n\t\t* @async\n\t\t* @function LMClient\n\t\t* @param {object} options - The options for the API request.\n\t\t* @param {string} options.resourcePath - The specific API resource path (e.g., /device/devices).\n\t\t* @param {string} [options.queryParams=''] - Optional query parameters string (e.g., ?filter=name:value).\n\t\t* @param {'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'} options.httpVerb - The HTTP method to use.\n\t\t* @param {object | Array<unknown>} [options.postBody] - The JSON payload for POST/PUT/PATCH requests.\n\t\t* @param {string} [options.apiVersion='3'] - The API version to use. Default is \"3\".\n\t\t* @returns {Promise<object>} A promise that resolves with the JSON response body on success.\n\t\t* @throws {Error} Throws an Error on API errors (>=300 status), network issues,\n\t\t*                 token fetching problems, or JSON handling errors. The error object\n\t\t*                 may contain 'status' and 'statusText' properties for API errors.\n\t*/\n\tasync function LMClient({\n\t\tresourcePath,\n\t\tqueryParams = '', // Default queryParams to empty string\n\t\thttpVerb,\n\t\tpostBody,\n\t\tapiVersion = '3',\n\t}) {\n\t\t// console.debug('LMClient called with:', { resourcePath, queryParams, httpVerb, postBody, apiVersion });\n\t\t// Validate required parameters\n\t\tif (!resourcePath || !httpVerb) {\n\t\t\tthrow new Error('Missing required parameters: resourcePath and httpVerb must be provided.');\n\t\t}\n\t\tconst validVerbs = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];\n\t\tif (!validVerbs.includes(httpVerb)) {\n\t\t\tthrow new Error(`Invalid httpVerb: ${httpVerb}. Must be one of ${validVerbs.join(', ')}`);\n\t\t}\n\n\t\t// console.debug(`Initiating LogicMonitor API call: ${httpVerb} ${resourcePath}${queryParams}`);\n\n\t\ttry {\n\t\t\t// 1. Fetch the CSRF token\n\t\t\tconst csrfToken = await fetchCsrfToken();\n\n\t\t\t// 2. Construct the API URL and request options\n\t\t\tconst apiUrl = `/santaba/rest${resourcePath}${queryParams}`;\n\t\t\tconst headers = {\n\t\t\t\t'Content-Type': 'application/json', // Consistently set Content-Type\n\t\t\t\t'Accept': 'application/json', // Expect JSON response\n\t\t\t\t'X-Csrf-Token': csrfToken,\n\t\t\t\t'X-Version': apiVersion, // Use the appropriate API version for the main request\n\t\t\t};\n\n\t\t\tconst requestOptions = {\n\t\t\t\tmethod: httpVerb,\n\t\t\t\theaders: headers,\n\t\t\t\tcredentials: 'include', // Necessary for session/cookie-based auth\n\t\t\t};\n\n\t\t\t// 3. Add body only for relevant methods\n\t\t\tif (postBody && (httpVerb === 'POST' || httpVerb === 'PUT' || httpVerb === 'PATCH')) {\n\t\t\t\ttry {\n\t\t\t\t\trequestOptions.body = JSON.stringify(postBody);\n\t\t\t\t\t// console.debug('Request body included:', postBody);\n\t\t\t\t} catch (stringifyError) {\n\t\t\t\t\tconsole.error('Failed to stringify postBody:', stringifyError);\n\t\t\t\t\t// Add user-friendly message to the error\n\t\t\t\t\tstringifyError.message = `Invalid postBody provided. Could not stringify to JSON. Original error: ${stringifyError.message}`;\n\t\t\t\t\tthrow stringifyError;\n\t\t\t\t}\n\t\t\t}\n\n\t\t\t// 4. Make the API call\n\t\t\t// console.debug(`Executing fetch to: ${apiUrl}`);\n\t\t\tconst response = await fetch(apiUrl, requestOptions);\n\t\t\t// console.debug(`Received response status: ${response.status} ${response.statusText}`);\n\n\t\t\t// 5. Process the response\n\t\t\tif (response.ok) { // ok is true for statuses 200-299\n\t\t\t\t// Handle potential empty response body for certain success statuses (e.g., 204 No Content)\n\t\t\t\tif (response.status === 204) {\n\t\t\t\t\tconsole.debug('Received 204 No Content response.');\n\t\t\t\t\treturn {}; // Return an empty object for 204\n\t\t\t\t}\n\t\t\t\ttry {\n\t\t\t\t\t// Assume response is JSON if status is ok and not 204\n\t\t\t\t\tconst data = await response.json();\n\t\t\t\t\t// console.debug('API call successful, response data received.'); // Avoid logging potentially sensitive data by default\n\t\t\t\t\treturn data;\n\t\t\t\t} catch (jsonError) {\n\t\t\t\t\tconsole.error('Failed to parse JSON response:', jsonError);\n\t\t\t\t\t// Create a new error with more context\n\t\t\t\t\tconst parseError = new Error(`Successfully received response (${response.status}), but failed to parse JSON body. Original error: ${jsonError.message}`);\n\t\t\t\t\tparseError.status = response.status; // Attach status for context\n\t\t\t\t\tparseError.statusText = response.statusText;\n\t\t\t\t\tthrow parseError;\n\t\t\t\t}\n\t\t\t} else {\n\t\t\t\t// Handle API errors (status >= 300)\n\t\t\t\tconst error = new Error(`API Error: ${response.status} ${response.statusText}`);\n\t\t\t\terror.status = response.status;\n\t\t\t\terror.statusText = response.statusText;\n\n\t\t\t\t// Attempt to get more details from the error response body\n\t\t\t\ttry {\n\t\t\t\t\tconst errorBody = await response.text(); // Use text first in case it's not JSON\n\t\t\t\t\terror.body = errorBody || 'No additional error details provided.'; // Attach body to error\n\t\t\t\t\tconsole.warn(`API Error Body: ${error.body}`); // Log the raw error body\n\t\t\t\t} catch (bodyError) {\n\t\t\t\t\tconsole.warn('Could not read error response body:', bodyError);\n\t\t\t\t\terror.body = 'Could not read error response body.';\n\t\t\t\t}\n\t\t\t\tconsole.error('LogicMonitor API Error:', { status: error.status, statusText: error.statusText });\n\t\t\t\tthrow error; // Throw the augmented error object\n\t\t\t}\n\t\t} catch (error) {\n\t\t\t// Catch errors from fetchCsrfToken, fetch itself (network errors), or JSON parsing/stringifying\n\t\t\tconsole.error('An error occurred in LMClient:', error.message || error);\n\n\t\t\t// Re-throw the error to be handled by the caller.\n\t\t\t// Ensure it's always an Error object.\n\t\t\tif (error instanceof Error) {\n\t\t\t\tthrow error;\n\t\t\t} else {\n\t\t\t\t// If it's not an Error object (e.g., the thrown API error object), wrap it\n\t\t\t\tconst wrappedError = new Error(error.message || 'An unexpected error occurred during the API call.');\n\t\t\t\t// Copy relevant properties if they exist\n\t\t\t\tif (error && typeof error === 'object') {\n\t\t\t\t\tif ('status' in error) wrappedError.status = error.status;\n\t\t\t\t\tif ('statusText' in error) wrappedError.statusText = error.statusText;\n\t\t\t\t\tif ('body' in error) wrappedError.body = error.body;\n\t\t\t\t}\n\t\t\t\tthrow wrappedError;\n\t\t\t}\n\t\t}\n\t}\n</script>"
+      }
+    }
+  ],
+  "version": 2
+}
