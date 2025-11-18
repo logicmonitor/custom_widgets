@@ -65,7 +65,6 @@ For example: "London WAN > 192.168.1.10" would show a line titled "London WAN" r
 
 ---
 # Dynamic Dashboard List
-
 This script was created in response to a customer needing a quick way to drill-down from an overview dashboard to various specific dashboards. While straightforward to manually make a list in a text widget, we wanted a way to dynamically list dashboards as they were added or changed. To further enhance the functionality, if a 'defaultResourceGroup' token is set on a dashboard group then the script will fetch current alert status for that group (can be disabled via the 'fetchGroupAlertStatus' variable in the script if API limits are an issue).
 
 To use this, just add a Text widget to your dashboard and in the widget's configuration screen click the "source" view then paste in this code. You can also just clone this widget to another dashboard on the same portal.
@@ -77,3 +76,9 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **ShowFullDashboardPath**: Show the dashboard group's full path vs it's short name. Default: true.
 - **defaultDashboardGroup**: (optional) The "parent" dashboard group you want to list dashboards under. If not set then the script will default to showing all dashboard groups.
 - **DashboardsToExclude**: (optional) A regular expression to filter any dashboards you DON'T want listed. Example: .\*[Tt]+emplate.\*
+
+---
+# Dashboard Themer
+This one was created purely as a fun side project and may be rendered useless at any time by UI changes.
+
+All it does is change a few of our basic CSS classes and let you dynamically choose a background color. When you save it stores your choice in a dashboard token called 'BackgroundColor'. It also has logic to change the color of labels & icons so they stay readable based on brightness of the background.
