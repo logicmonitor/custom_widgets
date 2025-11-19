@@ -95,8 +95,8 @@ Behavior of the widget can be customized using the following optional dashboard 
 # Dashboard Themer
 
 ![Image](Sample%20Dashboards/Screenshots/Dashboard_Themer.png?raw=true)
-![Video Demonstration](Sample%20Dashboards/Screenshots/Dashboard_Themer.mp4?raw=true)
 [Download sample dashboard](Sample%20Dashboards/Dashboard_Themer.json)
+![Image](Sample%20Dashboards/Screenshots/Dashboard_Themer.gif?raw=true)
 
 This one was created purely as a fun side project and may be rendered useless at any time by UI changes.
 
