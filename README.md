@@ -99,4 +99,4 @@ Behavior of the widget can be customized using the following optional dashboard 
 
 This one was created purely as a fun side project and may be rendered useless at any time by UI changes.
 
-All it does is change a few of our basic CSS classes and let you dynamically choose a background color. When you save it stores your choice in a dashboard token called 'BackgroundColor'. It also has logic to change the color of labels & icons so they stay readable based on brightness of the background.
+All it does is change a few of our basic CSS classes and let you dynamically choose a background color. When you save it stores your choice in a dashboard token called 'BackgroundColor', or as a browser cookie for your own personal preference. It also has logic to change the color of labels & icons so they stay readable based on brightness of the background.
