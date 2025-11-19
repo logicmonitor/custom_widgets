@@ -1,7 +1,7 @@
 <!--
 	Better Map Widget
 	Developed by Kevin Ford
-	Version 2.77 - Integrated Authentication Version
+	Version 2.78 - Integrated Authentication Version
 	Integrated authentication improvements by Steve Villardi
 
 	Some of the ideas behind this project:
@@ -101,6 +101,9 @@
 
 	// Whether to include inherited locations in addition to those directly set on resources and/or services (disabling this can greatly increase refresh speed)...
 	const pollInheritedLocations = true;
+
+	// Typically if both a 'latitude' & 'longitude' property are set, then we can assume the address is already geocoded. Set this to "true" to force geocoding the address instead...
+	const ignoreLatLongProps = false;
 
 	// Whether the Google Maps uses the "cooperative" gesture handling, or "greedy" that allows mouse-wheel zooming without having to hold a modifier key (Google's default is "cooperative")...
 	const mapGestureHandling = "cooperative";
@@ -270,6 +273,21 @@
 	}
 	#gearIcon:hover {
 		filter: brightness(50%);
+	}
+	#clearCacheButton {
+		height: 30px;
+		width: auto;
+		vertical-align: middle;
+		background-color: white;
+		border: 1px solid #ccc;
+		border-radius: 3px;
+		cursor: pointer;
+	}
+	#clearCacheButton:hover {
+		background-color: #f0f0f0;
+	}
+	#recycleIcon {
+		fill: gray;
 	}
 	.toolbarSevIcon {
 		display: flex;
@@ -659,6 +677,9 @@
 						</span>
 					</span>
 				</span>
+				<button id="clearCacheButton" type="button" data-title="Reset addresses cached locally on your browser (should rarely be needed, only use if you're having issues with the map)" onclick="clearCache();">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" height="20" width="20" style="vertical-align: middle;"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path id="recycleIcon" d="M216.3 124C262.5 44 378 44 424.2 124L461.5 188.6L489.2 172.6C497.6 167.7 508.1 168.4 515.8 174.3C523.5 180.2 526.9 190.2 524.4 199.6L500.9 287C497.5 299.8 484.3 307.4 471.5 304L384.1 280.6C374.7 278.1 367.8 270.2 366.5 260.6C365.2 251 369.9 241.5 378.3 236.7L406 220.7L368.7 156.1C347.1 118.8 293.3 118.8 271.7 156.1L266.4 165.2C257.6 180.5 238 185.7 222.7 176.9C207.4 168.1 202.2 148.5 211 133.1L216.3 124zM513.7 343.1C529 334.3 548.6 339.5 557.4 354.8L562.7 363.9C608.9 443.9 551.2 543.9 458.8 543.9L384.2 543.9L384.2 575.9C384.2 585.6 378.4 594.4 369.4 598.1C360.4 601.8 350.1 599.8 343.2 592.9L279.2 528.9C269.8 519.5 269.8 504.3 279.2 495L343.2 431C350.1 424.1 360.4 422.1 369.4 425.8C378.4 429.5 384.2 438.3 384.2 448L384.2 480L458.8 480C501.9 480 528.9 433.3 507.3 396L502 386.9C493.2 371.6 498.4 352 513.7 343.2zM115 299.4L87.3 283.4C78.9 278.5 74.2 269.1 75.5 259.5C76.8 249.9 83.7 242 93.1 239.5L180.5 216C193.3 212.6 206.5 220.2 209.9 233L233.3 320.4C235.8 329.8 232.4 339.7 224.7 345.7C217 351.7 206.5 352.3 198.1 347.4L170.4 331.4L133.1 396C111.5 433.3 138.5 480 181.6 480L192.2 480C209.9 480 224.2 494.3 224.2 512C224.2 529.7 209.9 544 192.2 544L181.6 544C89.3 544 31.6 444 77.8 364L115 299.4z"/></svg>
+				</button>
 			</div>
 		</div>
 
@@ -1003,6 +1024,7 @@
 	const optionsToggleVisibleIcon = '<svg class="svg-inline--fa fa-square-caret-up" aria-hidden="true" focusable="false" data-prefix="far" data-icon="square-caret-up" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" data-fa-i2svg="" style="width: 25px; height: 25px;"><path fill="#000000" d="M241.6 175.7C237.1 170.8 230.7 168 224 168S210.9 170.8 206.4 175.7l-96 104c-6.469 7-8.188 17.19-4.375 25.91C109.8 314.3 118.5 320 127.1 320h192c9.531 0 18.16-5.656 22-14.38c3.813-8.719 2.094-18.91-4.375-25.91L241.6 175.7zM384 32H64C28.65 32 0 60.66 0 96v320c0 35.34 28.65 64 64 64h320c35.35 0 64-28.66 64-64V96C448 60.66 419.3 32 384 32zM400 416c0 8.82-7.178 16-16 16H64c-8.822 0-16-7.18-16-16V96c0-8.82 7.178-16 16-16h320c8.822 0 16 7.18 16 16V416z"></path></svg>';
 	const optionsToggleHiddenIcon = '<svg class="svg-inline--fa fa-square-caret-down" aria-hidden="true" focusable="false" data-prefix="far" data-icon="square-caret-down" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" data-fa-i2svg="" style="width: 25px; height: 25px;"><path fill="#000000" d="M320 192H128C118.5 192 109.8 197.7 105.1 206.4C102.2 215.1 103.9 225.3 110.4 232.3l96 104C210.9 341.2 217.3 344 224 344s13.09-2.812 17.62-7.719l96-104c6.469-7 8.188-17.19 4.375-25.91C338.2 197.7 329.5 192 320 192zM384 32H64C28.65 32 0 60.66 0 96v320c0 35.34 28.65 64 64 64h320c35.35 0 64-28.66 64-64V96C448 60.66 419.3 32 384 32zM400 416c0 8.82-7.178 16-16 16H64c-8.822 0-16-7.18-16-16V96c0-8.82 7.178-16 16-16h320c8.822 0 16 7.18 16 16V416z"></path></svg>';
 
+
 	// I'm making various different map color schemes available, created using Google's style editor (https://mapstyle.withgoogle.com/). Feel free to create your own and add it as a variable. We'll then set which style later in the 'initMap' function.
 
 	const standardStyle = [ { "stylers": [ { "lightness": 60 } ] }, { "elementType": "labels", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi.business", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "transit", "stylers": [ { "visibility": "off" } ] } ];
@@ -1080,6 +1102,18 @@
 	}
 	function saveCache() {
 		try { localStorage.setItem(__LMBMW_CACHE_KEY, JSON.stringify(cachedAddresses)); } catch (e) {}
+	}
+	function clearCache() {
+		try {
+			localStorage.removeItem(__LMBMW_CACHE_KEY);
+			// Display our progress to the user...
+			document.getElementById("refreshStatusArea").innerHTML = "Cache has been reset";
+			document.getElementById("refreshStatusArea").style.display = "flex";
+			// Add timer to remove message after 2 seconds...
+			setTimeout(() => {
+				document.getElementById("refreshStatusArea").style.display = "none";
+			}, 2000);
+		} catch (e) {}
 	}
 	let cachedAddresses = loadCache();
 
@@ -1820,14 +1854,45 @@
 
 				// Get the group's location (hopefully an address)...
 				let address = "";
+				let latProp = "";
+				let lngProp = "";
+				alreadyGeocoded = false;
 				// First check to see if the location is in custom properties (defined on the group/resource itself)...
 				if (fullRefresh) {
 					try {
 						address = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "location").value;
+
+						// See if there are custom properties for latitude and longitude...
+						if (!ignoreLatLongProps) {
+							latProp = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
+							lngProp = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
+							if (latProp && lngProp) {
+								let latVal = Number(latProp.value);
+								let lngVal = Number(lngProp.value);
+								if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
+									// address = `${latProp.value}, ${lngProp.value}`;
+									alreadyGeocoded = true;
+								};
+							};
+						};
 					} catch(e) {
 						try {
 							// If not found in custom properties, try to get it from inherited properties...
 							address = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "location").value;
+
+							// See if there are inherited properties for latitude and longitude...
+							if (!ignoreLatLongProps) {
+								latProp = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
+								lngProp = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
+								if (latProp && lngProp) {
+									let latVal = Number(latProp.value);
+									let lngVal = Number(lngProp.value);
+									if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
+										// address = `${latProp.value}, ${lngProp.value}`;
+										alreadyGeocoded = true;
+									};
+								};
+							};
 						} catch(y) {
 							// console.log("No address found for " + thisItem.name);
 							// totalGroups = totalGroups - 1;
@@ -1843,41 +1908,49 @@
 				// Resolve locations to latitude/longitude...
 				async function resolveAddress(thisItem, address) {
 					// console.debug('Resolving address for ' + thisItem.name + ': ' + address);
-					// Check to see if we've already geocoded this group's address...
-					if (cachedAddresses[thisItem.id]) {
-						// console.debug('Address already geocoded for ' + thisItem.name + ': ' + address);
+					// Check to see if we've already geocoded this group's address and that the address hasn't changed...
+					if (cachedAddresses[thisItem.id] && cachedAddresses[thisItem.id].address == address) {
+						console.debug('Address already geocoded for ' + thisItem.name + ': ' + address);
 						// Call the subfunction to add the group to the map...
 						plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, cachedAddresses[thisItem.id].address);
 					} else {
-						// See if the location is a latitude/longitude...
-						const coodinateRE = /^([\-]*[\d]+[\.\d]+)[ ,]+([\-]*[\d]+[\.\d]+)$/;
-						let match = coodinateRE.exec(address);
-						if (match && match.length == 3) {
-							// It appears we have a latitude & longitude. Cache them for reuse...
-							cachedAddresses[thisItem.id] = {lat: Number(match[1]), lng: Number(match[2]), address: address};
- 							saveCache();
+						if (alreadyGeocoded) {
+							// console.debug('Address already geocoded as custom properties for ' + thisItem.name + ': ' + address);
+							// Cache the address for reuse...
+							cachedAddresses[thisItem.id] = {lat: Number(latProp.value), lng: Number(lngProp.value), address: address};
+							saveCache();
 							// Call the subfunction to add the group to the map...
-							plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, address);
+							plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, cachedAddresses[thisItem.id].address);
 						} else {
-							// Attempt to geocode the address...
-							geocoder.geocode( {'address': address}, function(results, status) {
-								if (status == 'OK') {
-									// Grab the longitude/latitude from the results...
-									let geocodedLocation = results[0].geometry.location;
+							// See if the location is a latitude/longitude...
+							const coodinateRE = /^([\-]*[\d]+[\.\d]+)[ ,]+([\-]*[\d]+[\.\d]+)$/;
+							let match = coodinateRE.exec(address);
+							if (match && match.length == 3) {
+								// It appears we have a latitude & longitude. Cache them for reuse...
+								cachedAddresses[thisItem.id] = {lat: Number(match[1]), lng: Number(match[2]), address: address};
+								saveCache();
+								// Call the subfunction to add the group to the map...
+								plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, address);
+							} else {
+								// Attempt to geocode the address...
+								geocoder.geocode( {'address': address}, function(results, status) {
+									if (status == 'OK') {
+										// Grab the longitude/latitude from the results...
+										let geocodedLocation = results[0].geometry.location;
 
-									// Cache these coordinates for reuse later...
-									cachedAddresses[thisItem.id] = {lat: Number(geocodedLocation.lat()), lng: Number(geocodedLocation.lng()), address: address};
- 									saveCache();
-									// Call the subfunction to add the group to the map...
-									plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, address);
-								} else {
-									// We weren't provided a resolvable address, so deduct this item from our overall count...
-									totalGroups = totalGroups - 1;
-									console.debug('No address found for ' + thisItem.name);
-									// We still call the `plotMarker` even though there's no marker to plot in case this was the last one to process...
-									plotMarker(thisItem, null, null, null);
-								};
-							});
+										// Cache these coordinates for reuse later...
+										cachedAddresses[thisItem.id] = {lat: Number(geocodedLocation.lat()), lng: Number(geocodedLocation.lng()), address: address};
+										saveCache();
+										// Call the subfunction to add the group to the map...
+										plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, address);
+									} else {
+										// We weren't provided a resolvable address, so deduct this item from our overall count...
+										totalGroups = totalGroups - 1;
+										// We still call the `plotMarker` even though there's no marker to plot in case this was the last one to process...
+										plotMarker(thisItem, null, null, null);
+									};
+								});
+							};
 						};
 					};
 				};
