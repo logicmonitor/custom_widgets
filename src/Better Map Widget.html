@@ -1,7 +1,7 @@
 <!--
 	Better Map Widget
 	Developed by Kevin Ford
-	Version 2.79 - Integrated Authentication Version
+	Version 2.80 - Integrated Authentication Version
 	Integrated authentication improvements by Steve Villardi
 
 	Some of the ideas behind this project:
@@ -1926,8 +1926,20 @@
 							// See if the location is a latitude/longitude...
 							const coodinateRE = /^([\-]*[\d]+[\.\d]+)[ ,]+([\-]*[\d]+[\.\d]+)$/;
 							let match = coodinateRE.exec(address);
+							let latVal = null;
+							let lngVal = null;
 							if (match && match.length == 3) {
+								try {
+									latVal = Number(match[1]);
+									lngVal = Number(match[2]);
+								} catch(e) {};
 								// It appears we have a latitude & longitude. Cache them for reuse...
+								latVal = Number(match[1]);
+								lngVal = Number(match[2]);
+							};
+							// Ensure the latitude and longitude are valid...
+							if (latVal && lngVal && latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180 && latVal != 0 && lngVal != 0) {
+								// console.debug('Latitude & longitude found for ' + thisItem.name + ': ' + match[1] + ', ' + match[2]);
 								cachedAddresses[thisItem.id] = {lat: Number(match[1]), lng: Number(match[2]), address: address};
 								saveCache();
 								// Call the subfunction to add the group to the map...
