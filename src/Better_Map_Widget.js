@@ -289,6 +289,7 @@ let mapSourceTypeToken = document.getElementById("mapSourceTypeToken").innerText
 if (mapSourceTypeToken != "##MapSourceType##") {
 	mapSourceType = mapSourceTypeToken.toLowerCase();
 };
+console.debug("mapSourceType", mapSourceType);
 
 // Capture from token whether override the map theme...
 let mapStyleToken = document.getElementById("mapStyleToken").innerText;
@@ -296,6 +297,7 @@ let mapStyleToken = document.getElementById("mapStyleToken").innerText;
 if (mapStyleToken != "##MapStyle##") {
 	mapStyle = mapStyleToken.toLowerCase();
 };
+console.debug("mapStyle", mapStyle);
 
 // Capture from token whether to hide the map options...
 let hideMapOptionsByDefaultToken = document.getElementById("hideMapOptionsByDefaultToken").innerText;
@@ -303,6 +305,7 @@ let hideMapOptionsByDefaultToken = document.getElementById("hideMapOptionsByDefa
 if (hideMapOptionsByDefaultToken.toLowerCase() == "true" || hideMapOptionsByDefaultToken.toLowerCase() == "yes"|| hideMapOptionsByDefaultToken.toLowerCase() == "1") {
 	hideMapOptionsByDefault = true;
 };
+console.debug("hideMapOptionsByDefault", hideMapOptionsByDefault);
 
 // Capture from token whether to hide items that don't have active alerts...
 let ignoreClearedToken = document.getElementById("ignoreClearedToken").innerText;
@@ -340,14 +343,14 @@ let showMapTiltControlsToken = document.getElementById("showMapTiltControlsToken
 if (showMapTiltControlsToken.toLowerCase() == "true" || showMapTiltControlsToken.toLowerCase() == "yes" || showMapTiltControlsToken.toLowerCase() == "1") {
 	showMapTiltControls = true;
 };
-
+console.debug("showMapTiltControls", showMapTiltControls);
 // Capture from token whether to automatically reset the map's zoom to encompass all items on timed refreshes...
 let autoResetMapOnRefreshToken = document.getElementById("autoResetMapOnRefreshToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (autoResetMapOnRefreshToken.toLowerCase() == "true" || autoResetMapOnRefreshToken.toLowerCase() == "yes" || autoResetMapOnRefreshToken.toLowerCase() == "1") {
 	autoResetMapOnRefresh = true;
 };
-
+console.debug("autoResetMapOnRefresh", autoResetMapOnRefresh);
 // Capture our group filter if defined as a token...
 let dashboardGroupPathToken = document.getElementById("dashboardGroupPathToken").innerText;
 if (dashboardGroupPathToken != "##MapGroupPathFilter##") {
@@ -359,7 +362,7 @@ if (groupPathFilter == "") {
 };
 // Capture the current path filter to reset the form field if the user completely clears it out...
 const initialGroupPathFilter = groupPathFilter;
-
+console.debug("initialGroupPathFilter", initialGroupPathFilter);
 // Capture our overlay defaults if defined as tokens...
 let dashboardShowWeatherToken = document.getElementById("dashboardShowWeatherToken").innerText.toLowerCase();
 if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexrad") {
@@ -369,20 +372,22 @@ let dashboardAddlOverlayToken = document.getElementById("dashboardAddlOverlayTok
 if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "earthquakes") {
 	additionalOverlayOption = dashboardAddlOverlayToken;
 };
-
+console.debug("additionalOverlayOption", additionalOverlayOption);
 // Capture from token any custom properties to display when viewing an item's details...
 let displayPropsToken = document.getElementById("displayPropsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (displayPropsToken != "##MapDisplayProperties##") {
 	displayProps = displayPropsToken;
 };
-
+console.debug("displayProps", displayProps);
 // Capture from token whether to disable marker clustering...
 let disableClusteringToken = document.getElementById("disableClusteringToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (disableClusteringToken.toLowerCase() == "true" || disableClusteringToken.toLowerCase() == "yes" || disableClusteringToken.toLowerCase() == "1") {
 	disableClustering = true;
 };
+console.debug("disableClustering", disableClustering);
+
 
 // ------------------------------------------------------------
 
