@@ -279,6 +279,113 @@ async function LMClient({
 
 // ------------------------------------------------------------
 
+// Capture information from specific dashboard tokens we'll be using...
+// (Like any token inserted into the Text widget, LogicMonitor automatically inserts these token values as the page is being rendered so Javascript is able to pick them as if the values were there originally. If a token isn't set then the variable's value will be literally what's shown below, including the double-hashtags.)
+
+// Capture from token whether to plot "groups" or "resources" or "services"...
+let mapSourceTypeToken = document.getElementById("mapSourceTypeToken").innerText;
+// If the token value wasn't set then use the values hard-coded above at the beginning of this script...
+// if (mapSourceTypeToken != "\#\#MapSourceType\#\#") {
+if (mapSourceTypeToken != "##MapSourceType##") {
+	mapSourceType = mapSourceTypeToken.toLowerCase();
+};
+
+// Capture from token whether override the map theme...
+let mapStyleToken = document.getElementById("mapStyleToken").innerText;
+// If the token value wasn't set then use the values hard-coded above at the beginning of this script...
+if (mapStyleToken != "##MapStyle##") {
+	mapStyle = mapStyleToken.toLowerCase();
+};
+
+// Capture from token whether to hide the map options...
+let hideMapOptionsByDefaultToken = document.getElementById("hideMapOptionsByDefaultToken").innerText;
+// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
+if (hideMapOptionsByDefaultToken.toLowerCase() == "true" || hideMapOptionsByDefaultToken.toLowerCase() == "yes"|| hideMapOptionsByDefaultToken.toLowerCase() == "1") {
+	hideMapOptionsByDefault = true;
+};
+
+// Capture from token whether to hide items that don't have active alerts...
+let ignoreClearedToken = document.getElementById("ignoreClearedToken").innerText;
+// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
+if (ignoreClearedToken.toLowerCase() == "true" || ignoreClearedToken.toLowerCase() == "yes" || ignoreClearedToken.toLowerCase() == "1") {
+	showCleared = false;
+};
+// Capture from token whether to hide items that have "Warning" alerts...
+let ignoreWarningsToken = document.getElementById("ignoreWarningsToken").innerText;
+// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
+if (ignoreWarningsToken.toLowerCase() == "true" || ignoreWarningsToken.toLowerCase() == "yes" || ignoreWarningsToken.toLowerCase() == "1") {
+	showWarnings = false;
+};
+// Capture from token whether to hide items that have "Error" alerts...
+let ignoreErrorsToken = document.getElementById("ignoreErrorsToken").innerText;
+// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
+if (ignoreErrorsToken.toLowerCase() == "true" || ignoreErrorsToken.toLowerCase() == "yes" || ignoreErrorsToken.toLowerCase() == "1") {
+	showErrors = false;
+};
+// Capture from token whether to hide items that have "Critical" alerts...
+let ignoreCriticalsToken = document.getElementById("ignoreCriticalsToken").innerText;
+// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
+if (ignoreCriticalsToken.toLowerCase() == "true" || ignoreCriticalsToken.toLowerCase() == "yes" || ignoreCriticalsToken.toLowerCase() == "1") {
+	showCriticals = false;
+};
+// Capture from token whether to hide items that are in SDT...
+let ignoreSDTToken = document.getElementById("ignoreSDTToken").innerText;
+// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
+if (ignoreSDTToken.toLowerCase() == "true" || ignoreSDTToken.toLowerCase() == "yes" || ignoreSDTToken.toLowerCase() == "1") {
+	showSDT = false;
+};
+// Capture from token whether to show the map tilt/rotation controls...
+let showMapTiltControlsToken = document.getElementById("showMapTiltControlsToken").innerText;
+// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
+if (showMapTiltControlsToken.toLowerCase() == "true" || showMapTiltControlsToken.toLowerCase() == "yes" || showMapTiltControlsToken.toLowerCase() == "1") {
+	showMapTiltControls = true;
+};
+
+// Capture from token whether to automatically reset the map's zoom to encompass all items on timed refreshes...
+let autoResetMapOnRefreshToken = document.getElementById("autoResetMapOnRefreshToken").innerText;
+// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
+if (autoResetMapOnRefreshToken.toLowerCase() == "true" || autoResetMapOnRefreshToken.toLowerCase() == "yes" || autoResetMapOnRefreshToken.toLowerCase() == "1") {
+	autoResetMapOnRefresh = true;
+};
+
+// Capture our group filter if defined as a token...
+let dashboardGroupPathToken = document.getElementById("dashboardGroupPathToken").innerText;
+if (dashboardGroupPathToken != "##MapGroupPathFilter##") {
+	groupPathFilter = dashboardGroupPathToken;
+};
+if (groupPathFilter == "") {
+	// Default to "*" if no value was given...
+	groupPathFilter = "*";
+};
+// Capture the current path filter to reset the form field if the user completely clears it out...
+const initialGroupPathFilter = groupPathFilter;
+
+// Capture our overlay defaults if defined as tokens...
+let dashboardShowWeatherToken = document.getElementById("dashboardShowWeatherToken").innerText.toLowerCase();
+if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexrad") {
+	showWeatherDefault = dashboardShowWeatherToken;
+};
+let dashboardAddlOverlayToken = document.getElementById("dashboardAddlOverlayToken").innerText.toLowerCase();
+if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "earthquakes") {
+	additionalOverlayOption = dashboardAddlOverlayToken;
+};
+
+// Capture from token any custom properties to display when viewing an item's details...
+let displayPropsToken = document.getElementById("displayPropsToken").innerText;
+// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
+if (displayPropsToken != "##MapDisplayProperties##") {
+	displayProps = displayPropsToken;
+};
+
+// Capture from token whether to disable marker clustering...
+let disableClusteringToken = document.getElementById("disableClusteringToken").innerText;
+// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
+if (disableClusteringToken.toLowerCase() == "true" || disableClusteringToken.toLowerCase() == "yes" || disableClusteringToken.toLowerCase() == "1") {
+	disableClustering = true;
+};
+
+// ------------------------------------------------------------
+
 // Set the form fields as appropriate...
 document.getElementById("showCleared").checked = showCleared;
 document.getElementById("showWarnings").checked = showWarnings;
