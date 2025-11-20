@@ -24,18 +24,29 @@ A fully custom-made widget to overcome some limitations of LogicMonitor's core M
 - More informative tips when clicking a marker, with the ability to include custom properties
 - The ability to show colored lines representing status of connections between locations
 
-### Prerequisites
+## "CDN" vs "Legacy" Versions
+
+There are two different versions of the widget's source code:
+
+- [Better_Map_Widget-CDN.html](src/Better_Map_Widget-CDN.html): *(recommended)* Contains just the HTML necessary to run and all the Javascript - which is what typically changes between versions - is loaded dynamically via CDN.
+	- **Pros**: Requires far less manual updating - it's always up-to-date with what's published here.
+	- **Cons**: Might not work in some circumstances if you need to embed it into a dashboard outside of LogicMonitor.
+- [Better_Map_Widget-Legacy.html](src/Better_Map_Widget-Legacy.html): All the Javascript is directly embedded in the widget.
+	- **Pros**: Will work in almost every circumstance if embedded into a webpage outside of your LogicMonitor.
+	- **Cons**: Requires manual effort to keep it updated with the latest updates published here.
+
+## Prerequisites
 
 - Groups, resources, or services with valid addresses set in the usual 'location' property
-- If you want to show connections between locations and their status, load the 'Set Better Map Widget Connections' PropertySource
+- If you want to show connections between locations and their status, load the [Set Better Map Widget Connections](LogicModules/Set_Better_Map_Widget_Connections.json) PropertySource into your portal
 
-### Initial Configuration
+## Initial Configuration
 
 1. Create a new Text widget on your dashboard.
 2. On the Text widget's edit dialog, click the "Source" button, paste in the HTML source code for the script, then save the widget.
 3. Add optional dashboard tokens to modify defaults for the widget as desired. A list of token options is provided below. These can also be hard-coded into the widget in a section at the top of the source code.
 
-### Usage
+## Usage
 
 Clicking on a marker cluster will display more info about that group, including the option to zoom in to see the clustered markers. To quickly reset the zoom, just click the bottom button in the upper-left corner of the map (the one with the 4 arrows).
 
@@ -45,7 +56,7 @@ Note that by default the zoom level of the map will _not_ auto-reset on refres
 
 Visibility of the toolbar along the top of the widget can be toggled using the button in the upper-left corner of the map.
 
-### Optional Customization
+## Optional Customization
 
 Behavior of the widget can be customized using the following optional dashboard tokens:
 
@@ -63,15 +74,15 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapDisplayProperties**: An optional comma-delimited list of custom properties to show when viewing a group's/resource's details.
 - **MapStyle**: Allows one of the following available map style options: "silver", "standard", "dark", "aubergine", or "silverblue". Default is "silver".
 
-### Showing Connections between Locations
+## Showing Connections between Locations
 
 Better Map Widget allows a way to represent connectivity between locations. Currently this only supports alert status of instances of the "SNMP_Network_Interfaces" datasource and any datasource with "VPN" in the name.
 
-To configure, go to the specific instance of one of those datasources and add an instance-level property called 'custom_map_connection'. The value should be in the following format:
+To configure:
+1. Be sure you've loaded the required PropertySource mentioned in the Prerequisites section above.
+2. Go to the specific instance of one of either the 'SNMP_Network_Interfaces' datasource or a datasource with "VPN" in its name, and add an instance-level property called 'custom_map_connection'. The value should be in the following format: `{Connection Title} > {Hostname/IP of the connected resource}`
 
-{Connection Title} > {Hostname/IP of the connected resource}
-
-For example: "London WAN > 192.168.1.10" would show a line titled "London WAN" representing this specific interface connected from that resource's location to the resource monitored as 192.168.1.10. A PropertySource - "Set Better Map Widget Connections" - automatically configures those instance-level properties as resource-level properties along with other necessary data for the widget to use.
+For example: `London WAN > 192.168.1.10` would show a line titled "London WAN" representing this specific interface connected from that resource's location to the resource monitored as 192.168.1.10. A PropertySource - "Set Better Map Widget Connections" - automatically configures those instance-level properties as resource-level properties along with other necessary data for the widget to use.
 
 ---
 # Dynamic Dashboard List
@@ -83,7 +94,7 @@ This script was created in response to a customer needing a quick way to drill-d
 
 To use this, just add a Text widget to your dashboard and in the widget's configuration screen click the "source" view then paste in this code. You can also just clone this widget to another dashboard on the same portal.
 
-### Optional Customization
+## Optional Customization
 
 Behavior of the widget can be customized using the following optional dashboard tokens:
 
