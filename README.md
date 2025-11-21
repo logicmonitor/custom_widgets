@@ -28,7 +28,7 @@ A fully custom-made widget to overcome some limitations of LogicMonitor's core M
 
 There are two different versions of the widget's source code:
 
-- [Better_Map_Widget-CDN.html](src/Better_Map_Widget-CDN.html): *(recommended)* Contains just the HTML necessary to run and all the Javascript - which is what typically changes between versions - is loaded dynamically via CDN.
+- [Better_Map_Widget-CDN.html](src/Better_Map_Widget-CDN.html): *(recommended)* Contains just the HTML necessary to run. The Javascript (which is what typically changes between versions) & CSS are loaded dynamically via CDN.
 	- **Pros**: Requires far less manual updating - it's always up-to-date with what's published here.
 	- **Cons**: Might not work in some circumstances if you need to embed it into a dashboard outside of LogicMonitor.
 - [Better_Map_Widget-Full.html](src/Better_Map_Widget-Full.html): All the Javascript is directly embedded in the widget.
