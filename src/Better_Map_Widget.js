@@ -567,7 +567,8 @@ async function initWidget() {
 async function populateWidgetHTML() {
 	// Populate the HTML for the widget...
 	const customMapBody = document.getElementById("customMapBody");
-	if (customMapBody && customMapBody.innerHTML == "&nbsp;") {
+	// if (customMapBody && customMapBody.innerHTML == "&nbsp;") {
+	if (customMapBody) {
 		const widgetHTML = `
 			<!-- Create our options bar above the map... -->
 			<div id="optionsBar" class="optionsVisible">
@@ -654,7 +655,7 @@ async function populateWidgetHTML() {
 				</div>
 			</div>
 		`;
-		document.getElementById("customMapBody").innerHTML = widgetHTML;
+		customMapBody.innerHTML = widgetHTML;
 	};
 };
 
