@@ -12,7 +12,7 @@
 # Better Map Widget
 
 ![Image](Sample%20Dashboards/Screenshots/Better_Map_Widget.png?raw=true)
-[Download sample dashboard](Sample%20Dashboards/Better_Map_Widget.json) / [Widget source code](src/Better_Map_Widget-CDN.html)
+[Download sample dashboard](Sample%20Dashboards/Better_Map_Widget.json) / [Widget source code](src/Better_Map_Widget.html)
 
 A fully custom-made widget to overcome some limitations of LogicMonitor's core Map widget. The ideas behind it are:
 
@@ -23,17 +23,6 @@ A fully custom-made widget to overcome some limitations of LogicMonitor's core M
 - Layers for weather, earthquakes, US wildfires, and US power outages
 - More informative tips when clicking a marker, with the ability to include custom properties
 - The ability to show colored lines representing status of connections between locations
-
-## "CDN" vs "Legacy" Versions
-
-There are two different versions of the widget's source code:
-
-- [Better_Map_Widget-CDN.html](src/Better_Map_Widget-CDN.html): *(recommended)* Contains just the HTML necessary to run and all the Javascript - which is what typically changes between versions - is loaded dynamically via CDN.
-	- **Pros**: Requires far less manual updating - it's always up-to-date with what's published here.
-	- **Cons**: Might not work in some circumstances if you need to embed it into a dashboard outside of LogicMonitor.
-- [Better_Map_Widget-Legacy.html](src/Better_Map_Widget-Legacy.html): All the Javascript is directly embedded in the widget.
-	- **Pros**: Will work in almost every circumstance if embedded into a webpage outside of your LogicMonitor.
-	- **Cons**: Requires manual effort to keep it updated with the latest updates published here.
 
 ## Prerequisites
 
