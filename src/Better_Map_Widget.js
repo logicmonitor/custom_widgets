@@ -96,97 +96,7 @@ const showWildfireInfoEvent = "click";
 let quakeMode = "time";
 
 // ------------------------------------------------------------
-// Populate the HTML for the widget...\
-const customMapBody = document.getElementById("customMapBody");
-if (customMapBody && customMapBody.innerHTML == "&nbsp;") {
-	const widgetHTML = `
-		<!-- Create our options bar above the map... -->
-		<div id="optionsBar" class="optionsVisible">
-			<div id="mapOptionsArea">
-				<span id="customGroupFilterOptions" data-title="Path to the items you'd like on the map. Examples:&quot;*&quot;, &quot;Locations/*&quot;">
-					<label for="customGroupFilterField">Group filter:</label>
-					<input type="text" id="customGroupFilterField" name="customGroupFilterField" value="*" onkeypress="groupkeyHandler(event);" />
-				</span>
-
-				<span id="sevFilterOptions">
-					<span class="sevFilterOption">
-						<input type="checkbox" id="showCleared" name="showCleared" value="showCleared" onclick="refreshGroupData();" data-title="Show/hide items with no active alerts" />
-						<label for="showCleared"><div id="showClearedLabel" class="toolbarSevIcon">Cleared</div></label>
-					</span>
-					<span class="sevFilterOption">
-						<input type="checkbox" id="showWarnings" name="showWarnings" value="showWarnings" onclick="refreshGroupData();" data-title="Show/hide items with active Warning alerts" />
-						<label for="showWarnings"><div id="showWarningsLabel" class="toolbarSevIcon">Warnings</div></label>
-					</span>
-					<span class="sevFilterOption">
-						<input type="checkbox" id="showErrors" name="showErrors" value="showErrors" onclick="refreshGroupData();" data-title="Show/hide items with active Error alerts" />
-						<label for="showErrors"><div id="showErrorsLabel" class="toolbarSevIcon">Errors</div></label>
-					</span>
-					<span class="sevFilterOption">
-						<input type="checkbox" id="showCriticals" name="showCriticals" value="showCriticals" onclick="refreshGroupData();" data-title="Show/hide items with active Critical alerts" />
-						<label for="showCriticals"><div id="showCriticalsLabel" class="toolbarSevIcon">Criticals</div></label>
-					</span>
-					<span class="sevFilterOption">
-						<input type="checkbox" id="showSDT" name="showSDT" value="showSDT" onclick="refreshGroupData();" data-title="Show/hide items in Scheduled Down Time (SDT)" />
-						<label for="showSDT"><div id="showSDTLabel" class="toolbarSevIcon">SDT</div></label>
-					</span>
-				</span>
-
-				<span data-title="Toggle visibility of additional options">
-					<svg id="optionsToggleButton" onclick="toggleMiscOptions()" width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" style="vertical-align: middle;"><path id="gearIcon" d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6c-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2c-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8c-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8c-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3c-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6c4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2c5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8c8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336a80 80 0 1 0 0-160 80 80 0 1 0 0 160z" fill="#aaa"/></svg>
-				</span>
-				<svg id="gearIconChevron" style="display: none; margin-left: -3px;" width="10" height="15" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 512"><path d="M246.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-9.2-9.2-22.9-11.9-34.9-6.9s-19.8 16.6-19.8 29.6l0 256c0 12.9 7.8 24.6 19.8 29.6s25.7 2.2 34.9-6.9l128-128z" fill="#999"/></svg>
-
-				<div id="optionsToggleArea">
-					<span id="autoZoomOptions" data-title="Automatically reset the map's zoom to encompass all items after timed refreshes. You can also manually do so at any time using the 'Reset map zoom' button on the left of the map.">
-						<input type="checkbox" id="autoZoom" name="autoZoom" value="autoZoom" onclick="enableWeather();" checked="true" />
-						<label for="autoZoom">Auto-zoom</label>
-					</span>
-
-					<span id="weatherOptionsArea">
-						<span data-title="Enables overlay of current weather radar and more">
-							<input type="checkbox" id="weather" name="weather" value="weather" onclick="enableWeather();" />
-							<label for="weather">Weather</label>
-						</span>
-
-						<span id="weatherOptions">
-							<span data-title="Weather across the globe (~10-15 minute updates)" onclick="enableWeather();">
-								<input type="radio" id="globalWeather" name="weatherType" value="radar" checked="true" />
-								<label for="globalWeather">Global</label>
-							</span>
-
-							<span data-title="US NEXRAD Base radar (~5 minute updates)" onclick="enableWeather();">
-								<input type="radio" id="nexradWeather" name="weatherType" value="nexrad-n0q-900913" />
-								<label for="nexradWeather">NEXRAD (US)</label>
-							</span>
-
-							<span id="additionalOverlayOptions">
-								<!-- <strong class="optionsHeader">additional overlays:</strong> -->
-								<span data-title="Active US wildfires" onclick="enableWeather();">
-									<input type="radio" id="usWildfires" name="otherWeatherOverlays" value="us-fires" checked="true" />
-									<label for="usWildfires">US Wildfires</label>
-								</span>
-
-								<span data-title="US power outages by county" onclick="enableWeather();">
-									<input type="radio" id="usPowerOutages" name="otherWeatherOverlays" value="us-poweroutages" />
-									<label for="usPowerOutages">US Power Outages</label>
-								</span>
-
-								<span data-title="Significant earthquakes (magnitude 6+) over the past 7 days" onclick="enableWeather();">
-									<input type="radio" id="earthquakes" name="otherWeatherOverlays" value="earthquakes" />
-									<label for="earthquakes">Earthquakes</label>
-								</span>
-							</span>
-						</span>
-					</span>
-					<button id="clearCacheButton" type="button" data-title="Reset addresses cached locally on your browser (should rarely be needed, only use if you're having issues with the map)" onclick="clearCache();">
-						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" height="20" width="20" style="vertical-align: middle;"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path id="recycleIcon" d="M216.3 124C262.5 44 378 44 424.2 124L461.5 188.6L489.2 172.6C497.6 167.7 508.1 168.4 515.8 174.3C523.5 180.2 526.9 190.2 524.4 199.6L500.9 287C497.5 299.8 484.3 307.4 471.5 304L384.1 280.6C374.7 278.1 367.8 270.2 366.5 260.6C365.2 251 369.9 241.5 378.3 236.7L406 220.7L368.7 156.1C347.1 118.8 293.3 118.8 271.7 156.1L266.4 165.2C257.6 180.5 238 185.7 222.7 176.9C207.4 168.1 202.2 148.5 211 133.1L216.3 124zM513.7 343.1C529 334.3 548.6 339.5 557.4 354.8L562.7 363.9C608.9 443.9 551.2 543.9 458.8 543.9L384.2 543.9L384.2 575.9C384.2 585.6 378.4 594.4 369.4 598.1C360.4 601.8 350.1 599.8 343.2 592.9L279.2 528.9C269.8 519.5 269.8 504.3 279.2 495L343.2 431C350.1 424.1 360.4 422.1 369.4 425.8C378.4 429.5 384.2 438.3 384.2 448L384.2 480L458.8 480C501.9 480 528.9 433.3 507.3 396L502 386.9C493.2 371.6 498.4 352 513.7 343.2zM115 299.4L87.3 283.4C78.9 278.5 74.2 269.1 75.5 259.5C76.8 249.9 83.7 242 93.1 239.5L180.5 216C193.3 212.6 206.5 220.2 209.9 233L233.3 320.4C235.8 329.8 232.4 339.7 224.7 345.7C217 351.7 206.5 352.3 198.1 347.4L170.4 331.4L133.1 396C111.5 433.3 138.5 480 181.6 480L192.2 480C209.9 480 224.2 494.3 224.2 512C224.2 529.7 209.9 544 192.2 544L181.6 544C89.3 544 31.6 444 77.8 364L115 299.4z"/></svg>
-					</button>
-				</div>
-			</div>
-		</div>
-	`;
-	document.getElementById("customMapBody").innerHTML = widgetHTML;
-};
+initWidget();
 
 // ------------------------------------------------------------
 
@@ -648,6 +558,105 @@ initMap();
 
 
 // ----- FUNCTIONS
+
+async function initWidget() {
+	await populateWidgetHTML();
+}
+
+// Function to populate the HTML for the widget...
+async function populateWidgetHTML() {
+	// Populate the HTML for the widget...
+	const customMapBody = document.getElementById("customMapBody");
+	if (customMapBody && customMapBody.innerHTML == "&nbsp;") {
+		const widgetHTML = `
+			<!-- Create our options bar above the map... -->
+			<div id="optionsBar" class="optionsVisible">
+				<div id="mapOptionsArea">
+					<span id="customGroupFilterOptions" data-title="Path to the items you'd like on the map. Examples:&quot;*&quot;, &quot;Locations/*&quot;">
+						<label for="customGroupFilterField">Group filter:</label>
+						<input type="text" id="customGroupFilterField" name="customGroupFilterField" value="*" onkeypress="groupkeyHandler(event);" />
+					</span>
+
+					<span id="sevFilterOptions">
+						<span class="sevFilterOption">
+							<input type="checkbox" id="showCleared" name="showCleared" value="showCleared" onclick="refreshGroupData();" data-title="Show/hide items with no active alerts" />
+							<label for="showCleared"><div id="showClearedLabel" class="toolbarSevIcon">Cleared</div></label>
+						</span>
+						<span class="sevFilterOption">
+							<input type="checkbox" id="showWarnings" name="showWarnings" value="showWarnings" onclick="refreshGroupData();" data-title="Show/hide items with active Warning alerts" />
+							<label for="showWarnings"><div id="showWarningsLabel" class="toolbarSevIcon">Warnings</div></label>
+						</span>
+						<span class="sevFilterOption">
+							<input type="checkbox" id="showErrors" name="showErrors" value="showErrors" onclick="refreshGroupData();" data-title="Show/hide items with active Error alerts" />
+							<label for="showErrors"><div id="showErrorsLabel" class="toolbarSevIcon">Errors</div></label>
+						</span>
+						<span class="sevFilterOption">
+							<input type="checkbox" id="showCriticals" name="showCriticals" value="showCriticals" onclick="refreshGroupData();" data-title="Show/hide items with active Critical alerts" />
+							<label for="showCriticals"><div id="showCriticalsLabel" class="toolbarSevIcon">Criticals</div></label>
+						</span>
+						<span class="sevFilterOption">
+							<input type="checkbox" id="showSDT" name="showSDT" value="showSDT" onclick="refreshGroupData();" data-title="Show/hide items in Scheduled Down Time (SDT)" />
+							<label for="showSDT"><div id="showSDTLabel" class="toolbarSevIcon">SDT</div></label>
+						</span>
+					</span>
+
+					<span data-title="Toggle visibility of additional options">
+						<svg id="optionsToggleButton" onclick="toggleMiscOptions()" width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" style="vertical-align: middle;"><path id="gearIcon" d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6c-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2c-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8c-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8c-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3c-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6c4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2c5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8c8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336a80 80 0 1 0 0-160 80 80 0 1 0 0 160z" fill="#aaa"/></svg>
+					</span>
+					<svg id="gearIconChevron" style="display: none; margin-left: -3px;" width="10" height="15" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 512"><path d="M246.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-9.2-9.2-22.9-11.9-34.9-6.9s-19.8 16.6-19.8 29.6l0 256c0 12.9 7.8 24.6 19.8 29.6s25.7 2.2 34.9-6.9l128-128z" fill="#999"/></svg>
+
+					<div id="optionsToggleArea">
+						<span id="autoZoomOptions" data-title="Automatically reset the map's zoom to encompass all items after timed refreshes. You can also manually do so at any time using the 'Reset map zoom' button on the left of the map.">
+							<input type="checkbox" id="autoZoom" name="autoZoom" value="autoZoom" onclick="enableWeather();" checked="true" />
+							<label for="autoZoom">Auto-zoom</label>
+						</span>
+
+						<span id="weatherOptionsArea">
+							<span data-title="Enables overlay of current weather radar and more">
+								<input type="checkbox" id="weather" name="weather" value="weather" onclick="enableWeather();" />
+								<label for="weather">Weather</label>
+							</span>
+
+							<span id="weatherOptions">
+								<span data-title="Weather across the globe (~10-15 minute updates)" onclick="enableWeather();">
+									<input type="radio" id="globalWeather" name="weatherType" value="radar" checked="true" />
+									<label for="globalWeather">Global</label>
+								</span>
+
+								<span data-title="US NEXRAD Base radar (~5 minute updates)" onclick="enableWeather();">
+									<input type="radio" id="nexradWeather" name="weatherType" value="nexrad-n0q-900913" />
+									<label for="nexradWeather">NEXRAD (US)</label>
+								</span>
+
+								<span id="additionalOverlayOptions">
+									<!-- <strong class="optionsHeader">additional overlays:</strong> -->
+									<span data-title="Active US wildfires" onclick="enableWeather();">
+										<input type="radio" id="usWildfires" name="otherWeatherOverlays" value="us-fires" checked="true" />
+										<label for="usWildfires">US Wildfires</label>
+									</span>
+
+									<span data-title="US power outages by county" onclick="enableWeather();">
+										<input type="radio" id="usPowerOutages" name="otherWeatherOverlays" value="us-poweroutages" />
+										<label for="usPowerOutages">US Power Outages</label>
+									</span>
+
+									<span data-title="Significant earthquakes (magnitude 6+) over the past 7 days" onclick="enableWeather();">
+										<input type="radio" id="earthquakes" name="otherWeatherOverlays" value="earthquakes" />
+										<label for="earthquakes">Earthquakes</label>
+									</span>
+								</span>
+							</span>
+						</span>
+						<button id="clearCacheButton" type="button" data-title="Reset addresses cached locally on your browser (should rarely be needed, only use if you're having issues with the map)" onclick="clearCache();">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" height="20" width="20" style="vertical-align: middle;"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path id="recycleIcon" d="M216.3 124C262.5 44 378 44 424.2 124L461.5 188.6L489.2 172.6C497.6 167.7 508.1 168.4 515.8 174.3C523.5 180.2 526.9 190.2 524.4 199.6L500.9 287C497.5 299.8 484.3 307.4 471.5 304L384.1 280.6C374.7 278.1 367.8 270.2 366.5 260.6C365.2 251 369.9 241.5 378.3 236.7L406 220.7L368.7 156.1C347.1 118.8 293.3 118.8 271.7 156.1L266.4 165.2C257.6 180.5 238 185.7 222.7 176.9C207.4 168.1 202.2 148.5 211 133.1L216.3 124zM513.7 343.1C529 334.3 548.6 339.5 557.4 354.8L562.7 363.9C608.9 443.9 551.2 543.9 458.8 543.9L384.2 543.9L384.2 575.9C384.2 585.6 378.4 594.4 369.4 598.1C360.4 601.8 350.1 599.8 343.2 592.9L279.2 528.9C269.8 519.5 269.8 504.3 279.2 495L343.2 431C350.1 424.1 360.4 422.1 369.4 425.8C378.4 429.5 384.2 438.3 384.2 448L384.2 480L458.8 480C501.9 480 528.9 433.3 507.3 396L502 386.9C493.2 371.6 498.4 352 513.7 343.2zM115 299.4L87.3 283.4C78.9 278.5 74.2 269.1 75.5 259.5C76.8 249.9 83.7 242 93.1 239.5L180.5 216C193.3 212.6 206.5 220.2 209.9 233L233.3 320.4C235.8 329.8 232.4 339.7 224.7 345.7C217 351.7 206.5 352.3 198.1 347.4L170.4 331.4L133.1 396C111.5 433.3 138.5 480 181.6 480L192.2 480C209.9 480 224.2 494.3 224.2 512C224.2 529.7 209.9 544 192.2 544L181.6 544C89.3 544 31.6 444 77.8 364L115 299.4z"/></svg>
+						</button>
+					</div>
+				</div>
+			</div>
+		`;
+		document.getElementById("customMapBody").innerHTML = widgetHTML;
+	};
+};
 
 // Function to create our map...
 async function initMap() {
