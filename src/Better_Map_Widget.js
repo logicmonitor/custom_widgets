@@ -11,6 +11,9 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
+// (KF) The API I had been using for real-time US power outages stopped working on Sep 30, so disabling this option until a suitable replacement is found...
+document.querySelector('[data-title="US power outages by county"]').style.display = "none";
+// ------------------------------------------------------------
 // Default values for the widget if not already set by the calling HTML...
 
 // Whether we're plotting "groups" or "resources" or "services" (strongly recommend staying with groups or services)...
@@ -44,7 +47,7 @@ if (typeof showWeatherDefault === 'undefined') { let showWeatherDefault = "no"; 
 
 // If weather is shown, whether to show "wildfires" or "outages" or "earthquakes"...
 // You can set it here or in a dashboard token named "MapOverlayOption"...
-if (typeof additionalOverlayOption === 'undefined') { let additionalOverlayOption = "wildfires"; };
+if (typeof additionalOverlayOption === 'undefined') { let additionalOverlayOption = "earthquakes"; };
 
 // Whether to show or hide the map options along the top of the widget by default...
 // You can set it here or in a dashboard token named "HideMapOptions"...
@@ -406,8 +409,9 @@ if (showWeatherDefault == "global") {
 };
 if (additionalOverlayOption == "wildfires") {
 	document.getElementById("usWildfires").checked = true
-} else if (additionalOverlayOption == "outages") {
-	document.getElementById("usPowerOutages").checked = true
+// (KF) The API I had been using for real-time US power outages stopped working on Sep 30, so disabling this option until a suitable replacement is found...
+// } else if (additionalOverlayOption == "outages") {
+// 	document.getElementById("usPowerOutages").checked = true
 } else if (additionalOverlayOption == "earthquakes") {
 	document.getElementById("earthquakes").checked = true
 };
