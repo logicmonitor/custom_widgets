@@ -1,6 +1,6 @@
 // Better Map Widget
 // Developed by Kevin Ford
-// Version 2.82 - Integrated Authentication Version
+// Version 2.83 - Integrated Authentication Version
 // Integrated authentication improvements by Steve Villardi
 
 // Some of the ideas behind this project:
@@ -10,87 +10,89 @@
 // * Easy toggling of weather layers.
 // * Display more information when clicking a marker.
 
+// ------------------------------------------------------------
+// Default values for the widget if not already set by the calling HTML...
 
 // Whether we're plotting "groups" or "resources" or "services" (strongly recommend staying with groups or services)...
 // You can either set it here or in a dashboard token named 'MapSourceType'...
-if (!mapSourceType) { let mapSourceType = "groups"; };
+if (typeof mapSourceType === 'undefined') { let mapSourceType = "groups"; };
 
 // Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", or "silverBlue"...
-if (!mapStyle) { let mapStyle = "silver"; };
+if (typeof mapStyle === 'undefined') { let mapStyle = "silver"; };
 
 // Whether to ignore items with no active alerts (useful for maps with thousands of markers)...
 // You can either set it here or in a dashboard token named 'MapIgnoreCleared'...
-if (!showCleared) { let showCleared = true; };
-if (!showWarnings) { let showWarnings = true; };
-if (!showErrors) { let showErrors = true; };
-if (!showCriticals) { let showCriticals = true; };
-if (!showSDT) { let showSDT = true; };
+	if (typeof showCleared === 'undefined') { let showCleared = true; };
+if (typeof showWarnings === 'undefined') { let showWarnings = true; };
+if (typeof showErrors === 'undefined') { let showErrors = true; };
+if (typeof showCriticals === 'undefined') { let showCriticals = true; };
+if (typeof showSDT === 'undefined') { let showSDT = true; };
 
 // Capture if a group filter...
 // You can set it here or in a dashboard token named "MapGroupPathFilter"...
-if (!groupPathFilter) { let groupPathFilter = "*"; };
+if (typeof groupPathFilter === 'undefined') { let groupPathFilter = "*"; };
 
 // Interval for updating group status data (in minutes)...
-if (!statusUpdateIntervalMinutes) { let statusUpdateIntervalMinutes = 2; };
+if (typeof statusUpdateIntervalMinutes === 'undefined') { let statusUpdateIntervalMinutes = 2; };
 
 // Flag to disable marker clustering if needed...
-if (!disableClustering) { let disableClustering = false; };
+if (typeof disableClustering === 'undefined') { let disableClustering = false; };
 
 // Whether to show weather by default. Options are: "no", "global", "nexrad"...
 // You can set it here or in a dashboard token named "MapShowWeather"...
-if (!showWeatherDefault) { let showWeatherDefault = "no"; };
+if (typeof showWeatherDefault === 'undefined') { let showWeatherDefault = "no"; };
 
 // If weather is shown, whether to show "wildfires" or "outages" or "earthquakes"...
 // You can set it here or in a dashboard token named "MapOverlayOption"...
-if (!additionalOverlayOption) { let additionalOverlayOption = "wildfires"; };
+if (typeof additionalOverlayOption === 'undefined') { let additionalOverlayOption = "wildfires"; };
 
 // Whether to show or hide the map options along the top of the widget by default...
 // You can set it here or in a dashboard token named "HideMapOptions"...
-if (!hideMapOptionsByDefault) { let hideMapOptionsByDefault = false; };
+if (typeof hideMapOptionsByDefault === 'undefined') { let hideMapOptionsByDefault = false; };
 
 // Whether to automatically center the map to encompass all items during timed refreshes...
 // You can set it here or in a dashboard token named "AutoResetMapOnRefresh"...
-if (!autoResetMapOnRefresh) { let autoResetMapOnRefresh = false; };
+if (typeof autoResetMapOnRefresh === 'undefined') { let autoResetMapOnRefresh = false; };
 
 // When true will not refresh the data on a timed interval (useful ONLY during development)...
-if (!developmentFlag) { let developmentFlag = false; };
+if (typeof developmentFlag === 'undefined') { let developmentFlag = false; };
 
 // Since we generally don't need to poll all properties every time, we can just grab them initially then occasionally every x number of polls based on the following variable (set to 0 to perform a full refresh every time)...
-if (!fullRefreshInterval) { const fullRefreshInterval = 0; };
+if (typeof fullRefreshInterval === 'undefined') { const fullRefreshInterval = 0; };
 
 // Optional angle & heading for the Google Map...
-if (!showMapTiltControls) { let showMapTiltControls = false; };
-if (!mapTilt) { let mapTilt = 0; };
-if (!mapHeading) { let mapHeading = 0; };
+if (typeof showMapTiltControls === 'undefined') { let showMapTiltControls = false; };
+if (typeof mapTilt === 'undefined') { let mapTilt = 0; };
+if (typeof mapHeading === 'undefined') { let mapHeading = 0; };
 
 // Whether to include inherited locations in addition to those directly set on resources and/or services (disabling this can greatly increase refresh speed)...
-if (!pollInheritedLocations) { const pollInheritedLocations = true; };
+if (typeof pollInheritedLocations === 'undefined') { const pollInheritedLocations = true; };
 
 // Typically if both a 'latitude' & 'longitude' property are set, then we can assume the address is already geocoded. Set this to "true" to force geocoding the address instead...
-if (!ignoreLatLongProps) { const ignoreLatLongProps = false; };
+if (typeof ignoreLatLongProps === 'undefined') { const ignoreLatLongProps = false; };
 
 // Whether the Google Maps uses the "cooperative" gesture handling, or "greedy" that allows mouse-wheel zooming without having to hold a modifier key (Google's default is "cooperative")...
-if (!mapGestureHandling) { const mapGestureHandling = "cooperative"; };
+if (typeof mapGestureHandling === 'undefined') { const mapGestureHandling = "cooperative"; };
 
 // An optional comma-delimited list of custom properties to show when viewing a group's/resource's details...
 // You can set it here or in a dashboard token named "MapDisplayProperties"...
-if (!displayProps) { let displayProps = ""; };
+if (typeof displayProps === 'undefined') { let displayProps = ""; };
 
 // Property to look for connecting information in...
-if (!connectionInfoProp) { const connectionInfoProp = "auto.custom_map_connection_data"; };
+if (typeof connectionInfoProp === 'undefined') { const connectionInfoProp = "auto.custom_map_connection_data"; };
 // Stroke weight of connecting lines...
-if (!connectingLineWeight) { const connectingLineWeight = 3; };
+if (typeof connectingLineWeight === 'undefined') { const connectingLineWeight = 3; };
 // Whether to use geodesic lines when connecting two locations (I recommend not so it just plots a straight line vs curve of the Earth)...
-if (!useGeodesicLines) { const useGeodesicLines = false; };
+if (typeof useGeodesicLines === 'undefined') { const useGeodesicLines = false; };
 
 // Default opacity for weather layers...
-if (!weatherOpacity) { const weatherOpacity = 0.2; };
+if (typeof weatherOpacity === 'undefined') { const weatherOpacity = 0.2; };
 // Weather refresh interval in minutes...
-if (!weatherRefreshMinutes) { const weatherRefreshMinutes = 5; };	
+if (typeof weatherRefreshMinutes === 'undefined') { const weatherRefreshMinutes = 5; };
 // Whether to display details about a wildfire on "click" or "mouseover"...
-if (!showWildfireInfoEvent) { const showWildfireInfoEvent = "click"; };
+if (typeof showWildfireInfoEvent === 'undefined') { const showWildfireInfoEvent = "click"; };
 // Whether the opacity of an earthquake's icon reflects "time" since the event, or "magnitude"...
-if (!quakeMode) { let quakeMode = "time"; };
+if (typeof quakeMode === 'undefined') { let quakeMode = "time"; };
 
 // ------------------------------------------------------------
 
