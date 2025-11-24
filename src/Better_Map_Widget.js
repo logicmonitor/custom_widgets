@@ -1,6 +1,6 @@
 // Better Map Widget
 // Developed by Kevin Ford
-// Version 2.81 - Integrated Authentication Version
+// Version 2.82 - Integrated Authentication Version
 // Integrated authentication improvements by Steve Villardi
 
 // Some of the ideas behind this project:
@@ -518,7 +518,10 @@ function clearCache() {
 		document.getElementById("refreshStatusArea").innerHTML = "Cache has been reset";
 		document.getElementById("refreshStatusArea").style.display = "flex";
 		// Add timer to remove message after 2 seconds...
-		
+		setTimeout(() => {
+			document.getElementById("refreshStatusArea").innerHTML = "";
+			document.getElementById("refreshStatusArea").style.display = "none";
+		}, 2000);
 	} catch (e) {}
 }
 let cachedAddresses = loadCache();
