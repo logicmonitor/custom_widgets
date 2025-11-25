@@ -876,7 +876,11 @@
 				throw wrappedError;
 			}
 		}
-	}
+	};
+
+	// ------------------------------------------------------------
+	// (KF) The API I had been using for real-time US power outages stopped working on Sep 30, so disabling this option until a suitable replacement is found...
+	document.querySelector('[data-title="US power outages by county"]').style.display = "none";
 
 	// Capture information from specific dashboard tokens we'll be using...
 	// (Like any token inserted into the Text widget, LogicMonitor automatically inserts these token values as the page is being rendered so Javascript is able to pick them as if the values were there originally. If a token isn't set then the variable's value will be literally what's shown below, including the double-hashtags.)
@@ -999,8 +1003,9 @@
 	};
 	if (additionalOverlayOption == "wildfires") {
 		document.getElementById("usWildfires").checked = true
-	} else if (additionalOverlayOption == "outages") {
-		document.getElementById("usPowerOutages").checked = true
+	// (KF) The API I had been using for real-time US power outages stopped working on Sep 30, so disabling this option until a suitable replacement is found...
+	// } else if (additionalOverlayOption == "outages") {
+	// 	document.getElementById("usPowerOutages").checked = true
 	} else if (additionalOverlayOption == "earthquakes") {
 		document.getElementById("earthquakes").checked = true
 	};
