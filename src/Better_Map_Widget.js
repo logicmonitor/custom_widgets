@@ -1951,7 +1951,7 @@ function enableWeather() {
 
 	if (weatherCheckbox.checked) {
 		// Show the overlay options...
-		optionsElement.style.display = "inline-block";
+		optionsElement.style.display = "inline-flex";
 		// Add the weather overlays...
 		initWeather();
 	} else {
