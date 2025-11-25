@@ -1,6 +1,6 @@
 // Better Map Widget
 // Developed by Kevin Ford
-// Version 2.83 - Integrated Authentication Version
+// Version 2.84 - Integrated Authentication Version
 // Integrated authentication improvements by Steve Villardi
 
 // Some of the ideas behind this project:
