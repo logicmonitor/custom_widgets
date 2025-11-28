@@ -1,6 +1,6 @@
 // Better Map Widget
 // Developed by Kevin Ford
-// Version 2.84 - Integrated Authentication Version
+// Version 2.85 - Integrated Authentication Version
 // Integrated authentication improvements by Steve Villardi
 
 // Some of the ideas behind this project:
@@ -1003,7 +1003,7 @@ async function refreshGroupData(timedRefresh = false) {
 	let resourcePath = "/device/groups";
 	if (mapSourceType != "groups") {
 		resourcePath = "/device/devices";
-		deviceFilter = ",deviceType:0|4";
+		deviceFilter = ",deviceType:0|4|18|19";
 		if (mapSourceType == "services") {
 			deviceFilter = ",deviceType:6";
 		};
