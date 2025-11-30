@@ -69,6 +69,7 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapIgnoreWarnings**: If "true" then won't show items in "Warning" status. Default is "false".
 - **MapIgnoreErrors**: If "true" then won't show items in "Error" status. Default is "false".
 - **MapIgnoreCriticals**: If "true" then won't show items in "Critical" status. Default is "false".
+  **MapIgnoreSDT**: If "true" then won't show items in "SDT" status. Default is "false".
 - **AutoResetMapOnRefresh**: If "true" then the map will automatically zoom to encompass all items on timed refreshes. Default is "false".
 - **MapDisableClustering**: If "true" then clustering of adjacent markers on the map will be disabled. Might be desirable if showing connections between locations since clustering might hide markers at certain zoom levels. Default is "false".
 - **MapDisplayProperties**: An optional comma-delimited list of custom properties to show when viewing a group's/resource's details.
