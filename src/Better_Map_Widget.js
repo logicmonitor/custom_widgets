@@ -25,7 +25,7 @@ if (typeof mapStyle === 'undefined') { let mapStyle = "silver"; };
 
 // Whether to ignore items with no active alerts (useful for maps with thousands of markers)...
 // You can either set it here or in a dashboard token named 'MapIgnoreCleared'...
-	if (typeof showCleared === 'undefined') { let showCleared = true; };
+if (typeof showCleared === 'undefined') { let showCleared = true; };
 if (typeof showWarnings === 'undefined') { let showWarnings = true; };
 if (typeof showErrors === 'undefined') { let showErrors = true; };
 if (typeof showCriticals === 'undefined') { let showCriticals = true; };
@@ -503,6 +503,8 @@ if (!window.buildMarkersInBatches) {
 
 // Variable for holding our map markers...
 let markers = [];
+// Keep quick lookup of markers by ID for cluster-aware features...
+const markerLookup = new Map();
 // For tracking if we've already established an initial center for our map based on markers...
 let centerCalculated = false;
 
@@ -555,6 +557,10 @@ document.getElementById("showSDTLabel").innerHTML = sdtIcon;
 
 // Placeholder for marker cluster info...
 let clusterInfoWindow = null;
+
+function markerIsVisible(marker) {
+	return !!(marker && marker.map === map);
+}
 
 // We've prepped everything, so now calling the function to populate the map...
 initMap();
@@ -940,6 +946,7 @@ async function refreshGroupData(timedRefresh = false) {
 			};
 		};
 		markers = [];
+		markerLookup.clear();
 	} else if (groupPathFilterFieldValue == "") {
 		// The user cleared the field, so reset it back to the initial value...
 		groupPathFilter = initialGroupPathFilter;
@@ -1097,6 +1104,7 @@ async function refreshGroupData(timedRefresh = false) {
 						markers[i].setMap(null);
 					};
 					markers = [];
+					markerLookup.clear();
 					if (typeof clusterer == "object") {
 						clusterer.setMap(null);
 					};
@@ -1206,6 +1214,7 @@ async function refreshGroupData(timedRefresh = false) {
 			markers[i].setMap(null);
 		};
 		markers = [];
+		markerLookup.clear();
 
 		// For use in zooming the map to encompass all our markers on initial draw...
 		bounds = new google.maps.LatLngBounds();
@@ -1527,6 +1536,7 @@ async function refreshGroupData(timedRefresh = false) {
 
 					// Add reference to this pin for use by the clustering algorithm or if we need to modify them later...
 					markers.push(marker);
+					markerLookup.set(String(thisItem.id), marker);
 
 					// Add this marker to map's bounding box (for initial zooming)...
 					bounds.extend(marker.position);
@@ -1590,6 +1600,18 @@ async function refreshGroupData(timedRefresh = false) {
 
 // Function to fetch connection status & plot connecting lines on the map...
 async function plotConnection(connection) {
+	// Only draw lines for markers that are individually visible (not clustered)...
+	const sourceMarker = markerLookup.get(String(connection.deviceIDSource));
+	const targetMarker = markerLookup.get(String(connection.deviceIDConnected));
+	if (!markerIsVisible(sourceMarker) || !markerIsVisible(targetMarker)) {
+		return;
+	};
+
+	// Ensure we have coordinates for both endpoints before proceeding...
+	if (!cachedAddresses[connection.deviceIDSource] || !cachedAddresses[connection.deviceIDConnected]) {
+		return;
+	};
+
 	// Establish coordinates of the line start and end...
 	const tmpCoords = [
 		{ lat: cachedAddresses[connection.deviceIDSource].lat, lng: cachedAddresses[connection.deviceIDSource].lng},
@@ -2370,7 +2392,7 @@ async function addWeatherLayer() {
 							<span style="font-weight: 500;">Detected:</span> ${quakeTime.toLocaleString()} <span style="font-size: 0.95em;">(${quakeAgeInDays.toFixed(1)} days ago)</span><br/>
 							<span style="font-weight: 500;">Updated:</span> ${updated.toLocaleString()}
 						</div><br/><br/>
-						<a href="${event.feature.getProperty("url")}" target="_blank">More details</a>
+						<a href="${event.feature.getProperty("url")}" target="_blank">Earthquake details</a>
 					</div>
 				`);
 
