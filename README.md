@@ -48,7 +48,7 @@ There are two different versions of the widget's source code:
 
 ## Usage
 
-**Note:** Due to some changes in Google Maps, if you don't see the map right away please refresh the page. That resolves the majority of issues.
+_**Note:** Due to some changes in Google Maps, if you don't see the map right away please refresh the page. That resolves the majority of issues._
 
 Clicking on a marker cluster will display more info about that group, including the option to zoom in to see the clustered markers. To quickly reset the zoom, just click the bottom button in the upper-left corner of the map (the one with the 4 arrows).
 
