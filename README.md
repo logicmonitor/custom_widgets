@@ -20,7 +20,7 @@ A fully custom-made widget to overcome some limitations of LogicMonitor's core M
 - Marker clustering to group adjacent pins together until zoomed in (along with a button to easily reset the zoom)
 - Donut charts to represent the severities of clustered markers
 - Quick & easy filtering by past and severities
-- Layers for weather, earthquakes, US wildfires, and US power outages
+- Layers for weather, earthquakes, US wildfires, and ~~US power outages~~ _(the ArcGIS API endpoint for US power outages stopped updating on Sep.30, 2025 so its option is temporarily disabled)_
 - More informative tips when clicking a marker, with the ability to include custom properties
 - The ability to show colored lines representing status of connections between locations
 
