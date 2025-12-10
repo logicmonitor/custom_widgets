@@ -388,7 +388,7 @@ async function LMClient({
 			throw wrappedError;
 		}
 	}
-}
+};
 
 // ------------------------------------------------------------
 
@@ -503,10 +503,89 @@ if (!window.buildMarkersInBatches) {
 
 // Variable for holding our map markers...
 let markers = [];
-// Keep quick lookup of markers by ID for cluster-aware features...
-const markerLookup = new Map();
 // For tracking if we've already established an initial center for our map based on markers...
 let centerCalculated = false;
+// For storing polyline references and their marker associations...
+let polylines = [];
+
+// Clear all connecting polylines and their listeners
+function clearAllPolylines() {
+	if (polylines.length === 0) return;
+	// console.debug("Clearing " + polylines.length + " polylines");
+	polylines.forEach(p => {
+		if (p && p.polyline) {
+			google.maps.event.clearInstanceListeners(p.polyline);
+			p.polyline.setMap(null);
+		}
+	});
+	polylines = [];
+}
+
+// Update polyline endpoints to follow clusters/markers
+function updatePolylineEndpoints() {
+	if (!polylines.length) return;
+	// console.debug("Updating " + polylines.length + " polyline endpoints");
+	polylines.forEach(p => {
+		if (!p || !p.polyline) return;
+		const sourcePos = getMarkerOrClusterPosition(p.sourceDeviceID);
+		const targetPos = getMarkerOrClusterPosition(p.targetDeviceID);
+		if (sourcePos && targetPos) {
+			p.polyline.setPath([sourcePos, targetPos]);
+		}
+	});
+}
+
+// Resolve a device's current visible position (cluster center or marker)
+function getMarkerOrClusterPosition(deviceID) {
+	if (!deviceID) return null;
+	const marker = markers.find(m => m.deviceID == deviceID);
+	if (!marker) return null;
+
+	// Check if clustering is enabled and marker is in a cluster
+	if (clusterer) {
+		// Get clusters - the MarkerClusterer library stores them in .clusters after rendering
+		const clusters = clusterer.clusters || [];
+		for (const cluster of clusters) {
+			// Each cluster has a .markers array and a .marker (the rendered cluster marker)
+			if (cluster.markers && cluster.markers.includes(marker)) {
+				// Marker is in this cluster - get the cluster's rendered position
+				if (cluster.marker && cluster.marker.position) {
+					// The cluster's AdvancedMarkerElement position
+					const pos = cluster.marker.position;
+					if (pos instanceof google.maps.LatLng) return pos;
+					if (typeof pos.lat === 'number' && typeof pos.lng === 'number') {
+						return new google.maps.LatLng(pos.lat, pos.lng);
+					}
+				}
+				// Fallback: calculate center from clustered markers
+				const pts = cluster.markers.map(m => {
+					if (!m.position) return null;
+					const p = m.position;
+					if (p instanceof google.maps.LatLng) return p;
+					if (typeof p.lat === 'number' && typeof p.lng === 'number') {
+						return new google.maps.LatLng(p.lat, p.lng);
+					}
+					return null;
+				}).filter(Boolean);
+				if (pts.length) {
+					const avgLat = pts.reduce((s, p) => s + p.lat(), 0) / pts.length;
+					const avgLng = pts.reduce((s, p) => s + p.lng(), 0) / pts.length;
+					return new google.maps.LatLng(avgLat, avgLng);
+				}
+			}
+		}
+	}
+
+	// Marker is not clustered - return its position
+	if (marker.position) {
+		const pos = marker.position;
+		if (pos instanceof google.maps.LatLng) return pos;
+		if (typeof pos.lat === 'number' && typeof pos.lng === 'number') {
+			return new google.maps.LatLng(pos.lat, pos.lng);
+		}
+	}
+	return null;
+}
 
 // For caching marker latitude/longitude information between refreshes...
 const __LMBMW_CACHE_KEY = "lm_bmw.cachedAddresses.v1";
@@ -558,10 +637,6 @@ document.getElementById("showSDTLabel").innerHTML = sdtIcon;
 // Placeholder for marker cluster info...
 let clusterInfoWindow = null;
 
-function markerIsVisible(marker) {
-	return !!(marker && marker.map === map);
-}
-
 // We've prepped everything, so now calling the function to populate the map...
 initMap();
 
@@ -593,6 +668,9 @@ async function initMap() {
 		heading: mapHeading,
 		gestureHandling: mapGestureHandling,
 	});
+
+	// Redraw polylines after zoom/pan/drag completes...
+	map.addListener("idle", () => updatePolylineEndpoints());
 
 	// Vector maps are nicer but sometimes don't load right away. Plus they're mainly useful if tilt controls are enabled, so use the normal raster map by default...
 	if (showMapTiltControls) {
@@ -946,7 +1024,6 @@ async function refreshGroupData(timedRefresh = false) {
 			};
 		};
 		markers = [];
-		markerLookup.clear();
 	} else if (groupPathFilterFieldValue == "") {
 		// The user cleared the field, so reset it back to the initial value...
 		groupPathFilter = initialGroupPathFilter;
@@ -1073,7 +1150,7 @@ async function refreshGroupData(timedRefresh = false) {
 				apiVersion: '3',
 			});
 			// Process the group data we received...
-			console.debug('Group request succeeded with JSON response', markerData);
+			// console.debug('Group request succeeded with JSON response', markerData);
 
 			if (markerData.total != 0) {
 				if (markerData.total != totalGroups) {
@@ -1104,7 +1181,6 @@ async function refreshGroupData(timedRefresh = false) {
 						markers[i].setMap(null);
 					};
 					markers = [];
-					markerLookup.clear();
 					if (typeof clusterer == "object") {
 						clusterer.setMap(null);
 					};
@@ -1214,7 +1290,6 @@ async function refreshGroupData(timedRefresh = false) {
 			markers[i].setMap(null);
 		};
 		markers = [];
-		markerLookup.clear();
 
 		// For use in zooming the map to encompass all our markers on initial draw...
 		bounds = new google.maps.LatLngBounds();
@@ -1528,6 +1603,8 @@ async function refreshGroupData(timedRefresh = false) {
 						title: thisItem.name,
 						zIndex: pinIndex,
 					});
+					// Store deviceID on marker for polyline lookups...
+					marker.deviceID = thisItem.id;
 
 					// Open info window when marker is clicked...
 					marker.addListener("gmp-click", () => {
@@ -1536,7 +1613,6 @@ async function refreshGroupData(timedRefresh = false) {
 
 					// Add reference to this pin for use by the clustering algorithm or if we need to modify them later...
 					markers.push(marker);
-					markerLookup.set(String(thisItem.id), marker);
 
 					// Add this marker to map's bounding box (for initial zooming)...
 					bounds.extend(marker.position);
@@ -1556,6 +1632,7 @@ async function refreshGroupData(timedRefresh = false) {
 					if (!disableClustering) {
 						// Reset our marker clustering on refreshes...
 						if (typeof clusterer == "object") {
+							google.maps.event.clearInstanceListeners(clusterer);
 							clusterer.setMap(null);
 						};
 						// We'll use MarkerCluster's SuperClusterAlgorithm since it's more optimized (the radius is to prevent overlap of clusters & markers)...
@@ -1568,10 +1645,16 @@ async function refreshGroupData(timedRefresh = false) {
 							algorithm,
 							onClusterClick: () => {} // Override default zoom behavior
 						});
+						// Redraw connecting lines when clusters change
+						clusterer.addListener("clusteringend", () => {
+							updatePolylineEndpoints();
+						});
 					};
 
 					// Plot any connecting lines between resources...
 					if (mapSourceType == "resources") {
+						// Clear any existing connecting lines before drawing new ones
+						clearAllPolylines();
 						lineData.forEach(thisConnection => {
 							// Look to see if connecting point exists on the map...
 							if (cachedAddresses[thisConnection.deviceIDConnected]) {
@@ -1579,6 +1662,8 @@ async function refreshGroupData(timedRefresh = false) {
 								plotConnection(thisConnection);
 							};
 						});
+						// After drawing, ensure endpoints point to current marker/cluster locations
+						updatePolylineEndpoints();
 					};
 
 					// Our refresh is now complete, so capture how long it took...
@@ -1600,18 +1685,6 @@ async function refreshGroupData(timedRefresh = false) {
 
 // Function to fetch connection status & plot connecting lines on the map...
 async function plotConnection(connection) {
-	// Only draw lines for markers that are individually visible (not clustered)...
-	const sourceMarker = markerLookup.get(String(connection.deviceIDSource));
-	const targetMarker = markerLookup.get(String(connection.deviceIDConnected));
-	if (!markerIsVisible(sourceMarker) || !markerIsVisible(targetMarker)) {
-		return;
-	};
-
-	// Ensure we have coordinates for both endpoints before proceeding...
-	if (!cachedAddresses[connection.deviceIDSource] || !cachedAddresses[connection.deviceIDConnected]) {
-		return;
-	};
-
 	// Establish coordinates of the line start and end...
 	const tmpCoords = [
 		{ lat: cachedAddresses[connection.deviceIDSource].lat, lng: cachedAddresses[connection.deviceIDSource].lng},
@@ -1677,6 +1750,13 @@ async function plotConnection(connection) {
 		});
 		thisPath.setMap(map);
 
+		// Track polyline with source/target IDs so we can redraw to clusters
+		polylines.push({
+			polyline: thisPath,
+			sourceDeviceID: connection.deviceIDSource,
+			targetDeviceID: connection.deviceIDConnected,
+			originalCoords: tmpCoords
+		});
 
 		// Show connection info on hover...
 		let lineInfoWindow = new google.maps.InfoWindow({

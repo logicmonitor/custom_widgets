@@ -1100,6 +1100,87 @@
 	let markers = [];
 	// For tracking if we've already established an initial center for our map based on markers...
 	let centerCalculated = false;
+	// For storing polyline references and their marker associations...
+	let polylines = [];
+
+	// Clear all connecting polylines and their listeners
+	function clearAllPolylines() {
+		if (polylines.length === 0) return;
+		// console.debug("Clearing " + polylines.length + " polylines");
+		polylines.forEach(p => {
+			if (p && p.polyline) {
+				google.maps.event.clearInstanceListeners(p.polyline);
+				p.polyline.setMap(null);
+			}
+		});
+		polylines = [];
+	}
+
+	// Update polyline endpoints to follow clusters/markers
+	function updatePolylineEndpoints() {
+		if (!polylines.length) return;
+		// console.debug("Updating " + polylines.length + " polyline endpoints");
+		polylines.forEach(p => {
+			if (!p || !p.polyline) return;
+			const sourcePos = getMarkerOrClusterPosition(p.sourceDeviceID);
+			const targetPos = getMarkerOrClusterPosition(p.targetDeviceID);
+			if (sourcePos && targetPos) {
+				p.polyline.setPath([sourcePos, targetPos]);
+			}
+		});
+	}
+
+	// Resolve a device's current visible position (cluster center or marker)
+	function getMarkerOrClusterPosition(deviceID) {
+		if (!deviceID) return null;
+		const marker = markers.find(m => m.deviceID == deviceID);
+		if (!marker) return null;
+
+		// Check if clustering is enabled and marker is in a cluster
+		if (clusterer) {
+			// Get clusters - the MarkerClusterer library stores them in .clusters after rendering
+			const clusters = clusterer.clusters || [];
+			for (const cluster of clusters) {
+				// Each cluster has a .markers array and a .marker (the rendered cluster marker)
+				if (cluster.markers && cluster.markers.includes(marker)) {
+					// Marker is in this cluster - get the cluster's rendered position
+					if (cluster.marker && cluster.marker.position) {
+						// The cluster's AdvancedMarkerElement position
+						const pos = cluster.marker.position;
+						if (pos instanceof google.maps.LatLng) return pos;
+						if (typeof pos.lat === 'number' && typeof pos.lng === 'number') {
+							return new google.maps.LatLng(pos.lat, pos.lng);
+						}
+					}
+					// Fallback: calculate center from clustered markers
+					const pts = cluster.markers.map(m => {
+						if (!m.position) return null;
+						const p = m.position;
+						if (p instanceof google.maps.LatLng) return p;
+						if (typeof p.lat === 'number' && typeof p.lng === 'number') {
+							return new google.maps.LatLng(p.lat, p.lng);
+						}
+						return null;
+					}).filter(Boolean);
+					if (pts.length) {
+						const avgLat = pts.reduce((s, p) => s + p.lat(), 0) / pts.length;
+						const avgLng = pts.reduce((s, p) => s + p.lng(), 0) / pts.length;
+						return new google.maps.LatLng(avgLat, avgLng);
+					}
+				}
+			}
+		}
+
+		// Marker is not clustered - return its position
+		if (marker.position) {
+			const pos = marker.position;
+			if (pos instanceof google.maps.LatLng) return pos;
+			if (typeof pos.lat === 'number' && typeof pos.lng === 'number') {
+				return new google.maps.LatLng(pos.lat, pos.lng);
+			}
+		}
+		return null;
+	}
 
 	// For caching marker latitude/longitude information between refreshes...
 	const __LMBMW_CACHE_KEY = "lm_bmw.cachedAddresses.v1";
@@ -1182,6 +1263,9 @@
 			heading: mapHeading,
 			gestureHandling: mapGestureHandling,
 		});
+
+		// Redraw polylines after zoom/pan/drag completes
+		map.addListener("idle", () => updatePolylineEndpoints());
 
 		// Vector maps are nicer but sometimes don't load right away. Plus they're mainly useful if tilt controls are enabled, so use the normal raster map by default...
 		if (showMapTiltControls) {
@@ -1661,7 +1745,7 @@
 					apiVersion: '3',
 				});
 				// Process the group data we received...
-				console.debug('Group request succeeded with JSON response', markerData);
+				// console.debug('Group request succeeded with JSON response', markerData);
 
 				if (markerData.total != 0) {
 					if (markerData.total != totalGroups) {
@@ -2105,28 +2189,30 @@
 							`;
 						};
 
-						// Add this group's pin to the map...
-						let marker = new google.maps.marker.AdvancedMarkerElement({
-							position: { lat: cachedAddresses[groupID].lat, lng: cachedAddresses[groupID].lng },
-							map: map,
-							content: content,
-							// content: glyphSvgPinElement.element,
-							title: thisItem.name,
-							zIndex: pinIndex,
-						});
+					// Add this group's pin to the map...
+					let marker = new google.maps.marker.AdvancedMarkerElement({
+						position: { lat: cachedAddresses[groupID].lat, lng: cachedAddresses[groupID].lng },
+						map: map,
+						content: content,
+						// content: glyphSvgPinElement.element,
+						title: thisItem.name,
+						zIndex: pinIndex,
+					});
+					// Store deviceID on marker for polyline lookups
+					marker.deviceID = thisItem.id;
 
-						// Open info window when marker is clicked...
-						marker.addListener("gmp-click", () => {
-							toggleHighlight(marker, thisItem)
-						});
+					// Open info window when marker is clicked...
+					marker.addListener("gmp-click", () => {
+						toggleHighlight(marker, thisItem)
+					});
 
-						// Add reference to this pin for use by the clustering algorithm or if we need to modify them later...
-						markers.push(marker);
+					// Add reference to this pin for use by the clustering algorithm or if we need to modify them later...
+					markers.push(marker);
 
-						// Add this marker to map's bounding box (for initial zooming)...
-						bounds.extend(marker.position);
+					// Add this marker to map's bounding box (for initial zooming)...
+					bounds.extend(marker.position);
 
-						itemsProcessed = itemsProcessed + 1;
+					itemsProcessed = itemsProcessed + 1;
 					};
 					// console.log("itemsProcessed: " + itemsProcessed + " / totalGroups: " + totalGroups);
 
@@ -2138,33 +2224,42 @@
 							centerCalculated = true;
 						};
 
-						if (!disableClustering) {
-							// Reset our marker clustering on refreshes...
-							if (typeof clusterer == "object") {
-								clusterer.setMap(null);
-							};
-							// We'll use MarkerCluster's SuperClusterAlgorithm since it's more optimized (the radius is to prevent overlap of clusters & markers)...
-							const algorithm = new markerClusterer.SuperClusterAlgorithm({radius: 120});
-							// Initialize our marker clusters...
-							clusterer = new markerClusterer.MarkerClusterer({
-								markers,
-								map,
-								renderer,
-								algorithm,
-								onClusterClick: () => {} // Override default zoom behavior
-							});
+					if (!disableClustering) {
+						// Reset our marker clustering on refreshes...
+						if (typeof clusterer == "object") {
+							google.maps.event.clearInstanceListeners(clusterer);
+							clusterer.setMap(null);
 						};
+						// We'll use MarkerCluster's SuperClusterAlgorithm since it's more optimized (the radius is to prevent overlap of clusters & markers)...
+						const algorithm = new markerClusterer.SuperClusterAlgorithm({radius: 120});
+						// Initialize our marker clusters...
+						clusterer = new markerClusterer.MarkerClusterer({
+							markers,
+							map,
+							renderer,
+							algorithm,
+							onClusterClick: () => {} // Override default zoom behavior
+						});
+						// Redraw connecting lines when clusters change
+						clusterer.addListener("clusteringend", () => {
+							updatePolylineEndpoints();
+						});
+					};
 
-						// Plot any connecting lines between resources...
-						if (mapSourceType == "resources") {
-							lineData.forEach(thisConnection => {
-								// Look to see if connecting point exists on the map...
-								if (cachedAddresses[thisConnection.deviceIDConnected]) {
-									// Plot the connection on the map...
-									plotConnection(thisConnection);
-								};
-							});
-						};
+					// Plot any connecting lines between resources...
+					if (mapSourceType == "resources") {
+						// Clear any existing connecting lines before drawing new ones
+						clearAllPolylines();
+						lineData.forEach(thisConnection => {
+							// Look to see if connecting point exists on the map...
+							if (cachedAddresses[thisConnection.deviceIDConnected]) {
+								// Plot the connection on the map...
+								plotConnection(thisConnection);
+							};
+						});
+						// After drawing, ensure endpoints point to current marker/cluster locations
+						updatePolylineEndpoints();
+					};
 
 						// Our refresh is now complete, so capture how long it took...
 						let refreshEndTime = performance.now();
@@ -2250,6 +2345,13 @@
 			});
 			thisPath.setMap(map);
 
+			// Track polyline with source/target IDs so we can redraw to clusters
+			polylines.push({
+				polyline: thisPath,
+				sourceDeviceID: connection.deviceIDSource,
+				targetDeviceID: connection.deviceIDConnected,
+				originalCoords: tmpCoords
+			});
 
 			// Show connection info on hover...
 			let lineInfoWindow = new google.maps.InfoWindow({
@@ -2546,7 +2648,7 @@
 
 		if (weatherCheckbox.checked) {
 			// Show the overlay options...
-			optionsElement.style.display = "inline-block";
+			optionsElement.style.display = "inline-flex";
 			// Add the weather overlays...
 			initWeather();
 		} else {
@@ -2965,7 +3067,7 @@
 								<span style="font-weight: 500;">Detected:</span> ${quakeTime.toLocaleString()} <span style="font-size: 0.95em;">(${quakeAgeInDays.toFixed(1)} days ago)</span><br/>
 								<span style="font-weight: 500;">Updated:</span> ${updated.toLocaleString()}
 							</div><br/><br/>
-							<a href="${event.feature.getProperty("url")}" target="_blank">More details</a>
+							<a href="${event.feature.getProperty("url")}" target="_blank">Earthquake details</a>
 						</div>
 					`);
 
