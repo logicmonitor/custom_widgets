@@ -1775,6 +1775,8 @@ async function plotConnection(connection) {
 		google.maps.event.addListener(thisPath, "click", function(e) {
 			window.open("/santaba/uiv4/resources/treeNodes/t-i,id-" + connection.instanceID + "?source=details&tab=alert");
 		});
+		// Ensure new polylines handle clusters properly...
+		updatePolylineEndpoints();
 	};
 };
 
