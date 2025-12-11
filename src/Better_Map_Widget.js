@@ -11,9 +11,6 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-// (KF) The API I had been using for real-time US power outages stopped working on Sep 30, so disabling this option until a suitable replacement is found...
-document.querySelector('[data-title="US power outages by county"]').style.display = "none";
-// ------------------------------------------------------------
 // Default values for the widget if not already set by the calling HTML...
 
 // Whether we're plotting "groups" or "resources" or "services" (strongly recommend staying with groups or services)...
@@ -409,9 +406,8 @@ if (showWeatherDefault == "global") {
 };
 if (additionalOverlayOption == "wildfires") {
 	document.getElementById("usWildfires").checked = true
-// (KF) The API I had been using for real-time US power outages stopped working on Sep 30, so disabling this option until a suitable replacement is found...
-// } else if (additionalOverlayOption == "outages") {
-// 	document.getElementById("usPowerOutages").checked = true
+} else if (additionalOverlayOption == "outages") {
+	document.getElementById("usPowerOutages").checked = true
 } else if (additionalOverlayOption == "earthquakes") {
 	document.getElementById("earthquakes").checked = true
 };
@@ -2268,7 +2264,7 @@ async function addWeatherLayer() {
 
 					let countyDataRequest = new XMLHttpRequest();
 
-					countyDataRequest.open("GET", "https://services.arcgis.com/pGfbNJoYypmNq86F/ArcGIS/rest/services/County_Power_Outages/FeatureServer/0/query?where=0%3D0&outFields=*&resultOffset=" + offset + "&resultRecordCount=" + maxPerPage + "&f=pgeojson", true);
+					countyDataRequest.open("GET", "https://services8.arcgis.com/S9R3NgKp66dTIzOU/ArcGIS/rest/services/DEMO_US_Power_Outages/FeatureServer/0/query?where=0%3D0&outFields=*&resultOffset=" + offset + "&resultRecordCount=" + maxPerPage + "&f=pgeojson", true);
 
 					countyDataRequest.onload = function(e) {
 						thisPage = thisPage + 1;
@@ -2311,9 +2307,9 @@ async function addWeatherLayer() {
 								let percentAffected = 0;
 								let strokeColor = "salmon";
 								let strokeOpacity = 0.1;
-								if (feature.getProperty('CustomersTracked') > 0) {
+								if (feature.getProperty('TrackedCount') > 0) {
 									// Calculate what percentage of power customers are affected by outages...
-									percentAffected = feature.getProperty('CustomersOut') / feature.getProperty('CustomersTracked');
+									percentAffected = feature.getProperty('OutageCount') / feature.getProperty('TrackedCount');
 								}
 
 								// if (mapStyle == "night" || mapStyle == "dark") {
@@ -2334,14 +2330,29 @@ async function addWeatherLayer() {
 							});
 							parent.outageInfoWindowListenerHandle = map.data.addListener('click', function(event) {
 								// Show an infowindow on click...
-								let timestamp = new Date(event.feature.getProperty("LastUpdatedDateTime"));
+								let timestamp = new Date(event.feature.getProperty("LastUpdate"));
 								let percentAffected = 0;
-								if (event.feature.getProperty('CustomersTracked') > 0) {
+								if (event.feature.getProperty('TrackedCount') > 0) {
 									// Calculate what percentage of power customers are affected by outages...
-									percentAffected = event.feature.getProperty('CustomersOut') / event.feature.getProperty('CustomersTracked') * 100;
+									percentAffected = event.feature.getProperty('OutageCount') / event.feature.getProperty('TrackedCount') * 100;
 								}
 
-								outageInfoWindow.setContent('<div style="line-height:1.5;overflow:hidden;white-space:nowrap;color:#333;"><h3>'+ event.feature.getProperty("CountyName") + ' County</h3><p style="padding:5px 0;">Power Customers Affected: <strong>' + Math.round(percentAffected) + '%</strong> (' + event.feature.getProperty("CustomersOut").toLocaleString() + ' of ' + event.feature.getProperty("CustomersTracked").toLocaleString() + ')</p><p>Last Updated: ' + timestamp.toLocaleString() + '</p></div>');
+								// Calculate donut chart values (circumference = 2 * π * 35 ≈ 219.91)...
+								let circumference = 219.91;
+								let filledAmount = (percentAffected / 100) * circumference;
+								let donutChart = `
+									<svg width="100" height="100" viewBox="0 0 100 100" style="display:block;margin:10px auto;">
+										<circle cx="50" cy="50" r="35" fill="none" stroke="#e0e0e0" stroke-width="12"/>
+										<circle cx="50" cy="50" r="35" fill="none" stroke="#dc3545" stroke-width="12"
+											stroke-dasharray="${filledAmount} ${circumference - filledAmount}"
+											stroke-linecap="round"
+											transform="rotate(-90 50 50)"/>
+										<text x="50" y="50" text-anchor="middle" dominant-baseline="middle" 
+											font-size="18" font-weight="bold" fill="#333">${Math.round(percentAffected)}%</text>
+									</svg>
+								`;
+								// Set the content of the info window...
+								outageInfoWindow.setContent('<div style="line-height:1.5;overflow:hidden;white-space:nowrap;color:#333;"><h3 style="margin:0;">'+ event.feature.getProperty("NAME") + ' County Power Outages</h3>' + donutChart + '<p style="padding:5px 0;">Power Customers Affected: <strong>' + Math.round(percentAffected) + '%</strong> (' + event.feature.getProperty("OutageCount").toLocaleString() + ' of ' + event.feature.getProperty("TrackedCount").toLocaleString() + ')</p><p>Last Updated: ' + timestamp.toLocaleString() + '</p></div>');
 								let anchor = new google.maps.MVCObject();
 								anchor.set("position",event.latLng);
 								outageInfoWindow.open(map, anchor);
