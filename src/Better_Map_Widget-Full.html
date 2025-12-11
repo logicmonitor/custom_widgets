@@ -1263,7 +1263,7 @@
 			gestureHandling: mapGestureHandling,
 		});
 
-		// Redraw polylines after zoom/pan/drag completes
+		// Redraw polylines after zoom/pan/drag completes...
 		map.addListener("idle", () => updatePolylineEndpoints());
 
 		// Vector maps are nicer but sometimes don't load right away. Plus they're mainly useful if tilt controls are enabled, so use the normal raster map by default...
@@ -2197,7 +2197,7 @@
 						title: thisItem.name,
 						zIndex: pinIndex,
 					});
-					// Store deviceID on marker for polyline lookups
+					// Store deviceID on marker for polyline lookups...
 					marker.deviceID = thisItem.id;
 
 					// Open info window when marker is clicked...
@@ -2945,7 +2945,7 @@
 												stroke-dasharray="${filledAmount} ${circumference - filledAmount}"
 												stroke-linecap="round"
 												transform="rotate(-90 50 50)"/>
-											<text x="50" y="50" text-anchor="middle" dominant-baseline="middle" 
+											<text x="50" y="50" text-anchor="middle" dominant-baseline="middle"
 												font-size="18" font-weight="bold" fill="#333">${Math.round(percentAffected)}%</text>
 										</svg>
 									`;

@@ -2240,7 +2240,7 @@ async function addWeatherLayer() {
 			let countyFeatures = [];
 
 			let countyAPIRequest = new XMLHttpRequest();
-			countyAPIRequest.open("GET", "https://services.arcgis.com/pGfbNJoYypmNq86F/ArcGIS/rest/services/County_Power_Outages/FeatureServer/0/query?where=0%3D0&outFields=*&returnCountOnly=true&f=pjson", false);
+			countyAPIRequest.open("GET", "https://services8.arcgis.com/S9R3NgKp66dTIzOU/ArcGIS/rest/services/DEMO_US_Power_Outages/FeatureServer/0/query?where=0%3D0&outFields=*&returnCountOnly=true&f=pjson", false);
 
 			countyAPIRequest.onload = function(e) {
 				// Store the API response for re-use purposes in memory...
@@ -2347,7 +2347,7 @@ async function addWeatherLayer() {
 											stroke-dasharray="${filledAmount} ${circumference - filledAmount}"
 											stroke-linecap="round"
 											transform="rotate(-90 50 50)"/>
-										<text x="50" y="50" text-anchor="middle" dominant-baseline="middle" 
+										<text x="50" y="50" text-anchor="middle" dominant-baseline="middle"
 											font-size="18" font-weight="bold" fill="#333">${Math.round(percentAffected)}%</text>
 									</svg>
 								`;
