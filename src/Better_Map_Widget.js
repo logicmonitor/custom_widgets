@@ -1,6 +1,6 @@
 // Better Map Widget
 // Developed by Kevin Ford
-// Version 2.88 - Integrated Authentication Version
+// Version 2.89 - Integrated Authentication Version
 // Integrated authentication improvements by Steve Villardi
 
 // Some of the ideas behind this project:
@@ -1144,7 +1144,7 @@ async function refreshGroupData(timedRefresh = false) {
 
 	// Cache refresh status area reference if not already cached
 	if (!_dom.refreshStatusArea) {
-		_dom.refreshStatusArea = _dom.refreshStatusArea;
+		_dom.refreshStatusArea = document.getElementById("refreshStatusArea");
 	}
 	// Display our progress to the user...
 	_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating";
