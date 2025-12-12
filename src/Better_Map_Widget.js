@@ -215,19 +215,44 @@ let apiKey = parent.LMGlobalData.googleMapInfo.key.toString();
 ({key: apiKey, v: "weekly"});
 
 // ------------------------------------------------------------
+// CSRF Token caching for performance optimization
+let _cachedCsrfToken = null;
+let _csrfTokenExpiry = 0;
+const CSRF_TOKEN_TTL = 5 * 60 * 1000; // Cache token for 5 minutes
+
+// AbortController for canceling in-progress refresh operations
+let _currentRefreshController = null;
+
+// Utility: Debounce function for rate-limiting user input handlers
+function debounce(fn, delay = 300) {
+	let timeoutId;
+	return (...args) => {
+		clearTimeout(timeoutId);
+		timeoutId = setTimeout(() => fn(...args), delay);
+	};
+}
+
 /**
 * Fetches a Cross-Site Request Forgery (CSRF) token required for subsequent API calls.
+* Implements caching to avoid redundant network requests within the TTL period.
 *
 * This function makes a preliminary request to a dummy endpoint solely to retrieve
 * the CSRF token from the response headers.
 *
 * @async
 * @function fetchCsrfToken
+* @param {boolean} [forceRefresh=false] - Force a fresh token fetch, bypassing the cache.
 * @returns {Promise<string>} A promise that resolves with the CSRF token.
 * @throws {Error} If the fetch request fails or the token is not found in headers.
 */
-async function fetchCsrfToken() {
-	// console.debug('Fetching CSRF token...');
+async function fetchCsrfToken(forceRefresh = false) {
+	// Return cached token if still valid and not forcing refresh
+	if (!forceRefresh && _cachedCsrfToken && Date.now() < _csrfTokenExpiry) {
+		// console.debug('Using cached CSRF token...');
+		return _cachedCsrfToken;
+	}
+
+	// console.debug('Fetching fresh CSRF token...');
 	const response = await fetch('/santaba/rest/functions/dummy', {
 		method: 'GET',
 		headers: {
@@ -239,6 +264,9 @@ async function fetchCsrfToken() {
 	});
 
 	if (!response.ok) {
+		// Clear cache on failure
+		_cachedCsrfToken = null;
+		_csrfTokenExpiry = 0;
 		throw new Error(`Failed to fetch CSRF token: ${response.status} ${response.statusText}`);
 	}
 
@@ -246,7 +274,11 @@ async function fetchCsrfToken() {
 	if (!token) {
 		throw new Error('CSRF token not found in response headers.');
 	}
-	// console.debug('CSRF Token fetched successfully.');
+
+	// Cache the token
+	_cachedCsrfToken = token;
+	_csrfTokenExpiry = Date.now() + CSRF_TOKEN_TTL;
+	// console.debug('CSRF Token fetched and cached successfully.');
 
 	return token;
 }
@@ -266,6 +298,7 @@ async function fetchCsrfToken() {
 	* @param {'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'} options.httpVerb - The HTTP method to use.
 	* @param {object | Array<unknown>} [options.postBody] - The JSON payload for POST/PUT/PATCH requests.
 	* @param {string} [options.apiVersion='3'] - The API version to use. Default is "3".
+	* @param {AbortSignal} [options.signal] - Optional AbortSignal for canceling the request.
 	* @returns {Promise<object>} A promise that resolves with the JSON response body on success.
 	* @throws {Error} Throws an Error on API errors (>=300 status), network issues,
 	*                 token fetching problems, or JSON handling errors. The error object
@@ -277,6 +310,7 @@ async function LMClient({
 	httpVerb,
 	postBody,
 	apiVersion = '3',
+	signal = null, // Optional AbortSignal for request cancellation
 }) {
 	// console.debug('LMClient called with:', { resourcePath, queryParams, httpVerb, postBody, apiVersion });
 	// Validate required parameters
@@ -308,6 +342,11 @@ async function LMClient({
 			headers: headers,
 			credentials: 'include', // Necessary for session/cookie-based auth
 		};
+
+		// Add AbortSignal if provided
+		if (signal) {
+			requestOptions.signal = signal;
+		}
 
 		// 3. Add body only for relevant methods
 		if (postBody && (httpVerb === 'POST' || httpVerb === 'PUT' || httpVerb === 'PATCH')) {
@@ -389,28 +428,53 @@ async function LMClient({
 
 // ------------------------------------------------------------
 
+// Cache frequently accessed DOM elements for performance
+const _dom = {
+	showCleared: document.getElementById("showCleared"),
+	showWarnings: document.getElementById("showWarnings"),
+	showErrors: document.getElementById("showErrors"),
+	showCriticals: document.getElementById("showCriticals"),
+	showSDT: document.getElementById("showSDT"),
+	autoZoom: document.getElementById("autoZoom"),
+	weather: document.getElementById("weather"),
+	globalWeather: document.getElementById("globalWeather"),
+	nexradWeather: document.getElementById("nexradWeather"),
+	usWildfires: document.getElementById("usWildfires"),
+	usPowerOutages: document.getElementById("usPowerOutages"),
+	earthquakes: document.getElementById("earthquakes"),
+	customGroupFilterField: document.getElementById("customGroupFilterField"),
+	mapOptionsArea: document.getElementById("mapOptionsArea"),
+	refreshStatusArea: null, // Set later after map init
+	weatherRefreshButton: null, // Set later after map init
+	showClearedLabel: document.getElementById("showClearedLabel"),
+	showWarningsLabel: document.getElementById("showWarningsLabel"),
+	showErrorsLabel: document.getElementById("showErrorsLabel"),
+	showCriticalsLabel: document.getElementById("showCriticalsLabel"),
+	showSDTLabel: document.getElementById("showSDTLabel"),
+};
+
 // Set the form fields as appropriate...
-document.getElementById("showCleared").checked = showCleared;
-document.getElementById("showWarnings").checked = showWarnings;
-document.getElementById("showErrors").checked = showErrors;
-document.getElementById("showCriticals").checked = showCriticals;
-document.getElementById("showSDT").checked = showSDT;
-document.getElementById("autoZoom").checked = autoResetMapOnRefresh;
+_dom.showCleared.checked = showCleared;
+_dom.showWarnings.checked = showWarnings;
+_dom.showErrors.checked = showErrors;
+_dom.showCriticals.checked = showCriticals;
+_dom.showSDT.checked = showSDT;
+_dom.autoZoom.checked = autoResetMapOnRefresh;
 
 if (showWeatherDefault == "global") {
-	document.getElementById("weather").checked = true;
-	document.getElementById("globalWeather").checked = true;
+	_dom.weather.checked = true;
+	_dom.globalWeather.checked = true;
 } else if (showWeatherDefault == "nexrad") {
-	document.getElementById("weather").checked = true;
-	document.getElementById("nexradWeather").checked = true;
-};
+	_dom.weather.checked = true;
+	_dom.nexradWeather.checked = true;
+}
 if (additionalOverlayOption == "wildfires") {
-	document.getElementById("usWildfires").checked = true
+	_dom.usWildfires.checked = true;
 } else if (additionalOverlayOption == "outages") {
-	document.getElementById("usPowerOutages").checked = true
+	_dom.usPowerOutages.checked = true;
 } else if (additionalOverlayOption == "earthquakes") {
-	document.getElementById("earthquakes").checked = true
-};
+	_dom.earthquakes.checked = true;
+}
 
 // Capture information about the current dashboard for use in subsequent REST calls...
 const hostName = parent.window.location.host;
@@ -597,14 +661,19 @@ function saveCache() {
 function clearCache() {
 	try {
 		localStorage.removeItem(__LMBMW_CACHE_KEY);
-		// Display our progress to the user...
-		document.getElementById("refreshStatusArea").innerHTML = "Cache has been reset";
-		document.getElementById("refreshStatusArea").style.display = "flex";
-		// Add timer to remove message after 2 seconds...
-		setTimeout(() => {
-			document.getElementById("refreshStatusArea").innerHTML = "";
-			document.getElementById("refreshStatusArea").style.display = "none";
-		}, 2000);
+		// Display our progress to the user (if status area is available)...
+		if (!_dom.refreshStatusArea) {
+			_dom.refreshStatusArea = document.getElementById("refreshStatusArea");
+		}
+		if (_dom.refreshStatusArea) {
+			_dom.refreshStatusArea.innerHTML = "Cache has been reset";
+			_dom.refreshStatusArea.style.display = "flex";
+			// Add timer to remove message after 2 seconds...
+			setTimeout(() => {
+				_dom.refreshStatusArea.innerHTML = "";
+				_dom.refreshStatusArea.style.display = "none";
+			}, 2000);
+		}
 	} catch (e) {}
 }
 let cachedAddresses = loadCache();
@@ -621,14 +690,14 @@ let fullRefresh = true;
 let lineData = [];
 
 // Pre-populate the group path filter field...
-document.getElementById("customGroupFilterField").value = groupPathFilter;
+_dom.customGroupFilterField.value = groupPathFilter;
 
 // Set toolbar icons...
-document.getElementById("showClearedLabel").innerHTML = clearedIcon;
-document.getElementById("showWarningsLabel").innerHTML = warningIcon;
-document.getElementById("showErrorsLabel").innerHTML = errorIcon;
-document.getElementById("showCriticalsLabel").innerHTML = criticalIcon;
-document.getElementById("showSDTLabel").innerHTML = sdtIcon;
+_dom.showClearedLabel.innerHTML = clearedIcon;
+_dom.showWarningsLabel.innerHTML = warningIcon;
+_dom.showErrorsLabel.innerHTML = errorIcon;
+_dom.showCriticalsLabel.innerHTML = criticalIcon;
+_dom.showSDTLabel.innerHTML = sdtIcon;
 
 // Placeholder for marker cluster info...
 let clusterInfoWindow = null;
@@ -1004,11 +1073,19 @@ function adjustMap(mode, amount) {
 
 // Function to load our LogicMonitor data and add pins to the map...
 async function refreshGroupData(timedRefresh = false) {
+	// Cancel any in-progress refresh operation
+	if (_currentRefreshController) {
+		_currentRefreshController.abort();
+		console.debug('Previous refresh operation cancelled.');
+	}
+	_currentRefreshController = new AbortController();
+	const refreshSignal = _currentRefreshController.signal;
+
 	// Capture current time for tracking how long the total refresh takes...
 	refreshStartTime = performance.now();
 
 	// Get the current value of the group path filter field...
-	const groupPathFilterFieldValue = document.getElementById("customGroupFilterField").value;
+	const groupPathFilterFieldValue = _dom.customGroupFilterField.value;
 	if (groupPathFilterFieldValue != "" && groupPathFilterFieldValue != groupPathFilter) {
 		groupPathFilter = groupPathFilterFieldValue;
 
@@ -1017,31 +1094,31 @@ async function refreshGroupData(timedRefresh = false) {
 			markers[i].setMap(null);
 			if (typeof clusterer == "object") {
 				clusterer.setMap(null);
-			};
-		};
+			}
+		}
 		markers = [];
 	} else if (groupPathFilterFieldValue == "") {
 		// The user cleared the field, so reset it back to the initial value...
 		groupPathFilter = initialGroupPathFilter;
-	};
-	document.getElementById("customGroupFilterField").value = groupPathFilter;
+	}
+	_dom.customGroupFilterField.value = groupPathFilter;
 
 	// Get current state of the severity checkboxes on the toolbar...
-	showCleared = document.getElementById("showCleared").checked;
-	showWarnings = document.getElementById("showWarnings").checked;
-	showErrors = document.getElementById("showErrors").checked;
-	showCriticals = document.getElementById("showCriticals").checked;
-	showSDT = document.getElementById("showSDT").checked;
+	showCleared = _dom.showCleared.checked;
+	showWarnings = _dom.showWarnings.checked;
+	showErrors = _dom.showErrors.checked;
+	showCriticals = _dom.showCriticals.checked;
+	showSDT = _dom.showSDT.checked;
 	// If the user unchecked all the severities it'd essentially query all severities, so re-check all the checkboxes if that happens...
 	if (!showCleared && !showWarnings && !showErrors && !showCriticals && !showSDT) {
-		document.getElementById("showCleared").checked = true;
-		document.getElementById("showWarnings").checked = true;
-		document.getElementById("showErrors").checked = true;
-		document.getElementById("showCriticals").checked = true;
-		document.getElementById("showSDT").checked = true;
-	};
+		_dom.showCleared.checked = true;
+		_dom.showWarnings.checked = true;
+		_dom.showErrors.checked = true;
+		_dom.showCriticals.checked = true;
+		_dom.showSDT.checked = true;
+	}
 	// Get current state of the auto-zoom checkbox on the toolbar...
-	autoResetMapOnRefresh = document.getElementById("autoZoom").checked;
+	autoResetMapOnRefresh = _dom.autoZoom.checked;
 
 	// If there was a wildcard in the group path then do a "like" search, otherwise search for an exact match...
 	let pathOperator = ":";
@@ -1050,11 +1127,14 @@ async function refreshGroupData(timedRefresh = false) {
 	};
 
 	// Temporarily disable the toolbar fields to prevent user from refreshing before previous refresh is complete...
-	document.getElementById("mapOptionsArea").classList.add("disabled");
-	let tmpRefreshButton = document.getElementById("weatherRefreshButton");
-	if (tmpRefreshButton != null) {
-		document.getElementById("weatherRefreshButton").classList.add("disabled");
-	};
+	_dom.mapOptionsArea.classList.add("disabled");
+	// Cache refresh button reference if not already cached
+	if (!_dom.weatherRefreshButton) {
+		_dom.weatherRefreshButton = document.getElementById("weatherRefreshButton");
+	}
+	if (_dom.weatherRefreshButton) {
+		_dom.weatherRefreshButton.classList.add("disabled");
+	}
 
 	// Clear any previously fetched data...
 	groupData = [];
@@ -1062,9 +1142,13 @@ async function refreshGroupData(timedRefresh = false) {
 	let totalGroups = 1000;
 	let offset = 0;
 
+	// Cache refresh status area reference if not already cached
+	if (!_dom.refreshStatusArea) {
+		_dom.refreshStatusArea = _dom.refreshStatusArea;
+	}
 	// Display our progress to the user...
-	document.getElementById("refreshStatusArea").innerHTML = loadingSpinner + "&nbsp;Updating";
-	document.getElementById("refreshStatusArea").style.display = "flex";
+	_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating";
+	_dom.refreshStatusArea.style.display = "flex";
 
 	// Prepare to call the LogicMonitor API method...
 	const httpVerb = "GET";
@@ -1144,6 +1228,7 @@ async function refreshGroupData(timedRefresh = false) {
 				httpVerb: httpVerb,
 				postBody: null,
 				apiVersion: '3',
+				signal: refreshSignal, // Allow cancellation of in-progress requests
 			});
 			// Process the group data we received...
 			// console.debug('Group request succeeded with JSON response', markerData);
@@ -1158,19 +1243,19 @@ async function refreshGroupData(timedRefresh = false) {
 				offset = groupData.length;
 
 				// Display our progress to the user...
-				document.getElementById("refreshStatusArea").innerHTML = loadingSpinner + "&nbsp;Updating: " + offset + " of " + totalGroups + " (" + Math.round(offset/totalGroups*100) + "%)";
-				// document.getElementById("refreshStatusArea").innerHTML = "Updating: " + Math.round(offset/totalGroups*100) + "%";
+				_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating: " + offset + " of " + totalGroups + " (" + Math.round(offset/totalGroups*100) + "%)";
+				// _dom.refreshStatusArea.innerHTML = "Updating: " + Math.round(offset/totalGroups*100) + "%";
 			} else {
 				// Indicate that no results were found...
 				if (offset == 0) {
 					console.debug('No results found');
-					document.getElementById("refreshStatusArea").innerHTML = "<span class='noResultMessage'>No results</span>";
+					_dom.refreshStatusArea.innerHTML = "<span class='noResultMessage'>No results</span>";
 					totalGroups = -1; // Stop the loop
 					// Re-enable the toolbar fields...
-					document.getElementById("mapOptionsArea").classList.remove("disabled");
-					if (tmpRefreshButton != null) {
-						document.getElementById("weatherRefreshButton").classList.remove("disabled");
-					};
+					_dom.mapOptionsArea.classList.remove("disabled");
+					if (_dom.weatherRefreshButton) {
+						_dom.weatherRefreshButton.classList.remove("disabled");
+					}
 
 					// Clear any previous markers from the map...
 					for (let i = 0; i < markers.length; i++) {
@@ -1220,6 +1305,7 @@ async function refreshGroupData(timedRefresh = false) {
 					httpVerb: httpVerb,
 					postBody: null,
 					apiVersion: '3',
+					signal: refreshSignal, // Allow cancellation of in-progress requests
 				});
 				// Process the group data we received...
 				// console.debug('Group request succeeded with JSON response', markerData);
@@ -1240,8 +1326,8 @@ async function refreshGroupData(timedRefresh = false) {
 					offset = groupData.length;
 
 					// Display our progress to the user...
-					document.getElementById("refreshStatusArea").innerHTML = loadingSpinner + "&nbsp;Updating: " + offset + " of " + tmpTotalGroups + " (" + Math.round(offset/tmpTotalGroups*100) + "%)";
-					// document.getElementById("refreshStatusArea").innerHTML = "Updating: " + Math.round(offset/totalGroups*100) + "%";
+					_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating: " + offset + " of " + tmpTotalGroups + " (" + Math.round(offset/tmpTotalGroups*100) + "%)";
+					// _dom.refreshStatusArea.innerHTML = "Updating: " + Math.round(offset/totalGroups*100) + "%";
 				} else {
 					// We're done so stop the loop...
 					// console.debug("We're done fetching inherited locations");
@@ -1253,27 +1339,32 @@ async function refreshGroupData(timedRefresh = false) {
 			// console.debug("totalGroups: " + totalGroups + " / tmpTotalGroups: " + tmpTotalGroups + " / offset: " + offset);
 		};
 	} catch (error) {
+		// Silently handle aborted requests (user triggered a new refresh)
+		if (error.name === 'AbortError') {
+			console.debug('Refresh operation was cancelled.');
+			return; // Exit early, new refresh will take over
+		}
 		console.error('Error fetching group data:', error);
-		document.getElementById("refreshStatusArea").innerHTML = `<span class='noResultMessage'>Error loading data: ${error.message || 'Unknown error'}</span>`;
+		_dom.refreshStatusArea.innerHTML = `<span class='noResultMessage'>Error loading data: ${error.message || 'Unknown error'}</span>`;
 		totalGroups = -1; // Stop the loop on error
 		// Re-enable the toolbar fields...
-		document.getElementById("mapOptionsArea").classList.remove("disabled");
-		if (tmpRefreshButton != null) {
-			document.getElementById("weatherRefreshButton").classList.remove("disabled");
-		};
+		_dom.mapOptionsArea.classList.remove("disabled");
+		if (_dom.weatherRefreshButton) {
+			_dom.weatherRefreshButton.classList.remove("disabled");
+		}
 	}
 
 	// If we've finished fetching all the group/resource data...
 	if (offset == totalGroups) {
 		// console.debug('Total groups processed: ' + totalGroups);
 		// Reset our progress indicator...
-		document.getElementById("refreshStatusArea").innerHTML = "";
-		document.getElementById("refreshStatusArea").style.display = "none";
+		_dom.refreshStatusArea.innerHTML = "";
+		_dom.refreshStatusArea.style.display = "none";
 		// Re-enable the toolbar fields...
-		document.getElementById("mapOptionsArea").classList.remove("disabled");
-		if (tmpRefreshButton != null) {
-			document.getElementById("weatherRefreshButton").classList.remove("disabled");
-		};
+		_dom.mapOptionsArea.classList.remove("disabled");
+		if (_dom.weatherRefreshButton) {
+			_dom.weatherRefreshButton.classList.remove("disabled");
+		}
 
 		// Prepare Google geocoding for translating a street address to latitude & longitude...
 		const geocoder = new google.maps.Geocoder();
