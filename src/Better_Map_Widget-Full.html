@@ -1,7 +1,7 @@
 <!--
 	Better Map Widget
 	Developed by Kevin Ford
-	Version 2.87 - Integrated Authentication Version
+	Version 2.88 - Integrated Authentication Version
 	Integrated authentication improvements by Steve Villardi
 
 	Some of the ideas behind this project:
@@ -2663,22 +2663,33 @@
 	};
 
 	// Initialize the RainViewer API...
-	function initWeather() {
-		let rvAPIRequest = new XMLHttpRequest();
-		rvAPIRequest.open("GET", "https://api.rainviewer.com/public/weather-maps.json", true);
-		rvAPIRequest.onload = function(e) {
+	async function initWeather() {
+		try {
+			const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+			if (!response.ok) {
+				throw new Error(`RainViewer API error: ${response.status} ${response.statusText}`);
+			}
 			// Store the API response for re-use purposes in memory...
-			rvAPIData = JSON.parse(rvAPIRequest.response);
+			rvAPIData = await response.json();
 			addWeatherLayer();
-		};
-		rvAPIRequest.send();
+		} catch (error) {
+			console.error("Failed to fetch RainViewer weather data:", error);
+		}
 
 		// Refresh the weather data at regular intervals (using the 'weatherRefreshMinutes' variable set near the top of this script)...
-		weatherRefresher = setInterval(function() {
+		weatherRefresher = setInterval(async function() {
+			try {
+				const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+				if (response.ok) {
+					rvAPIData = await response.json();
+				}
+			} catch (error) {
+				console.error("Failed to refresh weather data:", error);
+			}
 			addWeatherLayer();
-			console.log("Weather maps refreshed.")
+			console.log("Weather maps refreshed.");
 		}, weatherRefreshMinutes*1000*60);
-	};
+	}
 
 	// Get the latest radar frame from RainViewer...
 	function initRainViewerData() {
@@ -2790,7 +2801,7 @@
 				// More info about this source of active US wildfire data can be found at: https://www.arcgis.com/home/item.html?id=d957997ccee7408287a963600a77f61f
 				// From that site, you can click "View" above the "URL" field on the right-hand side. From there, you'll see info on the two available layers. We're using layer "1" for perimeter data (denoted in the URL below with the "_1"), and pulling geojson data (per the suffix).
 				//map.data.loadGeoJson("https://opendata.arcgis.com/datasets/d957997ccee7408287a963600a77f61f_1.geojson");
-				map.data.loadGeoJson("https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/USA_Wildfires_v1/FeatureServer/1/query?where=CurrentDateAge+<%3D+7&outFields=*&f=geojson");
+				map.data.loadGeoJson(`https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/USA_Wildfires_v1/FeatureServer/1/query?where=CurrentDateAge+<%3D+7&outFields=*&f=geojson&ts=${Date.now()}`);
 
 				// Color the wildfire areas as red...
 				map.data.setStyle({ fillColor: 'red', strokeWeight: 1.0, strokeColor: 'salmon' });
@@ -2828,146 +2839,134 @@
 				};
 			// Look to see if we should add power outages to the map...
 			} else if (optionalMapType == "us-poweroutages") {
-				// Variables for holding the number of counties...
-				let countyCount = 0;
-				let pageCount = 0;
-				let maxPerPage = 1000;
-				let countyFeatures = [];
+				const maxPerPage = 1000;
+				const baseUrl = "https://services8.arcgis.com/S9R3NgKp66dTIzOU/ArcGIS/rest/services/DEMO_US_Power_Outages/FeatureServer/0/query";
 
-				let countyAPIRequest = new XMLHttpRequest();
-				countyAPIRequest.open("GET", "https://services8.arcgis.com/S9R3NgKp66dTIzOU/ArcGIS/rest/services/DEMO_US_Power_Outages/FeatureServer/0/query?where=0%3D0&outFields=*&returnCountOnly=true&f=pjson", false);
+				try {
+					// First, get the total count of counties
+					const countResponse = await fetch(`${baseUrl}?where=0%3D0&outFields=*&returnCountOnly=true&f=pjson&ts=${Date.now()}`);
+					if (!countResponse.ok) {
+						throw new Error(`Power outages count API error: ${countResponse.status} ${countResponse.statusText}`);
+					}
+					countyAPIData = await countResponse.json();
+					const countyCount = parseInt(countyAPIData.count);
+					const pageCount = Math.ceil(countyCount / maxPerPage);
 
-				countyAPIRequest.onload = function(e) {
-					// Store the API response for re-use purposes in memory...
-					countyAPIData = JSON.parse(countyAPIRequest.response);
-					countyCount = parseInt(countyAPIData.count);
-					pageCount = Math.ceil(countyCount / maxPerPage);
-					let thisPage = 0;
-					let offset = 0;
-
-					// Try to determine which style has been applied to the map so we can tune our border colors appropriately...
-					// The map will only have a "geometry" style if the "Standard" map has been overridden...
-					// try {
-					// 	let mapGeometryStyleElement = lm_map.styles.find((element) => element.elementType == "geometry");
-					// 	let mapGeometryStyle = mapGeometryStyleElement.stylers[0].color;
-					// 	mapStyle = mapStyles.get(mapGeometryStyle);
-					// } catch (e) {};
-
+					// Build an array of fetch promises for all pages (parallel fetching is much faster)
+					const pagePromises = [];
 					for (let currentPage = 0; currentPage <= pageCount; currentPage++) {
-						offset = currentPage * maxPerPage;
-						// console.log("Loading page " + currentPage + " of " + pageCount);
+						const offset = currentPage * maxPerPage;
+						const pageUrl = `${baseUrl}?where=0%3D0&outFields=*&resultOffset=${offset}&resultRecordCount=${maxPerPage}&f=pgeojson&ts=${Date.now()}`;
+						pagePromises.push(
+							fetch(pageUrl).then(response => {
+								if (!response.ok) {
+									throw new Error(`Power outages page ${currentPage} error: ${response.status}`);
+								}
+								return response.json();
+							})
+						);
+					}
 
-						let countyDataRequest = new XMLHttpRequest();
+					// Wait for all pages to load in parallel...
+					const pageResults = await Promise.all(pagePromises);
 
-						countyDataRequest.open("GET", "https://services8.arcgis.com/S9R3NgKp66dTIzOU/ArcGIS/rest/services/DEMO_US_Power_Outages/FeatureServer/0/query?where=0%3D0&outFields=*&resultOffset=" + offset + "&resultRecordCount=" + maxPerPage + "&f=pgeojson", true);
+					// Combine all features from all pages...
+					const countyFeatures = pageResults.flatMap(result => result.features || []);
+					console.debug("US power outages loading complete - " + countyFeatures.length + " counties loaded");
 
-						countyDataRequest.onload = function(e) {
-							thisPage = thisPage + 1;
+					// Reset any lingering map popups, highlights, etc...
+					map.data.forEach(function(feature) {
+						map.data.remove(feature);
+					});
+					if (typeof parent.outageInfoWindowListenerHandle == "object") {
+						google.maps.event.removeListener(parent.outageInfoWindowListenerHandle);
+					}
+					if (typeof parent.fireInfoWindowListenerHandle == "object") {
+						google.maps.event.removeListener(parent.fireInfoWindowListenerHandle);
+					}
+					if (typeof parent.quakeInfoWindowListenerHandle == "object") {
+						google.maps.event.removeListener(parent.quakeInfoWindowListenerHandle);
+					}
 
-							// Store the API response for re-use purposes in memory...
-							let results = JSON.parse(countyDataRequest.response);
-							let tmpArray = countyFeatures.concat(results.features);
-							countyFeatures = tmpArray;
-
-							if (countyFeatures.length == countyCount) {
-								// console.log("Loading complete");
-
-								// Reset any lingering map popups, hightlights, etc...
-								map.data.forEach(function(feature) {
-									map.data.remove(feature);
-								});
-								if (typeof parent.outageInfoWindowListenerHandle == "object") {
-									google.maps.event.removeListener(parent.outageInfoWindowListenerHandle);
-								};
-								if (typeof parent.fireInfoWindowListenerHandle == "object") {
-									google.maps.event.removeListener(parent.fireInfoWindowListenerHandle);
-								};
-								if (typeof parent.quakeInfoWindowListenerHandle == "object") {
-									google.maps.event.removeListener(parent.quakeInfoWindowListenerHandle);
-								};
-
-								let geoJSON = {
-									"type" : "FeatureCollection",
-									"properties" : {
-										"exceededTransferLimit" : true
-									},
-									"features" : countyFeatures
-								};
-
-								map.data.addGeoJson(geoJSON);
-
-								// Color the county borders...
-								// Dynamically fill the county based on how many customers are currently without power...
-								map.data.setStyle(function(feature) {
-									let percentAffected = 0;
-									let strokeColor = "salmon";
-									let strokeOpacity = 0.1;
-									if (feature.getProperty('TrackedCount') > 0) {
-										// Calculate what percentage of power customers are affected by outages...
-										percentAffected = feature.getProperty('OutageCount') / feature.getProperty('TrackedCount');
-									}
-
-									// if (mapStyle == "night" || mapStyle == "dark") {
-									// 	strokeColor = "cornflowerblue";
-									// }
-									return {
-										fillColor: 'red',
-										fillOpacity: percentAffected,
-										strokeWeight: 1.0,
-										strokeColor: strokeColor,
-										strokeOpacity: strokeOpacity
-									}
-								});
-
-								// Show county names on click...
-								let outageInfoWindow = new google.maps.InfoWindow({
-									content: ""
-								});
-								parent.outageInfoWindowListenerHandle = map.data.addListener('click', function(event) {
-									// Show an infowindow on click...
-									let timestamp = new Date(event.feature.getProperty("LastUpdate"));
-									let percentAffected = 0;
-									if (event.feature.getProperty('TrackedCount') > 0) {
-										// Calculate what percentage of power customers are affected by outages...
-										percentAffected = event.feature.getProperty('OutageCount') / event.feature.getProperty('TrackedCount') * 100;
-									}
-
-									// Calculate donut chart values (circumference = 2 * π * 35 ≈ 219.91)...
-									let circumference = 219.91;
-									let filledAmount = (percentAffected / 100) * circumference;
-									let donutChart = `
-										<svg width="100" height="100" viewBox="0 0 100 100" style="display:block;margin:10px auto;">
-											<circle cx="50" cy="50" r="35" fill="none" stroke="#e0e0e0" stroke-width="12"/>
-											<circle cx="50" cy="50" r="35" fill="none" stroke="#dc3545" stroke-width="12"
-												stroke-dasharray="${filledAmount} ${circumference - filledAmount}"
-												stroke-linecap="round"
-												transform="rotate(-90 50 50)"/>
-											<text x="50" y="50" text-anchor="middle" dominant-baseline="middle"
-												font-size="18" font-weight="bold" fill="#333">${Math.round(percentAffected)}%</text>
-										</svg>
-									`;
-									// Set the content of the info window...
-									outageInfoWindow.setContent('<div style="line-height:1.5;overflow:hidden;white-space:nowrap;color:#333;"><h3 style="margin:0;">'+ event.feature.getProperty("NAME") + ' County Power Outages</h3>' + donutChart + '<p style="padding:5px 0;">Power Customers Affected: <strong>' + Math.round(percentAffected) + '%</strong> (' + event.feature.getProperty("OutageCount").toLocaleString() + ' of ' + event.feature.getProperty("TrackedCount").toLocaleString() + ')</p><p>Last Updated: ' + timestamp.toLocaleString() + '</p></div>');
-									let anchor = new google.maps.MVCObject();
-									anchor.set("position",event.latLng);
-									outageInfoWindow.open(map, anchor);
-								});
-
-								// Highlight counties on mouseover...
-								map.data.addListener('mouseover', function(event) {
-									map.data.revertStyle();
-									map.data.overrideStyle(event.feature, {strokeWeight: 3, strokeOpacity: 0.5});
-								});
-								// map.data.addListener('mouseout', function(event) {
-									// map.data.revertStyle();
-								// });
-
-							}
-						};
-						countyDataRequest.send();
+					const geoJSON = {
+						"type": "FeatureCollection",
+						"properties": {
+							"exceededTransferLimit": true
+						},
+						"features": countyFeatures
 					};
-				};
-				countyAPIRequest.send();
+
+					map.data.addGeoJson(geoJSON);
+
+					// Color the county borders...
+					// Dynamically fill the county based on how many customers are currently without power...
+					map.data.setStyle(function(feature) {
+						let percentAffected = 0;
+						let strokeColor = "salmon";
+						let strokeOpacity = 0.1;
+						if (feature.getProperty('TrackedCount') > 0) {
+							// Calculate what percentage of power customers are affected by outages...
+							percentAffected = feature.getProperty('OutageCount') / feature.getProperty('TrackedCount');
+						}
+
+						// if (mapStyle == "night" || mapStyle == "dark") {
+						// 	strokeColor = "cornflowerblue";
+						// }
+						return {
+							fillColor: 'red',
+							fillOpacity: percentAffected,
+							strokeWeight: 1.0,
+							strokeColor: strokeColor,
+							strokeOpacity: strokeOpacity
+						};
+					});
+
+					// Show county names on click...
+					const outageInfoWindow = new google.maps.InfoWindow({
+						content: ""
+					});
+					parent.outageInfoWindowListenerHandle = map.data.addListener('click', function(event) {
+						// Show an infowindow on click...
+						const timestamp = new Date(event.feature.getProperty("LastUpdate"));
+						let percentAffected = 0;
+						if (event.feature.getProperty('TrackedCount') > 0) {
+							// Calculate what percentage of power customers are affected by outages...
+							percentAffected = event.feature.getProperty('OutageCount') / event.feature.getProperty('TrackedCount') * 100;
+						}
+
+						// Calculate donut chart values (circumference = 2 * π * 35 ≈ 219.91)...
+						const circumference = 219.91;
+						const filledAmount = (percentAffected / 100) * circumference;
+						const donutChart = `
+							<svg width="100" height="100" viewBox="0 0 100 100" style="display:block;margin:10px auto;">
+								<circle cx="50" cy="50" r="35" fill="none" stroke="#e0e0e0" stroke-width="12"/>
+								<circle cx="50" cy="50" r="35" fill="none" stroke="#dc3545" stroke-width="12"
+									stroke-dasharray="${filledAmount} ${circumference - filledAmount}"
+									stroke-linecap="round"
+									transform="rotate(-90 50 50)"/>
+								<text x="50" y="50" text-anchor="middle" dominant-baseline="middle"
+									font-size="18" font-weight="bold" fill="#333">${Math.round(percentAffected)}%</text>
+							</svg>
+						`;
+						// Set the content of the info window...
+						outageInfoWindow.setContent('<div style="line-height:1.5;overflow:hidden;white-space:nowrap;color:#333;"><h3 style="margin:0;">'+ event.feature.getProperty("NAME") + ' County Power Outages</h3>' + donutChart + '<p style="padding:5px 0;">Power Customers Affected: <strong>' + Math.round(percentAffected) + '%</strong> (' + event.feature.getProperty("OutageCount").toLocaleString() + ' of ' + event.feature.getProperty("TrackedCount").toLocaleString() + ')</p><p>Last Updated: ' + timestamp.toLocaleString() + '</p></div>');
+						const anchor = new google.maps.MVCObject();
+						anchor.set("position", event.latLng);
+						outageInfoWindow.open(map, anchor);
+					});
+
+					// Highlight counties on mouseover...
+					map.data.addListener('mouseover', function(event) {
+						map.data.revertStyle();
+						map.data.overrideStyle(event.feature, {strokeWeight: 3, strokeOpacity: 0.5});
+					});
+					map.data.addListener('mouseout', function(event) {
+						map.data.revertStyle();
+					});
+
+				} catch (error) {
+					console.error("Failed to fetch power outage data:", error);
+				}
 
 			} else if (optionalMapType == "earthquakes") {
 				// Clear any previous load of the quake data...
@@ -2987,9 +2986,9 @@
 				// Load the earthquake data for the past day from the USGS site...
 				// More info about this source of earthquake data can be found at: https://publicapis.io/usgs-earthquake-hazards-program-api
 				if (quakeMode == "time") {
-					await map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.geojson");
+					await map.data.loadGeoJson(`https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.geojson?ts=${Date.now()}`);
 				} else {
-					await map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_day.geojson");
+					await map.data.loadGeoJson(`https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_day.geojson?ts=${Date.now()}`);
 				};
 				// Other options for different timeframes and magnitudes...
 				// map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson");
