@@ -567,6 +567,8 @@ let markers = [];
 let centerCalculated = false;
 // For storing polyline references and their marker associations...
 let polylines = [];
+// Reference to the tilt shading overlay...
+let tiltShadingOverlay = null;
 
 // Clear all connecting polylines and their listeners
 function clearAllPolylines() {
@@ -715,6 +717,82 @@ async function initMap() {
 	const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
 	const {ColorScheme} = await google.maps.importLibrary("core");
 
+	// Custom Google Maps OverlayView for the tilt shading effect (defined here after Google Maps is loaded)...
+	class TiltShadingOverlay extends google.maps.OverlayView {
+		constructor(map) {
+			super();
+			this.div_ = null;
+			this.map_ = map;
+		}
+
+		onAdd() {
+			// Create the shading div element...
+			this.div_ = document.createElement("div");
+			this.div_.className = "mapTiltShadingOverlay";
+			this.div_.style.position = "absolute";
+			this.div_.style.pointerEvents = "none";
+
+			// Add to the overlayLayer pane (above map tiles, below markers)...
+			const panes = this.getPanes();
+			panes.overlayLayer.appendChild(this.div_);
+
+			// Apply initial shading...
+			this.updateShading();
+		}
+
+		draw() {
+			// Position the overlay to cover the entire map viewport...
+			const overlayProjection = this.getProjection();
+			if (!overlayProjection) return;
+
+			const bounds = this.map_.getBounds();
+			if (!bounds) return;
+
+			const sw = overlayProjection.fromLatLngToDivPixel(bounds.getSouthWest());
+			const ne = overlayProjection.fromLatLngToDivPixel(bounds.getNorthEast());
+
+			if (this.div_) {
+				this.div_.style.left = sw.x + "px";
+				this.div_.style.top = ne.y + "px";
+				this.div_.style.width = (ne.x - sw.x) + "px";
+				this.div_.style.height = (sw.y - ne.y) + "px";
+			}
+		}
+
+		onRemove() {
+			if (this.div_) {
+				this.div_.parentNode.removeChild(this.div_);
+				this.div_ = null;
+			}
+		}
+
+		updateShading() {
+			if (!this.div_) return;
+
+			if (mapTilt === 0) {
+				// No shading when map is flat...
+				this.div_.style.opacity = "0";
+				this.div_.style.background = "none";
+			} else {
+				// Calculate shading intensity based on tilt (max tilt is typically 45-67.5 degrees)...
+				const maxTilt = 67.5;
+				const tiltRatio = Math.min(mapTilt / maxTilt, 1);
+				const topOpacity = 0.01 + (tiltRatio * 0.2);
+				const bottomOpacity = 0;
+
+				// Create a gradient that's darker at the top (simulating horizon/distance) and lighter at the bottom...
+				this.div_.style.background = `linear-gradient(
+					to bottom,
+					rgba(0, 0, 0, ${topOpacity}) 0%,
+					rgba(0, 0, 0, ${topOpacity * 0.6}) 20%,
+					rgba(0, 0, 0, ${topOpacity * 0.3}) 40%,
+					rgba(0, 0, 0, ${bottomOpacity}) 60%
+				)`;
+				this.div_.style.opacity = "1";
+			}
+		}
+	}
+
 	// Create our Google Map...
 	map = new google.maps.Map(document.getElementById("googleMap"), {
 		zoom: 3,
@@ -742,12 +820,9 @@ async function initMap() {
 		map.setRenderingType(RenderingType.VECTOR);
 	};
 
-	// Create a shading overlay for 3D tilt effect...
-	const mapTiltShadingDiv = document.createElement("div");
-	mapTiltShadingDiv.id = "mapTiltShading";
-	document.getElementById("googleMap").appendChild(mapTiltShadingDiv);
-	// Apply initial shading if mapTilt is not 0...
-	updateTiltShading();
+	// Create a shading overlay for 3D tilt effect using Google Maps OverlayView...
+	tiltShadingOverlay = new TiltShadingOverlay(map);
+	tiltShadingOverlay.setMap(map);
 
 	// Add some custom controls to the map...
 	const weatherControlDiv = document.createElement("div");
@@ -1065,33 +1140,12 @@ function createUpdateArea(map) {
 	map.controls[google.maps.ControlPosition.TOP_LEFT].push(updateAreaDiv);
 
 	return updateAreaDiv;
-}
+};
 
 // Function to update the shading overlay based on mapTilt value for 3D effect...
 function updateTiltShading() {
-	const shadingDiv = document.getElementById("mapTiltShading");
-	if (!shadingDiv) return;
-	
-	if (mapTilt === 0) {
-		// No shading when map is flat...
-		shadingDiv.style.opacity = "0";
-		shadingDiv.style.background = "none";
-	} else {
-		// Calculate shading intensity based on tilt (max tilt is typically 45-67.5 degrees)...
-		const maxTilt = 67.5;
-		const tiltRatio = Math.min(mapTilt / maxTilt, 1);
-		const topOpacity = 0.01 + (tiltRatio * 0.2); // Range from 0.15 to 0.4
-		const bottomOpacity = 0;
-		
-		// Create a gradient that's darker at the top (simulating horizon/distance) and lighter at the bottom...
-		shadingDiv.style.background = `linear-gradient(
-			to bottom,
-			rgba(0, 0, 0, ${topOpacity}) 0%,
-			rgba(0, 0, 0, ${topOpacity * 0.6}) 20%,
-			rgba(0, 0, 0, ${topOpacity * 0.3}) 40%,
-			rgba(0, 0, 0, ${bottomOpacity}) 60%
-		)`;
-		shadingDiv.style.opacity = "1";
+	if (tiltShadingOverlay) {
+		tiltShadingOverlay.updateShading();
 	}
 };
 
@@ -1100,6 +1154,7 @@ function adjustMap(mode, amount) {
 		case "tilt":
 			map.setTilt(map.getTilt() + amount);
 			mapTilt = map.getTilt();
+			updateTiltShading(); // Update shading when tilt changes...
 			break;
 		case "rotate":
 			map.setHeading(map.getHeading() + amount);
