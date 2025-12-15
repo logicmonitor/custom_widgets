@@ -742,6 +742,13 @@ async function initMap() {
 		map.setRenderingType(RenderingType.VECTOR);
 	};
 
+	// Create a shading overlay for 3D tilt effect...
+	const mapTiltShadingDiv = document.createElement("div");
+	mapTiltShadingDiv.id = "mapTiltShading";
+	document.getElementById("googleMap").appendChild(mapTiltShadingDiv);
+	// Apply initial shading if mapTilt is not 0...
+	updateTiltShading();
+
 	// Add some custom controls to the map...
 	const weatherControlDiv = document.createElement("div");
 	// Create a button to the map for toggling visibility of the options bar...
@@ -772,7 +779,11 @@ async function initMap() {
 	// Add our button div to our custom map controls...
 	weatherControlDiv.appendChild(weatherControlButtonDiv);
 	// Attach our controls to the map...
-	map.controls[google.maps.ControlPosition.TOP_LEFT].push(weatherControlDiv);
+	weatherControlDiv.style.position = "absolute";
+	weatherControlDiv.style.top = "0";
+	weatherControlDiv.style.left = "0";
+	weatherControlDiv.style.zIndex = "2";
+	document.getElementById("googleMap").appendChild(weatherControlDiv);
 
 	// Optionally create a div to hold our map tilt & heading buttons...
 	if (showMapTiltControls) {
@@ -1055,6 +1066,34 @@ function createUpdateArea(map) {
 
 	return updateAreaDiv;
 }
+
+// Function to update the shading overlay based on mapTilt value for 3D effect...
+function updateTiltShading() {
+	const shadingDiv = document.getElementById("mapTiltShading");
+	if (!shadingDiv) return;
+	
+	if (mapTilt === 0) {
+		// No shading when map is flat...
+		shadingDiv.style.opacity = "0";
+		shadingDiv.style.background = "none";
+	} else {
+		// Calculate shading intensity based on tilt (max tilt is typically 45-67.5 degrees)...
+		const maxTilt = 67.5;
+		const tiltRatio = Math.min(mapTilt / maxTilt, 1);
+		const topOpacity = 0.01 + (tiltRatio * 0.2); // Range from 0.15 to 0.4
+		const bottomOpacity = 0;
+		
+		// Create a gradient that's darker at the top (simulating horizon/distance) and lighter at the bottom...
+		shadingDiv.style.background = `linear-gradient(
+			to bottom,
+			rgba(0, 0, 0, ${topOpacity}) 0%,
+			rgba(0, 0, 0, ${topOpacity * 0.6}) 20%,
+			rgba(0, 0, 0, ${topOpacity * 0.3}) 40%,
+			rgba(0, 0, 0, ${bottomOpacity}) 60%
+		)`;
+		shadingDiv.style.opacity = "1";
+	}
+};
 
 function adjustMap(mode, amount) {
 	switch (mode) {
@@ -1764,6 +1803,7 @@ async function refreshGroupData(timedRefresh = false) {
 					// Carry forward our tilt/heading between refreshes...
 					map.setTilt(mapTilt);
 					map.setHeading(mapHeading);
+					updateTiltShading(); // Ensure shading is in sync with tilt...
 				};
 			};
 		});
@@ -2602,6 +2642,7 @@ function resetZoom() {
 	mapHeading = defaultMapHeading;
 	map.setTilt(mapTilt);
 	map.setHeading(mapHeading);
+	updateTiltShading(); // Update shading when tilt is reset...
 };
 
 // Function to capture presses of the Enter key in the 'Group Filter' field (without this the widget refreshes in an error)...

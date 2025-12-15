@@ -54,6 +54,18 @@ body {
 	order: 2;
 	border: 1px solid #aaa;
 	border-radius: 7px;
+	position: relative;
+}
+#mapTiltShading {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	pointer-events: none;
+	z-index: 1;
+	border-radius: 7px;
+	transition: opacity 0.3s ease-out;
 }
 #customMapRefreshButton, #customMapResetZoom {
 	margin-right: 5px;
