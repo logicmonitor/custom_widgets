@@ -1688,7 +1688,8 @@
 			// Calculate shading intensity based on tilt (max tilt is typically 45-67.5 degrees)...
 			const maxTilt = 67.5;
 			const tiltRatio = Math.min(mapTilt / maxTilt, 1);
-			const topOpacity = 0.01 + (tiltRatio * 0.2); // Range from 0.15 to 0.4
+			// const topOpacity = 0.01 + (tiltRatio * 0.2); // Range from 0.15 to 0.4
+			const topOpacity = tiltRatio * 0.15;
 			const bottomOpacity = 0;
 			
 			// Create a gradient that's darker at the top (simulating horizon/distance) and lighter at the bottom...
