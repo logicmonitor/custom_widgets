@@ -1,6 +1,6 @@
 // Better Map Widget
 // Developed by Kevin Ford
-// Version 2.91 - Integrated Authentication Version
+// Version 2.92 - Integrated Authentication Version
 // Integrated authentication improvements by Steve Villardi
 
 // Some of the ideas behind this project:
@@ -2598,7 +2598,13 @@ async function addWeatherLayer() {
 function resetZoom() {
 	// If there's only 1 marker, avoid zooming in super close (i.e. use the default zoom level 3)...
 	if (markers.length > 0) {
-		map.fitBounds(bounds);
+		// Add padding to avoid markers appearing under the map's UI controls...
+		map.fitBounds(bounds, {
+			top: 70,
+			right: 70,
+			bottom: 70,
+			left: 70
+		});
 	};
 	// Reset the tilt & heading back to their original values...
 	mapTilt = defaultMapTilt;
