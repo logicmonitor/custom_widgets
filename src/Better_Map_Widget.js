@@ -728,7 +728,7 @@ async function initMap() {
 		// scaleControl: boolean,
 		streetViewControl: false,
 		rotateControl: false,
-		fullscreenControl: true,
+		fullscreenControl: false,
 		tilt: mapTilt,
 		heading: mapHeading,
 		gestureHandling: mapGestureHandling,
@@ -748,6 +748,82 @@ async function initMap() {
 	document.getElementById("googleMap").appendChild(mapTiltShadingDiv);
 	// Apply initial shading if mapTilt is not 0...
 	updateTiltShading();
+
+	// Create a custom fullscreen control div...
+	const customFullscreenDiv = document.createElement("div");
+	customFullscreenDiv.id = "customFullscreenControl";
+	customFullscreenDiv.style.position = "absolute";
+	customFullscreenDiv.style.top = "10px";
+	customFullscreenDiv.style.right = "10px";
+	customFullscreenDiv.style.zIndex = "2";
+	customFullscreenDiv.style.backgroundColor = "rgb(255 255 255)";
+	customFullscreenDiv.style.border = "0";
+	customFullscreenDiv.style.borderRadius = "3px";
+	customFullscreenDiv.style.boxShadow = "0 1px 4px rgba(0,0,0,0.3)";
+	customFullscreenDiv.style.cursor = "pointer";
+	customFullscreenDiv.style.height = "40px";
+	customFullscreenDiv.style.width = "40px";
+	customFullscreenDiv.style.display = "flex";
+	customFullscreenDiv.style.alignItems = "center";
+	customFullscreenDiv.style.justifyContent = "center";
+	customFullscreenDiv.title = "Toggle fullscreen";
+	// Fullscreen icon SVG (expand icon)
+	customFullscreenDiv.innerHTML = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;"><path d="M8 3H5C3.89543 3 3 3.89543 3 5V8M21 8V5C21 3.89543 20.1046 3 19 3H16M16 21H19C20.1046 21 21 20.1046 21 19V16M3 16V19C3 20.1046 3.89543 21 5 21H8" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+	// Function to update icon based on fullscreen state
+	const updateFullscreenIcon = () => {
+		const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+		if (isFullscreen) {
+			// Exit fullscreen icon (compress icon)
+			customFullscreenDiv.innerHTML = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;"><path d="M4 14H10V20M20 10H14V4M14 10L21 3M3 21L10 14" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+			customFullscreenDiv.title = "Exit fullscreen";
+		} else {
+			// Enter fullscreen icon (expand icon)
+			customFullscreenDiv.innerHTML = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;"><path d="M8 3H5C3.89543 3 3 3.89543 3 5V8M21 8V5C21 3.89543 20.1046 3 19 3H16M16 21H19C20.1046 21 21 20.1046 21 19V16M3 16V19C3 20.1046 3.89543 21 5 21H8" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+			customFullscreenDiv.title = "Toggle fullscreen";
+		}
+	};
+
+	// Toggle fullscreen functionality
+	customFullscreenDiv.addEventListener("click", () => {
+		const mapContainer = document.getElementById("googleMap");
+		if (!mapContainer) return;
+
+		const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+
+		if (!isFullscreen) {
+			// Enter fullscreen
+			if (mapContainer.requestFullscreen) {
+				mapContainer.requestFullscreen();
+			} else if (mapContainer.webkitRequestFullscreen) {
+				mapContainer.webkitRequestFullscreen();
+			} else if (mapContainer.mozRequestFullScreen) {
+				mapContainer.mozRequestFullScreen();
+			} else if (mapContainer.msRequestFullscreen) {
+				mapContainer.msRequestFullscreen();
+			}
+		} else {
+			// Exit fullscreen
+			if (document.exitFullscreen) {
+				document.exitFullscreen();
+			} else if (document.webkitExitFullscreen) {
+				document.webkitExitFullscreen();
+			} else if (document.mozCancelFullScreen) {
+				document.mozCancelFullScreen();
+			} else if (document.msExitFullscreen) {
+				document.msExitFullscreen();
+			}
+		}
+	});
+
+	// Listen for fullscreen changes to update icon
+	document.addEventListener("fullscreenchange", updateFullscreenIcon);
+	document.addEventListener("webkitfullscreenchange", updateFullscreenIcon);
+	document.addEventListener("mozfullscreenchange", updateFullscreenIcon);
+	document.addEventListener("msfullscreenchange", updateFullscreenIcon);
+
+	// Attach directly to the googleMap div (like mapTiltShading)
+	document.getElementById("googleMap").appendChild(customFullscreenDiv);
 
 	// Add some custom controls to the map...
 	const weatherControlDiv = document.createElement("div");
@@ -1053,7 +1129,7 @@ function createUpdateArea(map) {
 	updateAreaDiv.style.alignItems = "center";
 	updateAreaDiv.style.width = "fit-content";
 	updateAreaDiv.style.padding = "0 10px";
-	updateAreaDiv.style.margin = "10px 0 0 0";
+	updateAreaDiv.style.margin = "10px 0 0 60px";
 	updateAreaDiv.style.height = "40px";
 	updateAreaDiv.style.backgroundColor = "rgb(255 255 255)";
 	// updateAreaDiv.style.backgroundColor = "rgba(0, 0, 0,0.7)";
@@ -1071,7 +1147,7 @@ function createUpdateArea(map) {
 function updateTiltShading() {
 	const shadingDiv = document.getElementById("mapTiltShading");
 	if (!shadingDiv) return;
-	
+
 	if (mapTilt === 0) {
 		// No shading when map is flat...
 		shadingDiv.style.opacity = "0";
@@ -1083,7 +1159,7 @@ function updateTiltShading() {
 		// const topOpacity = 0.01 + (tiltRatio * 0.2); // Range from 0.15 to 0.4
 		const topOpacity = tiltRatio * 0.15;
 		const bottomOpacity = 0;
-		
+
 		// Create a gradient that's darker at the top (simulating horizon/distance) and lighter at the bottom...
 		shadingDiv.style.background = `linear-gradient(
 			to bottom,
@@ -1101,6 +1177,7 @@ function adjustMap(mode, amount) {
 		case "tilt":
 			map.setTilt(map.getTilt() + amount);
 			mapTilt = map.getTilt();
+			updateTiltShading(); // Update shading when tilt changes...
 			break;
 		case "rotate":
 			map.setHeading(map.getHeading() + amount);
@@ -1383,7 +1460,7 @@ async function refreshGroupData(timedRefresh = false) {
 		if (error.name === 'AbortError') {
 			console.debug('Refresh operation was cancelled.');
 			return; // Exit early, new refresh will take over
-		}
+		};
 		console.error('Error fetching group data:', error);
 		_dom.refreshStatusArea.innerHTML = `<span class='noResultMessage'>Error loading data: ${error.message || 'Unknown error'}</span>`;
 		totalGroups = -1; // Stop the loop on error
@@ -1391,8 +1468,8 @@ async function refreshGroupData(timedRefresh = false) {
 		_dom.mapOptionsArea.classList.remove("disabled");
 		if (_dom.weatherRefreshButton) {
 			_dom.weatherRefreshButton.classList.remove("disabled");
-		}
-	}
+		};
+	};
 
 	// If we've finished fetching all the group/resource data...
 	if (offset == totalGroups) {
@@ -1404,7 +1481,7 @@ async function refreshGroupData(timedRefresh = false) {
 		_dom.mapOptionsArea.classList.remove("disabled");
 		if (_dom.weatherRefreshButton) {
 			_dom.weatherRefreshButton.classList.remove("disabled");
-		}
+		};
 
 		// Prepare Google geocoding for translating a street address to latitude & longitude...
 		const geocoder = new google.maps.Geocoder();
