@@ -1,6 +1,6 @@
 // Better Map Widget
 // Developed by Kevin Ford
-// Version 2.89 - Integrated Authentication Version
+// Version 2.91 - Integrated Authentication Version
 // Integrated authentication improvements by Steve Villardi
 
 // Some of the ideas behind this project:
@@ -734,6 +734,7 @@ async function initMap() {
 		gestureHandling: mapGestureHandling,
 		renderingType: RenderingType.VECTOR,
 		isFractionalZoomEnabled: true,
+		minZoom: 2,
 	});
 
 	// Redraw polylines after zoom/pan/drag completes...
