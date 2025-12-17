@@ -1328,15 +1328,17 @@
 			tilt: mapTilt,
 			heading: mapHeading,
 			gestureHandling: mapGestureHandling,
+			renderingType: RenderingType.VECTOR,
+			isFractionalZoomEnabled: true,
 		});
 
 		// Redraw polylines after zoom/pan/drag completes...
 		map.addListener("idle", () => updatePolylineEndpoints());
 
 		// Vector maps are nicer but sometimes don't load right away. Plus they're mainly useful if tilt controls are enabled, so use the normal raster map by default...
-		if (showMapTiltControls) {
-			map.setRenderingType(RenderingType.VECTOR);
-		};
+		// if (showMapTiltControls) {
+		// 	map.setRenderingType(RenderingType.VECTOR);
+		// };
 
 		// Add some custom controls to the map...
 		const weatherControlDiv = document.createElement("div");
