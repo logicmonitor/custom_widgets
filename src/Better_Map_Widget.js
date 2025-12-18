@@ -2609,7 +2609,7 @@ async function addWeatherLayer() {
 							<span style="font-weight: 500;">Detected:</span> ${quakeTime.toLocaleString()} <span style="font-size: 0.95em;">(${quakeAgeInDays.toFixed(1)} days ago)</span><br/>
 							<span style="font-weight: 500;">Updated:</span> ${updated.toLocaleString()}
 						</div>
-						<div style="margin: 15px 0 5px 0;"><a href="${event.feature.getProperty("url")}" target="_blank">Earthquake details</a></div>
+						<div style="margin: 15px 0 5px 0; font-size: 1.2em;"><a href="${event.feature.getProperty("url")}" target="_blank">Earthquake details</a></div>
 					</div>
 				`);
 
