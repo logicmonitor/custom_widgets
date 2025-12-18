@@ -2577,16 +2577,39 @@ async function addWeatherLayer() {
 
 				quakeInfoWindow.setContent(`
 					<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">
-						<div style="font-weight:700;font-size: 1.1em;">
-							Earthquake Magnitude ${event.feature.getProperty("mag")}
+						<div style="font-size: 1.2em;">
+							<div style="font-weight:700;">Earthquake Magnitude ${event.feature.getProperty("mag")}</div>
+							${event.feature.getProperty("place")}
 						</div>
-						${event.feature.getProperty("place")}<br/></br/>
-						Current <a href="https://earthquake.usgs.gov/data/pager/onepager.php" target="_blank">USGS PAGER</a> Alert Level: <strong style="color: ${alertLabelColor}; background-color: black; padding: 5px; border-radius: 7px; font-size: 0.9em;">${alertLabel}</strong><br/><br/>
+						<div style="text-align: center; margin: 10px 0;">
+							<svg width="160" height="90" viewBox="0 0 160 90">
+								<!-- Background arc -->
+								<path d="M 10 80 A 70 70 0 0 1 150 80" fill="none" stroke="#e0e0e0" stroke-width="12" stroke-linecap="round"/>
+								<!-- Colored segments: green (0-3), yellow (3-5), orange (5-6.5), red (6.5-8) -->
+								<path d="M 10 80 A 70 70 0 0 1 ${10 + 70 * (1 - Math.cos(Math.PI * 3 / 8))} ${80 - 70 * Math.sin(Math.PI * 3 / 8)}" fill="none" stroke="#4CAF50" stroke-width="12" stroke-linecap="round"/>
+								<path d="M ${10 + 70 * (1 - Math.cos(Math.PI * 3 / 8))} ${80 - 70 * Math.sin(Math.PI * 3 / 8)} A 70 70 0 0 1 ${10 + 70 * (1 - Math.cos(Math.PI * 5 / 8))} ${80 - 70 * Math.sin(Math.PI * 5 / 8)}" fill="none" stroke="#FFEB3B" stroke-width="12"/>
+								<path d="M ${10 + 70 * (1 - Math.cos(Math.PI * 6.5 / 8))} ${80 - 70 * Math.sin(Math.PI * 6.5 / 8)} A 70 70 0 0 1 150 80" fill="none" stroke="#F44336" stroke-width="12" stroke-linecap="round"/>
+								<path d="M ${10 + 70 * (1 - Math.cos(Math.PI * 5 / 8))} ${80 - 70 * Math.sin(Math.PI * 5 / 8)} A 70 70 0 0 1 ${10 + 70 * (1 - Math.cos(Math.PI * 6.5 / 8))} ${80 - 70 * Math.sin(Math.PI * 6.5 / 8)}" fill="none" stroke="#FF9800" stroke-width="12"/>
+								<!-- Tick marks and labels -->
+								<text x="20" y="88" font-size="10" fill="#333" text-anchor="middle">0</text>
+								<text x="45" y="40" font-size="10" fill="#333" text-anchor="middle">2</text>
+								<text x="80" y="27" font-size="10" fill="#333" text-anchor="middle">4</text>
+								<text x="115" y="40" font-size="10" fill="#333" text-anchor="middle">6</text>
+								<text x="140" y="88" font-size="10" fill="#333" text-anchor="middle">8</text>
+								<!-- Needle -->
+								<line x1="80" y1="80" x2="${80 + 55 * Math.cos(Math.PI - (Math.PI * Math.min(8, Math.max(0, event.feature.getProperty("mag"))) / 8))}" y2="${80 - 55 * Math.sin(Math.PI - (Math.PI * Math.min(8, Math.max(0, event.feature.getProperty("mag"))) / 8))}" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+								<!-- Center circle -->
+								<circle cx="80" cy="80" r="6" fill="#333"/>
+								<!-- Magnitude value display -->
+								<text x="80" y="70" font-size="14" font-weight="bold" fill="#333" text-anchor="middle">${event.feature.getProperty("mag").toFixed(1)}</text>
+							</svg>
+						</div>
+						<div style="margin: 15px 0;">Current <a href="https://earthquake.usgs.gov/data/pager/onepager.php" target="_blank">USGS PAGER</a> Alert Level: <strong style="color: ${alertLabelColor}; background-color: black; padding: 5px; border-radius: 7px; font-size: 0.9em;">${alertLabel}</strong></div>
 						<div style="font-size: 0.95em;">
 							<span style="font-weight: 500;">Detected:</span> ${quakeTime.toLocaleString()} <span style="font-size: 0.95em;">(${quakeAgeInDays.toFixed(1)} days ago)</span><br/>
 							<span style="font-weight: 500;">Updated:</span> ${updated.toLocaleString()}
-						</div><br/><br/>
-						<a href="${event.feature.getProperty("url")}" target="_blank">Earthquake details</a>
+						</div>
+						<div style="margin: 15px 0 5px 0;"><a href="${event.feature.getProperty("url")}" target="_blank">Earthquake details</a></div>
 					</div>
 				`);
 
