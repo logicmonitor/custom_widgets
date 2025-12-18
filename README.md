@@ -65,7 +65,7 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapSourceType**: Whether to map "groups", "resources", or "services". Default is "groups".
 - **MapGroupPathFilter**: Allows setting a default group path to start. Default is "\*".
 - **MapShowWeather**: If weather should be shown by default. Options are "global" or "nexrad". Default is "global".
-- **MapOverlayOption**: Which optional overlay to default to when weather is shown. Options are "wildfires", "outages", or "earthquakes". Default is "wildfires".
+- **MapOverlayOption**: Which optional overlay to default to when weather is shown. Options are "wildfires", "outages", or "earthquakes". Default is "earthquakes".
 - **HideMapOptions**: If "true" then will hide the options bar by default. Default is "false".
 - **MapIgnoreCleared**: If "true" then will only show items currently alerting (useful for maps with thousands of markers). Default is "false".
 - **MapIgnoreWarnings**: If "true" then won't show items in "Warning" status. Default is "false".
@@ -75,7 +75,8 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **AutoResetMapOnRefresh**: If "true" then the map will automatically zoom to encompass all items on timed refreshes. Default is "false".
 - **MapDisableClustering**: If "true" then clustering of adjacent markers on the map will be disabled. Might be desirable if showing connections between locations since clustering might hide markers at certain zoom levels. Default is "false".
 - **MapDisplayProperties**: An optional comma-delimited list of custom properties to show when viewing a group's/resource's details.
-- **MapStyle**: Allows one of the following available map style options: "silver", "standard", "dark", "aubergine", or "silverblue". Default is "silver".
+- **MapStyle**: Allows one of the following available map style options: "silver", "standard", "dark", "aubergine", or "silverblue". Default is "silverblue".
+- **MapShowRoadLabels**: If "true" then road labels will be shown on the map. Default is "false".
 
 ## Showing Connections between Locations
 
