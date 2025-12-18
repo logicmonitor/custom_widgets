@@ -1,7 +1,7 @@
 <!--
 	Better Map Widget
 	Developed by Kevin Ford
-	Version 1.05 - CDN Version
+	Version 1.06 - CDN Version
 	Integrated authentication improvements by Steve Villardi
 
 	Some of the ideas behind this project:
@@ -39,7 +39,8 @@
 	* 'MapShowTiltControls': If "true" then the tilt & rotation controls for the map will be shown. Default is "false".
 	* 'MapDisableClustering': If "true" then clustering of adjacent markers on the map will be disabled. Might be desirable if showing connections between locations since clustering might hide markers at certain zoom levels. Default is "false".
 	* 'MapDisplayProperties': An optional comma-delimited list of custom properties to show when viewing a group's/resource's details.
-	* 'MapStyle': Allows one of the following available map style options: "silver", "standard", "dark", "aubergine", or "silverblue". Default is "silver".
+	* 'MapStyle': Allows one of the following available map style options: "silver", "standard", "dark", "aubergine", or "silverblue". Default is "silverblue".
+	* 'MapShowRoadLabels': If "true" then road labels will be shown on the map. Default is "false".
 
 	LIMITATIONS:
 	* This widget is currently unable to leverage LogicMonitor's native dashboard filters.
@@ -52,8 +53,8 @@
 	// You can either set it here or in a dashboard token named 'MapSourceType'...
 	let mapSourceType = "groups";
 
-	// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", or "silverBlue"...
-	let mapStyle = "silver";
+	// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", or "silverblue"...
+	let mapStyle = "silverblue";
 
 	// Whether to ignore items with no active alerts (useful for maps with thousands of markers)...
 	// You can either set it here or in a dashboard token named 'MapIgnoreCleared'...
@@ -108,6 +109,8 @@
 
 	// Whether the Google Maps uses the "cooperative" gesture handling, or "greedy" that allows mouse-wheel zooming without having to hold a modifier key (Google's default is "cooperative")...
 	const mapGestureHandling = "cooperative";
+	// Whether to show road labels...
+	let showRoadLabels = "off";
 
 	// An optional comma-delimited list of custom properties to show when viewing a group's/resource's details...
 	// You can set it here or in a dashboard token named "MapDisplayProperties"...
@@ -242,6 +245,7 @@
 		<div id="dashboardAddlOverlayToken">##MapOverlayOption##</div>
 		<div id="displayPropsToken">##MapDisplayProperties##</div>
 		<div id="disableClusteringToken">##MapDisableClustering##</div>
+		<div id="showRoadLabelsToken">##MapShowRoadLabels##</div>
 	</div>
 </div>
 
