@@ -11,6 +11,30 @@ body {
 	padding: 0;
 	margin: 0;
 }
+/* Leaflet custom marker styles */
+.leaflet-custom-marker {
+	background: transparent !important;
+	border: none !important;
+}
+.leaflet-cluster-icon {
+	background: transparent !important;
+	border: none !important;
+}
+.leaflet-popup-content-wrapper {
+	border-radius: 8px;
+}
+.leaflet-popup-content {
+	margin: 12px;
+}
+/* MapLibre GL vector tile layer styles */
+.maplibregl-map {
+	font: inherit;
+}
+.maplibregl-canvas {
+	position: absolute;
+	left: 0;
+	top: 0;
+}
 .optionsHidden * {
 	max-height: 0;
 	min-height: 0;
@@ -425,11 +449,7 @@ body {
 	top: 85%;
 }
 
-/* Something about the Froala editor causes the default Gmap buttons to be shifted. This appears to fix that... */
-.gm-control-active {
-	padding: 10px !important;
-}
-
+/* Tooltip styles */
 [data-title]:hover:after {
 	opacity: 1;
 	transition: all 0.1s ease 0.5s;
@@ -455,9 +475,8 @@ body {
 	position: relative;
 }
 
-/* Fix for Google's default control icons being off-center in Safari...  */
-@media screen and (-webkit-min-device-pixel-ratio:0) {
-	.gm-control-active {
-		display: flex !important;
-	}
+/* Earthquake marker styles */
+.earthquake-marker {
+	background: transparent !important;
+	border: none !important;
 }
