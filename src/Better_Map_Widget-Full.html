@@ -2949,7 +2949,7 @@
 
 				try {
 					// First, get the total count of counties
-					const countResponse = await fetch(`${baseUrl}?where=0%3D0&outFields=*&returnCountOnly=true&f=pjson&ts=${Date.now()}`);
+					const countResponse = await fetch(`${baseUrl}?where=0%3D0&cacheHint=true&outFields=*&returnCountOnly=true&f=pjson&ts=${Date.now()}`);
 					if (!countResponse.ok) {
 						throw new Error(`Power outages count API error: ${countResponse.status} ${countResponse.statusText}`);
 					}
@@ -2961,7 +2961,7 @@
 					const pagePromises = [];
 					for (let currentPage = 0; currentPage <= pageCount; currentPage++) {
 						const offset = currentPage * maxPerPage;
-						const pageUrl = `${baseUrl}?where=0%3D0&outFields=*&resultOffset=${offset}&resultRecordCount=${maxPerPage}&f=pgeojson&ts=${Date.now()}`;
+						const pageUrl = `${baseUrl}?where=0%3D0&outFields=*&cacheHint=true&resultOffset=${offset}&resultRecordCount=${maxPerPage}&f=pgeojson&ts=${Date.now()}`;
 						pagePromises.push(
 							fetch(pageUrl).then(response => {
 								if (!response.ok) {
