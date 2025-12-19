@@ -3090,17 +3090,17 @@
 
 				// Load the earthquake data for the past day from the USGS site...
 				// More info about this source of earthquake data can be found at: https://publicapis.io/usgs-earthquake-hazards-program-api
-				// if (quakeMode == "time") {
-				// 	await map.data.loadGeoJson(`https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.geojson?ts=${Date.now()}`);
-				// } else {
-				// 	await map.data.loadGeoJson(`https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_day.geojson?ts=${Date.now()}`);
-				// };
+				if (quakeMode == "time") {
+					await map.data.loadGeoJson(`https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.geojson?ts=${Date.now()}`);
+				} else {
+					await map.data.loadGeoJson(`https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_day.geojson?ts=${Date.now()}`);
+				};
 				// Other options for different timeframes and magnitudes...
 				// map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson");
 				// await map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson");
 				// await map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson");
 				// await map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson");
-				await map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson");
+				// await map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson");
 				console.debug("Earthquake data loaded");
 
 				// Style the earthquake markers...
@@ -3221,7 +3221,12 @@
 								<span style="font-weight: 500;">Detected:</span> ${quakeTime.toLocaleString()} <span style="font-size: 0.95em;">(${quakeAgeInDays.toFixed(1)} days ago)</span><br/>
 								<span style="font-weight: 500;">Updated:</span> ${updated.toLocaleString()}
 							</div>
-							<div style="margin: 15px 0 5px 0; font-size: 1.2em;"><a href="${event.feature.getProperty("url")}" target="_blank">Earthquake details</a></div>
+							<div style="margin: 15px 0 5px 0;">
+								<a href="${event.feature.getProperty("url")}" target="_blank" style="background-color: dodgerblue; padding: 5px; border-radius: 5px; color: white; text-decoration: none; font-size: 1.15em; font-weight: 400; display: inline-flex; align-items: center; gap: 5px;">
+									<svg xmlns="http://www.w3.org/2000/svg" width="22" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM288 224C288 206.3 302.3 192 320 192C337.7 192 352 206.3 352 224C352 241.7 337.7 256 320 256C302.3 256 288 241.7 288 224zM280 288L328 288C341.3 288 352 298.7 352 312L352 400L360 400C373.3 400 384 410.7 384 424C384 437.3 373.3 448 360 448L280 448C266.7 448 256 437.3 256 424C256 410.7 266.7 400 280 400L304 400L304 336L280 336C266.7 336 256 325.3 256 312C256 298.7 266.7 288 280 288z" fill="white"/></svg>
+									Earthquake details
+								</a>
+							</div>
 						</div>
 					`);
 
