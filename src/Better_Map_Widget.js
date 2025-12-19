@@ -1,6 +1,6 @@
 // Better Map Widget
 // Developed by Kevin Ford
-// Version 2.96 - Integrated Authentication Version
+// Version 2.97 - Integrated Authentication Version
 // Integrated authentication improvements by Steve Villardi
 
 // Some of the ideas behind this project:
@@ -2583,13 +2583,17 @@ async function addWeatherLayer() {
 						</div>
 						<div style="text-align: center; margin: 10px 0;">
 							<svg width="160" height="90" viewBox="0 0 160 90">
-								<!-- Background arc -->
-								<path d="M 10 80 A 70 70 0 0 1 150 80" fill="none" stroke="#e0e0e0" stroke-width="12" stroke-linecap="round"/>
-								<!-- Colored segments: green (0-3), yellow (3-5), orange (5-6.5), red (6.5-8) -->
-								<path d="M 10 80 A 70 70 0 0 1 ${10 + 70 * (1 - Math.cos(Math.PI * 3 / 8))} ${80 - 70 * Math.sin(Math.PI * 3 / 8)}" fill="none" stroke="#4CAF50" stroke-width="12" stroke-linecap="round"/>
-								<path d="M ${10 + 70 * (1 - Math.cos(Math.PI * 3 / 8))} ${80 - 70 * Math.sin(Math.PI * 3 / 8)} A 70 70 0 0 1 ${10 + 70 * (1 - Math.cos(Math.PI * 5 / 8))} ${80 - 70 * Math.sin(Math.PI * 5 / 8)}" fill="none" stroke="#FFEB3B" stroke-width="12"/>
-								<path d="M ${10 + 70 * (1 - Math.cos(Math.PI * 6.5 / 8))} ${80 - 70 * Math.sin(Math.PI * 6.5 / 8)} A 70 70 0 0 1 150 80" fill="none" stroke="#F44336" stroke-width="12" stroke-linecap="round"/>
-								<path d="M ${10 + 70 * (1 - Math.cos(Math.PI * 5 / 8))} ${80 - 70 * Math.sin(Math.PI * 5 / 8)} A 70 70 0 0 1 ${10 + 70 * (1 - Math.cos(Math.PI * 6.5 / 8))} ${80 - 70 * Math.sin(Math.PI * 6.5 / 8)}" fill="none" stroke="#FF9800" stroke-width="12"/>
+								<!-- Gradient definition -->
+								<defs>
+									<linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+										<stop offset="0%" style="stop-color:#4CAF50"/>
+										<stop offset="37.5%" style="stop-color:#FFEB3B"/>
+										<stop offset="62.5%" style="stop-color:#FF9800"/>
+										<stop offset="100%" style="stop-color:#F44336"/>
+									</linearGradient>
+								</defs>
+								<!-- Colored arc with gradient -->
+								<path d="M 10 80 A 70 70 0 0 1 150 80" fill="none" stroke="url(#gaugeGradient)" stroke-width="12" stroke-linecap="round"/>
 								<!-- Tick marks and labels -->
 								<text x="20" y="88" font-size="10" fill="#333" text-anchor="middle">0</text>
 								<text x="45" y="40" font-size="10" fill="#333" text-anchor="middle">2</text>
