@@ -114,4 +114,11 @@ Behavior of the widget can be customized using the following optional dashboard 
 
 This one was created purely as a fun side project and may be rendered useless at any time by UI changes.
 
-All it does is change a few of our basic CSS classes and let you dynamically choose a background color. When you save it stores your choice in a dashboard token called 'BackgroundColor', or as a browser cookie for your own personal preference. It also has logic to change the color of labels & icons so they stay readable based on brightness of the background.
+It works by dynamically changing a few of LogicMonitor's basic CSS classes to let you choose a background color. When you save it stores your choice in a dashboard token called 'BackgroundColor', or as a browser cookie for your own personal preference. 
+
+Some other nice features of the widget:
+
+- It has logic to change the color of labels & icons so they stay readable based on brightness of the background.
+- Uses a subtle background gradient for a nicer effect.
+- Changes to Big Number and SLA widget styles to ensure they're readable regardless of background color.
+- Made graph tooltips slightly transparent so you can actually see the graph behind the tooltip. Also added a slight glow to the tooltip text so it stays readable.
