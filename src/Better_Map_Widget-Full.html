@@ -2985,7 +2985,9 @@
 					// Parse USA Today data (it's a JS file with variable assignment, not pure JSON)
 					// Format: var PowerOutagesJSON = { "type": "FeatureCollection", "features":[...] };
 					// Properties: n=name, o=outage count, c=percentage, f=FIPS code, m=time index
+					// Note: m=72 is the current data, lower values are historical. Only use m=72.
 					const outageText = await outageResponse.text();
+					const CURRENT_TIME_INDEX = 72; // m=72 is always the most current data
 					
 					// Extract properties from the USA Today data using regex
 					// We only need the properties, not the geometry (which references undefined variables)
@@ -2995,22 +2997,20 @@
 					
 					while ((match = propsRegex.exec(outageText)) !== null) {
 						const [_, name, outageCount, percentage, fips, timeIndex] = match;
-						// Only keep the most recent data (m=0 is current, higher values are historical)
-						// Store the highest outage count for each FIPS (handles multiple time entries)
-						const outageNum = parseInt(outageCount.replace(/,/g, ''), 10) || 0;
-						const pct = parseFloat(percentage) || 0;
+						const timeIdx = parseInt(timeIndex, 10) || 0;
 						
-						if (!outageDataByFips[fips] || timeIndex == 0) {
+						// Only keep entries where m=72 (current data)
+						if (timeIdx === CURRENT_TIME_INDEX) {
 							outageDataByFips[fips] = {
 								name: name,
-								outageCount: outageNum,
-								percentage: pct,
+								outageCount: parseInt(outageCount.replace(/,/g, ''), 10) || 0,
+								percentage: parseFloat(percentage) || 0,
 								fips: fips
 							};
 						}
 					}
 
-					console.debug(`Parsed ${Object.keys(outageDataByFips).length} counties with outage data from USA Today`);
+					console.debug(`Parsed ${Object.keys(outageDataByFips).length} counties with current outage data (m=${CURRENT_TIME_INDEX}) from USA Today`);
 
 					// Merge outage data into the counties GeoJSON by FIPS code...
 					let countiesWithOutages = 0;
