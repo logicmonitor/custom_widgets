@@ -1,7 +1,7 @@
 <!--
 	Better Map Widget
 	Developed by Kevin Ford
-	Version 2.97 - Integrated Authentication Version
+	Version 3.00 - Integrated Authentication Version
 	Integrated authentication improvements by Steve Villardi
 
 	Some of the ideas behind this project:
@@ -1736,17 +1736,17 @@
 		let pathOperator = ":";
 		if (groupPathFilter.includes("*")) {
 			pathOperator = "~";
-		}
+		};
 
 		// Temporarily disable the toolbar fields to prevent user from refreshing before previous refresh is complete...
 		_dom.mapOptionsArea.classList.add("disabled");
 		// Cache refresh button reference if not already cached
 		if (!_dom.weatherRefreshButton) {
 			_dom.weatherRefreshButton = document.getElementById("weatherRefreshButton");
-		}
+		};
 		if (_dom.weatherRefreshButton) {
 			_dom.weatherRefreshButton.classList.add("disabled");
-		}
+		};
 
 		// Clear any previously fetched data...
 		groupData = [];
@@ -1757,7 +1757,7 @@
 		// Cache refresh status area reference if not already cached
 		if (!_dom.refreshStatusArea) {
 			_dom.refreshStatusArea = document.getElementById("refreshStatusArea");
-		}
+		};
 		// Display our progress to the user...
 		_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating";
 		_dom.refreshStatusArea.style.display = "flex";
@@ -1848,7 +1848,7 @@
 				if (markerData.total != 0) {
 					if (markerData.total != totalGroups) {
 						totalGroups = markerData.total;
-					}
+					};
 
 					groupData = groupData.concat(markerData.items);
 
@@ -1946,10 +1946,10 @@
 						tmpTotalGroups = 0;
 						offset = totalGroups;
 						break;
-					}
-				}
+					};
+				};
 				// console.debug("totalGroups: " + totalGroups + " / tmpTotalGroups: " + tmpTotalGroups + " / offset: " + offset);
-			}
+			};
 		} catch (error) {
 			// Silently handle aborted requests (user triggered a new refresh)
 			if (error.name === 'AbortError') {
@@ -3050,13 +3050,13 @@
 						
 						// Determine fill color based on severity...
 						let fillColor = 'red';
-						if (percentAffected > 50) {
-							fillColor = '#8B0000'; // dark red for severe outages
-						} else if (percentAffected > 10) {
-							fillColor = '#DC143C'; // crimson for moderate
-						} else if (percentAffected > 0) {
-							fillColor = '#FF6347'; // tomato for minor
-						}
+						// if (percentAffected > 50) {
+						// 	fillColor = '#8B0000'; // dark red for severe outages
+						// } else if (percentAffected > 10) {
+						// 	fillColor = '#DC143C'; // crimson for moderate
+						// } else if (percentAffected > 0) {
+						// 	fillColor = '#FF6347'; // tomato for minor
+						// };
 
 						return {
 							fillColor: fillColor,
@@ -3125,8 +3125,7 @@
 
 				} catch (error) {
 					console.error("Failed to fetch power outage data:", error);
-				}
-
+				};
 			} else if (optionalMapType == "earthquakes") {
 				// Clear any previous load of the quake data...
 				map.data.forEach(function(feature) {
