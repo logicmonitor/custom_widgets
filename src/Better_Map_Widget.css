@@ -454,6 +454,9 @@ body {
 [data-title] {
 	position: relative;
 }
+.gm-style-iw a:focus {
+	outline: none;
+}
 
 /* Fix for Google's default control icons being off-center in Safari...  */
 @media screen and (-webkit-min-device-pixel-ratio:0) {

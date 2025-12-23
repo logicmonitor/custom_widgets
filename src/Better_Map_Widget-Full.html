@@ -595,6 +595,9 @@
 	[data-title] {
 		position: relative;
 	}
+	.gm-style-iw a:focus {
+		outline: none;
+	}
 
 	/* Fix for Google's default control icons being off-center in Safari...  */
 	@media screen and (-webkit-min-device-pixel-ratio:0) {
@@ -2944,10 +2947,10 @@
 				};
 			// Look to see if we should add power outages to the map...
 			} else if (optionalMapType == "us-poweroutages") {
-				// USA Today power outage data URL (fetched via CORS proxy)
+				// USA Today power outage data URL (fetched via CORS proxy)...
 				const usaTodayDataURL = `https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_data.js`;
 				const corsProxy = 'https://corsproxy.io/?';
-				// US Counties GeoJSON with FIPS codes (from plotly datasets)
+				// US Counties GeoJSON with FIPS codes (from plotly datasets)...
 				const countiesGeoJsonURL = 'https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json';
 				const usaTodayTotalCustomersURL = 'https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_total.js';
 
@@ -3100,8 +3103,8 @@
 								<p>
 									Percent Affected: <strong>${percentAffected.toFixed(1)}%</strong>
 								</p>
-								<p style="font-size:11px;color:#666;">
-									Data source: USA Today / PowerOutage.us
+								<p style="font-size:11px; color:#777; margin: 0;">
+									Data source: <a href="https://data.usatoday.com/national-power-outage-map-tracker/" target="_blank" style="color:#0085c4; text-decoration: none;">USA Today</a>
 								</p>
 							</div>
 						`);
