@@ -50,7 +50,7 @@
     },
     {
       "name": "MapShowTiltControls",
-      "value": "false"
+      "value": "true"
     },
     {
       "name": "MapDisplayProperties",
