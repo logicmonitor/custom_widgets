@@ -1,7 +1,7 @@
 <!--
 	Better Map Widget
 	Developed by Kevin Ford
-	Version 1.07 - CDN Version
+	Version 1.08 - CDN Version
 	Integrated authentication improvements by Steve Villardi
 
 	Some of the ideas behind this project:
@@ -27,7 +27,7 @@
 	OPTIONAL DASHBOARD TOKENS:
 	* 'MapGroupPathFilter': Allows setting a default group path to start. Default is "*".
 	* 'MapShowWeather': If weather should be shown by default. Options are "global" or "nexrad". Default is "global".
-	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "wildfires", "outages" or "earthquakes". Default is "earthquakes".
+	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding" or "earthquakes". Default is "earthquakes".
 	* 'HideMapOptions': If "true" then will hide the options bar by default. Default is "false".
 	* 'MapSourceType': Whether to map "groups", "resources", or "services". Default is "groups".
 	* 'MapIgnoreCleared': If "true" then will only show items currently alerting (useful for maps with thousands of markers). Default is "false".
@@ -78,7 +78,7 @@
 	// You can set it here or in a dashboard token named "MapShowWeather"...
 	let showWeatherDefault = "no";
 
-	// If weather is shown, whether to show "wildfires" or "outages" or "earthquakes"...
+	// If weather is shown, whether to show "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
 	// You can set it here or in a dashboard token named "MapOverlayOption"...
 	let additionalOverlayOption = "earthquakes";
 
@@ -215,6 +215,11 @@
 							<span data-title="Significant earthquakes (magnitude 6+) over the past 7 days" onclick="enableWeather();">
 								<input type="radio" id="earthquakes" name="otherWeatherOverlays" value="earthquakes" />
 								<label for="earthquakes">Earthquakes</label>
+							</span>
+
+							<span data-title="Active US flood warnings" onclick="enableWeather();">
+								<input type="radio" id="usFlooding" name="otherWeatherOverlays" value="us-flooding" />
+								<label for="usFlooding">US Flooding</label>
 							</span>
 						</span>
 					</span>

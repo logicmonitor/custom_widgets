@@ -1,7 +1,7 @@
 <!--
 	Better Map Widget
 	Developed by Kevin Ford
-	Version 3.00 - Integrated Authentication Version
+	Version 3.01 - Integrated Authentication Version
 	Integrated authentication improvements by Steve Villardi
 
 	Some of the ideas behind this project:
@@ -53,7 +53,7 @@
 	// You can either set it here or in a dashboard token named 'MapSourceType'...
 	let mapSourceType = "groups";
 
-	// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", or "silverBlue"...
+	// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", or "silverblue"...
 	let mapStyle = "silverblue";
 
 	// Whether to ignore items with no active alerts (useful for maps with thousands of markers)...
@@ -685,7 +685,7 @@
 								<label for="earthquakes">Earthquakes</label>
 							</span>
 
-							<span data-title="US flooding by county" onclick="enableWeather();">
+							<span data-title="Active US flood warnings" onclick="enableWeather();">
 								<input type="radio" id="usFlooding" name="otherWeatherOverlays" value="us-flooding" />
 								<label for="usFlooding">US Flooding</label>
 							</span>
@@ -1082,7 +1082,8 @@
 	} else if (showWeatherDefault == "nexrad") {
 		_dom.weather.checked = true;
 		_dom.nexradWeather.checked = true;
-	}
+	};
+
 	if (additionalOverlayOption == "wildfires" || additionalOverlayOption == "us-wildfires") {
 		_dom.usWildfires.checked = true;
 	} else if (additionalOverlayOption == "outages" || additionalOverlayOption == "us-poweroutages") {
@@ -1091,7 +1092,7 @@
 		_dom.earthquakes.checked = true;
 	} else if (additionalOverlayOption == "us-flooding") {
 		_dom.usFlooding.checked = true;
-	}
+	};
 
 	// Capture information about the current dashboard for use in subsequent REST calls...
 	const hostName = parent.window.location.host;
@@ -2999,17 +3000,17 @@
 					// Note: m=72 is the current data, lower values are historical. Only use m=72.
 					const outageText = await outageResponse.text();
 					const CURRENT_TIME_INDEX = 72; // m=72 is always the most current data
-					
+
 					// Extract properties from the USA Today data using regex
 					// We only need the properties, not the geometry (which references undefined variables)
 					const outageDataByFips = {};
 					const propsRegex = /"properties":\s*\{\s*"n"\s*:\s*"([^"]+)"\s*,\s*"o"\s*:\s*"([^"]+)"\s*,\s*"c"\s*:\s*([\d.]+)\s*,\s*"f"\s*:\s*"(\d+)"\s*,\s*"m"\s*:\s*(\d+)/g;
 					let match;
-					
+
 					while ((match = propsRegex.exec(outageText)) !== null) {
 						const [_, name, outageCount, percentage, fips, timeIndex] = match;
 						const timeIdx = parseInt(timeIndex, 10) || 0;
-						
+
 						// Only keep entries where m=72 (current data)
 						if (timeIdx === CURRENT_TIME_INDEX) {
 							outageDataByFips[fips] = {
@@ -3028,7 +3029,7 @@
 					countiesGeoJson.features.forEach(feature => {
 						const fips = feature.id; // plotly dataset uses 'id' for FIPS code
 						const outageData = outageDataByFips[fips];
-						
+
 						if (outageData) {
 							feature.properties.OutageCount = outageData.outageCount;
 							feature.properties.PercentAffected = outageData.percentage;
@@ -3055,7 +3056,7 @@
 						// Scale the fill opacity based on percentage (cap at 50% for visibility)
 						// percentAffected is already 0-100 scale from USA Today
 						let fillOpacity = Math.min(percentAffected / 100, 0.8);
-						
+
 						// Determine fill color based on severity...
 						let fillColor = 'red';
 						// if (percentAffected > 50) {
@@ -3079,7 +3080,7 @@
 					const outageInfoWindow = new google.maps.InfoWindow({
 						content: ""
 					});
-					
+
 					parent.outageInfoWindowListenerHandle = map.data.addListener('click', function(event) {
 						const countyName = event.feature.getProperty('CountyName') || 'Unknown County';
 						const outageCount = event.feature.getProperty('OutageCount') || 0;
@@ -3099,7 +3100,7 @@
 									font-size="16" font-weight="bold" fill="#333">${percentAffected.toFixed(1)}%</text>
 							</svg>
 						`;
-						
+
 						// Set the content of the info window...
 						outageInfoWindow.setContent(`
 							<div style="line-height:1.5;overflow:hidden;white-space:nowrap;color:#333;">
@@ -3116,7 +3117,7 @@
 								</p>
 							</div>
 						`);
-						
+
 						const anchor = new google.maps.MVCObject();
 						anchor.set("position", event.latLng);
 						outageInfoWindow.open(map, anchor);
@@ -3351,11 +3352,11 @@
 								map: map,
 								icon: {
 									path: google.maps.SymbolPath.CIRCLE,
-									fillColor: '#87CEEB',
+									fillColor: '#87ceeb9c',
 									fillOpacity: 0.9,
-									strokeColor: '#4682B4',
-									strokeWeight: 1.5,
-									scale: 8
+									strokeColor: '#4682b496',
+									strokeWeight: 1.0,
+									scale: 5
 								},
 								title: `Flood: ${entry.site_name}` || 'Flooding Location'
 							});
@@ -3395,7 +3396,7 @@
 															<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#87CEEB"/>
 														</svg>
 														<div style="
-															background: linear-gradient(to bottom, #87CEEB, #4682B4);
+															background: linear-gradient(to bottom, #87CEEB, #7a9bb6);
 															height:40px;
 															width:100%;
 															border-radius:0 0 4px 4px;

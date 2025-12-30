@@ -1,6 +1,6 @@
 // Better Map Widget
 // Developed by Kevin Ford
-// Version 3.00 - Integrated Authentication Version
+// Version 3.01 - Integrated Authentication Version
 // Integrated authentication improvements by Steve Villardi
 
 // Some of the ideas behind this project:
@@ -42,7 +42,7 @@ if (typeof disableClustering === 'undefined') { let disableClustering = false; }
 // You can set it here or in a dashboard token named "MapShowWeather"...
 if (typeof showWeatherDefault === 'undefined') { let showWeatherDefault = "no"; };
 
-// If weather is shown, whether to show "wildfires" or "outages" or "earthquakes"...
+	// If weather is shown, whether to show "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
 // You can set it here or in a dashboard token named "MapOverlayOption"...
 if (typeof additionalOverlayOption === 'undefined') { let additionalOverlayOption = "earthquakes"; };
 
@@ -188,7 +188,7 @@ if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexra
 	showWeatherDefault = dashboardShowWeatherToken;
 };
 let dashboardAddlOverlayToken = document.getElementById("dashboardAddlOverlayToken").innerText.toLowerCase();
-if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "earthquakes") {
+if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
 	additionalOverlayOption = dashboardAddlOverlayToken;
 };
 // console.debug("dashboardAddlOverlayToken", dashboardAddlOverlayToken);
@@ -450,6 +450,7 @@ const _dom = {
 	usWildfires: document.getElementById("usWildfires"),
 	usPowerOutages: document.getElementById("usPowerOutages"),
 	earthquakes: document.getElementById("earthquakes"),
+	usFlooding: document.getElementById("usFlooding"),
 	customGroupFilterField: document.getElementById("customGroupFilterField"),
 	mapOptionsArea: document.getElementById("mapOptionsArea"),
 	refreshStatusArea: null, // Set later after map init
@@ -475,14 +476,17 @@ if (showWeatherDefault == "global") {
 } else if (showWeatherDefault == "nexrad") {
 	_dom.weather.checked = true;
 	_dom.nexradWeather.checked = true;
-}
-if (additionalOverlayOption == "wildfires") {
+};
+
+if (additionalOverlayOption == "wildfires" || additionalOverlayOption == "us-wildfires") {
 	_dom.usWildfires.checked = true;
-} else if (additionalOverlayOption == "outages") {
+} else if (additionalOverlayOption == "outages" || additionalOverlayOption == "us-poweroutages") {
 	_dom.usPowerOutages.checked = true;
 } else if (additionalOverlayOption == "earthquakes") {
 	_dom.earthquakes.checked = true;
-}
+} else if (additionalOverlayOption == "us-flooding") {
+	_dom.usFlooding.checked = true;
+};
 
 // Capture information about the current dashboard for use in subsequent REST calls...
 const hostName = parent.window.location.host;
@@ -2674,7 +2678,7 @@ async function addWeatherLayer() {
 							<span style="font-weight: 500;">Updated:</span> ${updated.toLocaleString()}
 						</div>
 						<div style="margin: 15px 0 5px 0;">
-							<a href="${event.feature.getProperty("url")}" target="_blank" style="background-color: dodgerblue; padding: 5px; border-radius: 5px; color: white; text-decoration: none; font-size: 1.15em; font-weight: 400; display: inline-flex; align-items: center; gap: 5px;">
+							<a href="${event.feature.getProperty("url")}" target="_blank" style="background-color: dodgerblue; padding: 3px 5px; border-radius: 5px; color: white; text-decoration: none; font-size: 1.15em; font-weight: 400; display: inline-flex; align-items: center; gap: 5px;">
 								<svg xmlns="http://www.w3.org/2000/svg" width="22" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM288 224C288 206.3 302.3 192 320 192C337.7 192 352 206.3 352 224C352 241.7 337.7 256 320 256C302.3 256 288 241.7 288 224zM280 288L328 288C341.3 288 352 298.7 352 312L352 400L360 400C373.3 400 384 410.7 384 424C384 437.3 373.3 448 360 448L280 448C266.7 448 256 437.3 256 424C256 410.7 266.7 400 280 400L304 400L304 336L280 336C266.7 336 256 325.3 256 312C256 298.7 266.7 288 280 288z" fill="white"/></svg>
 								Earthquake details
 							</a>
@@ -2689,6 +2693,141 @@ async function addWeatherLayer() {
 				parent.quakeInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
 					quakeInfoWindow.close();
 				});
+			};
+		} else if (optionalMapType == "us-flooding") {
+			// const countiesGeoJsonURL = `https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json?v=${Date.now()}`;
+			// const countyIDsJsonURL = `https://api.waterdata.usgs.gov/rtfi-api/counties?page=1&limit=4000&v=${Date.now()}`;
+			const floodingDataURL = `https://api.waterdata.usgs.gov/rtfi-api/referencepoints/flooding?v=${Date.now()}`;
+
+			// Clear any previous load of the wildfire data...
+			map.data.forEach(function(feature) {
+				map.data.remove(feature);
+			});
+			if (typeof parent.fireInfoWindowListenerHandle == "object") {
+				google.maps.event.removeListener(parent.fireInfoWindowListenerHandle);
+			};
+			if (typeof parent.outageInfoWindowListenerHandle == "object") {
+				google.maps.event.removeListener(parent.outageInfoWindowListenerHandle);
+			};
+			if (typeof parent.quakeInfoWindowListenerHandle == "object") {
+				google.maps.event.removeListener(parent.quakeInfoWindowListenerHandle);
+			};
+			if (typeof parent.floodingInfoWindowListenerHandle == "object") {
+				google.maps.event.removeListener(parent.floodingInfoWindowListenerHandle);
+			};
+			// Clear any existing flooding markers from a previous load...
+			if (Array.isArray(parent.floodingMarkers)) {
+				parent.floodingMarkers.forEach(marker => marker.setMap(null));
+				parent.floodingMarkers = [];
+			} else {
+				parent.floodingMarkers = [];
+			};
+
+			try {
+				// Fetch the flooding data from the USGS API...
+				// See https://api.waterdata.usgs.gov/rtfi-api/docs for more information on the API.
+				const floodingResponse = await fetch(floodingDataURL);
+				if (!floodingResponse.ok) {
+					throw new Error(`Flooding data fetch error: ${floodingResponse.status}`);
+				};
+				const floodingData = await floodingResponse.json();
+				console.debug(`Flooding data loaded: ${floodingData.length} sites currently flooding`);
+
+				// Create an info window for flooding markers...
+				const floodingInfoWindow = new google.maps.InfoWindow({
+					content: ""
+				});
+
+				// Plot a light blue marker for each flooding entry...
+				floodingData.forEach(entry => {
+					if (entry.latitude && entry.longitude) {
+						const marker = new google.maps.Marker({
+							position: { lat: parseFloat(entry.latitude), lng: parseFloat(entry.longitude) },
+							map: map,
+							icon: {
+								path: google.maps.SymbolPath.CIRCLE,
+								fillColor: '#87ceeb9c',
+								fillOpacity: 0.9,
+								strokeColor: '#4682b496',
+								strokeWeight: 1.0,
+								scale: 5
+							},
+							title: `Flood: ${entry.site_name}` || 'Flooding Location'
+						});
+
+						// Store the entry data on the marker for the click handler...
+						marker.floodingData = entry;
+
+						// Add click event listener to show info window...
+						marker.addListener('click', function() {
+							const data = this.floodingData;
+							floodingInfoWindow.setContent(`
+								<div style="line-height:1.5;overflow:hidden;color:#333;max-width:300px;">
+									<h3 style="margin:0 0 8px 0;color:#4682B4;">${data.site_name || 'Unknown Site'}</h3>
+									<p style="margin:0;font-size:13px;">${data.description || 'No description available'}</p>
+									<div style="margin-top:12px;">
+										<div style="position:relative;width:100%;height:auto;">
+											<!-- Flooding level (red) -->
+											${data.gage_height && data.rp_elevation ? `
+											<div style="position:relative;width:80%;margin:0 auto;">
+												<div style="
+													background: linear-gradient(to bottom, #ffb3b3, #ff6b6b);
+													height:${Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5))}px;
+													width:100%;
+													border-radius:4px 4px 0 0;
+													display:flex;
+													align-items:center;
+													justify-content:center;
+													color:#8b0000;
+													font-weight:bold;
+													font-size:12px;
+												">
+													+${(parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2)} ft
+												</div>
+												<!-- Normal water level (blue) with wavy top -->
+												<div style="position:relative;">
+													<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
+														<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#87CEEB"/>
+													</svg>
+													<div style="
+														background: linear-gradient(to bottom, #87CEEB, #7a9bb6);
+														height:40px;
+														width:100%;
+														border-radius:0 0 4px 4px;
+														display:flex;
+														align-items:center;
+														justify-content:center;
+														color:#1a3a5c;
+														font-weight:bold;
+														font-size:12px;
+													">
+														Normal Elevation: ${parseFloat(data.rp_elevation).toFixed(2)} ft
+													</div>
+												</div>
+											</div>
+											` : ''}
+										</div>
+									</div>
+									<div style="margin: 22px 0 5px 0;">
+										<a href="https://waterdata.usgs.gov/monitoring-location/USGS-${data.nwis_id}/all-graphs/#period=P7D" target="_blank" style="background-color: dodgerblue; padding: 3px 5px; border-radius: 5px; color: white; text-decoration: none; font-size: 1.15em; font-weight: 400; display: inline-flex; align-items: center; gap: 5px;">
+											<svg xmlns="http://www.w3.org/2000/svg" width="22" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM288 224C288 206.3 302.3 192 320 192C337.7 192 352 206.3 352 224C352 241.7 337.7 256 320 256C302.3 256 288 241.7 288 224zM280 288L328 288C341.3 288 352 298.7 352 312L352 400L360 400C373.3 400 384 410.7 384 424C384 437.3 373.3 448 360 448L280 448C266.7 448 256 437.3 256 424C256 410.7 266.7 400 280 400L304 400L304 336L280 336C266.7 336 256 325.3 256 312C256 298.7 266.7 288 280 288z" fill="white"/></svg>
+											USGS monitoring station details
+										</a>
+									</div>
+								</div>
+							`);
+							floodingInfoWindow.open(map, this);
+						});
+
+						// Store marker reference for cleanup...
+						parent.floodingMarkers.push(marker);
+					};
+				});
+
+				console.debug(`Plotted ${parent.floodingMarkers.length} flooding markers on the map`);
+
+			} catch (error) {
+				console.error("Failed to fetch flooding data:", error);
 			};
 		};
 	};
