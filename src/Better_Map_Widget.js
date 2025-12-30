@@ -2292,20 +2292,24 @@ async function addWeatherLayer() {
 		};
 
 		// Look to see if we should add wildfire into the map...
-		// if (mapTitle.match(/fire/gi)) {
 		if (optionalMapType == "us-fires") {
-			// Clear any previous load of the wildfire data...
+			// Clear any previous load of the overlay data...
 			map.data.forEach(function(feature) {
 				map.data.remove(feature);
 			});
-			if (typeof parent.fireInfoWindowListenerHandle == "object") {
-				google.maps.event.removeListener(parent.fireInfoWindowListenerHandle);
+			// Remove any existing overlay listeners...
+			if (typeof parent.overlayInfoWindowListenerHandle == "object") {
+				google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
 			};
-			if (typeof parent.outageInfoWindowListenerHandle == "object") {
-				google.maps.event.removeListener(parent.outageInfoWindowListenerHandle);
+			// Initialize or close the shared overlay InfoWindow...
+			if (!parent.overlayInfoWindow) {
+				parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
+			} else {
+				parent.overlayInfoWindow.close();
 			};
-			if (typeof parent.quakeInfoWindowListenerHandle == "object") {
-				google.maps.event.removeListener(parent.quakeInfoWindowListenerHandle);
+			// Clear the flooding Data layer if it exists...
+			if (parent.floodingDataLayer) {
+				parent.floodingDataLayer.setMap(null);
 			};
 
 			// Load the wildfire data from the ArcGIS site...
@@ -2317,12 +2321,8 @@ async function addWeatherLayer() {
 			// Color the wildfire areas as red...
 			map.data.setStyle({ fillColor: 'red', strokeWeight: 1.0, strokeColor: 'salmon' });
 
-			// Show an info window on click of fire area...
-			fireInfoWindow = new google.maps.InfoWindow({
-				content: ""
-			});
 			// Show wildfire info on either "click" or "mouseover" (refer to the 'showWildfireInfoEvent' variable set at the top of this script)...
-			parent.fireInfoWindowListenerHandle = map.data.addListener(showWildfireInfoEvent, function(event) {
+			parent.overlayInfoWindowListenerHandle = map.data.addListener(showWildfireInfoEvent, function(event) {
 				// Show an infowindow on click...
 				let comments = event.feature.getProperty("Comments");
 				if (comments == null) {
@@ -2338,14 +2338,14 @@ async function addWeatherLayer() {
 				if (fireCategory == null) {
 					fireCategory = "(not available)";
 				};
-				fireInfoWindow.setContent('<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;"><span style="font-weight:700;">Wildfire &quot;'+ event.feature.getProperty("IncidentName") + '&quot;</span><br/>' + comments + '<br/><br/>Calculated Acres: ' + acres + '<br/>Category: ' + fireCategory + '<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") + '<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") + '</div>');
+				parent.overlayInfoWindow.setContent('<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;"><span style="font-weight:700;">Wildfire &quot;'+ event.feature.getProperty("IncidentName") + '&quot;</span><br/>' + comments + '<br/><br/>Calculated Acres: ' + acres + '<br/>Category: ' + fireCategory + '<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") + '<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") + '</div>');
 				let anchor = new google.maps.MVCObject();
 				anchor.set("position",event.latLng);
-				fireInfoWindow.open(map, anchor);
+				parent.overlayInfoWindow.open(map, anchor);
 			});
 			if (showWildfireInfoEvent == "mouseover") {
-				parent.fireInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
-					fireInfoWindow.close();
+				parent.overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
+					parent.overlayInfoWindow.close();
 				});
 			};
 		// Look to see if we should add power outages to the map...
@@ -2362,15 +2362,20 @@ async function addWeatherLayer() {
 				map.data.forEach(function(feature) {
 					map.data.remove(feature);
 				});
-				if (typeof parent.outageInfoWindowListenerHandle == "object") {
-					google.maps.event.removeListener(parent.outageInfoWindowListenerHandle);
-				}
-				if (typeof parent.fireInfoWindowListenerHandle == "object") {
-					google.maps.event.removeListener(parent.fireInfoWindowListenerHandle);
-				}
-				if (typeof parent.quakeInfoWindowListenerHandle == "object") {
-					google.maps.event.removeListener(parent.quakeInfoWindowListenerHandle);
-				}
+				// Remove any existing overlay listeners...
+				if (typeof parent.overlayInfoWindowListenerHandle == "object") {
+					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
+				};
+				// Initialize or close the shared overlay InfoWindow...
+				if (!parent.overlayInfoWindow) {
+					parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
+				} else {
+					parent.overlayInfoWindow.close();
+				};
+				// Clear the flooding Data layer if it exists...
+				if (parent.floodingDataLayer) {
+					parent.floodingDataLayer.setMap(null);
+				};
 
 				// Fetch both data sources in parallel...
 				const [countiesResponse, outageResponse] = await Promise.all([
@@ -2380,10 +2385,10 @@ async function addWeatherLayer() {
 
 				if (!countiesResponse.ok) {
 					throw new Error(`Counties GeoJSON fetch error: ${countiesResponse.status}`);
-				}
+				};
 				if (!outageResponse.ok) {
 					throw new Error(`Power outage data fetch error: ${outageResponse.status}`);
-				}
+				};
 
 				// Parse the counties GeoJSON...
 				const countiesGeoJson = await countiesResponse.json();
@@ -2471,11 +2476,7 @@ async function addWeatherLayer() {
 				});
 
 				// Show county info on click...
-				const outageInfoWindow = new google.maps.InfoWindow({
-					content: ""
-				});
-
-				parent.outageInfoWindowListenerHandle = map.data.addListener('click', function(event) {
+				parent.overlayInfoWindowListenerHandle = map.data.addListener('click', function(event) {
 					const countyName = event.feature.getProperty('CountyName') || 'Unknown County';
 					const outageCount = event.feature.getProperty('OutageCount') || 0;
 					const percentAffected = event.feature.getProperty('PercentAffected') || 0;
@@ -2496,7 +2497,7 @@ async function addWeatherLayer() {
 					`;
 
 					// Set the content of the info window...
-					outageInfoWindow.setContent(`
+					parent.overlayInfoWindow.setContent(`
 						<div style="line-height:1.5;overflow:hidden;white-space:nowrap;color:#333;">
 							<h3 style="margin:0;">${countyName} Power Outages</h3>
 							${donutChart}
@@ -2514,7 +2515,7 @@ async function addWeatherLayer() {
 
 					const anchor = new google.maps.MVCObject();
 					anchor.set("position", event.latLng);
-					outageInfoWindow.open(map, anchor);
+					parent.overlayInfoWindow.open(map, anchor);
 				});
 
 				// Highlight counties on mouseover...
@@ -2534,14 +2535,19 @@ async function addWeatherLayer() {
 			map.data.forEach(function(feature) {
 				map.data.remove(feature);
 			});
-			if (typeof parent.fireInfoWindowListenerHandle == "object") {
-				google.maps.event.removeListener(parent.fireInfoWindowListenerHandle);
+			// Remove any existing overlay listeners...
+			if (typeof parent.overlayInfoWindowListenerHandle == "object") {
+				google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
 			};
-			if (typeof parent.outageInfoWindowListenerHandle == "object") {
-				google.maps.event.removeListener(parent.outageInfoWindowListenerHandle);
+			// Initialize or close the shared overlay InfoWindow...
+			if (!parent.overlayInfoWindow) {
+				parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
+			} else {
+				parent.overlayInfoWindow.close();
 			};
-			if (typeof parent.quakeInfoWindowListenerHandle == "object") {
-				google.maps.event.removeListener(parent.quakeInfoWindowListenerHandle);
+			// Clear the flooding Data layer if it exists...
+			if (parent.floodingDataLayer) {
+				parent.floodingDataLayer.setMap(null);
 			};
 
 			// Load the earthquake data for the past day from the USGS site...
@@ -2606,19 +2612,12 @@ async function addWeatherLayer() {
 				}
 			});
 
-			// Show an info window on click of fire area...
-			quakeInfoWindow = new google.maps.InfoWindow({
-				content: ""
-			});
-			// Show wildfire info on either "click" or "mouseover" (refer to the 'showWildfireInfoEvent' variable set at the top of this script)...
-			parent.quakeInfoWindowListenerHandle = map.data.addListener('click', function(event) {
-				const content = document.createElement("div");
+			// Show earthquake info on click...
+			parent.overlayInfoWindowListenerHandle = map.data.addListener('click', function(event) {
 				// Show an infowindow on click...
 				let quakeTime = new Date(event.feature.getProperty("time"));
 				let updated = new Date(event.feature.getProperty("updated"));
-				let title = "Earthquake Magnitude " + event.feature.getProperty("mag");
 				let alertLabel = "(not available)";
-				// let alertLabelColor = "inherit";
 				let alertLabelColor = "white";
 				if (event.feature.getProperty("alert") != null) {
 					alertLabelColor = event.feature.getProperty("alert");
@@ -2629,7 +2628,7 @@ async function addWeatherLayer() {
 				};
 				let quakeAgeInDays = (new Date() - quakeTime) / (86400 * 1000);
 
-				quakeInfoWindow.setContent(`
+				parent.overlayInfoWindow.setContent(`
 					<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">
 						<div style="font-size: 1.2em;">
 							<div style="font-weight:700;">Earthquake Magnitude ${event.feature.getProperty("mag")}</div>
@@ -2686,12 +2685,12 @@ async function addWeatherLayer() {
 					</div>
 				`);
 
-				quakeInfoWindow.setPosition(event.latLng);
-				quakeInfoWindow.open(map);
+				parent.overlayInfoWindow.setPosition(event.latLng);
+				parent.overlayInfoWindow.open(map);
 			});
 			if (showWildfireInfoEvent == "mouseover") {
-				parent.quakeInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
-					quakeInfoWindow.close();
+				parent.overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
+					parent.overlayInfoWindow.close();
 				});
 			};
 		} else if (optionalMapType == "us-flooding") {
@@ -2699,29 +2698,28 @@ async function addWeatherLayer() {
 			// const countyIDsJsonURL = `https://api.waterdata.usgs.gov/rtfi-api/counties?page=1&limit=4000&v=${Date.now()}`;
 			const floodingDataURL = `https://api.waterdata.usgs.gov/rtfi-api/referencepoints/flooding?v=${Date.now()}`;
 
-			// Clear any previous load of the wildfire data...
+			// Clear any previous load of the overlay data...
 			map.data.forEach(function(feature) {
 				map.data.remove(feature);
 			});
-			if (typeof parent.fireInfoWindowListenerHandle == "object") {
-				google.maps.event.removeListener(parent.fireInfoWindowListenerHandle);
+			// Remove any existing overlay listeners...
+			if (typeof parent.overlayInfoWindowListenerHandle == "object") {
+				google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
 			};
-			if (typeof parent.outageInfoWindowListenerHandle == "object") {
-				google.maps.event.removeListener(parent.outageInfoWindowListenerHandle);
-			};
-			if (typeof parent.quakeInfoWindowListenerHandle == "object") {
-				google.maps.event.removeListener(parent.quakeInfoWindowListenerHandle);
-			};
-			if (typeof parent.floodingInfoWindowListenerHandle == "object") {
-				google.maps.event.removeListener(parent.floodingInfoWindowListenerHandle);
-			};
-			// Clear any existing flooding markers from a previous load...
-			if (Array.isArray(parent.floodingMarkers)) {
-				parent.floodingMarkers.forEach(marker => marker.setMap(null));
-				parent.floodingMarkers = [];
+			// Initialize or close the shared overlay InfoWindow...
+			if (!parent.overlayInfoWindow) {
+				parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
 			} else {
-				parent.floodingMarkers = [];
+				parent.overlayInfoWindow.close();
 			};
+			// Initialize or clear the flooding Data layer...
+			if (!parent.floodingDataLayer) {
+				parent.floodingDataLayer = new google.maps.Data();
+			} else {
+				// Clear any existing flooding features from a previous load...
+				parent.floodingDataLayer.forEach(feature => parent.floodingDataLayer.remove(feature));
+			};
+			parent.floodingDataLayer.setMap(null); // Detach while loading
 
 			try {
 				// Fetch the flooding data from the USGS API...
@@ -2733,98 +2731,110 @@ async function addWeatherLayer() {
 				const floodingData = await floodingResponse.json();
 				console.debug(`Flooding data loaded: ${floodingData.length} sites currently flooding`);
 
-				// Create an info window for flooding markers...
-				const floodingInfoWindow = new google.maps.InfoWindow({
-					content: ""
-				});
-
-				// Plot a light blue marker for each flooding entry...
+				// Convert flooding data to GeoJSON and add to the Data layer...
+				let floodingFeatureCount = 0;
 				floodingData.forEach(entry => {
 					if (entry.latitude && entry.longitude) {
-						const marker = new google.maps.Marker({
-							position: { lat: parseFloat(entry.latitude), lng: parseFloat(entry.longitude) },
-							map: map,
-							icon: {
-								path: google.maps.SymbolPath.CIRCLE,
-								fillColor: '#87ceeb9c',
-								fillOpacity: 0.9,
-								strokeColor: '#4682b496',
-								strokeWeight: 1.0,
-								scale: 5
+						parent.floodingDataLayer.addGeoJson({
+							type: "Feature",
+							geometry: {
+								type: "Point",
+								coordinates: [parseFloat(entry.longitude), parseFloat(entry.latitude)]
 							},
-							title: `Flood: ${entry.site_name}` || 'Flooding Location'
+							properties: entry  // Store all entry data as feature properties
 						});
-
-						// Store the entry data on the marker for the click handler...
-						marker.floodingData = entry;
-
-						// Add click event listener to show info window...
-						marker.addListener('click', function() {
-							const data = this.floodingData;
-							floodingInfoWindow.setContent(`
-								<div style="line-height:1.5;overflow:hidden;color:#333;max-width:300px;">
-									<h3 style="margin:0 0 8px 0;color:#4682B4;">${data.site_name || 'Unknown Site'}</h3>
-									<p style="margin:0;font-size:13px;">${data.description || 'No description available'}</p>
-									<div style="margin-top:12px;">
-										<div style="position:relative;width:100%;height:auto;">
-											<!-- Flooding level (red) -->
-											${data.gage_height && data.rp_elevation ? `
-											<div style="position:relative;width:80%;margin:0 auto;">
-												<div style="
-													background: linear-gradient(to bottom, #ffb3b3, #ff6b6b);
-													height:${Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5))}px;
-													width:100%;
-													border-radius:4px 4px 0 0;
-													display:flex;
-													align-items:center;
-													justify-content:center;
-													color:#8b0000;
-													font-weight:bold;
-													font-size:12px;
-												">
-													+${(parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2)} ft
-												</div>
-												<!-- Normal water level (blue) with wavy top -->
-												<div style="position:relative;">
-													<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
-														<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#87CEEB"/>
-													</svg>
-													<div style="
-														background: linear-gradient(to bottom, #87CEEB, #7a9bb6);
-														height:40px;
-														width:100%;
-														border-radius:0 0 4px 4px;
-														display:flex;
-														align-items:center;
-														justify-content:center;
-														color:#1a3a5c;
-														font-weight:bold;
-														font-size:12px;
-													">
-														Normal Elevation: ${parseFloat(data.rp_elevation).toFixed(2)} ft
-													</div>
-												</div>
-											</div>
-											` : ''}
-										</div>
-									</div>
-									<div style="margin: 22px 0 5px 0;">
-										<a href="https://waterdata.usgs.gov/monitoring-location/USGS-${data.nwis_id}/all-graphs/#period=P7D" target="_blank" style="background-color: dodgerblue; padding: 3px 5px; border-radius: 5px; color: white; text-decoration: none; font-size: 1.15em; font-weight: 400; display: inline-flex; align-items: center; gap: 5px;">
-											<svg xmlns="http://www.w3.org/2000/svg" width="22" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM288 224C288 206.3 302.3 192 320 192C337.7 192 352 206.3 352 224C352 241.7 337.7 256 320 256C302.3 256 288 241.7 288 224zM280 288L328 288C341.3 288 352 298.7 352 312L352 400L360 400C373.3 400 384 410.7 384 424C384 437.3 373.3 448 360 448L280 448C266.7 448 256 437.3 256 424C256 410.7 266.7 400 280 400L304 400L304 336L280 336C266.7 336 256 325.3 256 312C256 298.7 266.7 288 280 288z" fill="white"/></svg>
-											USGS monitoring station details
-										</a>
-									</div>
-								</div>
-							`);
-							floodingInfoWindow.open(map, this);
-						});
-
-						// Store marker reference for cleanup...
-						parent.floodingMarkers.push(marker);
+						floodingFeatureCount++;
 					};
 				});
 
-				console.debug(`Plotted ${parent.floodingMarkers.length} flooding markers on the map`);
+				// Apply styling to the flooding Data layer...
+				parent.floodingDataLayer.setStyle({
+					icon: {
+						path: google.maps.SymbolPath.CIRCLE,
+						fillColor: '#87ceeb9c',
+						fillOpacity: 0.9,
+						strokeColor: '#4682b496',
+						strokeWeight: 1.0,
+						scale: 5
+					}
+				});
+
+				// Add click listener to the Data layer (only once)...
+				if (!parent.floodingDataLayerClickListener) {
+					parent.floodingDataLayerClickListener = parent.floodingDataLayer.addListener('click', function(event) {
+						const feature = event.feature;
+						// Extract properties from the feature...
+						const data = {
+							site_name: feature.getProperty('site_name'),
+							description: feature.getProperty('description'),
+							gage_height: feature.getProperty('gage_height'),
+							rp_elevation: feature.getProperty('rp_elevation'),
+							nwis_id: feature.getProperty('nwis_id')
+						};
+						parent.overlayInfoWindow.setContent(`
+							<div style="line-height:1.5;overflow:hidden;color:#333;max-width:300px;">
+								<h3 style="margin:0 0 8px 0;color:#4682B4;">${data.site_name || 'Unknown Site'}</h3>
+								<p style="margin:0;font-size:13px;">${data.description || 'No description available'}</p>
+								<div style="margin-top:12px;">
+									<div style="position:relative;width:100%;height:auto;">
+										<!-- Flooding level (red) -->
+										${data.gage_height && data.rp_elevation ? `
+										<div style="position:relative;width:80%;margin:0 auto;">
+											<div style="
+												background: linear-gradient(to bottom, #ffb3b3, #ff6b6b);
+												height:${Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5))}px;
+												width:100%;
+												border-radius:4px 4px 0 0;
+												display:flex;
+												align-items:center;
+												justify-content:center;
+												color:#8b0000;
+												font-weight:bold;
+												font-size:12px;
+											">
+												+${(parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2)} ft
+											</div>
+											<!-- Normal water level (blue) with wavy top -->
+											<div style="position:relative;">
+												<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
+													<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#87CEEB"/>
+												</svg>
+												<div style="
+													background: linear-gradient(to bottom, #87CEEB, #7a9bb6);
+													height:40px;
+													width:100%;
+													border-radius:0 0 4px 4px;
+													display:flex;
+													align-items:center;
+													justify-content:center;
+													color:#1a3a5c;
+													font-weight:bold;
+													font-size:12px;
+												">
+													Normal Elevation: ${parseFloat(data.rp_elevation).toFixed(2)} ft
+												</div>
+											</div>
+										</div>
+										` : ''}
+									</div>
+								</div>
+								<div style="margin: 22px 0 5px 0;">
+									<a href="https://waterdata.usgs.gov/monitoring-location/USGS-${data.nwis_id}/all-graphs/#period=P7D" target="_blank" style="background-color: dodgerblue; padding: 3px 5px; border-radius: 5px; color: white; text-decoration: none; font-size: 1.15em; font-weight: 400; display: inline-flex; align-items: center; gap: 5px;">
+										<svg xmlns="http://www.w3.org/2000/svg" width="22" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM288 224C288 206.3 302.3 192 320 192C337.7 192 352 206.3 352 224C352 241.7 337.7 256 320 256C302.3 256 288 241.7 288 224zM280 288L328 288C341.3 288 352 298.7 352 312L352 400L360 400C373.3 400 384 410.7 384 424C384 437.3 373.3 448 360 448L280 448C266.7 448 256 437.3 256 424C256 410.7 266.7 400 280 400L304 400L304 336L280 336C266.7 336 256 325.3 256 312C256 298.7 266.7 288 280 288z" fill="white"/></svg>
+										USGS monitoring station details
+									</a>
+								</div>
+							</div>
+						`);
+						parent.overlayInfoWindow.setPosition(event.latLng);
+						parent.overlayInfoWindow.open(map);
+					});
+				};
+
+				// Attach the Data layer to the map...
+				parent.floodingDataLayer.setMap(map);
+
+				console.debug(`Plotted ${floodingFeatureCount} flooding features on the map via Data layer`);
 
 			} catch (error) {
 				console.error("Failed to fetch flooding data:", error);
