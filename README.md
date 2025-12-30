@@ -65,7 +65,7 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapSourceType**: Whether to map "groups", "resources", or "services". Default is "groups".
 - **MapGroupPathFilter**: Allows setting a default group path to start. Default is "\*".
 - **MapShowWeather**: If weather should be shown by default. Options are "global" or "nexrad". Default is "global".
-- **MapOverlayOption**: Which optional overlay to default to when weather is shown. Options are "earthquakes", "us-wildfires", "us-poweroutages", or "us-flooding". Default is "earthquakes".
+- **MapOverlayOption**: Which optional overlay to default to when weather is shown. Options are "earthquakes", "us-wildfires" (or "wildfires"), "us-poweroutages" (or "outages"), or "us-flooding". Default is "earthquakes".
 - **HideMapOptions**: If "true" then will hide the options bar by default. Default is "false".
 - **MapIgnoreCleared**: If "true" then will only show items currently alerting (useful for maps with thousands of markers). Default is "false".
 - **MapIgnoreWarnings**: If "true" then won't show items in "Warning" status. Default is "false".
