@@ -1,6 +1,6 @@
 // Better Map Widget
 // Developed by Kevin Ford
-// Version 3.01 - Integrated Authentication Version
+// Version 3.02 - Integrated Authentication Version
 // Integrated authentication improvements by Steve Villardi
 
 // Some of the ideas behind this project:
@@ -2449,22 +2449,17 @@ async function addWeatherLayer() {
 				// Color the county borders dynamically based on outage percentage...
 				map.data.setStyle(function(feature) {
 					let percentAffected = feature.getProperty('PercentAffected') || 0;
-					let strokeColor = "salmon";
+					let strokeColor = "#0000002e";
 					let strokeOpacity = 0.1;
-
-					// Scale the fill opacity based on percentage (cap at 50% for visibility)
-					// percentAffected is already 0-100 scale from USA Today
-					let fillOpacity = Math.min(percentAffected / 100, 0.8);
-
-					// Determine fill color based on severity...
-					let fillColor = 'red';
-					// if (percentAffected > 50) {
-					// 	fillColor = '#8B0000'; // dark red for severe outages
-					// } else if (percentAffected > 10) {
-					// 	fillColor = '#DC143C'; // crimson for moderate
-					// } else if (percentAffected > 0) {
-					// 	fillColor = '#FF6347'; // tomato for minor
-					// };
+					let fillColor = "transparent";
+					let fillOpacity = 0.0;
+					
+					if (percentAffected > 0) {
+						strokeColor = "salmon";
+						fillColor = "red";
+						// Scale the fill opacity based on percentage (cap at 50% for visibility)
+						fillOpacity = Math.min(percentAffected / 100, 0.8);
+					}
 
 					return {
 						fillColor: fillColor,
