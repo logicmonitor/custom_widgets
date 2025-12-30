@@ -2908,15 +2908,11 @@
 					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
 				};
 				// Initialize or close the shared overlay InfoWindow...
-				if (!parent.overlayInfoWindow) {
-					parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
-				} else {
+				if (parent.overlayInfoWindow) {
 					parent.overlayInfoWindow.close();
-				};
-				// Clear the flooding Data layer if it exists...
-					if (parent.floodingDataLayer) {
-						parent.floodingDataLayer.setMap(null);
-					};
+					parent.overlayInfoWindow = null;
+				};				
+				parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
 
 				// Load the wildfire data from the ArcGIS site...
 				// More info about this source of active US wildfire data can be found at: https://www.arcgis.com/home/item.html?id=d957997ccee7408287a963600a77f61f
@@ -2945,9 +2941,12 @@
 						fireCategory = "(not available)";
 					};
 					parent.overlayInfoWindow.setContent('<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;"><span style="font-weight:700;">Wildfire &quot;'+ event.feature.getProperty("IncidentName") + '&quot;</span><br/>' + comments + '<br/><br/>Calculated Acres: ' + acres + '<br/>Category: ' + fireCategory + '<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") + '<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") + '</div>');
-					let anchor = new google.maps.MVCObject();
-					anchor.set("position",event.latLng);
-					parent.overlayInfoWindow.open(map, anchor);
+					// let anchor = new google.maps.MVCObject();
+					// anchor.set("position",event.latLng);
+					// parent.overlayInfoWindow.open(map, anchor);
+
+					parent.overlayInfoWindow.setPosition(event.latLng);
+					parent.overlayInfoWindow.open(map);
 				});
 				if (showWildfireInfoEvent == "mouseover") {
 					parent.overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
@@ -2964,7 +2963,7 @@
 				const usaTodayTotalCustomersURL = 'https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_total.js';
 
 				try {
-					// Reset any lingering map popups, highlights, etc...
+					// Clear any previous load of the overlay data...
 					map.data.forEach(function(feature) {
 						map.data.remove(feature);
 					});
@@ -2973,15 +2972,11 @@
 						google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
 					};
 					// Initialize or close the shared overlay InfoWindow...
-					if (!parent.overlayInfoWindow) {
-						parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
-					} else {
+					if (parent.overlayInfoWindow) {
 						parent.overlayInfoWindow.close();
+						parent.overlayInfoWindow = null;
 					};
-					// Clear the flooding Data layer if it exists...
-					// if (parent.floodingDataLayer) {
-					// 	parent.floodingDataLayer.setMap(null);
-					// };
+					parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
 
 					// Fetch both data sources in parallel...
 					const [countiesResponse, outageResponse] = await Promise.all([
@@ -3114,9 +3109,11 @@
 							</div>
 						`);
 
-						const anchor = new google.maps.MVCObject();
-						anchor.set("position", event.latLng);
-						parent.overlayInfoWindow.open(map, anchor);
+						// const anchor = new google.maps.MVCObject();
+						// anchor.set("position", event.latLng);
+						// parent.overlayInfoWindow.open(map, anchor);
+						parent.overlayInfoWindow.setPosition(event.latLng);
+						parent.overlayInfoWindow.open(map);
 					});
 
 					// Highlight counties on mouseover...
@@ -3132,7 +3129,7 @@
 					console.error("Failed to fetch power outage data:", error);
 				};
 			} else if (optionalMapType == "earthquakes") {
-				// Clear any previous load of the quake data...
+				// Clear any previous load of the overlay data...
 				map.data.forEach(function(feature) {
 					map.data.remove(feature);
 				});
@@ -3141,15 +3138,11 @@
 					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
 				};
 				// Initialize or close the shared overlay InfoWindow...
-				if (!parent.overlayInfoWindow) {
-					parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
-				} else {
+				if (parent.overlayInfoWindow) {
 					parent.overlayInfoWindow.close();
+					parent.overlayInfoWindow = null;
 				};
-				// Clear the flooding Data layer if it exists...
-				// if (parent.floodingDataLayer) {
-				// 	parent.floodingDataLayer.setMap(null);
-				// };
+				parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
 
 				// Load the earthquake data for the past day from the USGS site...
 				// More info about this source of earthquake data can be found at: https://publicapis.io/usgs-earthquake-hazards-program-api
@@ -3308,19 +3301,11 @@
 					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
 				};
 				// Initialize or close the shared overlay InfoWindow...
-				if (!parent.overlayInfoWindow) {
-					parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
-				} else {
+				if (parent.overlayInfoWindow) {
 					parent.overlayInfoWindow.close();
+					parent.overlayInfoWindow = null;
 				};
-				// Initialize or clear the flooding Data layer...
-				// if (!parent.floodingDataLayer) {
-				// 	parent.floodingDataLayer = new google.maps.Data();
-				// } else {
-				// 	// Clear any existing flooding features from a previous load...
-				// 	parent.floodingDataLayer.forEach(feature => parent.floodingDataLayer.remove(feature));
-				// };
-				// parent.floodingDataLayer.setMap(null); // Detach while loading
+				parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
 
 				try {
 					// Fetch the flooding data from the USGS API...

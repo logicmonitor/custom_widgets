@@ -2302,15 +2302,11 @@ async function addWeatherLayer() {
 				google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
 			};
 			// Initialize or close the shared overlay InfoWindow...
-			if (!parent.overlayInfoWindow) {
-				parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
-			} else {
+			if (parent.overlayInfoWindow) {
 				parent.overlayInfoWindow.close();
-			};
-			// Clear the flooding Data layer if it exists...
-			if (parent.floodingDataLayer) {
-				parent.floodingDataLayer.setMap(null);
-			};
+				parent.overlayInfoWindow = null;
+			};				
+			parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
 
 			// Load the wildfire data from the ArcGIS site...
 			// More info about this source of active US wildfire data can be found at: https://www.arcgis.com/home/item.html?id=d957997ccee7408287a963600a77f61f
@@ -2339,9 +2335,12 @@ async function addWeatherLayer() {
 					fireCategory = "(not available)";
 				};
 				parent.overlayInfoWindow.setContent('<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;"><span style="font-weight:700;">Wildfire &quot;'+ event.feature.getProperty("IncidentName") + '&quot;</span><br/>' + comments + '<br/><br/>Calculated Acres: ' + acres + '<br/>Category: ' + fireCategory + '<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") + '<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") + '</div>');
-				let anchor = new google.maps.MVCObject();
-				anchor.set("position",event.latLng);
-				parent.overlayInfoWindow.open(map, anchor);
+				// let anchor = new google.maps.MVCObject();
+				// anchor.set("position",event.latLng);
+				// parent.overlayInfoWindow.open(map, anchor);
+
+				parent.overlayInfoWindow.setPosition(event.latLng);
+				parent.overlayInfoWindow.open(map);
 			});
 			if (showWildfireInfoEvent == "mouseover") {
 				parent.overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
@@ -2358,7 +2357,7 @@ async function addWeatherLayer() {
 			const usaTodayTotalCustomersURL = 'https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_total.js';
 
 			try {
-				// Reset any lingering map popups, highlights, etc...
+				// Clear any previous load of the overlay data...
 				map.data.forEach(function(feature) {
 					map.data.remove(feature);
 				});
@@ -2367,15 +2366,11 @@ async function addWeatherLayer() {
 					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
 				};
 				// Initialize or close the shared overlay InfoWindow...
-				if (!parent.overlayInfoWindow) {
-					parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
-				} else {
+				if (parent.overlayInfoWindow) {
 					parent.overlayInfoWindow.close();
+					parent.overlayInfoWindow = null;
 				};
-				// Clear the flooding Data layer if it exists...
-				if (parent.floodingDataLayer) {
-					parent.floodingDataLayer.setMap(null);
-				};
+				parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
 
 				// Fetch both data sources in parallel...
 				const [countiesResponse, outageResponse] = await Promise.all([
@@ -2453,7 +2448,7 @@ async function addWeatherLayer() {
 					let strokeOpacity = 0.1;
 					let fillColor = "transparent";
 					let fillOpacity = 0.0;
-
+					
 					if (percentAffected > 0) {
 						strokeColor = "salmon";
 						fillColor = "red";
@@ -2508,9 +2503,11 @@ async function addWeatherLayer() {
 						</div>
 					`);
 
-					const anchor = new google.maps.MVCObject();
-					anchor.set("position", event.latLng);
-					parent.overlayInfoWindow.open(map, anchor);
+					// const anchor = new google.maps.MVCObject();
+					// anchor.set("position", event.latLng);
+					// parent.overlayInfoWindow.open(map, anchor);
+					parent.overlayInfoWindow.setPosition(event.latLng);
+					parent.overlayInfoWindow.open(map);
 				});
 
 				// Highlight counties on mouseover...
@@ -2526,7 +2523,7 @@ async function addWeatherLayer() {
 				console.error("Failed to fetch power outage data:", error);
 			};
 		} else if (optionalMapType == "earthquakes") {
-			// Clear any previous load of the quake data...
+			// Clear any previous load of the overlay data...
 			map.data.forEach(function(feature) {
 				map.data.remove(feature);
 			});
@@ -2535,15 +2532,11 @@ async function addWeatherLayer() {
 				google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
 			};
 			// Initialize or close the shared overlay InfoWindow...
-			if (!parent.overlayInfoWindow) {
-				parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
-			} else {
+			if (parent.overlayInfoWindow) {
 				parent.overlayInfoWindow.close();
+				parent.overlayInfoWindow = null;
 			};
-			// Clear the flooding Data layer if it exists...
-			if (parent.floodingDataLayer) {
-				parent.floodingDataLayer.setMap(null);
-			};
+			parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
 
 			// Load the earthquake data for the past day from the USGS site...
 			// More info about this source of earthquake data can be found at: https://publicapis.io/usgs-earthquake-hazards-program-api
@@ -2702,19 +2695,11 @@ async function addWeatherLayer() {
 				google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
 			};
 			// Initialize or close the shared overlay InfoWindow...
-			if (!parent.overlayInfoWindow) {
-				parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
-			} else {
+			if (parent.overlayInfoWindow) {
 				parent.overlayInfoWindow.close();
+				parent.overlayInfoWindow = null;
 			};
-			// Initialize or clear the flooding Data layer...
-			if (!parent.floodingDataLayer) {
-				parent.floodingDataLayer = new google.maps.Data();
-			} else {
-				// Clear any existing flooding features from a previous load...
-				parent.floodingDataLayer.forEach(feature => parent.floodingDataLayer.remove(feature));
-			};
-			parent.floodingDataLayer.setMap(null); // Detach while loading
+			parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
 
 			try {
 				// Fetch the flooding data from the USGS API...
@@ -2730,7 +2715,7 @@ async function addWeatherLayer() {
 				let floodingFeatureCount = 0;
 				floodingData.forEach(entry => {
 					if (entry.latitude && entry.longitude) {
-						parent.floodingDataLayer.addGeoJson({
+						map.data.addGeoJson({
 							type: "Feature",
 							geometry: {
 								type: "Point",
@@ -2743,7 +2728,7 @@ async function addWeatherLayer() {
 				});
 
 				// Apply styling to the flooding Data layer...
-				parent.floodingDataLayer.setStyle({
+				map.data.setStyle({
 					icon: {
 						path: google.maps.SymbolPath.CIRCLE,
 						fillColor: '#87ceeb9c',
@@ -2754,83 +2739,74 @@ async function addWeatherLayer() {
 					}
 				});
 
-				// Add click listener to the Data layer (only once)...
-				if (!parent.floodingDataLayerClickListener) {
-					parent.floodingDataLayerClickListener = parent.floodingDataLayer.addListener('click', function(event) {
-						const feature = event.feature;
-						// Extract properties from the feature...
-						const data = {
-							site_name: feature.getProperty('site_name'),
-							description: feature.getProperty('description'),
-							gage_height: feature.getProperty('gage_height'),
-							rp_elevation: feature.getProperty('rp_elevation'),
-							nwis_id: feature.getProperty('nwis_id')
-						};
-						parent.overlayInfoWindow.setContent(`
-							<div style="line-height:1.5;overflow:hidden;color:#333;max-width:300px;">
-								<h3 style="margin:0 0 8px 0;color:#4682B4;">${data.site_name || 'Unknown Site'}</h3>
-								<p style="margin:0;font-size:13px;">${data.description || 'No description available'}</p>
-								<div style="margin-top:12px;">
-									<div style="position:relative;width:100%;height:auto;">
-										<!-- Flooding level (red) -->
-										${data.gage_height && data.rp_elevation ? `
-										<div style="position:relative;width:80%;margin:0 auto;">
+				parent.overlayInfoWindowListenerHandle = map.data.addListener('click', function(event) {
+					const feature = event.feature;
+					// Extract properties from the feature...
+					const data = {
+						site_name: feature.getProperty('site_name'),
+						description: feature.getProperty('description'),
+						gage_height: feature.getProperty('gage_height'),
+						rp_elevation: feature.getProperty('rp_elevation'),
+						nwis_id: feature.getProperty('nwis_id')
+					};
+					parent.overlayInfoWindow.setContent(`
+						<div style="line-height:1.5;overflow:hidden;color:#333;max-width:300px;">
+							<h3 style="margin:0 0 8px 0;color:#4682B4;">${data.site_name || 'Unknown Site'}</h3>
+							<p style="margin:0;font-size:13px;">${data.description || 'No description available'}</p>
+							<div style="margin-top:12px;">
+								<div style="position:relative;width:100%;height:auto;">
+									<!-- Flooding level (red) -->
+									${data.gage_height && data.rp_elevation ? `
+									<div style="position:relative;width:80%;margin:0 auto;">
+										<div style="
+											background: linear-gradient(to bottom, #ffb3b3, #ff6b6b);
+											height:${Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5))}px;
+											width:100%;
+											border-radius:4px 4px 0 0;
+											display:flex;
+											align-items:center;
+											justify-content:center;
+											color:#8b0000;
+											font-weight:bold;
+											font-size:12px;
+										">
+											+${(parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2)} ft
+										</div>
+										<!-- Normal water level (blue) with wavy top -->
+										<div style="position:relative;">
+											<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
+												<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#87CEEB"/>
+											</svg>
 											<div style="
-												background: linear-gradient(to bottom, #ffb3b3, #ff6b6b);
-												height:${Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5))}px;
+												background: linear-gradient(to bottom, #87CEEB, #7a9bb6);
+												height:40px;
 												width:100%;
-												border-radius:4px 4px 0 0;
+												border-radius:0 0 4px 4px;
 												display:flex;
 												align-items:center;
 												justify-content:center;
-												color:#8b0000;
+												color:#1a3a5c;
 												font-weight:bold;
 												font-size:12px;
 											">
-												+${(parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2)} ft
-											</div>
-											<!-- Normal water level (blue) with wavy top -->
-											<div style="position:relative;">
-												<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
-													<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#87CEEB"/>
-												</svg>
-												<div style="
-													background: linear-gradient(to bottom, #87CEEB, #7a9bb6);
-													height:40px;
-													width:100%;
-													border-radius:0 0 4px 4px;
-													display:flex;
-													align-items:center;
-													justify-content:center;
-													color:#1a3a5c;
-													font-weight:bold;
-													font-size:12px;
-												">
-													Normal Elevation: ${parseFloat(data.rp_elevation).toFixed(2)} ft
-												</div>
+												Normal Elevation: ${parseFloat(data.rp_elevation).toFixed(2)} ft
 											</div>
 										</div>
-										` : ''}
 									</div>
-								</div>
-								<div style="margin: 30px 0 5px 0;">
-									<a href="https://waterdata.usgs.gov/monitoring-location/USGS-${data.nwis_id}/all-graphs/#period=P7D" target="_blank" style="background-color: dodgerblue; padding: 3px 7px; border-radius: 5px; color: white; text-decoration: none; font-size: 1.05em; font-weight: 400; display: inline-flex; align-items: center; gap: 5px;" title="View USGS monitoring station details">
-										<svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path fill="white" d="M384 64C366.3 64 352 78.3 352 96C352 113.7 366.3 128 384 128L466.7 128L265.3 329.4C252.8 341.9 252.8 362.2 265.3 374.7C277.8 387.2 298.1 387.2 310.6 374.7L512 173.3L512 256C512 273.7 526.3 288 544 288C561.7 288 576 273.7 576 256L576 96C576 78.3 561.7 64 544 64L384 64zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 416C480 398.3 465.7 384 448 384C430.3 384 416 398.3 416 416L416 496C416 504.8 408.8 512 400 512L144 512C135.2 512 128 504.8 128 496L128 240C128 231.2 135.2 224 144 224L224 224C241.7 224 256 209.7 256 192C256 174.3 241.7 160 224 160L144 160z"/></svg>
-										USGS monitoring station details
-									</a>
+									` : ''}
 								</div>
 							</div>
-						`);
-						parent.overlayInfoWindow.setPosition(event.latLng);
-						parent.overlayInfoWindow.open(map);
-					});
-				};
-
-				// Attach the Data layer to the map...
-				parent.floodingDataLayer.setMap(map);
-
-				console.debug(`Plotted ${floodingFeatureCount} flooding features on the map via Data layer`);
-
+							<div style="margin: 30px 0 5px 0;">
+								<a href="https://waterdata.usgs.gov/monitoring-location/USGS-${data.nwis_id}/all-graphs/#period=P7D" target="_blank" style="background-color: dodgerblue; padding: 3px 7px; border-radius: 5px; color: white; text-decoration: none; font-size: 1.05em; font-weight: 400; display: inline-flex; align-items: center; gap: 5px;" title="View USGS monitoring station details">
+									<svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path fill="white" d="M384 64C366.3 64 352 78.3 352 96C352 113.7 366.3 128 384 128L466.7 128L265.3 329.4C252.8 341.9 252.8 362.2 265.3 374.7C277.8 387.2 298.1 387.2 310.6 374.7L512 173.3L512 256C512 273.7 526.3 288 544 288C561.7 288 576 273.7 576 256L576 96C576 78.3 561.7 64 544 64L384 64zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 416C480 398.3 465.7 384 448 384C430.3 384 416 398.3 416 416L416 496C416 504.8 408.8 512 400 512L144 512C135.2 512 128 504.8 128 496L128 240C128 231.2 135.2 224 144 224L224 224C241.7 224 256 209.7 256 192C256 174.3 241.7 160 224 160L144 160z"/></svg>
+									USGS monitoring station details
+								</a>
+							</div>
+						</div>
+					`);
+					parent.overlayInfoWindow.setPosition(event.latLng);
+					parent.overlayInfoWindow.open(map);
+				});
 			} catch (error) {
 				console.error("Failed to fetch flooding data:", error);
 			};
