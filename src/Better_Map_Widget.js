@@ -2619,7 +2619,7 @@ async function addWeatherLayer() {
 				parent.overlayInfoWindow.setContent(`
 					<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">
 						<div style="font-size: 1.2em;">
-							<div style="font-weight:700;">Earthquake Magnitude ${event.feature.getProperty("mag")}</div>
+							<div style="font-weight:700;">Earthquake: Magnitude ${event.feature.getProperty("mag")}</div>
 							${event.feature.getProperty("place")}
 						</div>
 						<div style="text-align: center; margin: 10px 0;">
@@ -2642,11 +2642,11 @@ async function addWeatherLayer() {
 								<text x="115" y="40" font-size="10" fill="#333" text-anchor="middle">6</text>
 								<text x="140" y="88" font-size="10" fill="#333" text-anchor="middle">8</text>
 								<!-- Needle -->
-								<line x1="80" y1="80" x2="${80 + 55 * Math.cos(Math.PI - (Math.PI * Math.min(8, Math.max(0, event.feature.getProperty("mag"))) / 8))}" y2="${80 - 55 * Math.sin(Math.PI - (Math.PI * Math.min(8, Math.max(0, event.feature.getProperty("mag"))) / 8))}" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+								<line x1="80" y1="80" x2="${80 + 55 * Math.cos(Math.PI - (Math.PI * Math.min(8, Math.max(0, event.feature.getProperty("mag"))) / 8))}" y2="${80 - 55 * Math.sin(Math.PI - (Math.PI * Math.min(8, Math.max(0, event.feature.getProperty("mag"))) / 8))}" stroke="indianred" stroke-width="3" stroke-linecap="round"/>
 								<!-- Center circle -->
 								<circle cx="80" cy="80" r="6" fill="#333"/>
 								<!-- Magnitude value display -->
-								<text x="80" y="70" font-size="14" font-weight="bold" fill="#333" text-anchor="middle">${event.feature.getProperty("mag").toFixed(1)}</text>
+								<text x="80" y="70" font-size="28" font-weight="bold" fill="#33333388" text-anchor="middle">${event.feature.getProperty("mag").toFixed(1)}</text>
 							</svg>
 						</div>
 						${event.feature.getProperty("tsunami") === 1 && quakeAgeInDays < 1 ? `
