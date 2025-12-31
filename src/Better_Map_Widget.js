@@ -2758,6 +2758,9 @@ async function addWeatherLayer() {
 									<!-- Flooding level (red) -->
 									${data.gage_height && data.rp_elevation ? `
 									<div style="position:relative;width:80%;margin:0 auto;">
+										<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
+											<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#ffb3b3"/>
+										</svg>
 										<div style="
 											background: linear-gradient(to bottom, #ffb3b3, #ff6b6b);
 											height:${Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5))}px;
@@ -2774,9 +2777,9 @@ async function addWeatherLayer() {
 										</div>
 										<!-- Normal water level (blue) with wavy top -->
 										<div style="position:relative;">
-											<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
+											<!-- <svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
 												<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#87CEEB"/>
-											</svg>
+											</svg> -->
 											<div style="
 												background: linear-gradient(to bottom, #87CEEB, #7a9bb6);
 												height:40px;
