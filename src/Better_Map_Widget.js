@@ -2762,7 +2762,7 @@ async function addWeatherLayer() {
 											<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#ffb3b3"/>
 										</svg>
 										<div style="
-											background: linear-gradient(to bottom, #ffb3b3, #ff6b6b);
+											background: linear-gradient(to bottom, #ffb3b3, #fe8787);
 											height:${Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5))}px;
 											width:100%;
 											border-radius:4px 4px 0 0;
@@ -2773,7 +2773,7 @@ async function addWeatherLayer() {
 											font-weight:bold;
 											font-size:12px;
 										">
-											+${(parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2)} ft
+											<span style="margin-top: -5px;">+${(parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2)} ft</span>
 										</div>
 										<!-- Normal water level (blue) with wavy top -->
 										<div style="position:relative;">
@@ -2781,14 +2781,14 @@ async function addWeatherLayer() {
 												<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#87CEEB"/>
 											</svg>
 											<div style="
-												background: linear-gradient(to bottom, #87CEEB, #7a9bb6);
+												background: linear-gradient(to bottom, #87CEEB, #8ea6ba);
 												height:40px;
 												width:100%;
 												border-radius:0 0 4px 4px;
 												display:flex;
 												align-items:center;
 												justify-content:center;
-												color:#1a3a5c;
+												color:#142d47;
 												font-weight:bold;
 												font-size:12px;
 											">
