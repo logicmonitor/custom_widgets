@@ -2635,12 +2635,12 @@ async function addWeatherLayer() {
 								</defs>
 								<!-- Colored arc with gradient -->
 								<path d="M 10 80 A 70 70 0 0 1 150 80" fill="none" stroke="url(#gaugeGradient)" stroke-width="12" stroke-linecap="round"/>
-								<!-- Tick marks and labels -->
-								<text x="20" y="88" font-size="10" fill="#333" text-anchor="middle">0</text>
-								<text x="45" y="40" font-size="10" fill="#333" text-anchor="middle">2</text>
-								<text x="80" y="27" font-size="10" fill="#333" text-anchor="middle">4</text>
-								<text x="115" y="40" font-size="10" fill="#333" text-anchor="middle">6</text>
-								<text x="140" y="88" font-size="10" fill="#333" text-anchor="middle">8</text>
+								<!-- Tick marks and labels (positioned at 45° intervals, inside the arc at radius ~52) -->
+								<text x="25" y="78" font-size="10" fill="#333" text-anchor="middle">0</text>
+								<text x="43" y="46" font-size="10" fill="#333" text-anchor="middle">2</text>
+								<text x="80" y="32" font-size="10" fill="#333" text-anchor="middle">4</text>
+								<text x="117" y="46" font-size="10" fill="#333" text-anchor="middle">6</text>
+								<text x="135" y="78" font-size="10" fill="#333" text-anchor="middle">8</text>
 								<!-- Needle -->
 								<line x1="80" y1="80" x2="${80 + 55 * Math.cos(Math.PI - (Math.PI * Math.min(8, Math.max(0, event.feature.getProperty("mag"))) / 8))}" y2="${80 - 55 * Math.sin(Math.PI - (Math.PI * Math.min(8, Math.max(0, event.feature.getProperty("mag"))) / 8))}" stroke="indianred" stroke-width="3" stroke-linecap="round"/>
 								<!-- Center circle -->
