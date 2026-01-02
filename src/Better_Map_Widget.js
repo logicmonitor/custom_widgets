@@ -1,6 +1,6 @@
 // Better Map Widget
 // Developed by Kevin Ford
-// Version 3.04 - Integrated Authentication Version
+// Version 3.05 - Integrated Authentication Version
 // Integrated authentication improvements by Steve Villardi
 
 // Some of the ideas behind this project:
@@ -2629,23 +2629,26 @@ async function addWeatherLayer() {
 									<span style="font-size: 11px; font-weight: 600; color: #333; display: inline-flex; align-items: center; gap: 4px;">Magnitude<span title="Magnitude is a logarithmic measure of the size of an earthquake at its source." style="display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: #888; color: white; font-size: 9px; font-weight: 700; cursor: help; font-style: italic; font-family: Georgia, serif;">i</span></span>
 									<span style="font-size: 14px; font-weight: 700; color: #333;">${event.feature.getProperty("mag").toFixed(1)}</span>
 								</div>
-								<svg width="100%" height="24" viewBox="0 0 220 24" preserveAspectRatio="none">
-									<defs>
-									<linearGradient id="barGradientMag" x1="0%" y1="0%" x2="100%" y2="0%">
-										<stop offset="0%" style="stop-color:#EEE"/>
-										<stop offset="50%" style="stop-color:#FFF9C4"/>
-										<stop offset="62.5%" style="stop-color:#FFEB3B"/>
-										<stop offset="75%" style="stop-color:#FF9800"/>
-										<stop offset="87.5%" style="stop-color:#FF5722"/>
-										<stop offset="100%" style="stop-color:#F44336"/>
-									</linearGradient>
-									</defs>
-									<!-- Background bar -->
-									<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientMag)"/>
-									<!-- Marker -->
-									<polygon points="${Math.min(220, Math.max(0, event.feature.getProperty("mag") / 8 * 220))},0 ${Math.min(220, Math.max(0, event.feature.getProperty("mag") / 8 * 220)) - 5},6 ${Math.min(220, Math.max(0, event.feature.getProperty("mag") / 8 * 220)) + 5},6" fill="#333"/>
-									<line x1="${Math.min(220, Math.max(0, event.feature.getProperty("mag") / 8 * 220))}" y1="6" x2="${Math.min(220, Math.max(0, event.feature.getProperty("mag") / 8 * 220))}" y2="18" stroke="#333" stroke-width="2"/>
-								</svg>
+								<div style="position: relative; height: 24px;">
+									<svg width="100%" height="24" viewBox="0 0 220 24" preserveAspectRatio="none">
+										<defs>
+											<linearGradient id="barGradientMag" x1="0%" y1="0%" x2="100%" y2="0%">
+												<stop offset="0%" style="stop-color:#EEE"/>
+												<stop offset="50%" style="stop-color:#FFF9C4"/>
+												<stop offset="62.5%" style="stop-color:#FFEB3B"/>
+												<stop offset="75%" style="stop-color:#FF9800"/>
+												<stop offset="87.5%" style="stop-color:#FF5722"/>
+												<stop offset="100%" style="stop-color:#F44336"/>
+											</linearGradient>
+										</defs>
+										<!-- Background bar -->
+										<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientMag)"/>
+									</svg>
+									<!-- Marker (HTML element to avoid SVG stretching) -->
+									<div style="position: absolute; top: 6px; left: calc(${Math.min(100, Math.max(0, event.feature.getProperty("mag") / 8 * 100))}% - 12px); width: 12px; height: 12px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+										<div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+									</div>
+								</div>
 								<div style="display: flex; justify-content: space-between; font-size: 9px; color: #666;">
 									<span>0</span><span>2</span><span>4</span><span>6</span><span>8</span>
 								</div>
@@ -2656,21 +2659,24 @@ async function addWeatherLayer() {
 									<span style="font-size: 11px; font-weight: 600; color: #333; display: inline-flex; align-items: center; gap: 4px;">Significance<span title="A quake's significance is determined on a number of factors, including: magnitude, maximum MMI, felt reports, and estimated impact." style="display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: #888; color: white; font-size: 9px; font-weight: 700; cursor: help; font-style: italic; font-family: Georgia, serif;">i</span></span>
 									<span style="font-size: 14px; font-weight: 700; color: #333;">${(event.feature.getProperty("sig") || 0).toFixed(0)}</span>
 								</div>
-								<svg width="100%" height="24" viewBox="0 0 220 24" preserveAspectRatio="none">
-									<defs>
-										<linearGradient id="barGradientSig" x1="0%" y1="0%" x2="100%" y2="0%">
-											<stop offset="0%" style="stop-color:#4CAF50"/>
-											<stop offset="37.5%" style="stop-color:#FFEB3B"/>
-											<stop offset="62.5%" style="stop-color:#FF9800"/>
-											<stop offset="100%" style="stop-color:#F44336"/>
-										</linearGradient>
-									</defs>
-									<!-- Background bar -->
-									<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientSig)"/>
-									<!-- Marker -->
-									<polygon points="${Math.min(220, Math.max(0, (event.feature.getProperty("sig") || 0) / 1000 * 220))},0 ${Math.min(220, Math.max(0, (event.feature.getProperty("sig") || 0) / 1000 * 220)) - 5},6 ${Math.min(220, Math.max(0, (event.feature.getProperty("sig") || 0) / 1000 * 220)) + 5},6" fill="#333"/>
-									<line x1="${Math.min(220, Math.max(0, (event.feature.getProperty("sig") || 0) / 1000 * 220))}" y1="6" x2="${Math.min(220, Math.max(0, (event.feature.getProperty("sig") || 0) / 1000 * 220))}" y2="18" stroke="#333" stroke-width="2"/>
-								</svg>
+								<div style="position: relative; height: 24px;">
+									<svg width="100%" height="24" viewBox="0 0 220 24" preserveAspectRatio="none">
+										<defs>
+											<linearGradient id="barGradientSig" x1="0%" y1="0%" x2="100%" y2="0%">
+												<stop offset="0%" style="stop-color:#4CAF50"/>
+												<stop offset="37.5%" style="stop-color:#FFEB3B"/>
+												<stop offset="62.5%" style="stop-color:#FF9800"/>
+												<stop offset="100%" style="stop-color:#F44336"/>
+											</linearGradient>
+										</defs>
+										<!-- Background bar -->
+										<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientSig)"/>
+									</svg>
+									<!-- Marker (HTML element to avoid SVG stretching) -->
+									<div style="position: absolute; top: 6px; left: calc(${Math.min(100, Math.max(0, (event.feature.getProperty("sig") || 0) / 1000 * 100))}% - 12px); width: 12px; height: 12px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+										<div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+									</div>
+								</div>
 								<div style="display: flex; justify-content: space-between; font-size: 9px; color: #666;">
 									<span>0</span><span>250</span><span>500</span><span>750</span><span>1000</span>
 								</div>
@@ -2681,22 +2687,25 @@ async function addWeatherLayer() {
 									<span style="font-size: 11px; font-weight: 600; color: #333; display: inline-flex; align-items: center; gap: 4px;">Intensity (MMI)<span title="This value is determined using the Modified Mercalli Intensity scale (MMI), which is a measure of the shaking intensity at a given location." style="display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: #888; color: white; font-size: 9px; font-weight: 700; cursor: help; font-style: italic; font-family: Georgia, serif;">i</span></span>
 									<span style="font-size: 14px; font-weight: 700; color: #333;">${(event.feature.getProperty("cdi") || 0).toFixed(1)}</span>
 								</div>
-								<svg width="100%" height="24" viewBox="0 0 220 24" preserveAspectRatio="none">
-									<defs>
-										<linearGradient id="barGradientInt" x1="0%" y1="0%" x2="100%" y2="0%">
-											<stop offset="0%" style="stop-color:#EEE"/>
-											<stop offset="25%" style="stop-color:#ACD8E9"/>
-											<stop offset="60%" style="stop-color:#FFEB3B"/>
-											<stop offset="75%" style="stop-color:#FF9800"/>
-											<stop offset="100%" style="stop-color:#F44336"/>
-										</linearGradient>
-									</defs>
-									<!-- Background bar -->
-									<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientInt)"/>
-									<!-- Marker -->
-									<polygon points="${Math.min(220, Math.max(0, (event.feature.getProperty("cdi") || 0) / 10 * 220))},0 ${Math.min(220, Math.max(0, (event.feature.getProperty("cdi") || 0) / 10 * 220)) - 5},6 ${Math.min(220, Math.max(0, (event.feature.getProperty("cdi") || 0) / 10 * 220)) + 5},6" fill="#333"/>
-									<line x1="${Math.min(220, Math.max(0, (event.feature.getProperty("cdi") || 0) / 10 * 220))}" y1="6" x2="${Math.min(220, Math.max(0, (event.feature.getProperty("cdi") || 0) / 10 * 220))}" y2="18" stroke="#333" stroke-width="2"/>
-								</svg>
+								<div style="position: relative; height: 24px;">
+									<svg width="100%" height="24" viewBox="0 0 220 24" preserveAspectRatio="none">
+										<defs>
+											<linearGradient id="barGradientInt" x1="0%" y1="0%" x2="100%" y2="0%">
+												<stop offset="0%" style="stop-color:#EEE"/>
+												<stop offset="25%" style="stop-color:#ACD8E9"/>
+												<stop offset="60%" style="stop-color:#FFEB3B"/>
+												<stop offset="75%" style="stop-color:#FF9800"/>
+												<stop offset="100%" style="stop-color:#F44336"/>
+											</linearGradient>
+										</defs>
+										<!-- Background bar -->
+										<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientInt)"/>
+									</svg>
+									<!-- Marker (HTML element to avoid SVG stretching) -->
+									<div style="position: absolute; top: 6px; left: calc(${Math.min(100, Math.max(0, (event.feature.getProperty("cdi") || 0) / 10 * 100))}% - 12px); width: 12px; height: 12px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+										<div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+									</div>
+								</div>
 								<div style="display: flex; justify-content: space-between; font-size: 9px; color: #666;">
 									<span>0</span><span>2.5</span><span>5</span><span>7.5</span><span>10</span>
 								</div>
