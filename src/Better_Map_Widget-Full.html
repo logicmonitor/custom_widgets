@@ -3207,7 +3207,7 @@
 				});
 
 				// Show earthquake info on click...
-				parent.overlayInfoWindowListenerHandle = map.data.addListener('click', function(event) {
+				parent.overlayInfoWindowListenerHandle = map.data.addListener('click', async function(event) {
 					// Show an infowindow on click...
 					let quakeTime = new Date(event.feature.getProperty("time"));
 					let updated = new Date(event.feature.getProperty("updated"));
@@ -3334,6 +3334,68 @@
 
 					parent.overlayInfoWindow.setPosition(event.latLng);
 					parent.overlayInfoWindow.open(map);
+
+					// Fetch and display DYFI (Did You Feel It?) intensity polygons...
+					// Clear any previous intensity polygons...
+					if (parent.dyfiPolygons) {
+						parent.dyfiPolygons.forEach(polygon => polygon.setMap(null));
+						parent.dyfiPolygons = [];
+					}
+					parent.dyfiPolygons = [];
+
+					// Fetch the detail URL to get DYFI product data...
+					const detailUrl = event.feature.getProperty("detail");
+					if (detailUrl) {
+						try {
+							const detailResponse = await fetch(detailUrl);
+							const detailData = await detailResponse.json();
+							// Look for DYFI product with dyfi_geo.geojson...
+							const dyfiProduct = detailData?.properties?.products?.dyfi?.[0];
+							const dyfiGeoUrl = dyfiProduct?.contents?.["dyfi_geo.geojson"]?.url;
+							
+							if (dyfiGeoUrl) {
+								const dyfiResponse = await fetch(dyfiGeoUrl);
+								const dyfiData = await dyfiResponse.json();
+								
+								// Find max distance for opacity scaling...
+								let maxDist = 0;
+								dyfiData.features.forEach(feature => {
+									if (feature.properties.dist > maxDist) maxDist = feature.properties.dist;
+								});
+								
+								// Add each polygon to the map with opacity based on dist...
+								dyfiData.features.forEach(feature => {
+									if (feature.geometry && feature.geometry.type === "Polygon") {
+										const coords = feature.geometry.coordinates[0].map(coord => ({lat: coord[1], lng: coord[0]}));
+										const dist = feature.properties.dist || 0;
+										const cdi = feature.properties.cdi || 0;
+										// Calculate opacity: lower dist = more opaque (dist 0 = 0.8, max dist = 0.1)
+										const opacity = Math.max(0.1, 0.8 - (dist / maxDist) * 0.7);
+										// Color based on CDI intensity (MMI scale colors)
+										let fillColor = '#EEE';
+										if (cdi >= 8) fillColor = '#F44336';
+										else if (cdi >= 6) fillColor = '#FF9800';
+										else if (cdi >= 4) fillColor = '#FFEB3B';
+										else if (cdi >= 2) fillColor = '#ACD8E9';
+										
+										const polygon = new google.maps.Polygon({
+											paths: coords,
+											strokeColor: fillColor,
+											strokeOpacity: opacity,
+											strokeWeight: 1,
+											fillColor: fillColor,
+											fillOpacity: opacity * 0.6,
+											map: map
+										});
+										parent.dyfiPolygons.push(polygon);
+									}
+								});
+								console.debug(`Loaded ${parent.dyfiPolygons.length} DYFI intensity polygons`);
+							}
+						} catch (err) {
+							console.debug("Could not load DYFI data:", err.message);
+						}
+					}
 				});
 				if (showWildfireInfoEvent == "mouseover") {
 					parent.overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
