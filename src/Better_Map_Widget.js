@@ -2099,7 +2099,7 @@ const renderer = {
 						<div style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">${mapSourceType.replace(/^./, char => char.toUpperCase())} (${count})</div>
 						<div style="display: grid; gap: 4px;">
 							${deviceDetails.map(device => `
-								<div style="display: flex; align-items: center; padding: 4px 8px; background: #f8f9fa; border-radius: 4px; gap: 8px; max-height: 25px;">
+								<div style="display: flex; align-items: center; padding: 4px 8px; background: color-mix(in srgb, var(--${device.status}-color) 10%, white 30%); border-radius: 4px; gap: 8px; max-height: 25px;">
 									<div style="width: 8px; height: 8px; border-radius: 50%; background: var(--${device.status}-color); flex-shrink: 0;"></div>
 									<a href="${device.link}"
 										target="_blank"
