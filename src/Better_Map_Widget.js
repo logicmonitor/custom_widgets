@@ -2492,10 +2492,7 @@ async function addWeatherLayer() {
 							<h3 style="margin:0;">${countyName} Power Outages</h3>
 							${donutChart}
 							<p style="padding:5px 0;">
-								Customers Without Power: <strong>${outageCount.toLocaleString()}</strong>
-							</p>
-							<p>
-								Percent Affected: <strong>${percentAffected.toFixed(1)}%</strong>
+								Customers Without Power: <strong>${outageCount.toLocaleString()}</strong> (${percentAffected.toFixed(1)}%)
 							</p>
 							<p style="font-size:11px; color:#777; margin: 0;">
 								Data source: <a href="https://data.usatoday.com/national-power-outage-map-tracker/" target="_blank" style="color:#0085c4; text-decoration: none;">USA Today</a>
