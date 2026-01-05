@@ -3223,7 +3223,7 @@
 					let quakeAgeInDays = (new Date() - quakeTime) / (86400 * 1000);
 
 					parent.overlayInfoWindow.setContent(`
-						<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">
+						<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;width:250px;">
 							<div style="font-size: 1.2em;">
 								<div style="font-weight:700;">Earthquake: Magnitude ${event.feature.getProperty("mag")}</div>
 								${event.feature.getProperty("place")}
