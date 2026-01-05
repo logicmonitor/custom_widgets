@@ -2645,7 +2645,7 @@ async function addWeatherLayer() {
 										<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientMag)"/>
 									</svg>
 									<!-- Marker (HTML element to avoid SVG stretching) -->
-									<div style="position: absolute; top: 6px; left: calc(${Math.min(100, Math.max(0, event.feature.getProperty("mag") / 8 * 100))}% - 12px); width: 12px; height: 12px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+									<div style="position: absolute; top: 5px; left: calc(${Math.min(100, Math.max(0, event.feature.getProperty("mag") / 8 * 100))}% - 12px); width: 12px; height: 12px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid white;">
 										<div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
 									</div>
 								</div>
@@ -2673,7 +2673,7 @@ async function addWeatherLayer() {
 										<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientSig)"/>
 									</svg>
 									<!-- Marker (HTML element to avoid SVG stretching) -->
-									<div style="position: absolute; top: 6px; left: calc(${Math.min(100, Math.max(0, (event.feature.getProperty("sig") || 0) / 1000 * 100))}% - 12px); width: 12px; height: 12px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+									<div style="position: absolute; top: 5px; left: calc(${Math.min(100, Math.max(0, (event.feature.getProperty("sig") || 0) / 1000 * 100))}% - 12px); width: 12px; height: 12px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid white;">
 										<div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
 									</div>
 								</div>
@@ -2702,7 +2702,7 @@ async function addWeatherLayer() {
 										<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientInt)"/>
 									</svg>
 									<!-- Marker (HTML element to avoid SVG stretching) -->
-									<div style="position: absolute; top: 6px; left: calc(${Math.min(100, Math.max(0, (event.feature.getProperty("cdi") || 0) / 10 * 100))}% - 12px); width: 12px; height: 12px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+									<div style="position: absolute; top: 5px; left: calc(${Math.min(100, Math.max(0, (event.feature.getProperty("cdi") || 0) / 10 * 100))}% - 12px); width: 12px; height: 12px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid white;">
 										<div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
 									</div>
 								</div>
