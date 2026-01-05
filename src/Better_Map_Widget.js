@@ -2897,7 +2897,7 @@ async function addWeatherLayer() {
 											font-weight:bold;
 											font-size:12px;
 										">
-											<span style="margin-top: -5px;">+${(parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2)} ft</span>
+											<span style="margin-top: -5px; filter: drop-shadow(0 0 4px white);">+${(parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2)} ft</span>
 										</div>
 										<!-- Normal water level (blue) with wavy top -->
 										<div style="position:relative;">
@@ -2916,7 +2916,7 @@ async function addWeatherLayer() {
 												font-weight:bold;
 												font-size:12px;
 											">
-												Normal Elevation: ${parseFloat(data.rp_elevation).toFixed(2)} ft
+												<span style="filter: drop-shadow(0 0 4px white);">Normal Elevation: ${parseFloat(data.rp_elevation).toFixed(2)} ft</span>
 											</div>
 										</div>
 									</div>
