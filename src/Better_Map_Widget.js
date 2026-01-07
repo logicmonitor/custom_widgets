@@ -1,7 +1,6 @@
 // Better Map Widget
+// Version 3.06
 // Developed by Kevin Ford
-// Version 3.05 - Integrated Authentication Version
-// Integrated authentication improvements by Steve Villardi
 
 // Some of the ideas behind this project:
 // * Support for thousands pins on the map, though be aware that Google Maps will start to struggle if too many pins.
@@ -247,6 +246,8 @@ function debounce(fn, delay = 300) {
 * This function makes a preliminary request to a dummy endpoint solely to retrieve
 * the CSRF token from the response headers.
 *
+* Credit for this function goes to Steven Villardi
+*
 * @async
 * @function fetchCsrfToken
 * @param {boolean} [forceRefresh=false] - Force a fresh token fetch, bypassing the cache.
@@ -297,6 +298,8 @@ async function fetchCsrfToken(forceRefresh = false) {
 	* This function handles fetching a CSRF token, constructing the API request,
 	* sending the request, and processing the response. It supports common HTTP verbs
 	* and automatically includes necessary headers and credentials.
+	*
+	* Credit for this function goes to Steven Villardi
 	*
 	* @async
 	* @function LMClient
@@ -2642,7 +2645,7 @@ async function addWeatherLayer() {
 										<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientMag)"/>
 									</svg>
 									<!-- Marker (HTML element to avoid SVG stretching) -->
-									<div style="position: absolute; top: 5px; left: calc(${Math.min(100, Math.max(0, event.feature.getProperty("mag") / 8 * 100))}% - 14px); width: 12px; height: 12px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid white;">
+									<div class="quakeMarker" style="left: calc(${Math.min(100, Math.max(0, event.feature.getProperty("mag") / 8 * 100))}% - 14px);">
 										<div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
 									</div>
 								</div>
@@ -2670,7 +2673,7 @@ async function addWeatherLayer() {
 										<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientSig)"/>
 									</svg>
 									<!-- Marker (HTML element to avoid SVG stretching) -->
-									<div style="position: absolute; top: 5px; left: calc(${Math.min(100, Math.max(0, (event.feature.getProperty("sig") || 0) / 1000 * 100))}% - 14px); width: 12px; height: 12px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid white;">
+									<div class="quakeMarker" style="left: calc(${Math.min(100, Math.max(0, (event.feature.getProperty("sig") || 0) / 1000 * 100))}% - 14px);">
 										<div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
 									</div>
 								</div>
@@ -2699,7 +2702,7 @@ async function addWeatherLayer() {
 										<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientInt)"/>
 									</svg>
 									<!-- Marker (HTML element to avoid SVG stretching) -->
-									<div style="position: absolute; top: 5px; left: calc(${Math.min(100, Math.max(0, (event.feature.getProperty("cdi") || 0) / 10 * 100))}% - 14px); width: 12px; height: 12px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid white;">
+									<div class="quakeMarker" style="left: calc(${Math.min(100, Math.max(0, (event.feature.getProperty("cdi") || 0) / 10 * 100))}% - 14px);">
 										<div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
 									</div>
 								</div>
