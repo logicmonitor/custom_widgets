@@ -3156,6 +3156,11 @@
 					parent.overlayInfoWindow = null;
 				};
 				parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
+				// Clear any previous contour lines...
+				if (parent.mmiContourLines) {
+					parent.mmiContourLines.forEach(line => line.setMap(null));
+					parent.mmiContourLines = [];
+				};
 
 				// Load the earthquake data for the past day from the USGS site...
 				// More info about this source of earthquake data can be found at: https://publicapis.io/usgs-earthquake-hazards-program-api
@@ -3351,79 +3356,80 @@
 									Earthquake details
 								</a>
 							</div>
-						</div>
-					`);
+						</div>`
+					);
 
 					parent.overlayInfoWindow.setPosition(event.latLng);
 					parent.overlayInfoWindow.open(map);
 
-					// Fetch and display DYFI (Did You Feel It?) intensity polygons...
-					// Clear any previous intensity polygons...
-					if (parent.dyfiPolygons) {
-						parent.dyfiPolygons.forEach(polygon => polygon.setMap(null));
-						parent.dyfiPolygons = [];
-					}
-					parent.dyfiPolygons = [];
+					// Fetch and display ShakeMap MMI contour lines...
+					// Clear any previous contour lines...
+					if (parent.mmiContourLines) {
+						parent.mmiContourLines.forEach(line => line.setMap(null));
+						parent.mmiContourLines = [];
+					};
+					parent.mmiContourLines = [];
 
-					// Fetch the detail URL to get DYFI product data...
+					// Fetch the detail URL to get ShakeMap product data...
 					const detailUrl = event.feature.getProperty("detail");
 					if (detailUrl) {
 						try {
 							const detailResponse = await fetch(detailUrl);
 							const detailData = await detailResponse.json();
-							// Look for DYFI product with dyfi_geo.geojson...
-							const dyfiProduct = detailData?.properties?.products?.dyfi?.[0];
-							const dyfiGeoUrl = dyfiProduct?.contents?.["dyfi_geo.geojson"]?.url;
+							// Look for ShakeMap product with cont_mmi.json...
+							const shakemapProduct = detailData?.properties?.products?.shakemap?.[0];
+							const contMmiUrl = shakemapProduct?.contents?.["download/cont_mmi.json"]?.url;
 							
-							if (dyfiGeoUrl) {
-								const dyfiResponse = await fetch(dyfiGeoUrl);
-								const dyfiData = await dyfiResponse.json();
+							if (contMmiUrl) {
+								const contMmiResponse = await fetch(contMmiUrl);
+								const contMmiData = await contMmiResponse.json();
 								
-								// Find max distance for opacity scaling...
-								let maxDist = 0;
-								dyfiData.features.forEach(feature => {
-									if (feature.properties.dist > maxDist) maxDist = feature.properties.dist;
+								// Find max and min MMI values for color scaling...
+								let maxMmi = 0;
+								let minMmi = Infinity;
+								contMmiData.features.forEach(feature => {
+									const mmi = feature.properties.value || 0;
+									if (mmi > maxMmi) maxMmi = mmi;
+									if (mmi < minMmi) minMmi = mmi;
 								});
 								
-								// Add each polygon to the map with opacity based on dist...
-								dyfiData.features.forEach(feature => {
-									if (feature.geometry && feature.geometry.type === "Polygon") {
-										const coords = feature.geometry.coordinates[0].map(coord => ({lat: coord[1], lng: coord[0]}));
-										const dist = feature.properties.dist || 0;
-										const cdi = feature.properties.cdi || 0;
-										// Calculate opacity: lower dist = more opaque (dist 0 = 0.8, max dist = 0.1)
-										const opacity = Math.max(0.1, 0.8 - (dist / maxDist) * 0.7);
-										// Color based on CDI intensity (MMI scale colors)
-										let fillColor = '#EEE';
-										if (cdi >= 8) fillColor = '#F44336';
-										else if (cdi >= 6) fillColor = '#FF9800';
-										else if (cdi >= 4) fillColor = '#FFEB3B';
-										else if (cdi >= 2) fillColor = '#ACD8E9';
+								// Add each contour line to the map with color based on MMI value...
+								contMmiData.features.forEach(feature => {
+									if (feature.geometry && feature.geometry.type === "MultiLineString") {
+										const mmi = feature.properties.value || 0;
+										// Calculate red intensity: higher MMI = stronger red (scale from light to dark red)
+										// MMI typically ranges from ~1 to 10
+										const intensity = Math.min(1, Math.max(0, (mmi - minMmi) / (maxMmi - minMmi)));
+										// Create gradient from light red (#ffcccc) to dark red (#8b0000)
+										const red = 255;
+										const green = Math.round(204 * (1 - intensity));
+										const blue = Math.round(204 * (1 - intensity));
+										const strokeColor = "rgb(" + red + ", " + green + ", " + blue + ")";
+										// Higher MMI = thicker, more opaque lines
+										const strokeWeight = 1 + intensity;
+										const strokeOpacity = 0.5 + (intensity * 0.5);
 										
-										const polygon = new google.maps.Polygon({
-											paths: coords,
-											strokeColor: fillColor,
-											strokeOpacity: opacity,
-											strokeWeight: 1,
-											fillColor: fillColor,
-											fillOpacity: opacity * 0.6,
-											map: map
+										// MultiLineString has multiple line arrays
+										feature.geometry.coordinates.forEach(lineCoords => {
+											const path = lineCoords.map(coord => ({lat: coord[1], lng: coord[0]}));
+											const polyline = new google.maps.Polyline({
+												path: path,
+												strokeColor: strokeColor,
+												strokeOpacity: strokeOpacity,
+												strokeWeight: strokeWeight,
+												map: map
+											});
+											parent.mmiContourLines.push(polyline);
 										});
-										parent.dyfiPolygons.push(polygon);
 									}
 								});
-								console.debug(`Loaded ${parent.dyfiPolygons.length} DYFI intensity polygons`);
+								console.debug("Loaded " + parent.mmiContourLines.length + " MMI contour lines");
 							}
 						} catch (err) {
-							console.debug("Could not load DYFI data:", err.message);
+							console.debug("Could not load ShakeMap MMI data:", err.message);
 						}
 					}
 				});
-				if (showWildfireInfoEvent == "mouseover") {
-					parent.overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
-						parent.overlayInfoWindow.close();
-					});
-				};
 			} else if (optionalMapType == "us-flooding") {
 				// const countiesGeoJsonURL = `https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json?v=${Date.now()}`;
 				// const countyIDsJsonURL = `https://api.waterdata.usgs.gov/rtfi-api/counties?page=1&limit=4000&v=${Date.now()}`;
