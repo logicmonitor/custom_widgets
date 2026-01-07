@@ -1,5 +1,5 @@
 // Better Map Widget
-// Version 3.06
+// Version 3.07
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
@@ -2547,7 +2547,7 @@ async function addWeatherLayer() {
 				parent.overlayInfoWindow = null;
 			};
 			parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
-			// Clear any previous contour lines...
+			// Clear any previous earthquake contour lines...
 			if (parent.mmiContourLines) {
 				parent.mmiContourLines.forEach(line => line.setMap(null));
 				parent.mmiContourLines = [];
