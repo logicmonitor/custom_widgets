@@ -2310,6 +2310,11 @@ async function addWeatherLayer() {
 				parent.overlayInfoWindow = null;
 			};
 			parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
+			// Clear any previous earthquake contour lines...
+			if (parent.mmiContourLines) {
+				parent.mmiContourLines.forEach(line => line.setMap(null));
+				parent.mmiContourLines = [];
+			};
 
 			// Load the wildfire data from the ArcGIS site...
 			// More info about this source of active US wildfire data can be found at: https://www.arcgis.com/home/item.html?id=d957997ccee7408287a963600a77f61f
@@ -2374,6 +2379,11 @@ async function addWeatherLayer() {
 					parent.overlayInfoWindow = null;
 				};
 				parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
+				// Clear any previous earthquake contour lines...
+				if (parent.mmiContourLines) {
+					parent.mmiContourLines.forEach(line => line.setMap(null));
+					parent.mmiContourLines = [];
+				};
 
 				// Fetch both data sources in parallel...
 				const [countiesResponse, outageResponse] = await Promise.all([
@@ -2830,6 +2840,11 @@ async function addWeatherLayer() {
 				parent.overlayInfoWindow = null;
 			};
 			parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
+			// Clear any previous earthquake contour lines...
+			if (parent.mmiContourLines) {
+				parent.mmiContourLines.forEach(line => line.setMap(null));
+				parent.mmiContourLines = [];
+			};
 
 			try {
 				// Fetch the flooding data from the USGS API...
