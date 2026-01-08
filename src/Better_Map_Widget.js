@@ -2798,7 +2798,7 @@ async function addWeatherLayer() {
 									const strokeColor = "rgb(" + red + ", " + green + ", " + blue + ")";
 									// Higher MMI = thicker, more opaque lines
 									const strokeWeight = 1 + intensity;
-									const strokeOpacity = 0.5 + (intensity * 0.5);
+									const strokeOpacity = 0.2 + (intensity * 0.5);
 
 									// MultiLineString has multiple line arrays
 									feature.geometry.coordinates.forEach(lineCoords => {
