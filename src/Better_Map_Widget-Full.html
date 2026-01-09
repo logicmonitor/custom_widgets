@@ -428,6 +428,7 @@
 	.group .features > div.drillDownButton {
 		background-color: #1a73e8;
 		border-color: #1a73e8;
+		cursor: pointer;
 	}
 	.group .features > div.drillDownButton a {
 		color: white;
@@ -461,11 +462,11 @@
 	*/
 	.group.highlight {
 		background-color: #FFFFFF;
-		border-radius: 8px;
-		box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5);
+		/* border-radius: 8px;
+		padding: 8px 15px;
+		box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5); */
 		height: fit-content;
 		/* height: 80px; */
-		padding: 8px 15px;
 		width: auto;
 		z-index: 10;
 		max-width: 400px;
@@ -473,11 +474,11 @@
 	.group.highlight::before {
 		display: none;
 	}
-	.group.highlight::after {
+	/* .group.highlight::after {
 		border-top: 9px solid #FFFFFF;
 		top: 99%;
 		filter: drop-shadow(0px 1px 1px rgba(0, 0, 0, 0.4));
-	}
+	} */
 	.group.highlight .details {
 		display: flex;
 		z-index: 10;
@@ -1335,6 +1336,7 @@
 
 	// Placeholder for marker cluster info...
 	let clusterInfoWindow = null;
+	let markerInfoWindow = null;
 
 	// We've prepped everything, so now calling the function to populate the map...
 	initMap();
@@ -2741,19 +2743,42 @@
 		if (clusterInfoWindow) {
 			clusterInfoWindow.close();
 		};
-		if (markerView.content.classList.contains("highlight")) {
-			markerView.content.classList.remove("highlight");
-			markerView.content.parentElement.style.setProperty("z-index", Number(markerView.content.dataset.severity));
-		} else {
-			let foo = document.querySelectorAll('.highlight');
-			if (foo.length > 0) {
-				foo[0].classList.remove("highlight");
-				foo[0].parentElement.style.setProperty("z-index", Number(foo[0].dataset.severity));
-			};
-
-			markerView.content.parentElement.style.setProperty("z-index", 10);
-			markerView.content.classList.add("highlight");
+		// Close any overlay InfoWindow...
+		if (parent.overlayInfoWindow) {
+			parent.overlayInfoWindow.close();
 		};
+		
+		// If clicking the same marker that's already open, close it
+		if (markerInfoWindow && markerInfoWindow.markerId === markerView.deviceID) {
+			markerInfoWindow.close();
+			markerInfoWindow = null;
+			return;
+		};
+		
+		// Close any existing marker InfoWindow
+		if (markerInfoWindow) {
+			markerInfoWindow.close();
+		};
+		
+		// Clone the marker content to use in the InfoWindow (preserves classes for CSS styling)
+		const contentClone = markerView.content.cloneNode(true);
+		// Add highlight class to apply the expanded styling
+		contentClone.classList.add('highlight');
+		// Make sure the details are visible
+		const detailsEl = contentClone.querySelector('.details');
+		if (detailsEl) {
+			detailsEl.style.display = 'flex';
+		}
+		
+		// Create and open the CustomInfoWindow
+		markerInfoWindow = new CustomInfoWindow({
+			position: markerView.position,
+			content: contentClone.outerHTML,
+			anchor: 'top',
+			offset: 40
+		});
+		markerInfoWindow.markerId = markerView.deviceID; // Track which marker this is for
+		markerInfoWindow.open(map);
 	};
 
 	// Function processing status of Fetch calls...
@@ -2992,10 +3017,10 @@
 				if (parent.overlayInfoWindow) {
 					parent.overlayInfoWindow.close();
 				};
-				let foo = document.querySelectorAll('.highlight');
-				if (foo.length > 0) {
-					foo[0].classList.remove("highlight");
-					foo[0].parentElement.style.setProperty("z-index", Number(foo[0].dataset.severity));
+				// Close any marker InfoWindow that might be open...
+				if (markerInfoWindow) {
+					markerInfoWindow.close();
+					markerInfoWindow = null;
 				};
 				clusterInfoWindow = new CustomInfoWindow({
 					position: marker.position,
@@ -3204,6 +3229,11 @@
 					if (clusterInfoWindow) {
 						clusterInfoWindow.close();
 					};
+					// Close any marker InfoWindow that might be open...
+					if (markerInfoWindow) {
+						markerInfoWindow.close();
+						markerInfoWindow = null;
+					};
 					parent.overlayInfoWindow.setContent('<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;"><span style="font-weight:700;">Wildfire &quot;'+ event.feature.getProperty("IncidentName") + '&quot;</span><br/>' + comments + '<br/><br/>Calculated Acres: ' + acres + '<br/>Category: ' + fireCategory + '<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") + '<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") + '</div>');
 					parent.overlayInfoWindow.setPosition(event.latLng);
 					parent.overlayInfoWindow.open(map);
@@ -3374,6 +3404,11 @@
 						// Close any cluster InfoWindow that might be open...
 						if (clusterInfoWindow) {
 							clusterInfoWindow.close();
+						};
+						// Close any marker InfoWindow that might be open...
+						if (markerInfoWindow) {
+							markerInfoWindow.close();
+							markerInfoWindow = null;
 						};
 						parent.overlayInfoWindow.setPosition(event.latLng);
 						parent.overlayInfoWindow.open(map);
@@ -3613,6 +3648,11 @@
 					if (clusterInfoWindow) {
 						clusterInfoWindow.close();
 					};
+					// Close any marker InfoWindow that might be open...
+					if (markerInfoWindow) {
+						markerInfoWindow.close();
+						markerInfoWindow = null;
+					};
 					parent.overlayInfoWindow.setPosition(event.latLng);
 					parent.overlayInfoWindow.open(map);
 
@@ -3818,6 +3858,11 @@
 						// Close any cluster InfoWindow that might be open...
 						if (clusterInfoWindow) {
 							clusterInfoWindow.close();
+						};
+						// Close any marker InfoWindow that might be open...
+						if (markerInfoWindow) {
+							markerInfoWindow.close();
+							markerInfoWindow = null;
 						};
 						parent.overlayInfoWindow.setPosition(event.latLng);
 						parent.overlayInfoWindow.open(map);

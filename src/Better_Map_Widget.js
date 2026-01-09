@@ -716,6 +716,7 @@ _dom.showSDTLabel.innerHTML = sdtIcon;
 
 // Placeholder for marker cluster info...
 let clusterInfoWindow = null;
+let markerInfoWindow = null;
 
 // We've prepped everything, so now calling the function to populate the map...
 initMap();
@@ -2122,19 +2123,42 @@ function toggleHighlight(markerView, group) {
 	if (clusterInfoWindow) {
 		clusterInfoWindow.close();
 	};
-	if (markerView.content.classList.contains("highlight")) {
-		markerView.content.classList.remove("highlight");
-		markerView.content.parentElement.style.setProperty("z-index", Number(markerView.content.dataset.severity));
-	} else {
-		let foo = document.querySelectorAll('.highlight');
-		if (foo.length > 0) {
-			foo[0].classList.remove("highlight");
-			foo[0].parentElement.style.setProperty("z-index", Number(foo[0].dataset.severity));
-		};
-
-		markerView.content.parentElement.style.setProperty("z-index", 10);
-		markerView.content.classList.add("highlight");
+	// Close any overlay InfoWindow...
+	if (parent.overlayInfoWindow) {
+		parent.overlayInfoWindow.close();
 	};
+	
+	// If clicking the same marker that's already open, close it
+	if (markerInfoWindow && markerInfoWindow.markerId === markerView.deviceID) {
+		markerInfoWindow.close();
+		markerInfoWindow = null;
+		return;
+	};
+	
+	// Close any existing marker InfoWindow
+	if (markerInfoWindow) {
+		markerInfoWindow.close();
+	};
+	
+	// Clone the marker content to use in the InfoWindow (preserves classes for CSS styling)
+	const contentClone = markerView.content.cloneNode(true);
+	// Add highlight class to apply the expanded styling
+	contentClone.classList.add('highlight');
+	// Make sure the details are visible
+	const detailsEl = contentClone.querySelector('.details');
+	if (detailsEl) {
+		detailsEl.style.display = 'flex';
+	}
+	
+	// Create and open the CustomInfoWindow
+	markerInfoWindow = new CustomInfoWindow({
+		position: markerView.position,
+		content: contentClone.outerHTML,
+		anchor: 'top',
+		offset: 45
+	});
+	markerInfoWindow.markerId = markerView.deviceID; // Track which marker this is for
+	markerInfoWindow.open(map);
 };
 
 // Function processing status of Fetch calls...
@@ -2373,10 +2397,10 @@ const renderer = {
 			if (parent.overlayInfoWindow) {
 				parent.overlayInfoWindow.close();
 			};
-			let foo = document.querySelectorAll('.highlight');
-			if (foo.length > 0) {
-				foo[0].classList.remove("highlight");
-				foo[0].parentElement.style.setProperty("z-index", Number(foo[0].dataset.severity));
+			// Close any marker InfoWindow that might be open...
+			if (markerInfoWindow) {
+				markerInfoWindow.close();
+				markerInfoWindow = null;
 			};
 			clusterInfoWindow = new CustomInfoWindow({
 				position: marker.position,
@@ -2585,6 +2609,11 @@ async function addWeatherLayer() {
 				if (clusterInfoWindow) {
 					clusterInfoWindow.close();
 				};
+				// Close any marker InfoWindow that might be open...
+				if (markerInfoWindow) {
+					markerInfoWindow.close();
+					markerInfoWindow = null;
+				};
 				parent.overlayInfoWindow.setContent('<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;"><span style="font-weight:700;">Wildfire &quot;'+ event.feature.getProperty("IncidentName") + '&quot;</span><br/>' + comments + '<br/><br/>Calculated Acres: ' + acres + '<br/>Category: ' + fireCategory + '<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") + '<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") + '</div>');
 				parent.overlayInfoWindow.setPosition(event.latLng);
 				parent.overlayInfoWindow.open(map);
@@ -2755,6 +2784,11 @@ async function addWeatherLayer() {
 					// Close any cluster InfoWindow that might be open...
 					if (clusterInfoWindow) {
 						clusterInfoWindow.close();
+					};
+					// Close any marker InfoWindow that might be open...
+					if (markerInfoWindow) {
+						markerInfoWindow.close();
+						markerInfoWindow = null;
 					};
 					parent.overlayInfoWindow.setPosition(event.latLng);
 					parent.overlayInfoWindow.open(map);
@@ -2994,6 +3028,11 @@ async function addWeatherLayer() {
 				if (clusterInfoWindow) {
 					clusterInfoWindow.close();
 				};
+				// Close any marker InfoWindow that might be open...
+				if (markerInfoWindow) {
+					markerInfoWindow.close();
+					markerInfoWindow = null;
+				};
 				parent.overlayInfoWindow.setPosition(event.latLng);
 				parent.overlayInfoWindow.open(map);
 
@@ -3199,6 +3238,11 @@ async function addWeatherLayer() {
 					// Close any cluster InfoWindow that might be open...
 					if (clusterInfoWindow) {
 						clusterInfoWindow.close();
+					};
+					// Close any marker InfoWindow that might be open...
+					if (markerInfoWindow) {
+						markerInfoWindow.close();
+						markerInfoWindow = null;
 					};
 					parent.overlayInfoWindow.setPosition(event.latLng);
 					parent.overlayInfoWindow.open(map);

@@ -288,6 +288,7 @@ body {
 .group .features > div.drillDownButton {
 	background-color: #1a73e8;
 	border-color: #1a73e8;
+	cursor: pointer;
 }
 .group .features > div.drillDownButton a {
 	color: white;
@@ -321,11 +322,11 @@ body {
 */
 .group.highlight {
 	background-color: #FFFFFF;
-	border-radius: 8px;
-	box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5);
+	/* border-radius: 8px;
+	padding: 8px 15px;
+	box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5); */
 	height: fit-content;
 	/* height: 80px; */
-	padding: 8px 15px;
 	width: auto;
 	z-index: 10;
 	max-width: 400px;
