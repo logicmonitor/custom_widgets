@@ -730,6 +730,191 @@ async function initMap() {
 	const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
 	const {ColorScheme} = await google.maps.importLibrary("core");
 
+	// CustomInfoWindow class - allows positioning InfoWindows to left/right/top/bottom of a point
+	// Defined here after Google Maps API is loaded so google.maps.OverlayView is available
+	window.CustomInfoWindow = class extends google.maps.OverlayView {
+		constructor(options = {}) {
+			super();
+			this.position = options.position || null;
+			this.content = options.content || '';
+			this.anchor = options.anchor || 'right'; // 'top', 'bottom', 'left', 'right'
+			this.offset = options.offset || 20; // pixels from the point
+			this.div = null;
+			this.isOpen = false;
+		}
+
+		onAdd() {
+			this.div = document.createElement('div');
+			this.div.className = 'custom-info-window';
+			this.div.style.cssText = `
+				position: absolute;
+				background: white;
+				border-radius: 8px;
+				box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+				padding: 12px 12px 12px 12px;
+				min-width: 150px;
+				max-width: 400px;
+				z-index: 1000;
+				font-family: Roboto, Arial, sans-serif;
+				font-size: 13px;
+				line-height: 1.4;
+			`;
+			
+			// Add close button
+			const closeBtn = document.createElement('div');
+			closeBtn.innerHTML = '×';
+			closeBtn.style.cssText = `
+				position: absolute;
+				top: 5px;
+				right: 10px;
+				cursor: pointer;
+				font-size: 20px;
+				color: #666;
+				font-weight: bold;
+				line-height: 1;
+			`;
+			closeBtn.onclick = () => this.close();
+			closeBtn.onmouseover = () => closeBtn.style.color = '#333';
+			closeBtn.onmouseout = () => closeBtn.style.color = '#666';
+			this.div.appendChild(closeBtn);
+			
+			// Add content container
+			const contentDiv = document.createElement('div');
+			contentDiv.className = 'custom-info-content';
+			contentDiv.innerHTML = this.content;
+			contentDiv.style.marginRight = '15px'; // Space for close button
+			this.div.appendChild(contentDiv);
+			
+			// Add arrow/pointer
+			this.arrow = document.createElement('div');
+			this.arrow.style.cssText = `
+				position: absolute;
+				width: 0;
+				height: 0;
+				border: 10px solid transparent;
+			`;
+			this.updateArrowStyle();
+			this.div.appendChild(this.arrow);
+			
+			this.getPanes().floatPane.appendChild(this.div);
+		}
+
+		updateArrowStyle() {
+			if (!this.arrow) return;
+			
+			// Reset arrow styles
+			this.arrow.style.borderTopColor = 'transparent';
+			this.arrow.style.borderBottomColor = 'transparent';
+			this.arrow.style.borderLeftColor = 'transparent';
+			this.arrow.style.borderRightColor = 'transparent';
+			this.arrow.style.top = 'auto';
+			this.arrow.style.bottom = 'auto';
+			this.arrow.style.left = 'auto';
+			this.arrow.style.right = 'auto';
+			this.arrow.style.transform = '';
+			
+			switch(this.anchor) {
+				case 'left': // InfoWindow is to the LEFT of point, arrow points RIGHT
+					this.arrow.style.borderLeftColor = 'white';
+					this.arrow.style.right = '-20px';
+					this.arrow.style.top = '50%';
+					this.arrow.style.transform = 'translateY(-50%)';
+					break;
+				case 'right': // InfoWindow is to the RIGHT of point, arrow points LEFT
+					this.arrow.style.borderRightColor = 'white';
+					this.arrow.style.left = '-20px';
+					this.arrow.style.top = '50%';
+					this.arrow.style.transform = 'translateY(-50%)';
+					break;
+				case 'bottom': // InfoWindow is BELOW point, arrow points UP
+					this.arrow.style.borderBottomColor = 'white';
+					this.arrow.style.top = '-20px';
+					this.arrow.style.left = '50%';
+					this.arrow.style.transform = 'translateX(-50%)';
+					break;
+				case 'top': // InfoWindow is ABOVE point (default Google behavior), arrow points DOWN
+				default:
+					this.arrow.style.borderTopColor = 'white';
+					this.arrow.style.bottom = '-20px';
+					this.arrow.style.left = '50%';
+					this.arrow.style.transform = 'translateX(-50%)';
+					break;
+			}
+		}
+
+		draw() {
+			if (!this.div || !this.position) return;
+			
+			const projection = this.getProjection();
+			if (!projection) return;
+			
+			const pos = projection.fromLatLngToDivPixel(this.position);
+			if (!pos) return;
+
+			// Get actual dimensions after content is rendered
+			const width = this.div.offsetWidth;
+			const height = this.div.offsetHeight;
+
+			switch(this.anchor) {
+				case 'left': // Position to the LEFT of the point
+					this.div.style.left = (pos.x - width - this.offset) + 'px';
+					this.div.style.top = (pos.y - height / 2) + 'px';
+					break;
+				case 'right': // Position to the RIGHT of the point
+					this.div.style.left = (pos.x + this.offset) + 'px';
+					this.div.style.top = (pos.y - height / 2) + 'px';
+					break;
+				case 'bottom': // Position BELOW the point
+					this.div.style.left = (pos.x - width / 2) + 'px';
+					this.div.style.top = (pos.y + this.offset) + 'px';
+					break;
+				case 'top': // Position ABOVE the point (like default InfoWindow)
+				default:
+					this.div.style.left = (pos.x - width / 2) + 'px';
+					this.div.style.top = (pos.y - height - this.offset) + 'px';
+					break;
+			}
+		}
+
+		onRemove() {
+			if (this.div && this.div.parentNode) {
+				this.div.parentNode.removeChild(this.div);
+				this.div = null;
+			}
+			this.isOpen = false;
+		}
+
+		setPosition(latLng) {
+			this.position = latLng;
+			this.draw();
+		}
+
+		setContent(content) {
+			this.content = content;
+			if (this.div) {
+				const contentDiv = this.div.querySelector('.custom-info-content');
+				if (contentDiv) contentDiv.innerHTML = content;
+				this.draw(); // Redraw to adjust for new content size
+			}
+		}
+
+		setAnchor(anchor) {
+			this.anchor = anchor;
+			this.updateArrowStyle();
+			this.draw();
+		}
+
+		open(map) {
+			this.setMap(map);
+			this.isOpen = true;
+		}
+
+		close() {
+			this.setMap(null);
+			this.isOpen = false;
+		}
+	};
+
 	// Create our Google Map...
 	map = new google.maps.Map(document.getElementById("googleMap"), {
 		zoom: 3,
@@ -1864,14 +2049,15 @@ async function plotConnection(connection) {
 		});
 
 		// Show connection info on hover...
-		let lineInfoWindow = new google.maps.InfoWindow({
-			content: ""
+		let lineInfoWindow = new CustomInfoWindow({
+			content: "",
+			anchor: 'top',
+			offset: 15
 		});
 
 		google.maps.event.addListener(thisPath, "mouseover", function(e) {
 			lineInfoWindow.setPosition(e.latLng);
 			lineInfoWindow.setContent(`<strong>${connection.connectionName}</strong><br/>Connection alert status: <a href="/santaba/uiv4/resources/treeNodes/t-i,id-${connection.instanceID}?source=details&tab=alert" target="_blank" title="Click to view alerts" style="border: 0;">${alertStatus}</a>`);
-			lineInfoWindow.setHeaderDisabled(true);
 			lineInfoWindow.open(map);
 		});
 		google.maps.event.addListener(thisPath, "mouseout", function(e) {
@@ -2138,14 +2324,22 @@ const renderer = {
 			if (clusterInfoWindow) {
 				clusterInfoWindow.close();
 			};
+			// Close any overlay InfoWindow that might be open...
+			if (parent.overlayInfoWindow) {
+				parent.overlayInfoWindow.close();
+			};
 			let foo = document.querySelectorAll('.highlight');
 			if (foo.length > 0) {
 				foo[0].classList.remove("highlight");
 				foo[0].parentElement.style.setProperty("z-index", Number(foo[0].dataset.severity));
 			};
-			clusterInfoWindow = new google.maps.InfoWindow();
-			clusterInfoWindow.setContent(getInfoContent());
-			clusterInfoWindow.open(map, marker);
+			clusterInfoWindow = new CustomInfoWindow({
+				position: marker.position,
+				content: getInfoContent(),
+				anchor: 'top',
+				offset: 50
+			});
+			clusterInfoWindow.open(map);
 		});
 
 		return marker;
@@ -2309,7 +2503,7 @@ async function addWeatherLayer() {
 				parent.overlayInfoWindow.close();
 				parent.overlayInfoWindow = null;
 			};
-			parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
+			parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
 			// Clear any previous earthquake contour lines...
 			if (parent.mmiContourLines) {
 				parent.mmiContourLines.forEach(line => line.setMap(null));
@@ -2342,11 +2536,11 @@ async function addWeatherLayer() {
 				if (fireCategory == null) {
 					fireCategory = "(not available)";
 				};
+				// Close any cluster InfoWindow that might be open...
+				if (clusterInfoWindow) {
+					clusterInfoWindow.close();
+				};
 				parent.overlayInfoWindow.setContent('<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;"><span style="font-weight:700;">Wildfire &quot;'+ event.feature.getProperty("IncidentName") + '&quot;</span><br/>' + comments + '<br/><br/>Calculated Acres: ' + acres + '<br/>Category: ' + fireCategory + '<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") + '<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") + '</div>');
-				// let anchor = new google.maps.MVCObject();
-				// anchor.set("position",event.latLng);
-				// parent.overlayInfoWindow.open(map, anchor);
-
 				parent.overlayInfoWindow.setPosition(event.latLng);
 				parent.overlayInfoWindow.open(map);
 			});
@@ -2378,7 +2572,7 @@ async function addWeatherLayer() {
 					parent.overlayInfoWindow.close();
 					parent.overlayInfoWindow = null;
 				};
-				parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
+				parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
 				// Clear any previous earthquake contour lines...
 				if (parent.mmiContourLines) {
 					parent.mmiContourLines.forEach(line => line.setMap(null));
@@ -2513,9 +2707,10 @@ async function addWeatherLayer() {
 						</div>
 					`);
 
-					// const anchor = new google.maps.MVCObject();
-					// anchor.set("position", event.latLng);
-					// parent.overlayInfoWindow.open(map, anchor);
+					// Close any cluster InfoWindow that might be open...
+					if (clusterInfoWindow) {
+						clusterInfoWindow.close();
+					};
 					parent.overlayInfoWindow.setPosition(event.latLng);
 					parent.overlayInfoWindow.open(map);
 				});
@@ -2546,7 +2741,7 @@ async function addWeatherLayer() {
 				parent.overlayInfoWindow.close();
 				parent.overlayInfoWindow = null;
 			};
-			parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
+			parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
 			// Clear any previous earthquake contour lines...
 			if (parent.mmiContourLines) {
 				parent.mmiContourLines.forEach(line => line.setMap(null));
@@ -2747,9 +2942,13 @@ async function addWeatherLayer() {
 								Earthquake details
 							</a>
 						</div>
-					</div>`
+						</div>`
 				);
 
+				// Close any cluster InfoWindow that might be open...
+				if (clusterInfoWindow) {
+					clusterInfoWindow.close();
+				};
 				parent.overlayInfoWindow.setPosition(event.latLng);
 				parent.overlayInfoWindow.open(map);
 
@@ -2839,7 +3038,7 @@ async function addWeatherLayer() {
 				parent.overlayInfoWindow.close();
 				parent.overlayInfoWindow = null;
 			};
-			parent.overlayInfoWindow = new google.maps.InfoWindow({ content: "" });
+			parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
 			// Clear any previous earthquake contour lines...
 			if (parent.mmiContourLines) {
 				parent.mmiContourLines.forEach(line => line.setMap(null));
@@ -2952,6 +3151,10 @@ async function addWeatherLayer() {
 							</div>
 						</div>
 					`);
+					// Close any cluster InfoWindow that might be open...
+					if (clusterInfoWindow) {
+						clusterInfoWindow.close();
+					};
 					parent.overlayInfoWindow.setPosition(event.latLng);
 					parent.overlayInfoWindow.open(map);
 				});
