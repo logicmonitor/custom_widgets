@@ -1474,6 +1474,7 @@
 				const width = this.div.offsetWidth;
 				const height = this.div.offsetHeight;
 
+				// Calculate and apply position based on anchor
 				switch(this.anchor) {
 					case 'left': // Position to the LEFT of the point
 						this.div.style.left = (pos.x - width - this.offset) + 'px';
@@ -1526,6 +1527,50 @@
 			open(map) {
 				this.setMap(map);
 				this.isOpen = true;
+				// Delay pan check to ensure content is fully rendered and dimensions are calculated
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						this.autoPan();
+					});
+				});
+			}
+
+			autoPan() {
+				if (!this.div || !this.position || !this.getMap()) return;
+				
+				const map = this.getMap();
+				const mapDiv = map.getDiv();
+				
+				// Get the actual bounding rectangles to compare screen positions
+				const mapRect = mapDiv.getBoundingClientRect();
+				const infoRect = this.div.getBoundingClientRect();
+				
+				let panX = 0;
+				let panY = 0;
+				const padding = 10; // Small padding from edges after panning
+
+				// Check if InfoWindow extends past right edge of map
+				if (infoRect.right > mapRect.right) {
+					panX = (infoRect.right - mapRect.right) + padding;
+				}
+				// Check if InfoWindow extends past left edge of map
+				else if (infoRect.left < mapRect.left) {
+					panX = (infoRect.left - mapRect.left) - padding;
+				}
+				
+				// Check if InfoWindow extends past bottom edge of map
+				if (infoRect.bottom > mapRect.bottom) {
+					panY = (infoRect.bottom - mapRect.bottom) + padding;
+				}
+				// Check if InfoWindow extends past top edge of map
+				else if (infoRect.top < mapRect.top) {
+					panY = (infoRect.top - mapRect.top) - padding;
+				}
+
+				// Only pan if the InfoWindow actually extends outside the viewport
+				if (panX !== 0 || panY !== 0) {
+					map.panBy(panX, panY);
+				}
 			}
 
 			close() {
