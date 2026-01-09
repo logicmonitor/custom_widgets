@@ -334,11 +334,11 @@ body {
 .group.highlight::before {
 	display: none;
 }
-.group.highlight::after {
+/* .group.highlight::after {
 	border-top: 9px solid #FFFFFF;
 	top: 99%;
 	filter: drop-shadow(0px 1px 1px rgba(0, 0, 0, 0.4));
-}
+} */
 .group.highlight .details {
 	display: flex;
 	z-index: 10;

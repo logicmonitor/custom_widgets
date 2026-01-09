@@ -760,7 +760,7 @@ async function initMap() {
 				font-size: 13px;
 				line-height: 1.4;
 			`;
-			
+
 			// Add close button
 			const closeBtn = document.createElement('div');
 			closeBtn.innerHTML = '×';
@@ -778,14 +778,14 @@ async function initMap() {
 			closeBtn.onmouseover = () => closeBtn.style.color = '#333';
 			closeBtn.onmouseout = () => closeBtn.style.color = '#666';
 			this.div.appendChild(closeBtn);
-			
+
 			// Add content container
 			const contentDiv = document.createElement('div');
 			contentDiv.className = 'custom-info-content';
 			contentDiv.innerHTML = this.content;
 			contentDiv.style.marginRight = '15px'; // Space for close button
 			this.div.appendChild(contentDiv);
-			
+
 			// Add arrow/pointer
 			this.arrow = document.createElement('div');
 			this.arrow.style.cssText = `
@@ -796,13 +796,13 @@ async function initMap() {
 			`;
 			this.updateArrowStyle();
 			this.div.appendChild(this.arrow);
-			
+
 			this.getPanes().floatPane.appendChild(this.div);
 		}
 
 		updateArrowStyle() {
 			if (!this.arrow) return;
-			
+
 			// Reset arrow styles
 			this.arrow.style.borderTopColor = 'transparent';
 			this.arrow.style.borderBottomColor = 'transparent';
@@ -813,7 +813,7 @@ async function initMap() {
 			this.arrow.style.left = 'auto';
 			this.arrow.style.right = 'auto';
 			this.arrow.style.transform = '';
-			
+
 			switch(this.anchor) {
 				case 'left': // InfoWindow is to the LEFT of point, arrow points RIGHT
 					this.arrow.style.borderLeftColor = 'white';
@@ -845,10 +845,10 @@ async function initMap() {
 
 		draw() {
 			if (!this.div || !this.position) return;
-			
+
 			const projection = this.getProjection();
 			if (!projection) return;
-			
+
 			const pos = projection.fromLatLngToDivPixel(this.position);
 			if (!pos) return;
 
@@ -919,14 +919,14 @@ async function initMap() {
 
 		autoPan() {
 			if (!this.div || !this.position || !this.getMap()) return;
-			
+
 			const map = this.getMap();
 			const mapDiv = map.getDiv();
-			
+
 			// Get the actual bounding rectangles to compare screen positions
 			const mapRect = mapDiv.getBoundingClientRect();
 			const infoRect = this.div.getBoundingClientRect();
-			
+
 			let panX = 0;
 			let panY = 0;
 			const padding = 10; // Small padding from edges after panning
@@ -939,7 +939,7 @@ async function initMap() {
 			else if (infoRect.left < mapRect.left) {
 				panX = (infoRect.left - mapRect.left) - padding;
 			}
-			
+
 			// Check if InfoWindow extends past bottom edge of map
 			if (infoRect.bottom > mapRect.bottom) {
 				panY = (infoRect.bottom - mapRect.bottom) + padding;
@@ -2127,19 +2127,19 @@ function toggleHighlight(markerView, group) {
 	if (parent.overlayInfoWindow) {
 		parent.overlayInfoWindow.close();
 	};
-	
+
 	// If clicking the same marker that's already open, close it
 	if (markerInfoWindow && markerInfoWindow.markerId === markerView.deviceID) {
 		markerInfoWindow.close();
 		markerInfoWindow = null;
 		return;
 	};
-	
+
 	// Close any existing marker InfoWindow
 	if (markerInfoWindow) {
 		markerInfoWindow.close();
 	};
-	
+
 	// Clone the marker content to use in the InfoWindow (preserves classes for CSS styling)
 	const contentClone = markerView.content.cloneNode(true);
 	// Add highlight class to apply the expanded styling
@@ -2149,13 +2149,13 @@ function toggleHighlight(markerView, group) {
 	if (detailsEl) {
 		detailsEl.style.display = 'flex';
 	}
-	
+
 	// Create and open the CustomInfoWindow
 	markerInfoWindow = new CustomInfoWindow({
 		position: markerView.position,
 		content: contentClone.outerHTML,
 		anchor: 'top',
-		offset: 45
+		offset: 40
 	});
 	markerInfoWindow.markerId = markerView.deviceID; // Track which marker this is for
 	markerInfoWindow.open(map);
