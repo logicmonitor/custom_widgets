@@ -2306,7 +2306,7 @@ const renderer = {
 				<div class="mapInfoPopupWindow">
 					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
 						<div style="font-weight: 600; font-size: 14px;">Cluster Summary</div>
-						<button onclick="map.fitBounds(new google.maps.LatLngBounds(
+						<button onclick="if(clusterInfoWindow){clusterInfoWindow.close()};if(markerInfoWindow){markerInfoWindow.close();markerInfoWindow=null};if(parent.overlayInfoWindow){parent.overlayInfoWindow.close()};map.fitBounds(new google.maps.LatLngBounds(
 							new google.maps.LatLng(${clusterBounds.getSouthWest().lat()}, ${clusterBounds.getSouthWest().lng()}),
 							new google.maps.LatLng(${clusterBounds.getNorthEast().lat()}, ${clusterBounds.getNorthEast().lng()})
 						))" style="
