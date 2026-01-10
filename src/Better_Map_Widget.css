@@ -34,7 +34,7 @@ body {
 	padding: 0 12px 12px 12px;
 	min-width: 300px;
 	max-height: 400px;
-	/* overflow-y: auto; */
+	overflow-y: auto;
 	font-family: system-ui, -apple-system, sans-serif;
 }
 #optionsBar {
