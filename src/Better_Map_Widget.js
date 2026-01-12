@@ -41,7 +41,7 @@ if (typeof disableClustering === 'undefined') { let disableClustering = false; }
 // You can set it here or in a dashboard token named "MapShowWeather"...
 if (typeof showWeatherDefault === 'undefined') { let showWeatherDefault = "no"; };
 
-	// If weather is shown, whether to show "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
+	// If weather is shown, whether to show "wildfires" or "wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
 // You can set it here or in a dashboard token named "MapOverlayOption"...
 if (typeof additionalOverlayOption === 'undefined') { let additionalOverlayOption = "earthquakes"; };
 
@@ -187,7 +187,7 @@ if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexra
 	showWeatherDefault = dashboardShowWeatherToken;
 };
 let dashboardAddlOverlayToken = document.getElementById("dashboardAddlOverlayToken").innerText.toLowerCase();
-if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
+if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
 	additionalOverlayOption = dashboardAddlOverlayToken;
 };
 // console.debug("dashboardAddlOverlayToken", dashboardAddlOverlayToken);
@@ -450,7 +450,7 @@ const _dom = {
 	weather: document.getElementById("weather"),
 	globalWeather: document.getElementById("globalWeather"),
 	nexradWeather: document.getElementById("nexradWeather"),
-	usWildfires: document.getElementById("usWildfires"),
+	wildfires: document.getElementById("wildfires"),
 	usPowerOutages: document.getElementById("usPowerOutages"),
 	earthquakes: document.getElementById("earthquakes"),
 	usFlooding: document.getElementById("usFlooding"),
@@ -482,7 +482,7 @@ if (showWeatherDefault == "global") {
 };
 
 if (additionalOverlayOption == "wildfires" || additionalOverlayOption == "us-wildfires") {
-	_dom.usWildfires.checked = true;
+	_dom.wildfires.checked = true;
 } else if (additionalOverlayOption == "outages" || additionalOverlayOption == "us-poweroutages") {
 	_dom.usPowerOutages.checked = true;
 } else if (additionalOverlayOption == "earthquakes") {
@@ -2557,72 +2557,163 @@ async function addWeatherLayer() {
 			map.overlayMapTypes.insertAt(0, myMapType);
 		};
 
-		// Look to see if we should add wildfire into the map...
-		if (optionalMapType == "us-fires") {
-			// Clear any previous load of the overlay data...
-			map.data.forEach(function(feature) {
-				map.data.remove(feature);
-			});
-			// Remove any existing overlay listeners...
-			if (typeof parent.overlayInfoWindowListenerHandle == "object") {
-				google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
-			};
-			// Initialize or close the shared overlay InfoWindow...
-			if (parent.overlayInfoWindow) {
-				parent.overlayInfoWindow.close();
-				parent.overlayInfoWindow = null;
-			};
-			parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
-			// Clear any previous earthquake contour lines...
-			if (parent.mmiContourLines) {
-				parent.mmiContourLines.forEach(line => line.setMap(null));
-				parent.mmiContourLines = [];
-			};
+	// Look to see if we should add wildfire into the map...
+	if (optionalMapType == "wildfires") {
+		// Clear any previous load of the overlay data...
+		map.data.forEach(function(feature) {
+			map.data.remove(feature);
+		});
+		// Remove any existing overlay listeners...
+		if (typeof parent.overlayInfoWindowListenerHandle == "object") {
+			google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
+		};
+		// Initialize or close the shared overlay InfoWindow...
+		if (parent.overlayInfoWindow) {
+			parent.overlayInfoWindow.close();
+			parent.overlayInfoWindow = null;
+		};
+		parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
+		// Clear any previous earthquake contour lines...
+		if (parent.mmiContourLines) {
+			parent.mmiContourLines.forEach(line => line.setMap(null));
+			parent.mmiContourLines = [];
+		};
 
-			// Load the wildfire data from the ArcGIS site...
-			// More info about this source of active US wildfire data can be found at: https://www.arcgis.com/home/item.html?id=d957997ccee7408287a963600a77f61f
-			// From that site, you can click "View" above the "URL" field on the right-hand side. From there, you'll see info on the two available layers. We're using layer "1" for perimeter data (denoted in the URL below with the "_1"), and pulling geojson data (per the suffix).
-			//map.data.loadGeoJson("https://opendata.arcgis.com/datasets/d957997ccee7408287a963600a77f61f_1.geojson");
-			map.data.loadGeoJson(`https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/USA_Wildfires_v1/FeatureServer/1/query?where=CurrentDateAge+<%3D+7&outFields=*&f=geojson&ts=${Date.now()}`);
+		// Load the wildfire data from the ArcGIS site...
+		// More info about this source of active US wildfire data can be found at: https://www.arcgis.com/home/item.html?id=d957997ccee7408287a963600a77f61f
+		// From that site, you can click "View" above the "URL" field on the right-hand side. From there, you'll see info on the two available layers. We're using layer "1" for perimeter data (denoted in the URL below with the "_1"), and pulling geojson data (per the suffix).
+		//map.data.loadGeoJson("https://opendata.arcgis.com/datasets/d957997ccee7408287a963600a77f61f_1.geojson");
+		const usWildfireUrl = `https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/USA_Wildfires_v1/FeatureServer/1/query?where=CurrentDateAge+<%3D+7&outFields=*&f=geojson&ts=${Date.now()}`;
+		
+		// Australian bushfire data from ArcGIS (near real-time bushfire boundaries)...
+		// More info: https://services-ap1.arcgis.com/ypkPEy1AmwPKGNNv/arcgis/rest/services/Near_Real_Time_Bushfire_Boundaries_view/FeatureServer
+		const auWildfireUrl = `https://services-ap1.arcgis.com/ypkPEy1AmwPKGNNv/arcgis/rest/services/Near_Real_Time_Bushfire_Boundaries_view/FeatureServer/3/query?where=0%3D0&geometryType=esriGeometryPolyline&units=esriSRUnit_Meter&outFields=*&returnGeometry=true&f=pgeojson&ts=${Date.now()}`;
 
-			// Color the wildfire areas as red...
-			map.data.setStyle({ fillColor: 'red', strokeWeight: 1.0, strokeColor: 'salmon' });
+		// Fetch both US and Australian wildfire data in parallel...
+		Promise.all([
+			fetch(usWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null),
+			fetch(auWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null)
+		]).then(([usData, auData]) => {
+			// Add US wildfire data if available...
+			if (usData && usData.features) {
+				// Tag US features with a source property for identification in click handler...
+				usData.features.forEach(feature => {
+					feature.properties = feature.properties || {};
+					feature.properties._fireSource = 'US';
+				});
+				map.data.addGeoJson(usData);
+				console.debug(`US wildfires loaded: ${usData.features.length} features`);
+			}
+			
+			// Add Australian wildfire data if available...
+			if (auData && auData.features) {
+				// Tag Australian features with a source property for identification in click handler...
+				auData.features.forEach(feature => {
+					feature.properties = feature.properties || {};
+					feature.properties._fireSource = 'AU';
+				});
+				map.data.addGeoJson(auData);
+				console.debug(`Australian bushfires loaded: ${auData.features.length} features`);
+			}
+		}).catch(error => {
+			console.error('Error loading wildfire data:', error);
+		});
 
-			// Show wildfire info on either "click" or "mouseover" (refer to the 'showWildfireInfoEvent' variable set at the top of this script)...
-			parent.overlayInfoWindowListenerHandle = map.data.addListener(showWildfireInfoEvent, function(event) {
-				// Show an infowindow on click...
+		// Color the wildfire areas as red...
+		map.data.setStyle({ fillColor: 'red', strokeWeight: 1.0, strokeColor: 'salmon' });
+
+		// Show wildfire info on either "click" or "mouseover" (refer to the 'showWildfireInfoEvent' variable set at the top of this script)...
+		parent.overlayInfoWindowListenerHandle = map.data.addListener(showWildfireInfoEvent, function(event) {
+			// Determine if this is a US or Australian fire based on the source property...
+			const fireSource = event.feature.getProperty("_fireSource");
+			let infoContent = '';
+			
+			if (fireSource === 'AU') {
+				// Australian bushfire info display...
+				let fireName = event.feature.getProperty("fire_name");
+				if (fireName == null) {
+					fireName = "(unknown)";
+				}
+				let fireType = event.feature.getProperty("fire_type");
+				if (fireType == null) {
+					fireType = "(not available)";
+				}
+				let ignitionDate = event.feature.getProperty("ignition_date");
+				if (ignitionDate == null) {
+					ignitionDate = "(not available)";
+				} else {
+					// Convert epoch timestamp to readable date if it's a number...
+					if (typeof ignitionDate === 'number') {
+						ignitionDate = new Date(ignitionDate).toLocaleDateString('en-AU');
+					}
+				}
+				let perimKm = event.feature.getProperty("perim_km");
+				if (perimKm == null) {
+					perimKm = "(not available)";
+				} else {
+					perimKm = Number(perimKm).toLocaleString('en-AU', numFormatOptions) + ' km';
+				}
+				let state = event.feature.getProperty("state");
+				if (state == null) {
+					state = "(not available)";
+				}
+				let agency = event.feature.getProperty("agency");
+				if (agency == null) {
+					agency = "(not available)";
+				}
+				
+				infoContent = '<div style="line-height:1.35;overflow:hidden;color:black;">' +
+					'<span style="font-weight:700;">Bushfire &quot;' + fireName + '&quot;</span><br/>' +
+					'<br/><b>Fire Type:</b> ' + fireType +
+					'<br/><b>Ignition Date:</b> ' + ignitionDate +
+					'<br/><b>Perimeter:</b> ' + perimKm +
+					'<br/><b>State:</b> ' + state +
+					'<br/><b>Agency:</b> ' + agency +
+					'</div>';
+			} else {
+				// US wildfire info display (original logic)...
 				let comments = event.feature.getProperty("Comments");
 				if (comments == null) {
 					comments = "(comments not available)";
-				};
+				}
 				let acres = event.feature.getProperty("GISAcres");
 				if (acres == null) {
 					acres = "(not available)";
 				} else {
-					acres = Number(acres).toLocaleString('en-US', numFormatOptions)
-				};
+					acres = Number(acres).toLocaleString('en-US', numFormatOptions);
+				}
 				let fireCategory = event.feature.getProperty("FeatureCategory");
 				if (fireCategory == null) {
 					fireCategory = "(not available)";
-				};
-				// Close any cluster InfoWindow that might be open...
-				if (clusterInfoWindow) {
-					clusterInfoWindow.close();
-				};
-				// Close any marker InfoWindow that might be open...
-				if (markerInfoWindow) {
-					markerInfoWindow.close();
-					markerInfoWindow = null;
-				};
-				parent.overlayInfoWindow.setContent('<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;"><span style="font-weight:700;">Wildfire &quot;'+ event.feature.getProperty("IncidentName") + '&quot;</span><br/>' + comments + '<br/><br/>Calculated Acres: ' + acres + '<br/>Category: ' + fireCategory + '<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") + '<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") + '</div>');
-				parent.overlayInfoWindow.setPosition(event.latLng);
-				parent.overlayInfoWindow.open(map);
+				}
+				
+				infoContent = '<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">' +
+					'<span style="font-weight:700;">Wildfire &quot;' + event.feature.getProperty("IncidentName") + '&quot;</span><br/>' +
+					comments + '<br/><br/>Calculated Acres: ' + acres +
+					'<br/>Category: ' + fireCategory +
+					'<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") +
+					'<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") +
+					'</div>';
+			}
+			
+			// Close any cluster InfoWindow that might be open...
+			if (clusterInfoWindow) {
+				clusterInfoWindow.close();
+			}
+			// Close any marker InfoWindow that might be open...
+			if (markerInfoWindow) {
+				markerInfoWindow.close();
+				markerInfoWindow = null;
+			}
+			parent.overlayInfoWindow.setContent(infoContent);
+			parent.overlayInfoWindow.setPosition(event.latLng);
+			parent.overlayInfoWindow.open(map);
+		});
+		if (showWildfireInfoEvent == "mouseover") {
+			parent.overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
+				parent.overlayInfoWindow.close();
 			});
-			if (showWildfireInfoEvent == "mouseover") {
-				parent.overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
-					parent.overlayInfoWindow.close();
-				});
-			};
+		};
 		// Look to see if we should add power outages to the map...
 		} else if (optionalMapType == "us-poweroutages") {
 			// USA Today power outage data URL (fetched via CORS proxy)...
