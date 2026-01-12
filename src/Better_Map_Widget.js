@@ -41,7 +41,7 @@ if (typeof disableClustering === 'undefined') { let disableClustering = false; }
 // You can set it here or in a dashboard token named "MapShowWeather"...
 if (typeof showWeatherDefault === 'undefined') { let showWeatherDefault = "no"; };
 
-	// If weather is shown, whether to show "wildfires" or "wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
+	// If weather is shown, whether to show "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
 // You can set it here or in a dashboard token named "MapOverlayOption"...
 if (typeof additionalOverlayOption === 'undefined') { let additionalOverlayOption = "earthquakes"; };
 
@@ -187,7 +187,7 @@ if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexra
 	showWeatherDefault = dashboardShowWeatherToken;
 };
 let dashboardAddlOverlayToken = document.getElementById("dashboardAddlOverlayToken").innerText.toLowerCase();
-if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
+if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
 	additionalOverlayOption = dashboardAddlOverlayToken;
 };
 // console.debug("dashboardAddlOverlayToken", dashboardAddlOverlayToken);
@@ -450,7 +450,7 @@ const _dom = {
 	weather: document.getElementById("weather"),
 	globalWeather: document.getElementById("globalWeather"),
 	nexradWeather: document.getElementById("nexradWeather"),
-	wildfires: document.getElementById("wildfires"),
+	usWildfires: document.getElementById("usWildfires"),
 	usPowerOutages: document.getElementById("usPowerOutages"),
 	earthquakes: document.getElementById("earthquakes"),
 	usFlooding: document.getElementById("usFlooding"),
@@ -482,7 +482,7 @@ if (showWeatherDefault == "global") {
 };
 
 if (additionalOverlayOption == "wildfires" || additionalOverlayOption == "us-wildfires") {
-	_dom.wildfires.checked = true;
+	_dom.usWildfires.checked = true;
 } else if (additionalOverlayOption == "outages" || additionalOverlayOption == "us-poweroutages") {
 	_dom.usPowerOutages.checked = true;
 } else if (additionalOverlayOption == "earthquakes") {
@@ -2558,7 +2558,7 @@ async function addWeatherLayer() {
 		};
 
 	// Look to see if we should add wildfire into the map...
-	if (optionalMapType == "wildfires") {
+	if (optionalMapType == "us-fires") {
 		// Clear any previous load of the overlay data...
 		map.data.forEach(function(feature) {
 			map.data.remove(feature);

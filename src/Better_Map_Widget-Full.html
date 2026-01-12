@@ -684,8 +684,8 @@
 						<span id="additionalOverlayOptions">
 							<!-- <strong class="optionsHeader">additional overlays:</strong> -->
 							<span data-title="Active wildfires in the US and Australia" onclick="enableWeather();">
-								<input type="radio" id="wildfires" name="otherWeatherOverlays" value="wildfires" checked="true" />
-								<label for="wildfires">Wildfires</label>
+								<input type="radio" id="usWildfires" name="otherWeatherOverlays" value="us-fires" checked="true" />
+								<label for="usWildfires">Wildfires</label>
 							</span>
 
 							<span data-title="US power outages by county" onclick="enableWeather();">
@@ -1070,7 +1070,7 @@
 		weather: document.getElementById("weather"),
 		globalWeather: document.getElementById("globalWeather"),
 		nexradWeather: document.getElementById("nexradWeather"),
-		wildfires: document.getElementById("wildfires"),
+		usWildfires: document.getElementById("usWildfires"),
 		usPowerOutages: document.getElementById("usPowerOutages"),
 		earthquakes: document.getElementById("earthquakes"),
 		usFlooding: document.getElementById("usFlooding"),
@@ -1102,7 +1102,7 @@
 	};
 
 	if (additionalOverlayOption == "wildfires" || additionalOverlayOption == "us-wildfires") {
-		_dom.wildfires.checked = true;
+		_dom.usWildfires.checked = true;
 	} else if (additionalOverlayOption == "outages" || additionalOverlayOption == "us-poweroutages") {
 		_dom.usPowerOutages.checked = true;
 	} else if (additionalOverlayOption == "earthquakes") {
@@ -3178,7 +3178,7 @@
 			};
 
 			// Look to see if we should add wildfire into the map...
-			if (optionalMapType == "wildfires") {
+			if (optionalMapType == "us-fires") {
 				// Clear any previous load of the overlay data...
 				map.data.forEach(function(feature) {
 					map.data.remove(feature);
