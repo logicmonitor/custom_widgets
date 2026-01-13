@@ -718,8 +718,86 @@ _dom.showSDTLabel.innerHTML = sdtIcon;
 let clusterInfoWindow = null;
 let markerInfoWindow = null;
 
-// We've prepped everything, so now calling the function to populate the map...
-initMap();
+// Track map initialization state...
+let mapInitialized = false;
+let initAttempts = 0;
+const MAX_INIT_ATTEMPTS = 10;
+
+// Robust map initialization wrapper that handles timing issues in dashboard widgets...
+async function ensureMapInitialized() {
+	if (mapInitialized) return;
+	
+	initAttempts++;
+	console.log(`Map initialization attempt ${initAttempts}...`);
+	
+	try {
+		// Check if Google Maps API is available...
+		if (typeof google === 'undefined' || !google.maps || typeof google.maps.importLibrary !== 'function') {
+			throw new Error('Google Maps API not yet available');
+		}
+		
+		// Check if map container exists and has dimensions...
+		const mapContainer = document.getElementById('googleMap');
+		if (!mapContainer) {
+			throw new Error('Map container element not found');
+		}
+		
+		// Get computed dimensions - container may exist but have no size yet...
+		const rect = mapContainer.getBoundingClientRect();
+		if (rect.width === 0 || rect.height === 0) {
+			throw new Error('Map container has no dimensions yet');
+		}
+		
+		// All checks passed - initialize the map...
+		await initMap();
+		mapInitialized = true;
+		console.log('Map initialized successfully');
+		
+	} catch (error) {
+		console.warn(`Map init attempt ${initAttempts} failed:`, error.message);
+		
+		if (initAttempts < MAX_INIT_ATTEMPTS) {
+			// Exponential backoff: 100ms, 200ms, 400ms, etc. up to 2 seconds...
+			const delay = Math.min(100 * Math.pow(2, initAttempts - 1), 2000);
+			console.log(`Retrying in ${delay}ms...`);
+			setTimeout(ensureMapInitialized, delay);
+		} else {
+			console.error('Max initialization attempts reached. Map failed to initialize.');
+		}
+	}
+}
+
+// Start initialization when DOM is ready...
+if (document.readyState === 'loading') {
+	document.addEventListener('DOMContentLoaded', ensureMapInitialized);
+} else {
+	// DOM already ready - use requestAnimationFrame to ensure rendering is complete...
+	requestAnimationFrame(() => {
+		requestAnimationFrame(ensureMapInitialized);
+	});
+}
+
+// Also handle visibility changes (widget may be in a hidden tab initially)...
+const mapContainer = document.getElementById('googleMap');
+if (mapContainer && typeof IntersectionObserver !== 'undefined') {
+	const visibilityObserver = new IntersectionObserver((entries) => {
+		entries.forEach(entry => {
+			if (entry.isIntersecting && !mapInitialized) {
+				console.log('Map container became visible, attempting initialization...');
+				ensureMapInitialized();
+			}
+		});
+	}, { threshold: 0.1 });
+	visibilityObserver.observe(mapContainer);
+}
+
+// Fallback: Also try when window is focused (handles tab switching)...
+window.addEventListener('focus', () => {
+	if (!mapInitialized) {
+		console.log('Window focused, checking map initialization...');
+		setTimeout(ensureMapInitialized, 100);
+	}
+});
 
 
 // ----- FUNCTIONS
