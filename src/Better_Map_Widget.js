@@ -106,7 +106,7 @@ let mapSourceTypeToken = document.getElementById("mapSourceTypeToken").innerText
 // if (mapSourceTypeToken != "\#\#MapSourceType\#\#") {
 if (mapSourceTypeToken != "##MapSourceType##") {
 	mapSourceType = mapSourceTypeToken.toLowerCase();
-};
+}
 // console.debug("mapSourceTypeToken", mapSourceTypeToken);
 
 // Capture from token whether override the map theme...
@@ -114,70 +114,70 @@ let mapStyleToken = document.getElementById("mapStyleToken").innerText;
 // If the token value wasn't set then use the values hard-coded above at the beginning of this script...
 if (mapStyleToken != "##MapStyle##") {
 	mapStyle = mapStyleToken.toLowerCase();
-};
+}
 // console.debug("mapStyleToken", mapStyleToken);
 
 // Capture from token whether to hide the map options...
 let hideMapOptionsByDefaultToken = document.getElementById("hideMapOptionsByDefaultToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
-if (hideMapOptionsByDefaultToken.toLowerCase() == "true" || hideMapOptionsByDefaultToken.toLowerCase() == "yes"|| hideMapOptionsByDefaultToken.toLowerCase() == "1") {
+if (isTruthyToken(hideMapOptionsByDefaultToken)) {
 	hideMapOptionsByDefault = true;
-};
+}
 // console.debug("hideMapOptionsByDefaultToken", hideMapOptionsByDefaultToken);
 
 // Capture from token whether to hide items that don't have active alerts...
 let ignoreClearedToken = document.getElementById("ignoreClearedToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
-if (ignoreClearedToken.toLowerCase() == "true" || ignoreClearedToken.toLowerCase() == "yes" || ignoreClearedToken.toLowerCase() == "1") {
+if (isTruthyToken(ignoreClearedToken)) {
 	showCleared = false;
-};
+}
 // Capture from token whether to hide items that have "Warning" alerts...
 let ignoreWarningsToken = document.getElementById("ignoreWarningsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
-if (ignoreWarningsToken.toLowerCase() == "true" || ignoreWarningsToken.toLowerCase() == "yes" || ignoreWarningsToken.toLowerCase() == "1") {
+if (isTruthyToken(ignoreWarningsToken)) {
 	showWarnings = false;
-};
+}
 // Capture from token whether to hide items that have "Error" alerts...
 let ignoreErrorsToken = document.getElementById("ignoreErrorsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
-if (ignoreErrorsToken.toLowerCase() == "true" || ignoreErrorsToken.toLowerCase() == "yes" || ignoreErrorsToken.toLowerCase() == "1") {
+if (isTruthyToken(ignoreErrorsToken)) {
 	showErrors = false;
-};
+}
 // Capture from token whether to hide items that have "Critical" alerts...
 let ignoreCriticalsToken = document.getElementById("ignoreCriticalsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
-if (ignoreCriticalsToken.toLowerCase() == "true" || ignoreCriticalsToken.toLowerCase() == "yes" || ignoreCriticalsToken.toLowerCase() == "1") {
+if (isTruthyToken(ignoreCriticalsToken)) {
 	showCriticals = false;
-};
+}
 // Capture from token whether to hide items that are in SDT...
 let ignoreSDTToken = document.getElementById("ignoreSDTToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
-if (ignoreSDTToken.toLowerCase() == "true" || ignoreSDTToken.toLowerCase() == "yes" || ignoreSDTToken.toLowerCase() == "1") {
+if (isTruthyToken(ignoreSDTToken)) {
 	showSDT = false;
-};
+}
 // Capture from token whether to show the map tilt/rotation controls...
 let showMapTiltControlsToken = document.getElementById("showMapTiltControlsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
-if (showMapTiltControlsToken.toLowerCase() == "true" || showMapTiltControlsToken.toLowerCase() == "yes" || showMapTiltControlsToken.toLowerCase() == "1") {
+if (isTruthyToken(showMapTiltControlsToken)) {
 	showMapTiltControls = true;
-};
+}
 // console.debug("showMapTiltControlsToken", showMapTiltControlsToken);
 // Capture from token whether to automatically reset the map's zoom to encompass all items on timed refreshes...
 let autoResetMapOnRefreshToken = document.getElementById("autoResetMapOnRefreshToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
-if (autoResetMapOnRefreshToken.toLowerCase() == "true" || autoResetMapOnRefreshToken.toLowerCase() == "yes" || autoResetMapOnRefreshToken.toLowerCase() == "1") {
+if (isTruthyToken(autoResetMapOnRefreshToken)) {
 	autoResetMapOnRefresh = true;
-};
+}
 // console.debug("autoResetMapOnRefreshToken", autoResetMapOnRefreshToken);
 // Capture our group filter if defined as a token...
 let dashboardGroupPathToken = document.getElementById("dashboardGroupPathToken").innerText;
 if (dashboardGroupPathToken != "##MapGroupPathFilter##") {
 	groupPathFilter = dashboardGroupPathToken;
-};
+}
 if (groupPathFilter == "") {
 	// Default to "*" if no value was given...
 	groupPathFilter = "*";
-};
+}
 // Capture the current path filter to reset the form field if the user completely clears it out...
 const initialGroupPathFilter = groupPathFilter;
 // console.debug("dashboardGroupPathToken", dashboardGroupPathToken);
@@ -185,32 +185,32 @@ const initialGroupPathFilter = groupPathFilter;
 let dashboardShowWeatherToken = document.getElementById("dashboardShowWeatherToken").innerText.toLowerCase();
 if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexrad") {
 	showWeatherDefault = dashboardShowWeatherToken;
-};
+}
 let dashboardAddlOverlayToken = document.getElementById("dashboardAddlOverlayToken").innerText.toLowerCase();
 if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
 	additionalOverlayOption = dashboardAddlOverlayToken;
-};
+}
 // console.debug("dashboardAddlOverlayToken", dashboardAddlOverlayToken);
 // Capture from token any custom properties to display when viewing an item's details...
 let displayPropsToken = document.getElementById("displayPropsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (displayPropsToken != "##MapDisplayProperties##") {
 	displayProps = displayPropsToken;
-};
+}
 // console.debug("displayPropsToken", displayPropsToken);
 // Capture from token whether to disable marker clustering...
 let disableClusteringToken = document.getElementById("disableClusteringToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
-if (disableClusteringToken.toLowerCase() == "true" || disableClusteringToken.toLowerCase() == "yes" || disableClusteringToken.toLowerCase() == "1") {
+if (isTruthyToken(disableClusteringToken)) {
 	disableClustering = true;
-};
+}
 // console.debug("disableClusteringToken", disableClusteringToken);
 // Capture from token whether to show road labels...
 let showRoadLabelsToken = document.getElementById("showRoadLabelsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
-if (showRoadLabelsToken.toLowerCase() == "true" || showRoadLabelsToken.toLowerCase() == "yes" || showRoadLabelsToken.toLowerCase() == "1") {
+if (isTruthyToken(showRoadLabelsToken)) {
 	showRoadLabels = "yes";
-};
+}
 
 // ------------------------------------------------------------
 // Initialize Google Maps...
@@ -236,7 +236,13 @@ function debounce(fn, delay = 300) {
 	return (...args) => {
 		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => fn(...args), delay);
-	};
+	}
+}
+
+// Helper: Check if a token value represents a truthy boolean
+function isTruthyToken(tokenValue) {
+	const lower = tokenValue.toLowerCase();
+	return lower === "true" || lower === "yes" || lower === "1";
 }
 
 /**
@@ -346,13 +352,13 @@ async function LMClient({
 			'Accept': 'application/json', // Expect JSON response
 			'X-Csrf-Token': csrfToken,
 			'X-Version': apiVersion, // Use the appropriate API version for the main request
-		};
+		}
 
 		const requestOptions = {
 			method: httpVerb,
 			headers: headers,
 			credentials: 'include', // Necessary for session/cookie-based auth
-		};
+		}
 
 		// Add AbortSignal if provided
 		if (signal) {
@@ -435,7 +441,7 @@ async function LMClient({
 			throw wrappedError;
 		}
 	}
-};
+}
 
 // ------------------------------------------------------------
 
@@ -479,7 +485,7 @@ if (showWeatherDefault == "global") {
 } else if (showWeatherDefault == "nexrad") {
 	_dom.weather.checked = true;
 	_dom.nexradWeather.checked = true;
-};
+}
 
 if (additionalOverlayOption == "wildfires" || additionalOverlayOption == "us-wildfires") {
 	_dom.usWildfires.checked = true;
@@ -489,7 +495,7 @@ if (additionalOverlayOption == "wildfires" || additionalOverlayOption == "us-wil
 	_dom.earthquakes.checked = true;
 } else if (additionalOverlayOption == "us-flooding") {
 	_dom.usFlooding.checked = true;
-};
+}
 
 // Capture information about the current dashboard for use in subsequent REST calls...
 const hostName = parent.window.location.host;
@@ -562,7 +568,7 @@ if (!window.fetchJson) {
 			if (ct.includes("application/json")) return await res.json();
 			return await res.text();
 		} finally { clearTimeout(timer); }
-	};
+	}
 }
 
 // Batch builder to avoid jank when (re)building many markers...
@@ -573,15 +579,28 @@ if (!window.buildMarkersInBatches) {
 			for (const it of slice) { try { fn(it); } catch(e) {} }
 			await new Promise(r => { if ('requestIdleCallback' in window) requestIdleCallback(()=>r()); else setTimeout(r,0); });
 		}
-	};
+	}
 }
 
 // Variable for holding our map markers...
 let markers = [];
+// Map for O(1) marker lookups by device ID (performance optimization)
+let markersByDeviceID = new Map();
 // For tracking if we've already established an initial center for our map based on markers...
 let centerCalculated = false;
 // For storing polyline references and their marker associations...
 let polylines = [];
+
+// Utility function to clear all markers from the map (consolidates repeated code)
+function clearAllMarkers() {
+	markers.forEach(m => m.setMap(null));
+	markers = [];
+	markersByDeviceID.clear();
+	if (clusterer && typeof clusterer === "object") {
+		google.maps.event.clearInstanceListeners(clusterer);
+		clusterer.setMap(null);
+	}
+}
 
 // Clear all connecting polylines and their listeners
 function clearAllPolylines() {
@@ -613,7 +632,8 @@ function updatePolylineEndpoints() {
 // Resolve a device's current visible position (cluster center or marker)
 function getMarkerOrClusterPosition(deviceID) {
 	if (!deviceID) return null;
-	const marker = markers.find(m => m.deviceID == deviceID);
+	// Use Map for O(1) lookup instead of array find
+	const marker = markersByDeviceID.get(deviceID) || markersByDeviceID.get(String(deviceID));
 	if (!marker) return null;
 
 	// Check if clustering is enabled and marker is in a cluster
@@ -673,6 +693,8 @@ function loadCache() {
 function saveCache() {
 	try { localStorage.setItem(__LMBMW_CACHE_KEY, JSON.stringify(cachedAddresses)); } catch (e) {}
 }
+// Debounced version to avoid excessive localStorage writes during batch operations
+const debouncedSaveCache = debounce(saveCache, 1000);
 function clearCache() {
 	try {
 		localStorage.removeItem(__LMBMW_CACHE_KEY);
@@ -1037,7 +1059,7 @@ async function initMap() {
 			this.setMap(null);
 			this.isOpen = false;
 		}
-	};
+	}
 
 	// Create our Google Map...
 	map = new google.maps.Map(document.getElementById("googleMap"), {
@@ -1128,7 +1150,7 @@ async function initMap() {
 		mapControlButtonDiv.appendChild(mapRotateLeftControl);
 		// Attach our controls to the map...
 		map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(mapControlButtonDiv);
-	};
+	}
 
 	// Add an area to display when we're updating...
 	const updateAreaDiv = await createUpdateArea(map);
@@ -1144,7 +1166,7 @@ async function initMap() {
 		styledMapType = new google.maps.StyledMapType(aubergineStyle);
 	} else if (mapStyle == "silverblue") {
 		styledMapType = new google.maps.StyledMapType(silverBlueStyle);
-	};
+	}
 
 	map.mapTypes.set("customMapStyle", styledMapType);
 	map.setMapTypeId("customMapStyle");
@@ -1156,7 +1178,7 @@ async function initMap() {
 	if (hideMapOptionsByDefault) {
 		document.getElementById("optionsBar").classList.remove("optionsVisible");
 		document.getElementById("optionsBar").classList.add("optionsHidden");
-	};
+	}
 
 	// Load our LogicMonitor data only after we know our update area has been created...
 	waitForElm('#refreshStatusArea').then((elm) => {
@@ -1170,8 +1192,8 @@ async function initMap() {
 			refreshGroupData(timedRefresh = true);
 			console.log("Map data refreshed.");
 		}, statusUpdateIntervalMinutes*1000*60);
-	};
-};
+	}
+}
 
 // Function for creating & styling the map button for toggling the options bar...
 function createWeatherToggleControl(map) {
@@ -1196,7 +1218,7 @@ function createWeatherToggleControl(map) {
 		weatherToggle.innerHTML = optionsToggleHiddenIcon;
 	} else {
 		weatherToggle.innerHTML = optionsToggleVisibleIcon;
-	};
+	}
 	weatherToggle.type = "button";
 
 	weatherToggle.addEventListener("click", () => {
@@ -1209,11 +1231,11 @@ function createWeatherToggleControl(map) {
 			optionsBar.classList.remove("optionsVisible");
 			optionsBar.classList.add("optionsHidden");
 			weatherToggle.innerHTML = optionsToggleHiddenIcon;
-		};
+		}
 	});
 
 	return weatherToggle;
-};
+}
 
 function createWeatherRefreshControl(map) {
 	const weatherControls = document.createElement("button");
@@ -1239,7 +1261,7 @@ function createWeatherRefreshControl(map) {
 	weatherControls.addEventListener("click", refreshGroupData);
 
 	return weatherControls;
-};
+}
 
 function createZoomResetControl(map) {
 	const weatherControls = document.createElement("button");
@@ -1263,7 +1285,7 @@ function createZoomResetControl(map) {
 	weatherControls.addEventListener("click", resetZoom);
 
 	return weatherControls;
-};
+}
 
 function createRotateRightControl(map) {
 	const weatherControls = document.createElement("button");
@@ -1288,7 +1310,7 @@ function createRotateRightControl(map) {
 	weatherControls.addEventListener("click", function() {adjustMap("rotate", -5);});
 
 	return weatherControls;
-};
+}
 
 function createRotateLeftControl(map) {
 	const weatherControls = document.createElement("button");
@@ -1312,7 +1334,7 @@ function createRotateLeftControl(map) {
 	weatherControls.addEventListener("click", function() {adjustMap("rotate", 5);});
 
 	return weatherControls;
-};
+}
 
 function createRotateForwardControl(map) {
 	const weatherControls = document.createElement("button");
@@ -1336,7 +1358,7 @@ function createRotateForwardControl(map) {
 	weatherControls.addEventListener("click", function() {adjustMap("tilt", 5);});
 
 	return weatherControls;
-};
+}
 
 function createRotateBackControl(map) {
 	const weatherControls = document.createElement("button");
@@ -1360,7 +1382,7 @@ function createRotateBackControl(map) {
 	weatherControls.addEventListener("click", function() {adjustMap("tilt", -5);});
 
 	return weatherControls;
-};
+}
 
 function createUpdateArea(map) {
 	const updateAreaDiv = document.createElement("div");
@@ -1395,8 +1417,8 @@ function adjustMap(mode, amount) {
 			break;
 		default:
 			break;
-	};
-};
+	}
+}
 
 // Function to load our LogicMonitor data and add pins to the map...
 async function refreshGroupData(timedRefresh = false) {
@@ -1417,13 +1439,7 @@ async function refreshGroupData(timedRefresh = false) {
 		groupPathFilter = groupPathFilterFieldValue;
 
 		// The filter changed so clear any previous markers from the map...
-		for (let i = 0; i < markers.length; i++) {
-			markers[i].setMap(null);
-			if (typeof clusterer == "object") {
-				clusterer.setMap(null);
-			}
-		}
-		markers = [];
+		clearAllMarkers();
 	} else if (groupPathFilterFieldValue == "") {
 		// The user cleared the field, so reset it back to the initial value...
 		groupPathFilter = initialGroupPathFilter;
@@ -1451,17 +1467,17 @@ async function refreshGroupData(timedRefresh = false) {
 	let pathOperator = ":";
 	if (groupPathFilter.includes("*")) {
 		pathOperator = "~";
-	};
+	}
 
 	// Temporarily disable the toolbar fields to prevent user from refreshing before previous refresh is complete...
 	_dom.mapOptionsArea.classList.add("disabled");
 	// Cache refresh button reference if not already cached
 	if (!_dom.weatherRefreshButton) {
 		_dom.weatherRefreshButton = document.getElementById("weatherRefreshButton");
-	};
+	}
 	if (_dom.weatherRefreshButton) {
 		_dom.weatherRefreshButton.classList.add("disabled");
-	};
+	}
 
 	// Clear any previously fetched data...
 	groupData = [];
@@ -1472,7 +1488,7 @@ async function refreshGroupData(timedRefresh = false) {
 	// Cache refresh status area reference if not already cached
 	if (!_dom.refreshStatusArea) {
 		_dom.refreshStatusArea = document.getElementById("refreshStatusArea");
-	};
+	}
 	// Display our progress to the user...
 	_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating";
 	_dom.refreshStatusArea.style.display = "flex";
@@ -1487,7 +1503,7 @@ async function refreshGroupData(timedRefresh = false) {
 		fullRefresh = true;
 		fieldList = fieldList + ",inheritedProperties,systemProperties";
 		pollCount = 0;
-	};
+	}
 
 	// Determine whether to fetch groups or resources...
 	let deviceFilter = "";
@@ -1497,8 +1513,8 @@ async function refreshGroupData(timedRefresh = false) {
 		deviceFilter = ",deviceType:0|4|18|19";
 		if (mapSourceType == "services") {
 			deviceFilter = ",deviceType:6";
-		};
-	};
+		}
+	}
 
 	// Set our severity filters to query...
 	let statusFilter = "";
@@ -1506,19 +1522,19 @@ async function refreshGroupData(timedRefresh = false) {
 	// if (!showCleared && showWarnings && showErrors && showCriticals) {
 	if (showCleared) {
 		statusArray.push("none");
-	};
+	}
 	if (showWarnings) {
 		statusArray.push("*warn*");
-	};
+	}
 	if (showErrors) {
 		statusArray.push("*error*");
-	};
+	}
 	if (showCriticals) {
 		statusArray.push("*critical*");
-	};
+	}
 	if (statusArray.length > 0) {
 		statusFilter = ',alertStatus:' + '"' + statusArray.join("|") + '"';
-	};
+	}
 	if (!showSDT) {
 		statusFilter = statusFilter + ',sdtStatus:"none-none-*"';
 	}
@@ -1526,7 +1542,7 @@ async function refreshGroupData(timedRefresh = false) {
 	// Reset our zoom level when the filter options change...
 	if (centerCalculated && autoZoom && !timedRefresh) {
 		centerCalculated = false;
-	};
+	}
 
 	// Start fetching data from LM that have location in custom properties, paginating the data as necessary...
 	try {
@@ -1542,11 +1558,11 @@ async function refreshGroupData(timedRefresh = false) {
 					if (tmpPathFilter != "") {
 						// queryParams = '?v=3&size=1000&offset=' + offset + '&filter=systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
 						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"location",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
-					};
+					}
 				} else {
 					queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"location"' + statusFilter + deviceFilter;
-				};
-			};
+				}
+			}
 
 			// Call the LogicMonitor API to get a list of groups...
 			const markerData = await LMClient({
@@ -1563,7 +1579,7 @@ async function refreshGroupData(timedRefresh = false) {
 			if (markerData.total != 0) {
 				if (markerData.total != totalGroups) {
 					totalGroups = markerData.total;
-				};
+				}
 
 				groupData = groupData.concat(markerData.items);
 
@@ -1585,21 +1601,15 @@ async function refreshGroupData(timedRefresh = false) {
 					}
 
 					// Clear any previous markers from the map...
-					for (let i = 0; i < markers.length; i++) {
-						markers[i].setMap(null);
-					};
-					markers = [];
-					if (typeof clusterer == "object") {
-						clusterer.setMap(null);
-					};
+					clearAllMarkers();
 
 					// Reset the map zoom...
 					bounds = new google.maps.LatLngBounds();
 					resetZoom();
 					centerCalculated = false;
-				};
-			};
-		};
+				}
+			}
+		}
 
 
 		// Start fetching data from LM that have location in inherited properties, paginating the data as necessary...
@@ -1619,10 +1629,10 @@ async function refreshGroupData(timedRefresh = false) {
 					if (tmpPathFilter != "") {
 						// queryParams = '?v=3&size=1000&offset=' + offset + '&filter=systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
 						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"location",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
-					};
+					}
 				} else {
 					queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"location"' + statusFilter + deviceFilter;
-				};
+				}
 				// console.debug("Query params for inherited locations: " + queryParams);
 
 				// Call the LogicMonitor API to get a list of groups...
@@ -1645,8 +1655,8 @@ async function refreshGroupData(timedRefresh = false) {
 							totalGroups = totalGroups + markerData.total;
 						} else {
 							totalGroups = markerData.total;
-						};
-					};
+						}
+					}
 
 					groupData = groupData.concat(markerData.items);
 
@@ -1661,10 +1671,10 @@ async function refreshGroupData(timedRefresh = false) {
 					tmpTotalGroups = 0;
 					offset = totalGroups;
 					break;
-				};
-			};
+				}
+			}
 			// console.debug("totalGroups: " + totalGroups + " / tmpTotalGroups: " + tmpTotalGroups + " / offset: " + offset);
-		};
+		}
 	} catch (error) {
 		// Silently handle aborted requests (user triggered a new refresh)
 		if (error.name === 'AbortError') {
@@ -1700,10 +1710,7 @@ async function refreshGroupData(timedRefresh = false) {
 		let itemsProcessed = 0;
 
 		// Clear any previous markers from the map...
-		for (let i = 0; i < markers.length; i++) {
-			markers[i].setMap(null);
-		};
-		markers = [];
+		clearAllMarkers();
 
 		// For use in zooming the map to encompass all our markers on initial draw...
 		bounds = new google.maps.LatLngBounds();
@@ -1722,13 +1729,13 @@ async function refreshGroupData(timedRefresh = false) {
 
 				if ((alertSeverity == "warn" && highestSeverity == "") || (alertSeverity == "error" && highestSeverity != "critical") || (alertSeverity == "critical")) {
 					highestSeverity = alertSeverity;
-				};
-			};
+				}
+			}
 			// Parse the SDT status...
 			let sdtStatusArray = thisItem.sdtStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
 			if (sdtStatusArray[1].toLowerCase() == "sdt" || sdtStatusArray[2].toLowerCase() == "sdt") {
 				sdtStatus = "sdt";
-			};
+			}
 
 			// Variables for each severity...
 			// The SVG icon for the group's severity...
@@ -1751,10 +1758,10 @@ async function refreshGroupData(timedRefresh = false) {
 					pinBG = "#e0351b";
 					pinBorder = "#9a2614";
 					pinIndex = 3;
-				};
+				}
 			} else {
 				highestSeverity = "clear";
-			};
+			}
 
 			// If in SDT...
 			if (sdtStatus == "sdt") {
@@ -1763,7 +1770,7 @@ async function refreshGroupData(timedRefresh = false) {
 				pinBG = "#00a1fe";
 				pinBorder = "#00a1fe";
 				pinIndex = 4;
-			};
+			}
 
 			// Get the group's location (hopefully an address)...
 			let address = "";
@@ -1785,9 +1792,9 @@ async function refreshGroupData(timedRefresh = false) {
 							if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
 								// address = `${latProp.value}, ${lngProp.value}`;
 								alreadyGeocoded = true;
-							};
-						};
-					};
+							}
+						}
+					}
 				} catch(e) {
 					try {
 						// If not found in custom properties, try to get it from inherited properties...
@@ -1803,15 +1810,15 @@ async function refreshGroupData(timedRefresh = false) {
 								if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
 									// address = `${latProp.value}, ${lngProp.value}`;
 									alreadyGeocoded = true;
-								};
-							};
-						};
+								}
+							}
+						}
 					} catch(y) {
 						// console.log("No address found for " + thisItem.name);
 						// totalGroups = totalGroups - 1;
-					};
-				};
-			};
+					}
+				}
+			}
 
 			// Remove any extraneous characters from the address...
 			address = address.trim().replaceAll("\t", "").replaceAll("\n", ", ");
@@ -1827,58 +1834,58 @@ async function refreshGroupData(timedRefresh = false) {
 					// Call the subfunction to add the group to the map...
 					plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, cachedAddresses[thisItem.id].address);
 				} else {
-					if (alreadyGeocoded) {
-						// console.debug('Address already geocoded as custom properties for ' + thisItem.name + ': ' + address);
-						// Cache the address for reuse...
-						cachedAddresses[thisItem.id] = {lat: Number(latProp.value), lng: Number(lngProp.value), address: address};
-						saveCache();
-						// Call the subfunction to add the group to the map...
-						plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, cachedAddresses[thisItem.id].address);
-					} else {
-						// See if the location is a latitude/longitude...
-						const coodinateRE = /^([\-]*[\d]+[\.\d]+)[ ,]+([\-]*[\d]+[\.\d]+)$/;
-						let match = coodinateRE.exec(address);
-						let latVal = null;
-						let lngVal = null;
-						if (match && match.length == 3) {
-							try {
-								latVal = Number(match[1]);
-								lngVal = Number(match[2]);
-							} catch(e) {};
-							// It appears we have a latitude & longitude. Cache them for reuse...
+				if (alreadyGeocoded) {
+					// console.debug('Address already geocoded as custom properties for ' + thisItem.name + ': ' + address);
+					// Cache the address for reuse...
+					cachedAddresses[thisItem.id] = {lat: Number(latProp.value), lng: Number(lngProp.value), address: address};
+					debouncedSaveCache();
+					// Call the subfunction to add the group to the map...
+					plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, cachedAddresses[thisItem.id].address);
+				} else {
+					// See if the location is a latitude/longitude...
+					const coodinateRE = /^([\-]*[\d]+[\.\d]+)[ ,]+([\-]*[\d]+[\.\d]+)$/;
+					let match = coodinateRE.exec(address);
+					let latVal = null;
+					let lngVal = null;
+					if (match && match.length == 3) {
+						try {
 							latVal = Number(match[1]);
 							lngVal = Number(match[2]);
-						};
-						// Ensure the latitude and longitude are valid...
-						if (latVal && lngVal && latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180 && latVal != 0 && lngVal != 0) {
-							// console.debug('Latitude & longitude found for ' + thisItem.name + ': ' + match[1] + ', ' + match[2]);
-							cachedAddresses[thisItem.id] = {lat: Number(match[1]), lng: Number(match[2]), address: address};
-							saveCache();
-							// Call the subfunction to add the group to the map...
-							plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, address);
-						} else {
-							// Attempt to geocode the address...
-							geocoder.geocode( {'address': address}, function(results, status) {
-								if (status == 'OK') {
-									// Grab the longitude/latitude from the results...
-									let geocodedLocation = results[0].geometry.location;
+						} catch(e) {};
+						// It appears we have a latitude & longitude. Cache them for reuse...
+						latVal = Number(match[1]);
+						lngVal = Number(match[2]);
+					}
+					// Ensure the latitude and longitude are valid...
+					if (latVal && lngVal && latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180 && latVal != 0 && lngVal != 0) {
+						// console.debug('Latitude & longitude found for ' + thisItem.name + ': ' + match[1] + ', ' + match[2]);
+						cachedAddresses[thisItem.id] = {lat: Number(match[1]), lng: Number(match[2]), address: address};
+						debouncedSaveCache();
+						// Call the subfunction to add the group to the map...
+						plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, address);
+					} else {
+						// Attempt to geocode the address...
+						geocoder.geocode( {'address': address}, function(results, status) {
+							if (status == 'OK') {
+								// Grab the longitude/latitude from the results...
+								let geocodedLocation = results[0].geometry.location;
 
-									// Cache these coordinates for reuse later...
-									cachedAddresses[thisItem.id] = {lat: Number(geocodedLocation.lat()), lng: Number(geocodedLocation.lng()), address: address};
-									saveCache();
-									// Call the subfunction to add the group to the map...
+								// Cache these coordinates for reuse later...
+								cachedAddresses[thisItem.id] = {lat: Number(geocodedLocation.lat()), lng: Number(geocodedLocation.lng()), address: address};
+								debouncedSaveCache();
+								// Call the subfunction to add the group to the map...
 									plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, address);
 								} else {
 									// We weren't provided a resolvable address, so deduct this item from our overall count...
 									totalGroups = totalGroups - 1;
 									// We still call the `plotMarker` even though there's no marker to plot in case this was the last one to process...
 									plotMarker(thisItem, null, null, null);
-								};
+								}
 							});
-						};
-					};
-				};
-			};
+						}
+					}
+				}
+			}
 
 			// Subfunction to add markers to the map...
 			async function plotMarker(thisItem, lat, lng, address) {
@@ -1906,15 +1913,15 @@ async function refreshGroupData(timedRefresh = false) {
 										propArray = thisItem.autoProperties.filter(item => item.name == thisProp.trim());
 										if (propArray.length == 1) {
 											customContent = `${customContent}<div class="customItem"><span class="customItemName">${propArray[0].name}</span>: ${propArray[0].value}</div>`;
-										};
-									};
-								};
-							};
+										}
+									}
+								}
+							}
 						});
 						if (customContent != "") {
 							customContent = `<div class="customItemArea">${customContent}</div>`;
-						};
-					};
+						}
+					}
 
 
 					// Look to see if connecting line info has been provided...
@@ -1940,10 +1947,10 @@ async function refreshGroupData(timedRefresh = false) {
 
 									lineData[`${tmp.deviceIDSource}${tmp.deviceIDConnected}`] = tmp;
 									// lineData[tmp.deviceIDSource + ":" + tmp.deviceIDConnected] = tmp;
-								};
+								}
 							});
-						};
-					};
+						}
+					}
 
 					content.classList.add("group");
 					// The pin's z-index gets overwritten when clicked to show details, so capture the original severity in the pin's metadata...
@@ -1955,7 +1962,7 @@ async function refreshGroupData(timedRefresh = false) {
 						// If the group doesn't have a description then fallback to showing the address...
 						if (groupDescription == "") {
 							groupDescription = address;
-						};
+						}
 
 						content.innerHTML = `
 							<div class="icon ${highestSeverity}">
@@ -1990,7 +1997,7 @@ async function refreshGroupData(timedRefresh = false) {
 						// If the group doesn't have a description then fallback to showing the address...
 						if (groupDescription == "") {
 							groupDescription = "Host:" + thisItem.name + "<br/>Address: " + cachedAddresses[groupID].address;
-						};
+						}
 
 						content.innerHTML = `
 							<div class="icon ${highestSeverity}">
@@ -2006,7 +2013,7 @@ async function refreshGroupData(timedRefresh = false) {
 								</div>
 							</div>
 						`;
-					};
+					}
 
 					// Add this group's pin to the map...
 					let marker = new google.maps.marker.AdvancedMarkerElement({
@@ -2025,14 +2032,16 @@ async function refreshGroupData(timedRefresh = false) {
 						toggleHighlight(marker, thisItem)
 					});
 
-					// Add reference to this pin for use by the clustering algorithm or if we need to modify them later...
-					markers.push(marker);
+				// Add reference to this pin for use by the clustering algorithm or if we need to modify them later...
+				markers.push(marker);
+				// Also add to Map for O(1) lookups by device ID
+				markersByDeviceID.set(thisItem.id, marker);
 
-					// Add this marker to map's bounding box (for initial zooming)...
+				// Add this marker to map's bounding box (for initial zooming)...
 					bounds.extend(marker.position);
 
 					itemsProcessed = itemsProcessed + 1;
-				};
+				}
 				// console.log("itemsProcessed: " + itemsProcessed + " / totalGroups: " + totalGroups);
 
 				// If all items have been processed, initialize the marker cluster...
@@ -2041,14 +2050,14 @@ async function refreshGroupData(timedRefresh = false) {
 					if (!centerCalculated || (timedRefresh && autoResetMapOnRefresh)) {
 						resetZoom();
 						centerCalculated = true;
-					};
+					}
 
 					if (!disableClustering) {
 						// Reset our marker clustering on refreshes...
 						if (typeof clusterer == "object") {
 							google.maps.event.clearInstanceListeners(clusterer);
 							clusterer.setMap(null);
-						};
+						}
 						// We'll use MarkerCluster's SuperClusterAlgorithm since it's more optimized (the radius is to prevent overlap of clusters & markers)...
 						const algorithm = new markerClusterer.SuperClusterAlgorithm({radius: 120});
 						// Initialize our marker clusters...
@@ -2063,7 +2072,7 @@ async function refreshGroupData(timedRefresh = false) {
 						clusterer.addListener("clusteringend", () => {
 							updatePolylineEndpoints();
 						});
-					};
+					}
 
 					// Plot any connecting lines between resources...
 					if (mapSourceType == "resources") {
@@ -2074,11 +2083,11 @@ async function refreshGroupData(timedRefresh = false) {
 							if (cachedAddresses[thisConnection.deviceIDConnected]) {
 								// Plot the connection on the map...
 								plotConnection(thisConnection);
-							};
+							}
 						});
 						// After drawing, ensure endpoints point to current marker/cluster locations
 						updatePolylineEndpoints();
-					};
+					}
 
 					// Our refresh is now complete, so capture how long it took...
 					let refreshEndTime = performance.now();
@@ -2086,16 +2095,16 @@ async function refreshGroupData(timedRefresh = false) {
 					pollCount = pollCount + 1;
 					if (fullRefresh) {
 						fullRefresh = false;
-					};
+					}
 
 					// Carry forward our tilt/heading between refreshes...
 					map.setTilt(mapTilt);
 					map.setHeading(mapHeading);
-				};
-			};
+				}
+			}
 		});
-	};
-};
+	}
+}
 
 // Function to fetch connection status & plot connecting lines on the map...
 async function plotConnection(connection) {
@@ -2128,7 +2137,7 @@ async function plotConnection(connection) {
 		if (alertStatusArray) {
 			alertStatus = alertStatusArray[1];
 			alertSeverity = alertStatusArray[2];
-		};
+		}
 
 		// Determine color by severity...
 		if (alertSeverity != "") {
@@ -2141,18 +2150,18 @@ async function plotConnection(connection) {
 			} else if (alertSeverity == "critical") {
 				connectionColor = "#e0351b";
 				alertStatus = "Critical";
-			};
-		};
+			}
+		}
 
 		// Parse the SDT status...
 		let sdtStatusArray = instanceData.sdtStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
 		if (sdtStatusArray[1].toLowerCase() == "sdt" || sdtStatusArray[2].toLowerCase() == "sdt") {
 			sdtStatus = "sdt";
-		};
+		}
 		// If in SDT...
 		if (sdtStatus == "sdt") {
 			connectionColor = "#00a1fe";
-		};
+		}
 
 		// Plot the line on the map...
 		const thisPath = new google.maps.Polyline({
@@ -2192,31 +2201,31 @@ async function plotConnection(connection) {
 		});
 		// Ensure new polylines handle clusters properly...
 		updatePolylineEndpoints();
-	};
-};
+	}
+}
 
 // Function for showing/hiding a group's detail when clicked...
 function toggleHighlight(markerView, group) {
 	// Close any open cluster details...
 	if (clusterInfoWindow) {
 		clusterInfoWindow.close();
-	};
+	}
 	// Close any overlay InfoWindow...
 	if (parent.overlayInfoWindow) {
 		parent.overlayInfoWindow.close();
-	};
+	}
 
 	// If clicking the same marker that's already open, close it
 	if (markerInfoWindow && markerInfoWindow.markerId === markerView.deviceID) {
 		markerInfoWindow.close();
 		markerInfoWindow = null;
 		return;
-	};
+	}
 
 	// Close any existing marker InfoWindow
 	if (markerInfoWindow) {
 		markerInfoWindow.close();
-	};
+	}
 
 	// Clone the marker content to use in the InfoWindow (preserves classes for CSS styling)
 	const contentClone = markerView.content.cloneNode(true);
@@ -2237,7 +2246,7 @@ function toggleHighlight(markerView, group) {
 	});
 	markerInfoWindow.markerId = markerView.deviceID; // Track which marker this is for
 	markerInfoWindow.open(map);
-};
+}
 
 // Function processing status of Fetch calls...
 function status(response) {
@@ -2245,14 +2254,14 @@ function status(response) {
 		return Promise.resolve(response);
 	} else {
 		return Promise.reject(new Error(response.statusText));
-	};
-};
+	}
+}
 
 
 // Pre-processor for JSON responses from Fetch calls...
 function json(response) {
 	return response.json();
-};
+}
 
 // Our custom renderer for MarkerClusterer to create donut charts based on status of clustered items...
 const renderer = {
@@ -2354,12 +2363,12 @@ const renderer = {
 				} else if (iconDiv.classList.contains('warn')) {
 					status = 'warning';
 					statusRank = 2;
-				};
+				}
 				if (iconDiv.classList.contains('sdt')) {
 					sdtStatus = ' <span class="sdtNote">(in SDT)</span>';
 					status = 'sdt';
 					statusRank = 1;
-				};
+				}
 
 				return {
 					name: nameLink.textContent,
@@ -2368,7 +2377,7 @@ const renderer = {
 					sdtStatus,
 					statusRank,
 					position: marker.position
-				};
+				}
 			});
 
 			// Sort the resources by status, then alphabetically by severity...
@@ -2463,23 +2472,23 @@ const renderer = {
 					</div>
 				</div>
 			`;
-		};
+		}
 
 		// Add hover listener
 		marker.addListener('click', () => {
 			// Close any other details already open...
 			if (clusterInfoWindow) {
 				clusterInfoWindow.close();
-			};
+			}
 			// Close any overlay InfoWindow that might be open...
 			if (parent.overlayInfoWindow) {
 				parent.overlayInfoWindow.close();
-			};
+			}
 			// Close any marker InfoWindow that might be open...
 			if (markerInfoWindow) {
 				markerInfoWindow.close();
 				markerInfoWindow = null;
-			};
+			}
 			clusterInfoWindow = new CustomInfoWindow({
 				position: marker.position,
 				content: getInfoContent(),
@@ -2491,7 +2500,7 @@ const renderer = {
 
 		return marker;
 	}
-};
+}
 
 // Function to enable the weather overlays when the appropriate checkbox is selected...
 function enableWeather() {
@@ -2514,8 +2523,8 @@ function enableWeather() {
 		});
 		// Hide the overlay options...
 		optionsElement.style.display = "none";
-	};
-};
+	}
+}
 
 // Initialize the RainViewer API...
 async function initWeather() {
@@ -2552,8 +2561,8 @@ function initRainViewerData() {
 	if (rvAPIData.radar.nowcast) {
 		rvMapFrames = rvMapFrames.concat(rvAPIData.radar.nowcast);
 		rvLastPastFramePosition = rvAPIData.radar.past.length - 1;
-	};
-};
+	}
+}
 
 // Function to add weather & other optional overlays to the map...
 async function addWeatherLayer() {
@@ -2633,7 +2642,7 @@ async function addWeatherLayer() {
 
 			// Attach the weather layer to our maps widget...
 			map.overlayMapTypes.insertAt(0, myMapType);
-		};
+		}
 
 	// Look to see if we should add wildfire into the map...
 	if (optionalMapType == "us-fires") {
@@ -2644,18 +2653,18 @@ async function addWeatherLayer() {
 		// Remove any existing overlay listeners...
 		if (typeof parent.overlayInfoWindowListenerHandle == "object") {
 			google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
-		};
+		}
 		// Initialize or close the shared overlay InfoWindow...
 		if (parent.overlayInfoWindow) {
 			parent.overlayInfoWindow.close();
 			parent.overlayInfoWindow = null;
-		};
+		}
 		parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
 		// Clear any previous earthquake contour lines...
 		if (parent.mmiContourLines) {
 			parent.mmiContourLines.forEach(line => line.setMap(null));
 			parent.mmiContourLines = [];
-		};
+		}
 
 		// Load the wildfire data from the ArcGIS site...
 		// More info about this source of active US wildfire data can be found at: https://www.arcgis.com/home/item.html?id=d957997ccee7408287a963600a77f61f
@@ -2791,7 +2800,7 @@ async function addWeatherLayer() {
 			parent.overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
 				parent.overlayInfoWindow.close();
 			});
-		};
+		}
 		// Look to see if we should add power outages to the map...
 		} else if (optionalMapType == "us-poweroutages") {
 			// USA Today power outage data URL (fetched via CORS proxy)...
@@ -2809,18 +2818,18 @@ async function addWeatherLayer() {
 				// Remove any existing overlay listeners...
 				if (typeof parent.overlayInfoWindowListenerHandle == "object") {
 					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
-				};
+				}
 				// Initialize or close the shared overlay InfoWindow...
 				if (parent.overlayInfoWindow) {
 					parent.overlayInfoWindow.close();
 					parent.overlayInfoWindow = null;
-				};
+				}
 				parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
 				// Clear any previous earthquake contour lines...
 				if (parent.mmiContourLines) {
 					parent.mmiContourLines.forEach(line => line.setMap(null));
 					parent.mmiContourLines = [];
-				};
+				}
 
 				// Fetch both data sources in parallel...
 				const [countiesResponse, outageResponse] = await Promise.all([
@@ -2830,10 +2839,10 @@ async function addWeatherLayer() {
 
 				if (!countiesResponse.ok) {
 					throw new Error(`Counties GeoJSON fetch error: ${countiesResponse.status}`);
-				};
+				}
 				if (!outageResponse.ok) {
 					throw new Error(`Power outage data fetch error: ${outageResponse.status}`);
-				};
+				}
 
 				// Parse the counties GeoJSON...
 				const countiesGeoJson = await countiesResponse.json();
@@ -2862,7 +2871,7 @@ async function addWeatherLayer() {
 							outageCount: parseInt(outageCount.replace(/,/g, ''), 10) || 0,
 							percentage: parseFloat(percentage) || 0,
 							fips: fips
-						};
+						}
 					}
 				}
 
@@ -2912,7 +2921,7 @@ async function addWeatherLayer() {
 						strokeWeight: 1.0,
 						strokeColor: strokeColor,
 						strokeOpacity: strokeOpacity
-					};
+					}
 				});
 
 				// Show county info on click...
@@ -2953,12 +2962,12 @@ async function addWeatherLayer() {
 					// Close any cluster InfoWindow that might be open...
 					if (clusterInfoWindow) {
 						clusterInfoWindow.close();
-					};
+					}
 					// Close any marker InfoWindow that might be open...
 					if (markerInfoWindow) {
 						markerInfoWindow.close();
 						markerInfoWindow = null;
-					};
+					}
 					parent.overlayInfoWindow.setPosition(event.latLng);
 					parent.overlayInfoWindow.open(map);
 				});
@@ -2974,7 +2983,7 @@ async function addWeatherLayer() {
 
 			} catch (error) {
 				console.error("Failed to fetch power outage data:", error);
-			};
+			}
 		} else if (optionalMapType == "earthquakes") {
 			// Clear any previous load of the overlay data...
 			map.data.forEach(function(feature) {
@@ -2983,18 +2992,18 @@ async function addWeatherLayer() {
 			// Remove any existing overlay listeners...
 			if (typeof parent.overlayInfoWindowListenerHandle == "object") {
 				google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
-			};
+			}
 			// Initialize or close the shared overlay InfoWindow...
 			if (parent.overlayInfoWindow) {
 				parent.overlayInfoWindow.close();
 				parent.overlayInfoWindow = null;
-			};
+			}
 			parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
 			// Clear any previous earthquake contour lines...
 			if (parent.mmiContourLines) {
 				parent.mmiContourLines.forEach(line => line.setMap(null));
 				parent.mmiContourLines = [];
-			};
+			}
 
 			// Load the earthquake data for the past day from the USGS site...
 			// More info about this source of earthquake data can be found at: https://publicapis.io/usgs-earthquake-hazards-program-api
@@ -3002,7 +3011,7 @@ async function addWeatherLayer() {
 				await map.data.loadGeoJson(`https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.geojson?ts=${Date.now()}`);
 			} else {
 				await map.data.loadGeoJson(`https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_day.geojson?ts=${Date.now()}`);
-			};
+			}
 			// Other options for different timeframes and magnitudes...
 			// map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson");
 			// await map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson");
@@ -3042,7 +3051,7 @@ async function addWeatherLayer() {
 					// Change icon opacity based on age of the event...
 					if (timeScale > iconOpacity) {
 						iconOpacity = timeScale;
-					};
+					}
 				} else {
 					let mag = feature.getProperty("mag");
 					// We'll use magnitude 7 as a the top of our scale (i.e. mag 7 will be full opacity, with lesser being more faded)...
@@ -3050,7 +3059,7 @@ async function addWeatherLayer() {
 					if (magScale > 0.5) {
 						iconOpacity = magScale;
 					}
-				};
+				}
 				// console.debug(`Opacity of ${feature.getProperty("place")} (mag ${feature.getProperty("mag")}): ${iconOpacity}`);
 
 				return {
@@ -3070,8 +3079,8 @@ async function addWeatherLayer() {
 					alertLabel = event.feature.getProperty("alert").toUpperCase();
 					if (alertLabelColor == "green") {
 						alertLabelColor = "lawngreen";
-					};
-				};
+					}
+				}
 				let quakeAgeInDays = (new Date() - quakeTime) / (86400 * 1000);
 
 				parent.overlayInfoWindow.setContent(`
@@ -3196,12 +3205,12 @@ async function addWeatherLayer() {
 				// Close any cluster InfoWindow that might be open...
 				if (clusterInfoWindow) {
 					clusterInfoWindow.close();
-				};
+				}
 				// Close any marker InfoWindow that might be open...
 				if (markerInfoWindow) {
 					markerInfoWindow.close();
 					markerInfoWindow = null;
-				};
+				}
 				parent.overlayInfoWindow.setPosition(event.latLng);
 				parent.overlayInfoWindow.open(map);
 
@@ -3210,7 +3219,7 @@ async function addWeatherLayer() {
 				if (parent.mmiContourLines) {
 					parent.mmiContourLines.forEach(line => line.setMap(null));
 					parent.mmiContourLines = [];
-				};
+				}
 				parent.mmiContourLines = [];
 
 				// Fetch the detail URL to get ShakeMap product data...
@@ -3285,18 +3294,18 @@ async function addWeatherLayer() {
 			// Remove any existing overlay listeners...
 			if (typeof parent.overlayInfoWindowListenerHandle == "object") {
 				google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
-			};
+			}
 			// Initialize or close the shared overlay InfoWindow...
 			if (parent.overlayInfoWindow) {
 				parent.overlayInfoWindow.close();
 				parent.overlayInfoWindow = null;
-			};
+			}
 			parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
 			// Clear any previous earthquake contour lines...
 			if (parent.mmiContourLines) {
 				parent.mmiContourLines.forEach(line => line.setMap(null));
 				parent.mmiContourLines = [];
-			};
+			}
 
 			try {
 				// Fetch the flooding data from the USGS API...
@@ -3304,7 +3313,7 @@ async function addWeatherLayer() {
 				const floodingResponse = await fetch(floodingDataURL);
 				if (!floodingResponse.ok) {
 					throw new Error(`Flooding data fetch error: ${floodingResponse.status}`);
-				};
+				}
 				const floodingData = await floodingResponse.json();
 				console.debug(`Flooding data loaded: ${floodingData.length} sites currently flooding`);
 
@@ -3321,7 +3330,7 @@ async function addWeatherLayer() {
 							properties: entry  // Store all entry data as feature properties
 						});
 						floodingFeatureCount++;
-					};
+					}
 				});
 
 				// Apply styling to the flooding Data layer...
@@ -3345,7 +3354,7 @@ async function addWeatherLayer() {
 						gage_height: feature.getProperty('gage_height'),
 						rp_elevation: feature.getProperty('rp_elevation'),
 						nwis_id: feature.getProperty('nwis_id')
-					};
+					}
 					parent.overlayInfoWindow.setContent(`
 						<div style="line-height:1.5;overflow:hidden;color:#333;max-width:300px;">
 							<h3 style="margin:0 0 8px 0;color:#4682B4;">${data.site_name || 'Unknown Site'}</h3>
@@ -3407,21 +3416,21 @@ async function addWeatherLayer() {
 					// Close any cluster InfoWindow that might be open...
 					if (clusterInfoWindow) {
 						clusterInfoWindow.close();
-					};
+					}
 					// Close any marker InfoWindow that might be open...
 					if (markerInfoWindow) {
 						markerInfoWindow.close();
 						markerInfoWindow = null;
-					};
+					}
 					parent.overlayInfoWindow.setPosition(event.latLng);
 					parent.overlayInfoWindow.open(map);
 				});
 			} catch (error) {
 				console.error("Failed to fetch flooding data:", error);
-			};
-		};
-	};
-};
+			}
+		}
+	}
+}
 
 // Function called when the "Reset Zoom" button is pressed...
 function resetZoom() {
@@ -3434,13 +3443,13 @@ function resetZoom() {
 			bottom: 70,
 			left: 70
 		});
-	};
+	}
 	// Reset the tilt & heading back to their original values...
 	mapTilt = defaultMapTilt;
 	mapHeading = defaultMapHeading;
 	map.setTilt(mapTilt);
 	map.setHeading(mapHeading);
-};
+}
 
 // Function to capture presses of the Enter key in the 'Group Filter' field (without this the widget refreshes in an error)...
 function groupkeyHandler(e) {
@@ -3452,8 +3461,8 @@ function groupkeyHandler(e) {
 		e.preventDefault();
 		// Refresh the group data...
 		refreshGroupData();
-	};
-};
+	}
+}
 
 function toggleMiscOptions() {
 	let areaElement = document.getElementById("optionsToggleArea");
@@ -3469,14 +3478,14 @@ function toggleMiscOptions() {
 		gearIcon.style.fill = "blue";
 		// gearIcon.style.fill = "#555";
 		gearIconChevron.style.display = "block";
-	};
-};
+	}
+}
 
 function waitForElm(selector) {
 	return new Promise(resolve => {
 		if (document.querySelector(selector)) {
 			return resolve(document.querySelector(selector));
-		};
+		}
 
 		const observer = new MutationObserver(mutations => {
 			if (document.querySelector(selector)) {
@@ -3491,4 +3500,4 @@ function waitForElm(selector) {
 			subtree: true
 		});
 	});
-};
+}

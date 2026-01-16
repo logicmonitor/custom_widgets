@@ -284,6 +284,7 @@ body {
 	gap: 6px;
 	padding: 4px 8px;
 	color: #3c4043;
+	font-size: 13px;
 }
 .group .features > div.drillDownButton {
 	background-color: #1a73e8;
