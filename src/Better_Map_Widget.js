@@ -1,5 +1,5 @@
 // Better Map Widget
-// Version 3.10
+// Version 3.11
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
@@ -2850,9 +2850,22 @@ async function addWeatherLayer() {
 				// Parse USA Today data (it's a JS file with variable assignment, not pure JSON)
 				// Format: var PowerOutagesJSON = { "type": "FeatureCollection", "features":[...] };
 				// Properties: n=name, o=outage count, c=percentage, f=FIPS code, m=time index
-				// Note: m=72 is the current data, lower values are historical. Only use m=72.
+				// Note: The highest m value represents the current data, lower values are historical.
 				const outageText = await outageResponse.text();
-				const CURRENT_TIME_INDEX = 72; // m=72 is always the most current data
+
+				// First pass: determine the maximum 'm' value (current time index) from the data
+				// This value can vary, so we dynamically detect it from the first county's data pattern
+				const mValueRegex = /"m"\s*:\s*(\d+)/g;
+				let maxTimeIndex = 0;
+				let mMatch;
+				while ((mMatch = mValueRegex.exec(outageText)) !== null) {
+					const mValue = parseInt(mMatch[1], 10) || 0;
+					if (mValue > maxTimeIndex) {
+						maxTimeIndex = mValue;
+					}
+				}
+				const CURRENT_TIME_INDEX = maxTimeIndex;
+				console.debug(`Detected maximum time index (m) value: ${CURRENT_TIME_INDEX}`);
 
 				// Extract properties from the USA Today data using regex
 				// We only need the properties, not the geometry (which references undefined variables)
@@ -2864,7 +2877,7 @@ async function addWeatherLayer() {
 					const [_, name, outageCount, percentage, fips, timeIndex] = match;
 					const timeIdx = parseInt(timeIndex, 10) || 0;
 
-					// Only keep entries where m=72 (current data)
+					// Only keep entries where m equals the maximum (current data)
 					if (timeIdx === CURRENT_TIME_INDEX) {
 						outageDataByFips[fips] = {
 							name: name,
