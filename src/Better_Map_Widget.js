@@ -861,6 +861,12 @@ async function initMap() {
 				line-height: 1.4;
 			`;
 
+			// Prevent clicks on the info window from propagating to the map/data layers beneath
+			this.div.addEventListener('click', (e) => e.stopPropagation());
+			this.div.addEventListener('mousedown', (e) => e.stopPropagation());
+			this.div.addEventListener('mouseup', (e) => e.stopPropagation());
+			this.div.addEventListener('dblclick', (e) => e.stopPropagation());
+
 			// Add close button
 			const closeBtn = document.createElement('div');
 			closeBtn.innerHTML = '×';
@@ -873,8 +879,12 @@ async function initMap() {
 				color: #666;
 				font-weight: bold;
 				line-height: 1;
+				z-index: 1001;
 			`;
-			closeBtn.onclick = () => this.close();
+			closeBtn.onclick = (e) => {
+				e.stopPropagation();
+				this.close();
+			};
 			closeBtn.onmouseover = () => closeBtn.style.color = '#333';
 			closeBtn.onmouseout = () => closeBtn.style.color = '#666';
 			this.div.appendChild(closeBtn);
