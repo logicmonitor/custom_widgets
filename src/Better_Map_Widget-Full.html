@@ -1,10 +1,10 @@
 <!--
-	Better Map Widget
-	Version 3.12
+	Better Map Widget (Leaflet Version)
+	Version 4.0
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
-	* Support for thousands pins on the map, though be aware that Google Maps will start to struggle if too many pins.
+	* Support for thousands pins on the map using Leaflet's efficient rendering.
 	* Adjacent pins get grouped/clustered together for a cleaner map display.
 	* Clusters use a donut chart to represent the severities of the grouped markers.
 	* Easy toggling of weather layers.
@@ -26,7 +26,7 @@
 	OPTIONAL DASHBOARD TOKENS:
 	* 'MapGroupPathFilter': Allows setting a default group path to start. Default is "*".
 	* 'MapShowWeather': If weather should be shown by default. Options are "global" or "nexrad". Default is "global".
-	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding" or "earthquakes". Default is "earthquakes".
+	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding", "earthquakes", "hurricanes", or "air-quality". Default is "earthquakes".
 	* 'HideMapOptions': If "true" then will hide the options bar by default. Default is "false".
 	* 'MapSourceType': Whether to map "groups", "resources", or "services". Default is "groups".
 	* 'MapIgnoreCleared': If "true" then will only show items currently alerting (useful for maps with thousands of markers). Default is "false".
@@ -35,16 +35,584 @@
 	* 'MapIgnoreCriticals': If "true" then won't show items in "Critical" status. Default is "false".
 	* 'MapIgnoreSDT': If "true" then won't show items in "SDT" status. Default is "false".
 	* 'AutoResetMapOnRefresh': If "true" then the map will automatically zoom to encompass all items on timed refreshes. Default is "false".
-	* 'MapShowTiltControls': If "true" then the tilt & rotation controls for the map will be shown. Default is "false".
 	* 'MapDisableClustering': If "true" then clustering of adjacent markers on the map will be disabled. Might be desirable if showing connections between locations since clustering might hide markers at certain zoom levels. Default is "false".
 	* 'MapDisplayProperties': An optional comma-delimited list of custom properties to show when viewing a group's/resource's details.
 	* 'MapStyle': Allows one of the following available map style options: "silver", "standard", "dark", "aubergine", or "silverblue". Default is "silverblue".
-	* 'MapShowRoadLabels': If "true" then road labels will be shown on the map. Default is "false".
 
 	LIMITATIONS:
 	* This widget is currently unable to leverage LogicMonitor's native dashboard filters.
 	* Being custom-developed, LogicMonitor's support teams will be limited in what they can assist with regarding questions/issues.
 -->
+
+<!-- Leaflet CSS (embedded to ensure it loads in widget environments) -->
+<style>
+/* Leaflet 1.9.4 Core CSS */
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+	position: absolute;
+	left: 0;
+	top: 0;
+}
+.leaflet-container {
+	overflow: hidden;
+}
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	user-select: none;
+	-webkit-user-drag: none;
+}
+.leaflet-tile::selection {
+	background: transparent;
+}
+.leaflet-safari .leaflet-tile {
+	image-rendering: -webkit-optimize-contrast;
+}
+.leaflet-safari .leaflet-tile-container {
+	width: 1600px;
+	height: 1600px;
+	-webkit-transform-origin: 0 0;
+}
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	display: block;
+}
+.leaflet-container .leaflet-overlay-pane svg {
+	max-width: none !important;
+	max-height: none !important;
+}
+.leaflet-container .leaflet-marker-pane img,
+.leaflet-container .leaflet-shadow-pane img,
+.leaflet-container .leaflet-tile-pane img,
+.leaflet-container img.leaflet-image-layer,
+.leaflet-container .leaflet-tile {
+	max-width: none !important;
+	max-height: none !important;
+	width: auto;
+	padding: 0;
+}
+.leaflet-container.leaflet-touch-zoom {
+	-ms-touch-action: pan-x pan-y;
+	touch-action: pan-x pan-y;
+}
+.leaflet-container.leaflet-touch-drag {
+	-ms-touch-action: pinch-zoom;
+	touch-action: none;
+	touch-action: pinch-zoom;
+}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom {
+	-ms-touch-action: none;
+	touch-action: none;
+}
+.leaflet-container {
+	-webkit-tap-highlight-color: transparent;
+}
+.leaflet-container a {
+	-webkit-tap-highlight-color: rgba(51, 181, 229, 0.4);
+}
+.leaflet-tile {
+	filter: inherit;
+	visibility: hidden;
+}
+.leaflet-tile-loaded {
+	visibility: inherit;
+}
+.leaflet-zoom-box {
+	width: 0;
+	height: 0;
+	-moz-box-sizing: border-box;
+	box-sizing: border-box;
+	z-index: 800;
+}
+.leaflet-overlay-pane svg {
+	-moz-user-select: none;
+}
+.leaflet-pane { z-index: 400; }
+.leaflet-tile-pane { z-index: 200; }
+.leaflet-overlay-pane { z-index: 400; }
+.leaflet-shadow-pane { z-index: 500; }
+.leaflet-marker-pane { z-index: 600; }
+.leaflet-tooltip-pane { z-index: 650; }
+.leaflet-popup-pane { z-index: 700; }
+.leaflet-map-pane canvas { z-index: 100; }
+.leaflet-map-pane svg { z-index: 200; }
+.leaflet-vml-shape {
+	width: 1px;
+	height: 1px;
+}
+.lvml {
+	behavior: url(#default#VML);
+	display: inline-block;
+	position: absolute;
+}
+.leaflet-control {
+	position: relative;
+	z-index: 800;
+	pointer-events: visiblePainted;
+	pointer-events: auto;
+}
+.leaflet-top,
+.leaflet-bottom {
+	position: absolute;
+	z-index: 1000;
+	pointer-events: none;
+}
+.leaflet-top { top: 0; }
+.leaflet-right { right: 0; }
+.leaflet-bottom { bottom: 0; }
+.leaflet-left { left: 0; }
+.leaflet-control {
+	float: left;
+	clear: both;
+}
+.leaflet-right .leaflet-control {
+	float: right;
+}
+.leaflet-top .leaflet-control {
+	margin-top: 10px;
+}
+.leaflet-bottom .leaflet-control {
+	margin-bottom: 10px;
+}
+.leaflet-left .leaflet-control {
+	margin-left: 10px;
+}
+.leaflet-right .leaflet-control {
+	margin-right: 10px;
+}
+.leaflet-fade-anim .leaflet-popup {
+	opacity: 0;
+	-webkit-transition: opacity 0.2s linear;
+	-moz-transition: opacity 0.2s linear;
+	transition: opacity 0.2s linear;
+}
+.leaflet-fade-anim .leaflet-map-pane .leaflet-popup {
+	opacity: 1;
+}
+.leaflet-zoom-animated {
+	-webkit-transform-origin: 0 0;
+	-ms-transform-origin: 0 0;
+	transform-origin: 0 0;
+}
+svg.leaflet-zoom-animated {
+	will-change: transform;
+}
+.leaflet-zoom-anim .leaflet-zoom-animated {
+	-webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1);
+	-moz-transition: -moz-transform 0.25s cubic-bezier(0,0,0.25,1);
+	transition: transform 0.25s cubic-bezier(0,0,0.25,1);
+}
+.leaflet-zoom-anim .leaflet-tile,
+.leaflet-pan-anim .leaflet-tile {
+	-webkit-transition: none;
+	-moz-transition: none;
+	transition: none;
+}
+.leaflet-zoom-anim .leaflet-zoom-hide {
+	visibility: hidden;
+}
+.leaflet-interactive {
+	cursor: pointer;
+}
+.leaflet-grab {
+	cursor: -webkit-grab;
+	cursor: -moz-grab;
+	cursor: grab;
+}
+.leaflet-crosshair,
+.leaflet-crosshair .leaflet-interactive {
+	cursor: crosshair;
+}
+.leaflet-popup-pane,
+.leaflet-control {
+	cursor: auto;
+}
+.leaflet-dragging .leaflet-grab,
+.leaflet-dragging .leaflet-grab .leaflet-interactive,
+.leaflet-dragging .leaflet-marker-draggable {
+	cursor: move;
+	cursor: -webkit-grabbing;
+	cursor: -moz-grabbing;
+	cursor: grabbing;
+}
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-image-layer,
+.leaflet-pane > svg path,
+.leaflet-tile-container {
+	pointer-events: none;
+}
+.leaflet-marker-icon.leaflet-interactive,
+.leaflet-image-layer.leaflet-interactive,
+.leaflet-pane > svg path.leaflet-interactive,
+svg.leaflet-image-layer.leaflet-interactive path {
+	pointer-events: visiblePainted;
+	pointer-events: auto;
+}
+.leaflet-container {
+	background: #ddd;
+	outline-offset: 1px;
+}
+.leaflet-container a {
+	color: #0078A8;
+}
+.leaflet-zoom-box {
+	border: 2px dotted #38f;
+	background: rgba(255,255,255,0.5);
+}
+.leaflet-container {
+	font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-size: .75rem;
+	line-height: 1.5;
+}
+.leaflet-bar {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+	border-radius: 4px;
+}
+.leaflet-bar a {
+	background-color: #fff;
+	border-bottom: 1px solid #ccc;
+	width: 26px;
+	height: 26px;
+	line-height: 26px;
+	display: block;
+	text-align: center;
+	text-decoration: none;
+	color: black;
+}
+.leaflet-bar a,
+.leaflet-control-layers-toggle {
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+	display: block;
+}
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+	background-color: #f4f4f4;
+}
+.leaflet-bar a:first-child {
+	border-top-left-radius: 4px;
+	border-top-right-radius: 4px;
+}
+.leaflet-bar a:last-child {
+	border-bottom-left-radius: 4px;
+	border-bottom-right-radius: 4px;
+	border-bottom: none;
+}
+.leaflet-bar a.leaflet-disabled {
+	cursor: default;
+	background-color: #f4f4f4;
+	color: #bbb;
+}
+.leaflet-touch .leaflet-bar a {
+	width: 30px;
+	height: 30px;
+	line-height: 30px;
+}
+.leaflet-touch .leaflet-bar a:first-child {
+	border-top-left-radius: 2px;
+	border-top-right-radius: 2px;
+}
+.leaflet-touch .leaflet-bar a:last-child {
+	border-bottom-left-radius: 2px;
+	border-bottom-right-radius: 2px;
+}
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+	font: bold 18px 'Lucida Console', Monaco, monospace;
+	text-indent: 1px;
+}
+.leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out {
+	font-size: 22px;
+}
+.leaflet-control-layers {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+	background: #fff;
+	border-radius: 5px;
+}
+.leaflet-control-layers-toggle {
+	width: 36px;
+	height: 36px;
+}
+.leaflet-touch .leaflet-control-layers-toggle {
+	width: 44px;
+	height: 44px;
+}
+.leaflet-control-layers .leaflet-control-layers-list,
+.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+	display: none;
+}
+.leaflet-control-layers-expanded .leaflet-control-layers-list {
+	display: block;
+	position: relative;
+}
+.leaflet-control-layers-expanded {
+	padding: 6px 10px 6px 6px;
+	color: #333;
+	background: #fff;
+}
+.leaflet-control-layers-scrollbar {
+	overflow-y: scroll;
+	overflow-x: hidden;
+	padding-right: 5px;
+}
+.leaflet-control-layers-selector {
+	margin-top: 2px;
+	position: relative;
+	top: 1px;
+}
+.leaflet-control-layers label {
+	display: block;
+	font-size: 13px;
+	font-size: .8125rem;
+}
+.leaflet-control-layers-separator {
+	height: 0;
+	border-top: 1px solid #ddd;
+	margin: 5px -10px 5px -6px;
+}
+.leaflet-container .leaflet-control-attribution {
+	background: #fff;
+	background: rgba(255, 255, 255, 0.8);
+	margin: 0;
+}
+.leaflet-control-attribution,
+.leaflet-control-scale-line {
+	padding: 0 5px;
+	color: #333;
+	line-height: 1.4;
+}
+.leaflet-control-attribution a {
+	text-decoration: none;
+}
+.leaflet-control-attribution a:hover,
+.leaflet-control-attribution a:focus {
+	text-decoration: underline;
+}
+.leaflet-left .leaflet-control-scale {
+	margin-left: 5px;
+}
+.leaflet-bottom .leaflet-control-scale {
+	margin-bottom: 5px;
+}
+.leaflet-control-scale-line {
+	border: 2px solid #777;
+	border-top: none;
+	line-height: 1.1;
+	padding: 2px 5px 1px;
+	white-space: nowrap;
+	-moz-box-sizing: border-box;
+	box-sizing: border-box;
+	background: rgba(255, 255, 255, 0.8);
+	text-shadow: 1px 1px #fff;
+}
+.leaflet-control-scale-line:not(:first-child) {
+	border-top: 2px solid #777;
+	border-bottom: none;
+	margin-top: -2px;
+}
+.leaflet-control-scale-line:not(:first-child):not(:last-child) {
+	border-bottom: 2px solid #777;
+}
+.leaflet-touch .leaflet-control-attribution,
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	box-shadow: none;
+}
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	border: 2px solid rgba(0,0,0,0.2);
+	background-clip: padding-box;
+}
+.leaflet-popup {
+	position: absolute;
+	text-align: center;
+	margin-bottom: 20px;
+}
+.leaflet-popup-content-wrapper {
+	padding: 1px;
+	text-align: left;
+	border-radius: 12px;
+}
+.leaflet-popup-content {
+	margin: 13px 24px 13px 20px;
+	line-height: 1.3;
+	font-size: 13px;
+	font-size: .8125rem;
+	min-height: 1px;
+}
+.leaflet-popup-content p {
+	margin: 17px 0;
+	margin: 1.3em 0;
+}
+.leaflet-popup-tip-container {
+	width: 40px;
+	height: 20px;
+	position: absolute;
+	left: 50%;
+	margin-top: -1px;
+	margin-left: -20px;
+	overflow: hidden;
+	pointer-events: none;
+}
+.leaflet-popup-tip {
+	width: 17px;
+	height: 17px;
+	padding: 1px;
+	margin: -10px auto 0;
+	pointer-events: auto;
+	-webkit-transform: rotate(45deg);
+	-moz-transform: rotate(45deg);
+	-ms-transform: rotate(45deg);
+	transform: rotate(45deg);
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+	background: white;
+	color: #333;
+	box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+}
+.leaflet-container a.leaflet-popup-close-button {
+	position: absolute;
+	top: 0;
+	right: 0;
+	border: none;
+	text-align: center;
+	width: 24px;
+	height: 24px;
+	font: 16px/24px Tahoma, Verdana, sans-serif;
+	color: #757575;
+	text-decoration: none;
+	background: transparent;
+}
+.leaflet-container a.leaflet-popup-close-button:hover,
+.leaflet-container a.leaflet-popup-close-button:focus {
+	color: #585858;
+}
+.leaflet-popup-scrolled {
+	overflow: auto;
+}
+.leaflet-div-icon {
+	background: #fff;
+	border: 1px solid #666;
+}
+.leaflet-tooltip {
+	position: absolute;
+	padding: 6px;
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 3px;
+	color: #222;
+	white-space: nowrap;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	pointer-events: none;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.leaflet-tooltip.leaflet-interactive {
+	cursor: pointer;
+	pointer-events: auto;
+}
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	position: absolute;
+	pointer-events: none;
+	border: 6px solid transparent;
+	background: transparent;
+	content: "";
+}
+.leaflet-tooltip-bottom { margin-top: 6px; }
+.leaflet-tooltip-top { margin-top: -6px; }
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-top:before {
+	left: 50%;
+	margin-left: -6px;
+}
+.leaflet-tooltip-top:before {
+	bottom: 0;
+	margin-bottom: -12px;
+	border-top-color: #fff;
+}
+.leaflet-tooltip-bottom:before {
+	top: 0;
+	margin-top: -12px;
+	margin-left: -6px;
+	border-bottom-color: #fff;
+}
+.leaflet-tooltip-left { margin-left: -6px; }
+.leaflet-tooltip-right { margin-left: 6px; }
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	top: 50%;
+	margin-top: -6px;
+}
+.leaflet-tooltip-left:before {
+	right: 0;
+	margin-right: -12px;
+	border-left-color: #fff;
+}
+.leaflet-tooltip-right:before {
+	left: 0;
+	margin-left: -12px;
+	border-right-color: #fff;
+}
+
+/* MarkerCluster CSS */
+.marker-cluster-small {
+	background-color: rgba(181, 226, 140, 0.6);
+}
+.marker-cluster-small div {
+	background-color: rgba(110, 204, 57, 0.6);
+}
+.marker-cluster-medium {
+	background-color: rgba(241, 211, 87, 0.6);
+}
+.marker-cluster-medium div {
+	background-color: rgba(240, 194, 12, 0.6);
+}
+.marker-cluster-large {
+	background-color: rgba(253, 156, 115, 0.6);
+}
+.marker-cluster-large div {
+	background-color: rgba(241, 128, 23, 0.6);
+}
+.marker-cluster {
+	background-clip: padding-box;
+	border-radius: 20px;
+}
+.marker-cluster div {
+	width: 30px;
+	height: 30px;
+	margin-left: 5px;
+	margin-top: 5px;
+	text-align: center;
+	border-radius: 15px;
+	font: 12px "Helvetica Neue", Arial, Helvetica, sans-serif;
+}
+.marker-cluster span {
+	line-height: 30px;
+}
+</style>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<!-- Leaflet MarkerCluster JS -->
+<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
 
 
 <script>
@@ -77,7 +645,7 @@
 	// You can set it here or in a dashboard token named "MapShowWeather"...
 	let showWeatherDefault = "no";
 
-	// If weather is shown, whether to show "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
+	// If weather is shown, whether to show "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding", "earthquakes", "hurricanes", or "air-quality"...
 	// You can set it here or in a dashboard token named "MapOverlayOption"...
 	let additionalOverlayOption = "earthquakes";
 
@@ -95,21 +663,14 @@
 	// Since we generally don't need to poll all properties every time, we can just grab them initially then occasionally every x number of polls based on the following variable (set to 0 to perform a full refresh every time)...
 	const fullRefreshInterval = 0;
 
-	// Optional angle & heading for the Google Map...
-	let showMapTiltControls = false;
-	let mapTilt = 0;
-	let mapHeading = 0;
-
 	// Whether to include inherited locations in addition to those directly set on resources and/or services (disabling this can greatly increase refresh speed)...
 	const pollInheritedLocations = true;
 
 	// Typically if both a 'latitude' & 'longitude' property are set, then we can assume the address is already geocoded. Set this to "true" to force geocoding the address instead...
 	const ignoreLatLongProps = false;
 
-	// Whether the Google Maps uses the "cooperative" gesture handling, or "greedy" that allows mouse-wheel zooming without having to hold a modifier key (Google's default is "cooperative")...
-	const mapGestureHandling = "cooperative";
-	// Whether to show road labels...
-	let showRoadLabels = "off";
+	// Whether Leaflet uses scroll wheel zoom (true = enabled, false = disabled requiring ctrl+scroll)...
+	const scrollWheelZoom = true;
 
 	// An optional comma-delimited list of custom properties to show when viewing a group's/resource's details...
 	// You can set it here or in a dashboard token named "MapDisplayProperties"...
@@ -138,18 +699,62 @@
 
 <!-- Our CSS styles... -->
 <style type="text/css">
+	html, body {
+		height: 100%;
+		margin: 0;
+		padding: 0;
+	}
 	body {
 		margin-top: 0;
 	}
 	.customMapBody {
 		display: flex;
 		flex-direction: column;
+		height: 100%;
+		width: 100%;
+		padding: 0;
+		margin: 0;
+		box-sizing: border-box;
 	}
-	.customMapBody, #googleMap {
+	#leafletMap {
 		width: 100%;
 		height: 100%;
 		padding: 0;
 		margin: 0;
+		position: relative;
+		overflow: hidden;
+	}
+	/* Leaflet adds .leaflet-container class to the map div itself */
+	#leafletMap.leaflet-container {
+		width: 100% !important;
+		height: 100% !important;
+	}
+	/* Critical: Ensure tile panes and containers are properly positioned */
+	#leafletMap .leaflet-map-pane {
+		position: absolute !important;
+		left: 0 !important;
+		top: 0 !important;
+	}
+	#leafletMap .leaflet-tile-pane {
+		position: absolute !important;
+		left: 0 !important;
+		top: 0 !important;
+	}
+	#leafletMap .leaflet-tile-container {
+		position: absolute !important;
+		left: 0 !important;
+		top: 0 !important;
+	}
+	#leafletMap .leaflet-tile {
+		position: absolute !important;
+	}
+	/* Prevent any transitions from affecting Leaflet tile positioning */
+	#leafletMap .leaflet-tile,
+	#leafletMap .leaflet-tile-container,
+	#leafletMap .leaflet-tile-pane,
+	#leafletMap .leaflet-map-pane {
+		transition: none !important;
+		animation: none !important;
 	}
 	.optionsHidden * {
 		max-height: 0;
@@ -190,10 +795,13 @@
 		flex: none;
 		align-items: center;
 	}
-	#googleMap {
+	#leafletMap {
 		order: 2;
+		flex: 1;
 		border: 1px solid #aaa;
 		border-radius: 7px;
+		z-index: 0;
+		min-height: 300px;
 	}
 	#customMapRefreshButton, #customMapResetZoom {
 		margin-right: 5px;
@@ -567,9 +1175,51 @@
 		top: 85%;
 	}
 
-	/* Something about the Froala editor causes the default Gmap buttons to be shifted. This appears to fix that... */
-	.gm-control-active {
-		padding: 10px !important;
+	/* Leaflet-specific styles */
+	.leaflet-popup-content a:focus {
+		outline: none;
+	}
+	.leaflet-popup-content {
+		margin: 8px 12px;
+	}
+	.leaflet-popup-content-wrapper {
+		border-radius: 8px;
+	}
+	
+	/* Custom control button styles */
+	.leaflet-control-custom {
+		background-color: #fff;
+		border: none;
+		border-radius: 4px;
+		box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+		cursor: pointer;
+		width: 34px;
+		height: 34px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.leaflet-control-custom:hover {
+		background-color: #f4f4f4;
+	}
+	.leaflet-control-custom svg {
+		width: 20px;
+		height: 20px;
+	}
+
+	/* Marker cluster donut chart styles */
+	.cluster-donut {
+		background: transparent !important;
+		border: none !important;
+	}
+	.cluster-donut svg {
+		filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.4));
+	}
+
+	/* Custom marker icon styles */
+	.leaflet-marker-icon.group-marker {
+		background: transparent !important;
+		border: none !important;
 	}
 
 	[data-title]:hover:after {
@@ -596,9 +1246,6 @@
 	[data-title] {
 		position: relative;
 	}
-	.gm-style-iw a:focus {
-		outline: none;
-	}
 	.quakeMarker {
 		filter: drop-shadow(0px 0px 3px white);
 		position: absolute;
@@ -613,11 +1260,23 @@
 		border: 1px solid white;
 	}
 
-	/* Fix for Google's default control icons being off-center in Safari...  */
-	@media screen and (-webkit-min-device-pixel-ratio:0) {
-		.gm-control-active {
-			display: flex !important;
-		}
+	/* Custom popup styles for overlays */
+	.custom-overlay-popup .leaflet-popup-content-wrapper {
+		padding: 0;
+	}
+	.custom-overlay-popup .leaflet-popup-content {
+		margin: 12px;
+		min-width: 200px;
+	}
+
+	/* Update status area styles for Leaflet */
+	.leaflet-top .leaflet-control.update-status {
+		background: white;
+		padding: 8px 12px;
+		border-radius: 4px;
+		box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+		font-size: 14px;
+		color: darkblue;
 	}
 </style>
 
@@ -703,6 +1362,16 @@
 								<input type="radio" id="usFlooding" name="otherWeatherOverlays" value="us-flooding" />
 								<label for="usFlooding">US Flooding</label>
 							</span>
+
+							<span data-title="Active tropical storms and hurricanes (NOAA NHC)" onclick="enableWeather();">
+								<input type="radio" id="hurricanes" name="otherWeatherOverlays" value="hurricanes" />
+								<label for="hurricanes">Hurricanes</label>
+							</span>
+
+							<span data-title="Air Quality Index contours (EPA AirNow)" onclick="enableWeather();">
+								<input type="radio" id="airQuality" name="otherWeatherOverlays" value="air-quality" />
+								<label for="airQuality">Air Quality</label>
+							</span>
 						</span>
 					</span>
 				</span>
@@ -716,20 +1385,8 @@
 	</div>
 
 	<!-- Placeholder for our map... -->
-	<div id="googleMap">&nbsp;</div>
+	<div id="leafletMap"></div>
 </div>
-
-<!-- Initialize Google Maps... -->
-<script>
-	// Fetch our map API key to use...
-	let apiKey = parent.LMGlobalData.googleMapInfo.key.toString();
-
-	(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
-	({key: apiKey, v: "weekly"});
-</script>
-
-<!-- Google's Marker Clusterer extension for grouping adjacent markers... -->
-<!-- <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script> -->
 
 <script>
 	// ------------------------------------------------------------
@@ -1041,7 +1698,7 @@
 		showWeatherDefault = dashboardShowWeatherToken;
 	}
 	let dashboardAddlOverlayToken = "##MapOverlayOption##".toLowerCase();
-	if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
+	if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding" || dashboardAddlOverlayToken == "hurricanes" || dashboardAddlOverlayToken == "air-quality") {
 		additionalOverlayOption = dashboardAddlOverlayToken;
 	}
 
@@ -1124,9 +1781,10 @@
 	const dashboardID = locationHash.replace("#dashboard=", "");
 	const pathName = parent.window.location.pathname;
 
-	// Note our original tilt & heading values...
-	const defaultMapTilt = mapTilt;
-	const defaultMapHeading = mapHeading;
+	// Note: Leaflet doesn't support tilt/heading like Google Maps
+	// These variables are kept for compatibility but not used
+	const defaultMapTilt = 0;
+	const defaultMapHeading = 0;
 
 	// SVG icon definitions for our different alert severities...
 	const warningIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024" data-tooltip="Warning"><path fill="#f5ca1d" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M866.462 669.538l-275.692-433.231c-43.323-70.892-114.215-70.892-157.538 0l-275.692 433.231c-43.323 70.892-3.938 157.538 78.769 157.538h551.385c82.708 0 122.092-86.646 78.769-157.538v0 0z"></path> <path fill="#f5ca1d" d="M551.385 748.308h-78.769v-78.769h78.769v78.769zM551.385 630.154h-78.769v-275.692h78.769v275.692z"></path> </svg>';
@@ -1141,18 +1799,35 @@
 	const optionsToggleHiddenIcon = '<svg class="svg-inline--fa fa-square-caret-down" aria-hidden="true" focusable="false" data-prefix="far" data-icon="square-caret-down" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" data-fa-i2svg="" style="width: 25px; height: 25px;"><path fill="#000000" d="M320 192H128C118.5 192 109.8 197.7 105.1 206.4C102.2 215.1 103.9 225.3 110.4 232.3l96 104C210.9 341.2 217.3 344 224 344s13.09-2.812 17.62-7.719l96-104c6.469-7 8.188-17.19 4.375-25.91C338.2 197.7 329.5 192 320 192zM384 32H64C28.65 32 0 60.66 0 96v320c0 35.34 28.65 64 64 64h320c35.35 0 64-28.66 64-64V96C448 60.66 419.3 32 384 32zM400 416c0 8.82-7.178 16-16 16H64c-8.822 0-16-7.18-16-16V96c0-8.82 7.178-16 16-16h320c8.822 0 16 7.18 16 16V416z"></path></svg>';
 
 
-	// I'm making various different map color schemes available, created using Google's style editor (https://mapstyle.withgoogle.com/). Feel free to create your own and add it as a variable. We'll then set which style later in the 'initMap' function.
-
-	const standardStyle = [ { "stylers": [ { "lightness": 60 } ] }, { "elementType": "labels", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi.business", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "transit", "stylers": [ { "visibility": "off" } ] } ];
-	// const standardStyle = [ { "stylers": [ { "lightness": 60 } ] } ];
-
-	const silverStyle = [ { "elementType": "geometry", "stylers": [ { "color": "#f5f5f5" } ] }, { "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "elementType": "labels.text.fill", "stylers": [ { "color": "#616161" }, { "lightness": 70 } ] }, { "elementType": "labels.text.stroke", "stylers": [ { "color": "#f5f5f5" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [ { "color": "#000000" }, { "lightness": 85 } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [ { "color": "#bdbdbd" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [ { "color": "#000000" }, { "lightness": 80 } ] }, { "featureType": "poi", "elementType": "geometry", "stylers": [ { "color": "#eeeeee" } ] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [ { "color": "#e5e5e5" } ] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] }, { "featureType": "road", "stylers": [ { "lightness": 45 } ] }, { "featureType": "road", "elementType": "geometry", "stylers": [ { "color": "#ffffff" }, { "lightness": 55 } ] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [ { "lightness": 55 } ] }, { "featureType": "road", "elementType": "geometry.stroke", "stylers": [ { "lightness": 55 } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "lightness": -15 }, { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.text.stroke", "stylers": [ { "color": "#ffffff" } ] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [ { "color": "#dadada" }, { "lightness": 50 }, { "weight": 0.5 } ] }, { "featureType": "transit.line", "elementType": "geometry", "stylers": [ { "color": "#e5e5e5" } ] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [ { "color": "#eeeeee" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#c9c9c9" }, { "lightness": 20 } ] }, { "featureType": "water", "elementType": "geometry.fill", "stylers": [ { "lightness": 35 } ] }, { "featureType": "water", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] } ];
-
-	const silverBlueStyle = [ { "elementType": "geometry", "stylers": [{ "color": "#f5f5f5" }] }, { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] }, { "elementType": "labels.text.fill", "stylers": [{ "color": "#616161" }, { "lightness": 70 }] }, { "elementType": "labels.text.stroke", "stylers": [{ "color": "#f5f5f5" }] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [{ "color": "#000000" }, { "lightness": 85 }] }, { "featureType": "administrative.land_parcel", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [{ "color": "#bdbdbd" }] }, { "featureType": "administrative.neighborhood", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [{ "color": "#000000" }, { "lightness": 80 }] }, { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#eeeeee" }] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [{ "visibility": "off" }] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#e5e5e5" }] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] }, { "featureType": "road", "stylers": [{ "lightness": 45 }] }, { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#ffffff" }, { "lightness": 55 }] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [{ "lightness": 55 }] }, { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "lightness": 55 }] }, { "featureType": "road", "elementType": "labels", "stylers": [{ "visibility": showRoadLabels, "lightness": -15 }] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#dadada" }, { "lightness": 50 }, { "weight": 0.5 }] }, { "featureType": "transit.line", "elementType": "geometry", "stylers": [{ "color": "#e5e5e5" }] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [{ "color": "#eeeeee" }] }, { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#c9c9c9" }, { "lightness": 20 }] }, { "featureType": "water", "elementType": "geometry.fill", "stylers": [{ "color": "#cad0d8" }, { "lightness": 35 }] }, { "featureType": "water", "elementType": "labels.text", "stylers": [{ "visibility": "off" }] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] } ];
-
-	const darkStyle = [ { "elementType": "geometry", "stylers": [ { "color": "#212121" } ] }, { "elementType": "geometry.fill", "stylers": [ { "lightness": 10 } ] }, { "elementType": "labels", "stylers": [ { "visibility": "off" } ] }, { "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "elementType": "labels.text.stroke", "stylers": [ { "color": "#212121" } ] }, { "featureType": "administrative", "elementType": "geometry", "stylers": [ { "color": "#757575" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.country", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [ { "color": "#bdbdbd" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [ { "color": "#181818" } ] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [ { "color": "#616161" } ] }, { "featureType": "poi.park", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1b1b1b" } ] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [ { "color": "#2c2c2c" } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.text.fill", "stylers": [ { "color": "#8a8a8a" } ] }, { "featureType": "road.arterial", "elementType": "geometry", "stylers": [ { "color": "#373737" } ] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [ { "color": "#3c3c3c" } ] }, { "featureType": "road.highway.controlled_access", "elementType": "geometry", "stylers": [ { "color": "#4e4e4e" } ] }, { "featureType": "road.local", "elementType": "labels.text.fill", "stylers": [ { "color": "#616161" } ] }, { "featureType": "transit", "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#000000" } ] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [ { "color": "#3d3d3d" } ] } ];
-
-	const aubergineStyle = [ { "elementType": "geometry", "stylers": [ { "color": "#1d2c4d" } ] }, { "elementType": "labels", "stylers": [ { "visibility": showRoadLabels } ] }, { "elementType": "labels.text.fill", "stylers": [ { "color": "#8ec3b9" } ] }, { "elementType": "labels.text.stroke", "stylers": [ { "color": "#1a3646" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [ { "color": "#4b6878" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [ { "color": "#64779e" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [ { "color": "#4b6878" } ] }, { "featureType": "landscape.man_made", "elementType": "geometry.stroke", "stylers": [ { "color": "#334e87" } ] }, { "featureType": "landscape.natural", "elementType": "geometry", "stylers": [ { "color": "#023e58" } ] }, { "featureType": "poi", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "geometry", "stylers": [ { "color": "#283d6a" } ] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [ { "color": "#6f9ba5" } ] }, { "featureType": "poi", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1d2c4d" } ] }, { "featureType": "poi.park", "elementType": "geometry.fill", "stylers": [ { "color": "#023e58" } ] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [ { "color": "#3C7680" } ] }, { "featureType": "road", "elementType": "geometry", "stylers": [ { "color": "#304a7d" } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.text.fill", "stylers": [ { "color": "#98a5be" }, { "lightness": -30 } ] }, { "featureType": "road", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1d2c4d" } ] }, { "featureType": "transit", "elementType": "labels.text.fill", "stylers": [ { "color": "#98a5be" } ] }, { "featureType": "transit", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1d2c4d" } ] }, { "featureType": "transit.line", "elementType": "geometry.fill", "stylers": [ { "color": "#283d6a" } ] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [ { "color": "#3a4762" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#0e1626" } ] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [ { "color": "#4e6d70" } ] } ];
+	// Leaflet tile provider URLs for different map styles
+	// These replace the Google Maps styled map types with equivalent Leaflet tile providers
+	const tileProviders = {
+		standard: {
+			url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+			maxZoom: 20
+		},
+		silver: {
+			url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+			maxZoom: 20
+		},
+		silverblue: {
+			url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+			maxZoom: 20
+		},
+		dark: {
+			url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+			maxZoom: 20
+		},
+		aubergine: {
+			url: 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png',
+			attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+			maxZoom: 20
+		}
+	};
 
 	// RainViewer map options (feel free to change these to suit your taste)...
 	const rvOptionKind = 'radar'; // can be 'radar' or 'satellite'
@@ -1172,10 +1847,15 @@
 		maximumFractionDigits: 0,
 	}
 
-	// Adding a top-level placeholder for our Google Map objects...
-	let map = "";
-	let clusterer = "";
-	let bounds = "";
+	// Adding a top-level placeholder for our Leaflet map objects...
+	let map = null;
+	let clusterer = null;
+	let bounds = null;
+	let baseTileLayer = null;
+	let weatherTileLayer = null;
+	let overlayLayer = null;
+	let hurricaneLayer = null;
+	let aqiLayer = null;
 
 	// Fetch helper with timeout & AbortController...
 	if (!window.fetchJson) {
@@ -1214,13 +1894,16 @@
 
 	// Utility function to clear all markers from the map (consolidates repeated code)
 	function clearAllMarkers() {
-		markers.forEach(m => m.setMap(null));
+		if (clusterer) {
+			clusterer.clearLayers();
+		}
+		markers.forEach(m => {
+			if (map && map.hasLayer(m)) {
+				map.removeLayer(m);
+			}
+		});
 		markers = [];
 		markersByDeviceID.clear();
-		if (clusterer && typeof clusterer === "object") {
-			google.maps.event.clearInstanceListeners(clusterer);
-			clusterer.setMap(null);
-		}
 	}
 
 	// Clear all connecting polylines and their listeners
@@ -1228,9 +1911,8 @@
 		if (polylines.length === 0) return;
 		// console.debug("Clearing " + polylines.length + " polylines");
 		polylines.forEach(p => {
-			if (p && p.polyline) {
-				google.maps.event.clearInstanceListeners(p.polyline);
-				p.polyline.setMap(null);
+			if (p && p.polyline && map) {
+				map.removeLayer(p.polyline);
 			}
 		});
 		polylines = [];
@@ -1245,7 +1927,7 @@
 			const sourcePos = getMarkerOrClusterPosition(p.sourceDeviceID);
 			const targetPos = getMarkerOrClusterPosition(p.targetDeviceID);
 			if (sourcePos && targetPos) {
-				p.polyline.setPath([sourcePos, targetPos]);
+				p.polyline.setLatLngs([sourcePos, targetPos]);
 			}
 		});
 	}
@@ -1257,50 +1939,17 @@
 		const marker = markersByDeviceID.get(deviceID) || markersByDeviceID.get(String(deviceID));
 		if (!marker) return null;
 
-		// Check if clustering is enabled and marker is in a cluster
-		if (clusterer) {
-			// Get clusters - the MarkerClusterer library stores them in .clusters after rendering
-			const clusters = clusterer.clusters || [];
-			for (const cluster of clusters) {
-				// Each cluster has a .markers array and a .marker (the rendered cluster marker)
-				if (cluster.markers && cluster.markers.includes(marker)) {
-					// Marker is in this cluster - get the cluster's rendered position
-					if (cluster.marker && cluster.marker.position) {
-						// The cluster's AdvancedMarkerElement position
-						const pos = cluster.marker.position;
-						if (pos instanceof google.maps.LatLng) return pos;
-						if (typeof pos.lat === 'number' && typeof pos.lng === 'number') {
-							return new google.maps.LatLng(pos.lat, pos.lng);
-						}
-					}
-					// Fallback: calculate center from clustered markers
-					const pts = cluster.markers.map(m => {
-						if (!m.position) return null;
-						const p = m.position;
-						if (p instanceof google.maps.LatLng) return p;
-						if (typeof p.lat === 'number' && typeof p.lng === 'number') {
-							return new google.maps.LatLng(p.lat, p.lng);
-						}
-						return null;
-					}).filter(Boolean);
-					if (pts.length) {
-						const avgLat = pts.reduce((s, p) => s + p.lat(), 0) / pts.length;
-						const avgLng = pts.reduce((s, p) => s + p.lng(), 0) / pts.length;
-						return new google.maps.LatLng(avgLat, avgLng);
-					}
-				}
+		// Check if marker is visible on map (not in a cluster)
+		if (clusterer && !map.hasLayer(marker)) {
+			// Marker is clustered - find the cluster it belongs to
+			const visibleParent = clusterer.getVisibleParent(marker);
+			if (visibleParent && visibleParent !== marker) {
+				return visibleParent.getLatLng();
 			}
 		}
 
 		// Marker is not clustered - return its position
-		if (marker.position) {
-			const pos = marker.position;
-			if (pos instanceof google.maps.LatLng) return pos;
-			if (typeof pos.lat === 'number' && typeof pos.lng === 'number') {
-				return new google.maps.LatLng(pos.lat, pos.lng);
-			}
-		}
-		return null;
+		return marker.getLatLng();
 	}
 
 	// For caching marker latitude/longitude information between refreshes...
@@ -1363,24 +2012,32 @@
 
 	// Track map initialization state...
 	let mapInitialized = false;
+	let initInProgress = false;
 	let initAttempts = 0;
 	const MAX_INIT_ATTEMPTS = 10;
 
 	// Robust map initialization wrapper that handles timing issues in dashboard widgets...
 	async function ensureMapInitialized() {
-		if (mapInitialized) return;
+		// Prevent concurrent initialization attempts
+		if (mapInitialized || initInProgress) return;
 		
+		initInProgress = true;
 		initAttempts++;
 		console.log(`Map initialization attempt ${initAttempts}...`);
 		
 		try {
-			// Check if Google Maps API is available...
-			if (typeof google === 'undefined' || !google.maps || typeof google.maps.importLibrary !== 'function') {
-				throw new Error('Google Maps API not yet available');
+			// Check if Leaflet is available...
+			if (typeof L === 'undefined') {
+				throw new Error('Leaflet not yet available');
+			}
+			
+			// Check if MarkerClusterGroup is available...
+			if (typeof L.MarkerClusterGroup === 'undefined') {
+				throw new Error('MarkerCluster plugin not yet available');
 			}
 			
 			// Check if map container exists and has dimensions...
-			const mapContainer = document.getElementById('googleMap');
+			const mapContainer = document.getElementById('leafletMap');
 			if (!mapContainer) {
 				throw new Error('Map container element not found');
 			}
@@ -1407,6 +2064,8 @@
 			} else {
 				console.error('Max initialization attempts reached. Map failed to initialize.');
 			}
+		} finally {
+			initInProgress = false;
 		}
 	}
 	
@@ -1421,7 +2080,7 @@
 	}
 	
 	// Also handle visibility changes (widget may be in a hidden tab initially)...
-	const mapContainer = document.getElementById('googleMap');
+	const mapContainer = document.getElementById('leafletMap');
 	if (mapContainer && typeof IntersectionObserver !== 'undefined') {
 		const visibilityObserver = new IntersectionObserver((entries) => {
 			entries.forEach(entry => {
@@ -1445,385 +2104,238 @@
 
 	// ----- FUNCTIONS
 
-	// Function to create our map...
-	async function initMap() {
-		// Load some libraries needed by Google Maps...
-		const { Map, RenderingType, InfoWindow } = await google.maps.importLibrary("maps");
-		const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
-		const {ColorScheme} = await google.maps.importLibrary("core");
-
-		// CustomInfoWindow class - allows positioning InfoWindows to left/right/top/bottom of a point
-		// Defined here after Google Maps API is loaded so google.maps.OverlayView is available
-		window.CustomInfoWindow = class extends google.maps.OverlayView {
-			constructor(options = {}) {
-				super();
-				this.position = options.position || null;
-				this.content = options.content || '';
-				this.anchor = options.anchor || 'right'; // 'top', 'bottom', 'left', 'right'
-				this.offset = options.offset || 20; // pixels from the point
-				this.div = null;
-				this.isOpen = false;
-			}
-
-			onAdd() {
-				this.div = document.createElement('div');
-				this.div.className = 'custom-info-window';
-				this.div.style.cssText = `
-					position: absolute;
-					background: white;
-					border-radius: 8px;
-					box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-					padding: 12px 12px 12px 12px;
-					min-width: 150px;
-					max-width: 400px;
-					z-index: 1000;
-					font-family: Roboto, Arial, sans-serif;
-					font-size: 13px;
-					line-height: 1.4;
-				`;
-				
-				// Prevent clicks on the info window from propagating to the map/data layers beneath
-				this.div.addEventListener('click', (e) => e.stopPropagation());
-				this.div.addEventListener('mousedown', (e) => e.stopPropagation());
-				this.div.addEventListener('mouseup', (e) => e.stopPropagation());
-				this.div.addEventListener('dblclick', (e) => e.stopPropagation());
-
-				// Add close button
-				const closeBtn = document.createElement('div');
-				closeBtn.innerHTML = '×';
-				closeBtn.style.cssText = `
-					position: absolute;
-					top: 5px;
-					right: 10px;
-					cursor: pointer;
-					font-size: 20px;
-					color: #666;
-					font-weight: bold;
-					line-height: 1;
-					z-index: 1001;
-				`;
-				closeBtn.onclick = (e) => {
-					e.stopPropagation();
-					this.close();
-				};
-				closeBtn.onmouseover = () => closeBtn.style.color = '#333';
-				closeBtn.onmouseout = () => closeBtn.style.color = '#666';
-				this.div.appendChild(closeBtn);
-				
-				// Add content container
-				const contentDiv = document.createElement('div');
-				contentDiv.className = 'custom-info-content';
-				contentDiv.innerHTML = this.content;
-				contentDiv.style.marginRight = '15px'; // Space for close button
-				this.div.appendChild(contentDiv);
-				
-				// Add arrow/pointer
-				this.arrow = document.createElement('div');
-				this.arrow.style.cssText = `
-					position: absolute;
-					width: 0;
-					height: 0;
-					border: 10px solid transparent;
-				`;
-				this.updateArrowStyle();
-				this.div.appendChild(this.arrow);
-				
-				this.getPanes().floatPane.appendChild(this.div);
-			}
-
-			updateArrowStyle() {
-				if (!this.arrow) return;
-				
-				// Reset arrow styles
-				this.arrow.style.borderTopColor = 'transparent';
-				this.arrow.style.borderBottomColor = 'transparent';
-				this.arrow.style.borderLeftColor = 'transparent';
-				this.arrow.style.borderRightColor = 'transparent';
-				this.arrow.style.top = 'auto';
-				this.arrow.style.bottom = 'auto';
-				this.arrow.style.left = 'auto';
-				this.arrow.style.right = 'auto';
-				this.arrow.style.transform = '';
-				
-				switch(this.anchor) {
-					case 'left': // InfoWindow is to the LEFT of point, arrow points RIGHT
-						this.arrow.style.borderLeftColor = 'white';
-						this.arrow.style.right = '-20px';
-						this.arrow.style.top = '50%';
-						this.arrow.style.transform = 'translateY(-50%)';
-						break;
-					case 'right': // InfoWindow is to the RIGHT of point, arrow points LEFT
-						this.arrow.style.borderRightColor = 'white';
-						this.arrow.style.left = '-20px';
-						this.arrow.style.top = '50%';
-						this.arrow.style.transform = 'translateY(-50%)';
-						break;
-					case 'bottom': // InfoWindow is BELOW point, arrow points UP
-						this.arrow.style.borderBottomColor = 'white';
-						this.arrow.style.top = '-20px';
-						this.arrow.style.left = '50%';
-						this.arrow.style.transform = 'translateX(-50%)';
-						break;
-					case 'top': // InfoWindow is ABOVE point (default Google behavior), arrow points DOWN
-					default:
-						this.arrow.style.borderTopColor = 'white';
-						this.arrow.style.bottom = '-20px';
-						this.arrow.style.left = '50%';
-						this.arrow.style.transform = 'translateX(-50%)';
-						break;
-				}
-			}
-
-			draw() {
-				if (!this.div || !this.position) return;
-				
-				const projection = this.getProjection();
-				if (!projection) return;
-				
-				const pos = projection.fromLatLngToDivPixel(this.position);
-				if (!pos) return;
-
-				// Get actual dimensions after content is rendered
-				const width = this.div.offsetWidth;
-				const height = this.div.offsetHeight;
-
-				// Calculate and apply position based on anchor
-				switch(this.anchor) {
-					case 'left': // Position to the LEFT of the point
-						this.div.style.left = (pos.x - width - this.offset) + 'px';
-						this.div.style.top = (pos.y - height / 2) + 'px';
-						break;
-					case 'right': // Position to the RIGHT of the point
-						this.div.style.left = (pos.x + this.offset) + 'px';
-						this.div.style.top = (pos.y - height / 2) + 'px';
-						break;
-					case 'bottom': // Position BELOW the point
-						this.div.style.left = (pos.x - width / 2) + 'px';
-						this.div.style.top = (pos.y + this.offset) + 'px';
-						break;
-					case 'top': // Position ABOVE the point (like default InfoWindow)
-					default:
-						this.div.style.left = (pos.x - width / 2) + 'px';
-						this.div.style.top = (pos.y - height - this.offset) + 'px';
-						break;
-				}
-			}
-
-			onRemove() {
-				if (this.div && this.div.parentNode) {
-					this.div.parentNode.removeChild(this.div);
-					this.div = null;
-				}
-				this.isOpen = false;
-			}
-
-			setPosition(latLng) {
-				this.position = latLng;
-				this.draw();
-			}
-
-			setContent(content) {
-				this.content = content;
-				if (this.div) {
-					const contentDiv = this.div.querySelector('.custom-info-content');
-					if (contentDiv) contentDiv.innerHTML = content;
-					this.draw(); // Redraw to adjust for new content size
-				}
-			}
-
-			setAnchor(anchor) {
-				this.anchor = anchor;
-				this.updateArrowStyle();
-				this.draw();
-			}
-
-			open(map) {
-				this.setMap(map);
-				this.isOpen = true;
-				// Delay pan check to ensure content is fully rendered and dimensions are calculated
-				requestAnimationFrame(() => {
-					requestAnimationFrame(() => {
-						this.autoPan();
-					});
-				});
-			}
-
-			autoPan() {
-				if (!this.div || !this.position || !this.getMap()) return;
-				
-				const map = this.getMap();
-				const mapDiv = map.getDiv();
-				
-				// Get the actual bounding rectangles to compare screen positions
-				const mapRect = mapDiv.getBoundingClientRect();
-				const infoRect = this.div.getBoundingClientRect();
-				
-				let panX = 0;
-				let panY = 0;
-				const padding = 10; // Small padding from edges after panning
-
-				// Check if InfoWindow extends past right edge of map
-				if (infoRect.right > mapRect.right) {
-					panX = (infoRect.right - mapRect.right) + padding;
-				}
-				// Check if InfoWindow extends past left edge of map
-				else if (infoRect.left < mapRect.left) {
-					panX = (infoRect.left - mapRect.left) - padding;
-				}
-				
-				// Check if InfoWindow extends past bottom edge of map
-				if (infoRect.bottom > mapRect.bottom) {
-					panY = (infoRect.bottom - mapRect.bottom) + padding;
-				}
-				// Check if InfoWindow extends past top edge of map
-				else if (infoRect.top < mapRect.top) {
-					panY = (infoRect.top - mapRect.top) - padding;
-				}
-
-				// Only pan if the InfoWindow actually extends outside the viewport
-				if (panX !== 0 || panY !== 0) {
-					map.panBy(panX, panY);
-				}
-			}
-
-			close() {
-				this.setMap(null);
-				this.isOpen = false;
-			}
+	// Function to create our Leaflet map...
+	function initMap() {
+		// If map already exists and is valid, don't reinitialize
+		if (map && map._loaded) {
+			console.log('Map already initialized, skipping...');
+			return;
 		}
-
-		// Create our Google Map...
-		map = new google.maps.Map(document.getElementById("googleMap"), {
+		
+		// Properly cleanup existing map instance if any
+		if (map) {
+			try {
+				map.remove();
+			} catch (e) {
+				console.warn('Error removing existing map:', e);
+			}
+			map = null;
+		}
+		
+		// Get the container
+		const container = document.getElementById('leafletMap');
+		if (!container) {
+			throw new Error('Map container not found');
+		}
+		
+		// Clear any leftover Leaflet artifacts
+		container.innerHTML = '';
+		delete container._leaflet_id;
+		
+		// Create the Leaflet map
+		map = L.map('leafletMap', {
+			center: [0, 0],
 			zoom: 3,
-			center: { lat: 0, lng: 0 },
-			mapId: "DEMO_MAP_ID",
-			// colorScheme: ColorScheme.DARK,
-			colorScheme: ColorScheme.LIGHT,
-			zoomControl: true,
-			cameraControl: false,
-			mapTypeControl: false,
-			// scaleControl: boolean,
-			streetViewControl: false,
-			rotateControl: false,
-			fullscreenControl: true,
-			tilt: mapTilt,
-			heading: mapHeading,
-			gestureHandling: mapGestureHandling,
-			renderingType: RenderingType.VECTOR,
-			isFractionalZoomEnabled: true,
 			minZoom: 2,
+			maxZoom: 18,
+			scrollWheelZoom: scrollWheelZoom,
+			zoomControl: true
 		});
 
-		// Redraw polylines after zoom/pan/drag completes...
-		map.addListener("idle", () => updatePolylineEndpoints());
+		// Initialize bounds for later use
+		bounds = L.latLngBounds();
 
-		// Vector maps are nicer but sometimes don't load right away. Plus they're mainly useful if tilt controls are enabled, so use the normal raster map by default...
-		// if (showMapTiltControls) {
-		// 	map.setRenderingType(RenderingType.VECTOR);
-		// };
+		// Get the appropriate tile provider based on map style
+		const provider = tileProviders[mapStyle] || tileProviders.silverblue;
+		
+		// Add the base tile layer
+		baseTileLayer = L.tileLayer(provider.url, {
+			attribution: provider.attribution,
+			maxZoom: provider.maxZoom
+		}).addTo(map);
 
-		// Add some custom controls to the map...
-		const weatherControlDiv = document.createElement("div");
-		// Create a button to the map for toggling visibility of the options bar...
-		const weatherControls = createWeatherToggleControl(map);
-		weatherControlDiv.appendChild(weatherControls);
+		// Force Leaflet to recalculate size multiple times to handle flexbox timing
+		// This fixes tile rendering issues when using flexbox layouts
+		const invalidateSizeRepeatedly = () => {
+			if (map) {
+				map.invalidateSize({ animate: false });
+			}
+		};
+		setTimeout(invalidateSizeRepeatedly, 0);
+		setTimeout(invalidateSizeRepeatedly, 100);
+		setTimeout(invalidateSizeRepeatedly, 300);
+		setTimeout(invalidateSizeRepeatedly, 500);
 
-		// Create a div to hold our refresh & zoom reset buttons...
-		const weatherControlButtonDiv = document.createElement("div");
-		weatherControlButtonDiv.style.display = "flex";
-		weatherControlButtonDiv.style.flexDirection = "column";
-		weatherControlButtonDiv.style.backgroundColor = "rgb(255 255 255)";
-		weatherControlButtonDiv.style.border = "0";
-		weatherControlButtonDiv.style.borderRadius = "3px";
-		weatherControlButtonDiv.style.boxShadow = "0 1px 4px rgba(0,0,0,0.3)";
-		weatherControlButtonDiv.style.width = "40px";
-		weatherControlButtonDiv.style.height = "81px";
-		weatherControlButtonDiv.style.margin = "0 10px";
-		// Create a button to force-refresh the map data...
-		const weatherRefreshControl = createWeatherRefreshControl(map);
-		weatherControlButtonDiv.appendChild(weatherRefreshControl);
-		const weatherControlDivider = document.createElement("div");
-		// Create a divider between the two buttons...
-		weatherControlDivider.innerHTML = '<div style="position: relative; overflow: hidden; width: 30px; height: 1px; margin: 0px 5px; background-color: rgb(230, 230, 230); top: 0px;"></div>';
-		weatherControlButtonDiv.appendChild(weatherControlDivider);
-		// Create a button to reset the zoom on the map...
-		const mapZoomResetControl = createZoomResetControl(map);
-		weatherControlButtonDiv.appendChild(mapZoomResetControl);
-		// Add our button div to our custom map controls...
-		weatherControlDiv.appendChild(weatherControlButtonDiv);
-		// Attach our controls to the map...
-		map.controls[google.maps.ControlPosition.TOP_LEFT].push(weatherControlDiv);
-
-		// Optionally create a div to hold our map tilt & heading buttons...
-		if (showMapTiltControls) {
-			const mapControlButtonDiv = document.createElement("div");
-			mapControlButtonDiv.style.display = "flex";
-			mapControlButtonDiv.style.flexDirection = "column";
-			mapControlButtonDiv.style.backgroundColor = "rgb(255 255 255)";
-			mapControlButtonDiv.style.border = "0";
-			mapControlButtonDiv.style.borderRadius = "20px";
-			mapControlButtonDiv.style.boxShadow = "0 1px 3px rgba(0,0,0,0.3)";
-			mapControlButtonDiv.style.width = "40px";
-			mapControlButtonDiv.style.margin = "0 10px";
-			mapControlButtonDiv.style.alignItems = "center";
-			mapControlButtonDiv.style.padding = "5px 0";
-			// Create a button to tilt the map forward...
-			const mapRotateForwardControl = createRotateForwardControl(map);
-			mapControlButtonDiv.appendChild(mapRotateForwardControl);
-			// Create a button to tilt the map backward...
-			const mapRotateBackControl = createRotateBackControl(map);
-			mapControlButtonDiv.appendChild(mapRotateBackControl);
-			// Create a button to rotate the map right...
-			const mapRotateRightControl = createRotateRightControl(map);
-			mapControlButtonDiv.appendChild(mapRotateRightControl);
-			// Create a button to rotate the map left...
-			const mapRotateLeftControl = createRotateLeftControl(map);
-			mapControlButtonDiv.appendChild(mapRotateLeftControl);
-			// Attach our controls to the map...
-			map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(mapControlButtonDiv);
-		}
-
-		// Add an area to display when we're updating...
-		const updateAreaDiv = await createUpdateArea(map);
-
-		// *** MAP THEME ***
-		// Set our map theme (can be set via default at beginning of this script or via a "MapStyle" dashboard token)...
-		let styledMapType = new google.maps.StyledMapType(silverStyle);
-		if (mapStyle == "standard") {
-			styledMapType = new google.maps.StyledMapType(standardStyle);
-		} else if (mapStyle == "dark") {
-			styledMapType = new google.maps.StyledMapType(darkStyle);
-		} else if (mapStyle == "aubergine") {
-			styledMapType = new google.maps.StyledMapType(aubergineStyle);
-		} else if (mapStyle == "silverblue") {
-			styledMapType = new google.maps.StyledMapType(silverBlueStyle);
-		}
-
-		map.mapTypes.set("customMapStyle", styledMapType);
-		map.setMapTypeId("customMapStyle");
-
-		// Toggle visibility of our weather options...
-		enableWeather();
-
-		// Toggle hiding the options bar if set as the default...
-		if (hideMapOptionsByDefault) {
-			document.getElementById("optionsBar").classList.remove("optionsVisible");
-			document.getElementById("optionsBar").classList.add("optionsHidden");
-		}
-
-		// Load our LogicMonitor data only after we know our update area has been created...
-		waitForElm('#refreshStatusArea').then((elm) => {
-			// console.log('Element is ready');
-			refreshGroupData();
+		// Handle window resize to keep map properly sized
+		window.addEventListener('resize', () => {
+			if (map) {
+				map.invalidateSize();
+			}
 		});
 
-		// Refresh the map data at regular intervals (using the 'statusUpdateIntervalMinutes' variable set near the top of this script)...
+		// Redraw polylines after zoom/pan/drag completes
+		map.on('moveend', () => updatePolylineEndpoints());
+		map.on('zoomend', () => updatePolylineEndpoints());
+
+		// Add custom controls after a short delay to ensure map is fully initialized
+		// Using setTimeout instead of whenReady for better compatibility
+		setTimeout(() => {
+			// Verify map is still valid and has control corners
+			if (!map || !map._controlCorners) {
+				console.warn('Map not ready for controls, will retry...');
+				setTimeout(addControlsAndStart, 100);
+				return;
+			}
+			addControlsAndStart();
+		}, 50);
+		
+		function addControlsAndStart() {
+			try {
+				// Add custom map controls
+				addCustomControls();
+				
+				// Create the update status control
+				createUpdateArea();
+				
+				// Toggle visibility of our weather options
+				enableWeather();
+
+				// Toggle hiding the options bar if set as the default
+				if (hideMapOptionsByDefault) {
+					document.getElementById("optionsBar").classList.remove("optionsVisible");
+					document.getElementById("optionsBar").classList.add("optionsHidden");
+				}
+
+				// Load our LogicMonitor data
+				waitForElm('#refreshStatusArea').then((elm) => {
+					refreshGroupData();
+				});
+			} catch (e) {
+				console.error('Error adding controls:', e);
+			}
+		}
+
+		// Refresh the map data at regular intervals
 		if (!developmentFlag) {
 			mapDataRefresher = setInterval(function() {
 				refreshGroupData(timedRefresh = true);
 				console.log("Map data refreshed.");
 			}, statusUpdateIntervalMinutes*1000*60);
 		}
+	}
+
+	// Add custom controls to the Leaflet map
+	function addCustomControls() {
+		// Toggle control for options bar
+		const ToggleControl = L.Control.extend({
+			options: { position: 'topleft' },
+			onAdd: function(map) {
+				const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+				const button = L.DomUtil.create('a', 'leaflet-control-custom', container);
+				button.href = '#';
+				button.title = 'Toggle visibility of the map controls';
+				button.innerHTML = hideMapOptionsByDefault ? optionsToggleHiddenIcon : optionsToggleVisibleIcon;
+				button.style.width = '34px';
+				button.style.height = '34px';
+				button.style.display = 'flex';
+				button.style.alignItems = 'center';
+				button.style.justifyContent = 'center';
+				
+				L.DomEvent.disableClickPropagation(container);
+				L.DomEvent.on(button, 'click', function(e) {
+					L.DomEvent.preventDefault(e);
+					const optionsBar = document.getElementById("optionsBar");
+					if (optionsBar.classList.contains("optionsHidden")) {
+						optionsBar.classList.remove("optionsHidden");
+						optionsBar.classList.add("optionsVisible");
+						button.innerHTML = optionsToggleVisibleIcon;
+					} else {
+						optionsBar.classList.remove("optionsVisible");
+						optionsBar.classList.add("optionsHidden");
+						button.innerHTML = optionsToggleHiddenIcon;
+					}
+				});
+				return container;
+			}
+		});
+		map.addControl(new ToggleControl());
+
+		// Refresh control
+		const RefreshControl = L.Control.extend({
+			options: { position: 'topleft' },
+			onAdd: function(map) {
+				const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+				const button = L.DomUtil.create('a', 'leaflet-control-custom', container);
+				button.href = '#';
+				button.id = 'weatherRefreshButton';
+				button.title = 'Force refresh the map data';
+				button.innerHTML = '<svg viewBox="-0.5 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;"> <path d="M7.1998 10.8799L3.9998 14.0799L0.799805 10.8799" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M17.72 6.77007C16.6086 5.63347 15.1839 4.85371 13.6275 4.53032C12.0711 4.20693 10.4536 4.35459 8.98145 4.95439C7.5093 5.5542 6.24924 6.57899 5.362 7.898C4.47476 9.21701 4.0006 10.7703 4 12.3599V14.0901" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M16.7998 13.96L19.9998 10.75L23.1998 13.96" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M6.28027 18.0801C7.39163 19.2167 8.8164 19.9962 10.3728 20.3196C11.9292 20.643 13.5467 20.4956 15.0188 19.8958C16.491 19.2959 17.751 18.2712 18.6383 16.9521C19.5255 15.6331 19.9997 14.0796 20.0003 12.49V10.76" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+				button.style.width = '34px';
+				button.style.height = '34px';
+				button.style.display = 'flex';
+				button.style.alignItems = 'center';
+				button.style.justifyContent = 'center';
+				
+				L.DomEvent.disableClickPropagation(container);
+				L.DomEvent.on(button, 'click', function(e) {
+					L.DomEvent.preventDefault(e);
+					refreshGroupData();
+				});
+				return container;
+			}
+		});
+		map.addControl(new RefreshControl());
+
+		// Zoom reset control
+		const ZoomResetControl = L.Control.extend({
+			options: { position: 'topleft' },
+			onAdd: function(map) {
+				const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+				const button = L.DomUtil.create('a', 'leaflet-control-custom', container);
+				button.href = '#';
+				button.title = 'Reset map zoom';
+				button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 400 400"><g transform="translate(0,-652.36216)"><path style="fill:#000000" d="M 17.6035,652.36212 0,670.05352 l 108.5469,109.0918 -84.0235,0 0,25.0195 126.5235,0 0,-127.1563 -24.8965,0 0,84.4434 -108.5469,-109.0898 z m 364.793,0 -108.5469,109.0898 0,-84.4434 -24.8965,0 0,127.1563 126.5235,0 0,-25.0195 -84.0235,0 L 400,670.05352 382.3965,652.36212 Z M 24.5234,900.5593 l 0,25.0196 84.0235,0 L 0,1034.6708 l 17.6035,17.6914 108.5469,-109.09 0,84.4435 24.8965,0 0,-127.1564 -126.5235,0 z m 224.4297,0 0,127.1564 24.8965,0 0,-84.4435 108.5469,109.09 L 400,1034.6708 291.4531,925.5789 l 84.0235,0 0,-25.0196 -126.5235,0 z"/></g></svg>';
+				button.style.width = '34px';
+				button.style.height = '34px';
+				button.style.display = 'flex';
+				button.style.alignItems = 'center';
+				button.style.justifyContent = 'center';
+				
+				L.DomEvent.disableClickPropagation(container);
+				L.DomEvent.on(button, 'click', function(e) {
+					L.DomEvent.preventDefault(e);
+					resetZoom();
+				});
+				return container;
+			}
+		});
+		map.addControl(new ZoomResetControl());
+	}
+
+	// Create the update status area as a Leaflet control
+	function createUpdateArea() {
+		const UpdateStatusControl = L.Control.extend({
+			options: { position: 'topleft' },
+			onAdd: function(map) {
+				const container = L.DomUtil.create('div', 'leaflet-control update-status');
+				container.id = 'refreshStatusArea';
+				container.style.display = 'flex';
+				container.style.alignItems = 'center';
+				container.style.padding = '8px 12px';
+				container.style.backgroundColor = 'white';
+				container.style.borderRadius = '4px';
+				container.style.boxShadow = '0 1px 5px rgba(0,0,0,0.4)';
+				container.style.fontSize = '14px';
+				container.style.color = 'darkblue';
+				container.innerHTML = 'Updating...';
+				L.DomEvent.disableClickPropagation(container);
+				return container;
+			}
+		});
+		map.addControl(new UpdateStatusControl());
+		
+		// Cache the reference
+		_dom.refreshStatusArea = document.getElementById('refreshStatusArea');
 	}
 
 	// Function for creating & styling the map button for toggling the options bar...
@@ -2015,40 +2527,10 @@
 		return weatherControls;
 	}
 
-	function createUpdateArea(map) {
-		const updateAreaDiv = document.createElement("div");
-		updateAreaDiv.id = "refreshStatusArea";
-		updateAreaDiv.style.display = "flex";
-		updateAreaDiv.style.alignItems = "center";
-		updateAreaDiv.style.width = "fit-content";
-		updateAreaDiv.style.padding = "0 10px";
-		updateAreaDiv.style.margin = "10px 0 0 0";
-		updateAreaDiv.style.height = "40px";
-		updateAreaDiv.style.backgroundColor = "rgb(255 255 255)";
-		// updateAreaDiv.style.backgroundColor = "rgba(0, 0, 0,0.7)";
-		// updateAreaDiv.style.border = "1px solid lightcoral";
-		updateAreaDiv.style.border = "0";
-		updateAreaDiv.style.boxShadow = "0 1px 4px rgba(0,0,0,0.3)";
-		updateAreaDiv.innerHTML = "Updating...";
-		// Attach to the map...
-		map.controls[google.maps.ControlPosition.TOP_LEFT].push(updateAreaDiv);
-
-		return updateAreaDiv;
-	}
-
 	function adjustMap(mode, amount) {
-		switch (mode) {
-			case "tilt":
-				map.setTilt(map.getTilt() + amount);
-				mapTilt = map.getTilt();
-				break;
-			case "rotate":
-				map.setHeading(map.getHeading() + amount);
-				mapHeading = map.getHeading();
-				break;
-			default:
-				break;
-		}
+		// Note: Leaflet doesn't support tilt/heading like Google Maps
+		// This function is kept for compatibility but does nothing
+		console.debug('adjustMap: tilt/heading not supported in Leaflet');
 	}
 
 	// Function to load our LogicMonitor data and add pins to the map...
@@ -2235,7 +2717,7 @@
 						clearAllMarkers();
 
 						// Reset the map zoom...
-						bounds = new google.maps.LatLngBounds();
+						bounds = L.latLngBounds();
 						resetZoom();
 						centerCalculated = false;
 					}
@@ -2334,8 +2816,34 @@
 				_dom.weatherRefreshButton.classList.remove("disabled");
 			}
 
-			// Prepare Google geocoding for translating a street address to latitude & longitude...
-			const geocoder = new google.maps.Geocoder();
+			// Prepare geocoding for translating a street address to latitude & longitude...
+			// Using Nominatim (OpenStreetMap) geocoding service as a free alternative
+			const geocoder = {
+				geocode: async function(request, callback) {
+					const address = encodeURIComponent(request.address);
+					try {
+						const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${address}&limit=1`, {
+							headers: { 'User-Agent': 'BetterMapWidget/4.0' }
+						});
+						const data = await response.json();
+						if (data && data.length > 0) {
+							const result = {
+								geometry: {
+									location: {
+										lat: () => parseFloat(data[0].lat),
+										lng: () => parseFloat(data[0].lon)
+									}
+								}
+							};
+							callback([result], 'OK');
+						} else {
+							callback([], 'ZERO_RESULTS');
+						}
+					} catch (error) {
+						callback([], 'ERROR');
+					}
+				}
+			};
 			const parser = new DOMParser();
 
 			let itemsProcessed = 0;
@@ -2344,7 +2852,7 @@
 			clearAllMarkers();
 
 			// For use in zooming the map to encompass all our markers on initial draw...
-			bounds = new google.maps.LatLngBounds();
+			bounds = L.latLngBounds();
 
 			// Start looping through the groups...
 			groupData.forEach((thisItem) => {
@@ -2646,20 +3154,32 @@
 							`;
 						}
 
-					// Add this group's pin to the map...
-					let marker = new google.maps.marker.AdvancedMarkerElement({
-						position: { lat: cachedAddresses[groupID].lat, lng: cachedAddresses[groupID].lng },
-						map: map,
-						content: content,
-						// content: glyphSvgPinElement.element,
-						title: thisItem.name,
-						zIndex: pinIndex,
+					// Add this group's pin to the map using Leaflet...
+					const lat = cachedAddresses[groupID].lat;
+					const lng = cachedAddresses[groupID].lng;
+					
+					// Create a Leaflet divIcon with the same HTML content
+					const icon = L.divIcon({
+						className: 'group-marker',
+						html: content.outerHTML,
+						iconSize: [27, 35],
+						iconAnchor: [13, 35],
+						popupAnchor: [0, -35]
 					});
+					
+					let marker = L.marker([lat, lng], {
+						icon: icon,
+						title: thisItem.name,
+						zIndexOffset: pinIndex
+					});
+					
 					// Store deviceID on marker for polyline lookups...
 					marker.deviceID = thisItem.id;
+					// Store position for compatibility
+					marker.position = { lat: lat, lng: lng };
 
 					// Open info window when marker is clicked...
-					marker.addListener("gmp-click", () => {
+					marker.on('click', () => {
 						toggleHighlight(marker, thisItem)
 					});
 
@@ -2669,7 +3189,7 @@
 					markersByDeviceID.set(thisItem.id, marker);
 
 					// Add this marker to map's bounding box (for initial zooming)...
-					bounds.extend(marker.position);
+					bounds.extend([lat, lng]);
 
 					itemsProcessed = itemsProcessed + 1;
 					}
@@ -2685,24 +3205,37 @@
 
 					if (!disableClustering) {
 						// Reset our marker clustering on refreshes...
-						if (typeof clusterer == "object") {
-							google.maps.event.clearInstanceListeners(clusterer);
-							clusterer.setMap(null);
+						if (clusterer) {
+							map.removeLayer(clusterer);
 						}
-						// We'll use MarkerCluster's SuperClusterAlgorithm since it's more optimized (the radius is to prevent overlap of clusters & markers)...
-						const algorithm = new markerClusterer.SuperClusterAlgorithm({radius: 120});
-						// Initialize our marker clusters...
-						clusterer = new markerClusterer.MarkerClusterer({
-							markers,
-							map,
-							renderer,
-							algorithm,
-							onClusterClick: () => {} // Override default zoom behavior
+						// Initialize Leaflet marker clusters with custom donut chart icons...
+						clusterer = L.markerClusterGroup({
+							maxClusterRadius: 120,
+							spiderfyOnMaxZoom: true,
+							showCoverageOnHover: false,
+							zoomToBoundsOnClick: false,
+							iconCreateFunction: function(cluster) {
+								const childMarkers = cluster.getAllChildMarkers();
+								return createDonutClusterIcon(childMarkers);
+							}
 						});
+						
+						// Add all markers to the cluster group
+						markers.forEach(m => clusterer.addLayer(m));
+						map.addLayer(clusterer);
+						
+						// Handle cluster click to show summary
+						clusterer.on('clusterclick', function(e) {
+							showClusterSummary(e.layer);
+						});
+						
 						// Redraw connecting lines when clusters change
-						clusterer.addListener("clusteringend", () => {
+						clusterer.on('animationend', () => {
 							updatePolylineEndpoints();
 						});
+					} else {
+						// If clustering is disabled, add markers directly to the map
+						markers.forEach(m => m.addTo(map));
 					}
 
 					// Plot any connecting lines between resources...
@@ -2728,9 +3261,7 @@
 							fullRefresh = false;
 						}
 
-						// Carry forward our tilt/heading between refreshes...
-						map.setTilt(mapTilt);
-						map.setHeading(mapHeading);
+						// Note: Leaflet doesn't support tilt/heading like Google Maps
 					}
 				}
 			});
@@ -2794,15 +3325,17 @@
 				connectionColor = "#00a1fe";
 			}
 
-			// Plot the line on the map...
-			const thisPath = new google.maps.Polyline({
-				path: tmpCoords,
-				geodesic: useGeodesicLines,
-				strokeColor: connectionColor,
-				strokeOpacity: 1.0,
-				strokeWeight: connectingLineWeight,
-			});
-			thisPath.setMap(map);
+			// Plot the line on the map using Leaflet...
+			const latLngs = [
+				[tmpCoords[0].lat, tmpCoords[0].lng],
+				[tmpCoords[1].lat, tmpCoords[1].lng]
+			];
+			
+			const thisPath = L.polyline(latLngs, {
+				color: connectionColor,
+				weight: connectingLineWeight,
+				opacity: 1.0
+			}).addTo(map);
 
 			// Track polyline with source/target IDs so we can redraw to clusters
 			polylines.push({
@@ -2812,22 +3345,21 @@
 				originalCoords: tmpCoords
 			});
 
-			// Show connection info on hover...
-			let lineInfoWindow = new CustomInfoWindow({
-				content: "",
-				anchor: 'top',
-				offset: 15
+			// Show connection info on hover using Leaflet popup...
+			const popupContent = `<strong>${connection.connectionName}</strong><br/>Connection alert status: <a href="/santaba/uiv4/resources/treeNodes/t-i,id-${connection.instanceID}?source=details&tab=alert" target="_blank" title="Click to view alerts" style="border: 0;">${alertStatus}</a>`;
+			
+			thisPath.bindPopup(popupContent, {
+				closeButton: false,
+				offset: [0, -10]
 			});
 
-			google.maps.event.addListener(thisPath, "mouseover", function(e) {
-				lineInfoWindow.setPosition(e.latLng);
-				lineInfoWindow.setContent(`<strong>${connection.connectionName}</strong><br/>Connection alert status: <a href="/santaba/uiv4/resources/treeNodes/t-i,id-${connection.instanceID}?source=details&tab=alert" target="_blank" title="Click to view alerts" style="border: 0;">${alertStatus}</a>`);
-				lineInfoWindow.open(map);
+			thisPath.on('mouseover', function(e) {
+				this.openPopup(e.latlng);
 			});
-			google.maps.event.addListener(thisPath, "mouseout", function(e) {
-				lineInfoWindow.close();
+			thisPath.on('mouseout', function(e) {
+				this.closePopup();
 			});
-			google.maps.event.addListener(thisPath, "click", function(e) {
+			thisPath.on('click', function(e) {
 				window.open("/santaba/uiv4/resources/treeNodes/t-i,id-" + connection.instanceID + "?source=details&tab=alert");
 			});
 			// Ensure new polylines handle clusters properly...
@@ -2837,29 +3369,29 @@
 
 	// Function for showing/hiding a group's detail when clicked...
 	function toggleHighlight(markerView, group) {
-		// Close any open cluster details...
+		// Close any open cluster popup...
 		if (clusterInfoWindow) {
-			clusterInfoWindow.close();
-		}
-		// Close any overlay InfoWindow...
-		if (parent.overlayInfoWindow) {
-			parent.overlayInfoWindow.close();
+			map.closePopup(clusterInfoWindow);
+			clusterInfoWindow = null;
 		}
 		
 		// If clicking the same marker that's already open, close it
 		if (markerInfoWindow && markerInfoWindow.markerId === markerView.deviceID) {
-			markerInfoWindow.close();
+			map.closePopup(markerInfoWindow);
 			markerInfoWindow = null;
 			return;
 		}
 		
-		// Close any existing marker InfoWindow
+		// Close any existing marker popup
 		if (markerInfoWindow) {
-			markerInfoWindow.close();
+			map.closePopup(markerInfoWindow);
 		}
 		
-		// Clone the marker content to use in the InfoWindow (preserves classes for CSS styling)
-		const contentClone = markerView.content.cloneNode(true);
+		// Get the info content from the marker's icon HTML
+		const iconHtml = markerView.options.icon.options.html;
+		const tempDiv = document.createElement('div');
+		tempDiv.innerHTML = iconHtml;
+		const contentClone = tempDiv.querySelector('.group').cloneNode(true);
 		// Add highlight class to apply the expanded styling
 		contentClone.classList.add('highlight');
 		// Make sure the details are visible
@@ -2868,15 +3400,17 @@
 			detailsEl.style.display = 'flex';
 		}
 		
-		// Create and open the CustomInfoWindow
-		markerInfoWindow = new CustomInfoWindow({
-			position: markerView.position,
-			content: contentClone.outerHTML,
-			anchor: 'top',
-			offset: 40
-		});
+		// Create and open the Leaflet popup
+		markerInfoWindow = L.popup({
+			offset: [0, -20],
+			maxWidth: 400,
+			className: 'marker-popup'
+		})
+		.setLatLng(markerView.getLatLng())
+		.setContent(contentClone.outerHTML)
+		.openOn(map);
+		
 		markerInfoWindow.markerId = markerView.deviceID; // Track which marker this is for
-		markerInfoWindow.open(map);
 	}
 
 	// Function processing status of Fetch calls...
@@ -2894,243 +3428,205 @@
 		return response.json();
 	}
 
-	// Our custom renderer for MarkerClusterer to create donut charts based on status of clustered items...
-	const renderer = {
-		render ({ markers, count, position }) {
-			// Since Google Maps markers don't have direct support for metadata, I'm using the marker's z-index to capture the group's severity: 1=warning, 2=error, 3=critical.
+	// Create a Leaflet divIcon for clusters with donut chart visualization
+	function createDonutClusterIcon(childMarkers) {
+		const count = childMarkers.length;
+		
+		// Create objects to hold per-severity metrics...
+		const severityCounts = new Map([["4",0],["3",0],["2",0],["1",0],["0",0]]);
+		const severityPercents = new Map([["4",0],["3",0],["2",0],["1",0]]);
+		const severityOffsets = new Map([["4",0],["3",0],["2",0],["1",0]]);
 
-			// Create objects to hold per-severity metrics...
-			const severityCounts = new Map([["4",0],["3",0],["2",0],["1",0],["0",0]]);
-			const severityPercents = new Map([["4",0],["3",0],["2",0],["1",0]]);
-			const severityOffsets = new Map([["4",0],["3",0],["2",0],["1",0]]);
+		// Get counts of clustered pins by severity (using zIndexOffset for Leaflet markers)...
+		childMarkers.forEach((marker) => {
+			const zIndex = marker.options.zIndexOffset || 0;
+			const severity = zIndex > 0 ? zIndex.toString() : "0";
+			severityCounts.set(severity, (severityCounts.get(severity) || 0) + 1);
+		});
 
-			// Get counts of clustered pins by severity...
-			markers.forEach((value, key) => {
-				const severity = value.zIndex > 0 ? value.zIndex.toString() : "0";
-				severityCounts.set(severity, (severityCounts.get(severity) || 0) + 1);
-			});
+		// Calculate sizes & offsets for our chart...
+		const baseOffset = 25;
+		let offsetSum = 0;
+		severityPercents.forEach((value, key) => {
+			const percent = (severityCounts.get(key)/count) * 100;
+			severityPercents.set(key, percent);
 
-			// (Credit for the technique I'm using to create SVG donut charts goes to this site: https://heyoka.medium.com/scratch-made-svg-donut-pie-charts-in-html5-2c587e935d72 )
-
-			// Calculate sizes & offsets for our chart...
-			// First segment should always have an offset of 25 to have it start at 12:00 on the circle...
-			const baseOffset = 25;
-			let offsetSum = 0;
-			// Calculate percentages for each severity...
-			severityPercents.forEach((value, key) => {
-				const percent = (severityCounts.get(key)/count) * 100;
-				severityPercents.set(key, percent);
-
-				// Calculate offsets needed per chart slice...
-				if (percent > 0) {
-					if (offsetSum == 0) {
-						// This is our first item to chart, so it will establish the offset for subsequent chart slices...
-						severityOffsets.set(key, baseOffset);
-					} else {
-						// Formula for calculating offset after first segment: 100-{sum of length of previous segments} + 25...
-						const offset = (100 - offsetSum) + baseOffset;
-						severityOffsets.set(key, offset);
-					}
-					offsetSum = offsetSum + percent;
+			if (percent > 0) {
+				if (offsetSum == 0) {
+					severityOffsets.set(key, baseOffset);
+				} else {
+					const offset = (100 - offsetSum) + baseOffset;
+					severityOffsets.set(key, offset);
 				}
-			});
+				offsetSum = offsetSum + percent;
+			}
+		});
 
-			// Create an SVG donut chart representing severities of clustered pins...
-			const svg = window.btoa(`
-				<svg fill="#0000ff" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 42 42" class="donut">
-					<filter id="gaussian-blur" x="-20%" y="-20%" width="140%" height="140%">
-						<feDropShadow dx="0" dy="${mapTilt/100+0.4}" stdDeviation="1.3" flood-opacity="0.7" />
-					</filter>
-					<g filter="url(#gaussian-blur)">
-						<!-- Defines the center of the donut... -->
-						<circle class="donut-hole" cx="21" cy="21" r="15.91549430918954" fill="#fff"></circle>
-						<!-- Our base circle, colored green by default... -->
-						<circle class="donut-ring" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#85c25d" stroke-width="7"></circle>
-						<!-- First segment should always have an offset of 25 to have it start at 12am on the circle... -->
-						<!-- SDTs... -->
-						<circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#00a1fe" stroke-width="7" stroke-dasharray="${severityPercents.get("4")} ${100-severityPercents.get("4")}" stroke-dashoffset="${severityOffsets.get("4")}"></circle>
-						<!-- Criticals... -->
-						<circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#e0351b" stroke-width="7" stroke-dasharray="${severityPercents.get("3")} ${100-severityPercents.get("3")}" stroke-dashoffset="${severityOffsets.get("3")}"></circle>
-						<!-- Errors... -->
-						<circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#ff8c00" stroke-width="7" stroke-dasharray="${severityPercents.get("2")} ${100-severityPercents.get("2")}" stroke-dashoffset="${severityOffsets.get("2")}"></circle>
-						<!-- Warnings... -->
-						<circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#f5ca1d" stroke-width="7" stroke-dasharray="${severityPercents.get("1")} ${100-severityPercents.get("1")}" stroke-dashoffset="${severityOffsets.get("1")}"></circle>
-					</g>
-				</svg>`);
+		// Create an SVG donut chart representing severities of clustered pins...
+		const svgContent = `
+			<svg fill="#0000ff" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 42 42" class="donut" width="45" height="45">
+				<filter id="gaussian-blur-${count}" x="-20%" y="-20%" width="140%" height="140%">
+					<feDropShadow dx="0" dy="0.4" stdDeviation="1.3" flood-opacity="0.7" />
+				</filter>
+				<g filter="url(#gaussian-blur-${count})">
+					<circle class="donut-hole" cx="21" cy="21" r="15.91549430918954" fill="#fff"></circle>
+					<circle class="donut-ring" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#85c25d" stroke-width="7"></circle>
+					<circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#00a1fe" stroke-width="7" stroke-dasharray="${severityPercents.get("4")} ${100-severityPercents.get("4")}" stroke-dashoffset="${severityOffsets.get("4")}"></circle>
+					<circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#e0351b" stroke-width="7" stroke-dasharray="${severityPercents.get("3")} ${100-severityPercents.get("3")}" stroke-dashoffset="${severityOffsets.get("3")}"></circle>
+					<circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#ff8c00" stroke-width="7" stroke-dasharray="${severityPercents.get("2")} ${100-severityPercents.get("2")}" stroke-dashoffset="${severityOffsets.get("2")}"></circle>
+					<circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#f5ca1d" stroke-width="7" stroke-dasharray="${severityPercents.get("1")} ${100-severityPercents.get("1")}" stroke-dashoffset="${severityOffsets.get("1")}"></circle>
+				</g>
+				<text x="21" y="21" text-anchor="middle" dominant-baseline="central" fill="rgba(0,0,0,0.9)" font-size="10" font-family="Arial, sans-serif">${count}</text>
+			</svg>`;
 
-			// Add the chart to the map...
-			const marker = new google.maps.Marker({
-				position,
-				icon: {
-					url: `data:image/svg+xml;base64,${svg}`,
-					scaledSize: new google.maps.Size(45, 45),
-				},
-				label: {
-					text: String(count),
-					color: "rgba(0,0,0,0.9)",
-					// color: "rgba(255,255,255,0.9)",
-					fontSize: "12px",
-				},
-				// adjust zIndex to be above other markers
-				zIndex: 1000 + count,
-			});
+		return L.divIcon({
+			className: 'cluster-donut',
+			html: svgContent,
+			iconSize: [45, 45],
+			iconAnchor: [22, 22]
+		});
+	}
 
-			// Create hover content
-			const getInfoContent = () => {
-				// Get device details from markers
-				const deviceDetails = markers.map(marker => {
-					const content = marker.content;
-					const iconDiv = content.querySelector('.icon');
-					const nameLink = content.querySelector('.groupName a');
-					let status = 'clear';
-					let sdtStatus = '';
-					let statusRank = 0;
-					if (iconDiv.classList.contains('critical')) {
-						status = 'critical';
-						statusRank = 4;
-					} else if (iconDiv.classList.contains('error')) {
-						status = 'error';
-						statusRank = 3;
-					} else if (iconDiv.classList.contains('warn')) {
-						status = 'warning';
-						statusRank = 2;
-					}
-					if (iconDiv.classList.contains('sdt')) {
-						sdtStatus = ' <span class="sdtNote">(in SDT)</span>';
-						status = 'sdt';
-						statusRank = 1;
-					}
-
-					return {
-						name: nameLink.textContent,
-						link: nameLink.href,
-						status,
-						sdtStatus,
-						statusRank,
-						position: marker.position
-					}
-				});
-
-				// Sort the resources by status, then alphabetically by severity...
-				deviceDetails.sort((a,b)=> (b.statusRank - a.statusRank || a.name.localeCompare(b.name)  ));
-
-				// Calculate bounds for the cluster...
-				const clusterBounds = new google.maps.LatLngBounds();
-				deviceDetails.forEach(device => {
-					clusterBounds.extend(device.position);
-				});
-
-				return `
-					<div class="mapInfoPopupWindow">
-						<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-							<div style="font-weight: 600; font-size: 14px;">Cluster Summary</div>
-							<button onclick="if(clusterInfoWindow){clusterInfoWindow.close()};if(markerInfoWindow){markerInfoWindow.close();markerInfoWindow=null};if(parent.overlayInfoWindow){parent.overlayInfoWindow.close()};map.fitBounds(new google.maps.LatLngBounds(
-								new google.maps.LatLng(${clusterBounds.getSouthWest().lat()}, ${clusterBounds.getSouthWest().lng()}),
-								new google.maps.LatLng(${clusterBounds.getNorthEast().lat()}, ${clusterBounds.getNorthEast().lng()})
-							))" style="
-								padding: 6px 12px;
-								background: #1a73e8;
-								color: white;
-								border: none;
-								border-radius: 4px;
-								font-size: 13px;
-								cursor: pointer;
-								display: flex;
-								align-items: center;
-								gap: 6px;
-								transition: background 0.2s;
-							" onmouseover="this.style.background='#1557b0'" onmouseout="this.style.background='#1a73e8'">
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-									<circle cx="11" cy="11" r="8"/>
-									<line x1="21" y1="21" x2="16.65" y2="16.65"/>
-									<line x1="11" y1="8" x2="11" y2="14"/>
-									<line x1="8" y1="11" x2="14" y2="11"/>
-								</svg>
-								Zoom into Cluster
-							</button>
-						</div>
-						<div style="display: grid; gap: 8px; margin-bottom: 16px;">
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<div style="width: 12px; height: 12px; border-radius: 50%; background: #e0351b;"></div>
-								<span>Critical: ${severityCounts.get("3") || 0}</span>
-							</div>
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<div style="width: 12px; height: 12px; border-radius: 50%; background: #ff8c00;"></div>
-								<span>Error: ${severityCounts.get("2") || 0}</span>
-							</div>
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<div style="width: 12px; height: 12px; border-radius: 50%; background: #f5ca1d;"></div>
-								<span>Warning: ${severityCounts.get("1") || 0}</span>
-							</div>
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<div style="width: 12px; height: 12px; border-radius: 50%; background: #85c25d;"></div>
-								<span>Clear: ${severityCounts.get("0") || 0}</span>
-							</div>
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<div style="width: 12px; height: 12px; border-radius: 50%; background: #00a1fe;"></div>
-								<span>SDT: ${severityCounts.get("4") || 0}</span>
-							</div>
-						</div>
-						<div style="border-top: 1px solid #eee; padding-top: 12px;">
-							<div style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">${mapSourceType.replace(/^./, char => char.toUpperCase())} (${count})</div>
-							<div style="display: grid; gap: 4px;">
-								${deviceDetails.map(device => `
-									<div style="display: flex; align-items: center; padding: 4px 8px; background: color-mix(in srgb, var(--${device.status}-color) 10%, white 30%); border-radius: 4px; gap: 8px; max-height: 25px;">
-										<div style="width: 8px; height: 8px; border-radius: 50%; background: var(--${device.status}-color); flex-shrink: 0;"></div>
-										<a href="${device.link}"
-										   target="_blank"
-										   style="color: #1a73e8; text-decoration: none; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-										   onmouseover="this.style.textDecoration='underline'"
-										   onmouseout="this.style.textDecoration='none'">
-											${device.name}${device.sdtStatus}
-										</a>
-										<div style="display: flex; align-items: center;">
-											<a href="${device.link}"
-											   target="_blank"
-											   style="color: #1a73e8; display: flex; align-items: center; padding: 2px; border-radius: 4px; transition: background 0.2s;"
-											   onmouseover="this.style.background='#e8f0fe'"
-											   onmouseout="this.style.background='transparent'">
-												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-													<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-													<polyline points="15 3 21 3 21 9"/>
-													<line x1="10" y1="14" x2="21" y2="3"/>
-												</svg>
-											</a>
-										</div>
-									</div>
-								`).join('')}
-							</div>
-						</div>
-					</div>
-				`;
+	// Show cluster summary popup when a cluster is clicked
+	function showClusterSummary(cluster) {
+		const childMarkers = cluster.getAllChildMarkers();
+		const count = childMarkers.length;
+		
+		// Create objects to hold per-severity metrics...
+		const severityCounts = new Map([["4",0],["3",0],["2",0],["1",0],["0",0]]);
+		
+		// Get device details from markers
+		const deviceDetails = childMarkers.map(marker => {
+			const zIndex = marker.options.zIndexOffset || 0;
+			const severity = zIndex > 0 ? zIndex.toString() : "0";
+			severityCounts.set(severity, (severityCounts.get(severity) || 0) + 1);
+			
+			// Parse marker content to get device info
+			const contentDiv = document.createElement('div');
+			contentDiv.innerHTML = marker.options.icon.options.html;
+			const iconDiv = contentDiv.querySelector('.icon');
+			const nameLink = contentDiv.querySelector('.groupName a');
+			
+			let status = 'clear';
+			let sdtStatus = '';
+			let statusRank = 0;
+			if (iconDiv && iconDiv.classList.contains('critical')) {
+				status = 'critical';
+				statusRank = 4;
+			} else if (iconDiv && iconDiv.classList.contains('error')) {
+				status = 'error';
+				statusRank = 3;
+			} else if (iconDiv && iconDiv.classList.contains('warn')) {
+				status = 'warning';
+				statusRank = 2;
+			}
+			if (iconDiv && iconDiv.classList.contains('sdt')) {
+				sdtStatus = ' <span class="sdtNote">(in SDT)</span>';
+				status = 'sdt';
+				statusRank = 1;
 			}
 
-			// Add hover listener
-			marker.addListener('click', () => {
-				// Close any other details already open...
-				if (clusterInfoWindow) {
-					clusterInfoWindow.close();
-				}
-				// Close any overlay InfoWindow that might be open...
-				if (parent.overlayInfoWindow) {
-					parent.overlayInfoWindow.close();
-				}
-				// Close any marker InfoWindow that might be open...
-				if (markerInfoWindow) {
-					markerInfoWindow.close();
-					markerInfoWindow = null;
-				}
-				clusterInfoWindow = new CustomInfoWindow({
-					position: marker.position,
-					content: getInfoContent(),
-					anchor: 'top',
-					offset: 50
-				});
-				clusterInfoWindow.open(map);
-			});
+			return {
+				name: nameLink ? nameLink.textContent : 'Unknown',
+				link: nameLink ? nameLink.href : '#',
+				status,
+				sdtStatus,
+				statusRank,
+				position: marker.getLatLng()
+			};
+		});
 
-			return marker;
+		// Sort the resources by status, then alphabetically...
+		deviceDetails.sort((a,b) => (b.statusRank - a.statusRank || a.name.localeCompare(b.name)));
+
+		// Calculate bounds for the cluster...
+		const clusterBounds = L.latLngBounds(deviceDetails.map(d => d.position));
+
+		const popupContent = `
+			<div class="mapInfoPopupWindow">
+				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+					<div style="font-weight: 600; font-size: 14px;">Cluster Summary</div>
+					<button onclick="if(clusterInfoWindow){map.closePopup(clusterInfoWindow)};if(markerInfoWindow){map.closePopup(markerInfoWindow);markerInfoWindow=null};map.fitBounds([[${clusterBounds.getSouth()}, ${clusterBounds.getWest()}], [${clusterBounds.getNorth()}, ${clusterBounds.getEast()}]])" style="
+						padding: 6px 12px;
+						background: #1a73e8;
+						color: white;
+						border: none;
+						border-radius: 4px;
+						font-size: 13px;
+						cursor: pointer;
+						display: flex;
+						align-items: center;
+						gap: 6px;
+						transition: background 0.2s;
+					" onmouseover="this.style.background='#1557b0'" onmouseout="this.style.background='#1a73e8'">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+							<circle cx="11" cy="11" r="8"/>
+							<line x1="21" y1="21" x2="16.65" y2="16.65"/>
+							<line x1="11" y1="8" x2="11" y2="14"/>
+							<line x1="8" y1="11" x2="14" y2="11"/>
+						</svg>
+						Zoom into Cluster
+					</button>
+				</div>
+				<div style="display: grid; gap: 8px; margin-bottom: 16px;">
+					<div style="display: flex; align-items: center; gap: 8px;">
+						<div style="width: 12px; height: 12px; border-radius: 50%; background: #e0351b;"></div>
+						<span>Critical: ${severityCounts.get("3") || 0}</span>
+					</div>
+					<div style="display: flex; align-items: center; gap: 8px;">
+						<div style="width: 12px; height: 12px; border-radius: 50%; background: #ff8c00;"></div>
+						<span>Error: ${severityCounts.get("2") || 0}</span>
+					</div>
+					<div style="display: flex; align-items: center; gap: 8px;">
+						<div style="width: 12px; height: 12px; border-radius: 50%; background: #f5ca1d;"></div>
+						<span>Warning: ${severityCounts.get("1") || 0}</span>
+					</div>
+					<div style="display: flex; align-items: center; gap: 8px;">
+						<div style="width: 12px; height: 12px; border-radius: 50%; background: #85c25d;"></div>
+						<span>Clear: ${severityCounts.get("0") || 0}</span>
+					</div>
+					<div style="display: flex; align-items: center; gap: 8px;">
+						<div style="width: 12px; height: 12px; border-radius: 50%; background: #00a1fe;"></div>
+						<span>SDT: ${severityCounts.get("4") || 0}</span>
+					</div>
+				</div>
+				<div style="border-top: 1px solid #eee; padding-top: 12px;">
+					<div style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">${mapSourceType.replace(/^./, char => char.toUpperCase())} (${count})</div>
+					<div style="display: grid; gap: 4px;">
+						${deviceDetails.map(device => `
+							<div style="display: flex; align-items: center; padding: 4px 8px; background: color-mix(in srgb, var(--${device.status}-color) 10%, white 30%); border-radius: 4px; gap: 8px; max-height: 25px;">
+								<div style="width: 8px; height: 8px; border-radius: 50%; background: var(--${device.status}-color); flex-shrink: 0;"></div>
+								<a href="${device.link}"
+								   target="_blank"
+								   style="color: #1a73e8; text-decoration: none; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+								   onmouseover="this.style.textDecoration='underline'"
+								   onmouseout="this.style.textDecoration='none'">
+									${device.name}${device.sdtStatus}
+								</a>
+							</div>
+						`).join('')}
+					</div>
+				</div>
+			</div>
+		`;
+
+		// Close any existing popups
+		if (clusterInfoWindow) {
+			map.closePopup(clusterInfoWindow);
 		}
+		if (markerInfoWindow) {
+			map.closePopup(markerInfoWindow);
+			markerInfoWindow = null;
+		}
+
+		// Create and open the popup
+		clusterInfoWindow = L.popup({
+			maxWidth: 400,
+			className: 'cluster-popup'
+		})
+		.setLatLng(cluster.getLatLng())
+		.setContent(popupContent)
+		.openOn(map);
 	}
 
 	// Function to enable the weather overlays when the appropriate checkbox is selected...
@@ -3147,11 +3643,23 @@
 		} else {
 			// Clear the timer that refreshes the weather...
 			weatherRefresher = null;
-			// Remove any previous overlay to ensure we don't keep stacking layers...
-			map.overlayMapTypes.clear();
-			map.data.forEach(function(feature) {
-				map.data.remove(feature);
-			});
+			// Remove any previous weather/overlay layers...
+			if (weatherTileLayer && map.hasLayer(weatherTileLayer)) {
+				map.removeLayer(weatherTileLayer);
+				weatherTileLayer = null;
+			}
+			if (overlayLayer && map.hasLayer(overlayLayer)) {
+				map.removeLayer(overlayLayer);
+				overlayLayer = null;
+			}
+			if (hurricaneLayer && map.hasLayer(hurricaneLayer)) {
+				map.removeLayer(hurricaneLayer);
+				hurricaneLayer = null;
+			}
+			if (aqiLayer && map.hasLayer(aqiLayer)) {
+				map.removeLayer(aqiLayer);
+				aqiLayer = null;
+			}
 			// Hide the overlay options...
 			optionsElement.style.display = "none";
 		}
@@ -3204,107 +3712,63 @@
 			const mapType = document.querySelector('input[name="weatherType"]:checked').value;
 			const optionalMapType = document.querySelector('input[name="otherWeatherOverlays"]:checked').value;
 
+			// Remove any previous weather tile layer...
+			if (weatherTileLayer && map.hasLayer(weatherTileLayer)) {
+				map.removeLayer(weatherTileLayer);
+				weatherTileLayer = null;
+			}
+
 			// Add RainViewer layer if appropriate...
 			if (mapType == "radar") {
 				// Get the latest radar frame from RainViewer...
 				initRainViewerData();
 
-				// The following three lines really only apply if we use RainViewer's satellite imagery, which I'm not currently but left it in here if needed...
+				// The following three lines really only apply if we use RainViewer's satellite imagery...
 				let colorScheme = rvOptionKind == 'satellite' ? 0 : rvOptionColorScheme;
 				let smooth = rvOptionKind == 'satellite' ? 0 : rvOptionSmoothData;
 				let snow = rvOptionKind == 'satellite' ? 0 : rvOptionSnowColors;
 
-				// Remove any previous overlay to ensure we don't keep stacking layers...
-				map.overlayMapTypes.clear();
-
-				// Create the Google Maps layer...
-				let myMapType = new google.maps.ImageMapType({
-					getTileUrl: function(tile, zoom) {
-						return [rvAPIData.host + rvMapFrames[rvLastPastFramePosition].path, 256, zoom, tile.x, tile.y, colorScheme, smooth + '_' + snow + '.png'].join('/');
-					},
-					tileSize: new google.maps.Size(256, 256),
-					opacity: weatherOpacity,
-					name : mapType,
-					isPng: true
-				});
-
-				// Attach the weather layer to our maps widget...
-				map.overlayMapTypes.insertAt(0, myMapType);
-
-				// Update the timestamp...
-				// document.querySelector("#mapTimestampArea").style.display = "block"; // Unhides the timestamp area.
-				// document.getElementById("mapTimestamp").innerHTML = (new Date(rvMapFrames[rvLastPastFramePosition].time * 1000)).toString();
+				// Create the Leaflet tile layer for RainViewer...
+				if (rvAPIData.host && rvMapFrames.length > 0) {
+					const tileUrl = rvAPIData.host + rvMapFrames[rvLastPastFramePosition].path + '/256/{z}/{x}/{y}/' + colorScheme + '/' + smooth + '_' + snow + '.png';
+					weatherTileLayer = L.tileLayer(tileUrl, {
+						opacity: weatherOpacity,
+						attribution: 'Weather data &copy; <a href="https://www.rainviewer.com/">RainViewer</a>'
+					}).addTo(map);
+				}
 
 			// Show NEXRAD layers if appropriate...
 			} else if (mapType.match(/(nexrad|q2)/g)) {
-				// Remove any previous overlay to ensure we don't keep stacking layers...
-				map.overlayMapTypes.clear();
-
-				// Create the Google Maps layer...
-				let myMapType = new google.maps.ImageMapType({
-					getTileUrl: function(tile, zoom) {
-						return "http://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/" + mapType + "/" + zoom + "/" + tile.x + "/" + tile.y +".png?"+ (new Date()).getTime();
-					},
-					tileSize: new google.maps.Size(256, 256),
+				// Create the Leaflet tile layer for NEXRAD...
+				const nexradUrl = 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/' + mapType + '/{z}/{x}/{y}.png?' + Date.now();
+				weatherTileLayer = L.tileLayer(nexradUrl, {
 					opacity: weatherOpacity,
-					name: mapType,
-					isPng: true
-				});
-
-				// Attach the weather layer to our maps widget...
-				map.overlayMapTypes.insertAt(0, myMapType);
+					attribution: 'NEXRAD &copy; <a href="https://mesonet.agron.iastate.edu/">Iowa Environmental Mesonet</a>'
+				}).addTo(map);
 
 			// Show OpenWeather layers if appropriate...
 			} else if (mapType != "" && openWeatherMapsAPIKey.length >= 32) {
-				// Remove any previous overlay to ensure we don't keep stacking layers...
-				map.overlayMapTypes.clear();
-
-				// Create the Google Maps layer...
-				let myMapType = new google.maps.ImageMapType({
-					getTileUrl: function(coord, zoom) {
-						return "https://tile.openweathermap.org/map/" + mapType + "/" + zoom + "/" + coord.x + "/" + coord.y + ".png?appid=" + openWeatherMapsAPIKey;
-					},
-					tileSize: new google.maps.Size(256, 256),
-					maxZoom: 9,
-					minZoom: 0,
+				// Create the Leaflet tile layer for OpenWeatherMap...
+				const owmUrl = 'https://tile.openweathermap.org/map/' + mapType + '/{z}/{x}/{y}.png?appid=' + openWeatherMapsAPIKey;
+				weatherTileLayer = L.tileLayer(owmUrl, {
 					opacity: weatherOpacity,
-					name: mapType
-				});
-
-				// Attach the weather layer to our maps widget...
-				map.overlayMapTypes.insertAt(0, myMapType);
+					maxZoom: 9,
+					attribution: 'Weather &copy; <a href="https://openweathermap.org/">OpenWeatherMap</a>'
+				}).addTo(map);
 			}
 
 			// Look to see if we should add wildfire into the map...
 			if (optionalMapType == "us-fires") {
-				// Clear any previous load of the overlay data...
-				map.data.forEach(function(feature) {
-					map.data.remove(feature);
-				});
-				// Remove any existing overlay listeners...
-				if (typeof parent.overlayInfoWindowListenerHandle == "object") {
-					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
-				}
-				// Initialize or close the shared overlay InfoWindow...
-				if (parent.overlayInfoWindow) {
-					parent.overlayInfoWindow.close();
-					parent.overlayInfoWindow = null;
-				}				
-				parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
-				// Clear any previous earthquake contour lines...
-				if (parent.mmiContourLines) {
-					parent.mmiContourLines.forEach(line => line.setMap(null));
-					parent.mmiContourLines = [];
+				// Remove any previous overlay layer...
+				if (overlayLayer && map.hasLayer(overlayLayer)) {
+					map.removeLayer(overlayLayer);
+					overlayLayer = null;
 				}
 
 				// Load the wildfire data from the ArcGIS site...
-				// More info about this source of active US wildfire data can be found at: https://www.arcgis.com/home/item.html?id=d957997ccee7408287a963600a77f61f
-				// From that site, you can click "View" above the "URL" field on the right-hand side. From there, you'll see info on the two available layers. We're using layer "1" for perimeter data (denoted in the URL below with the "_1"), and pulling geojson data (per the suffix).
-				//map.data.loadGeoJson("https://opendata.arcgis.com/datasets/d957997ccee7408287a963600a77f61f_1.geojson");
 				const usWildfireUrl = `https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/USA_Wildfires_v1/FeatureServer/1/query?where=CurrentDateAge+<%3D+7&outFields=*&f=geojson&ts=${Date.now()}`;
 				
 				// Australian bushfire data from ArcGIS (near real-time bushfire boundaries)...
-				// More info: https://www.arcgis.com/home/item.html?id=8b28109ce26b43b8968a3c9baa608f43
 				const auWildfireUrl = `https://services-ap1.arcgis.com/ypkPEy1AmwPKGNNv/arcgis/rest/services/Near_Real_Time_Bushfire_Boundaries_view/FeatureServer/3/query?where=0%3D0&geometryType=esriGeometryPolyline&units=esriSRUnit_Meter&outFields=*&returnGeometry=true&f=pgeojson&ts=${Date.now()}`;
 
 				// Fetch both US and Australian wildfire data in parallel...
@@ -3312,126 +3776,109 @@
 					fetch(usWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null),
 					fetch(auWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null)
 				]).then(([usData, auData]) => {
+					// Combine all features
+					const allFeatures = [];
+					
 					// Add US wildfire data if available...
 					if (usData && usData.features) {
-						// Tag US features with a source property for identification in click handler...
 						usData.features.forEach(feature => {
 							feature.properties = feature.properties || {};
 							feature.properties._fireSource = 'US';
+							allFeatures.push(feature);
 						});
-						map.data.addGeoJson(usData);
 						console.debug(`US wildfires loaded: ${usData.features.length} features`);
 					}
 					
 					// Add Australian wildfire data if available...
 					if (auData && auData.features) {
-						// Tag Australian features with a source property for identification in click handler...
 						auData.features.forEach(feature => {
 							feature.properties = feature.properties || {};
 							feature.properties._fireSource = 'AU';
+							allFeatures.push(feature);
 						});
-						map.data.addGeoJson(auData);
 						console.debug(`Australian bushfires loaded: ${auData.features.length} features`);
 					}
+
+					// Create a combined GeoJSON FeatureCollection
+					const combinedData = {
+						type: 'FeatureCollection',
+						features: allFeatures
+					};
+
+					// Create Leaflet GeoJSON layer with wildfire styling
+					overlayLayer = L.geoJSON(combinedData, {
+						style: {
+							fillColor: 'red',
+							fillOpacity: 0.5,
+							weight: 1,
+							color: 'salmon'
+						},
+						onEachFeature: function(feature, layer) {
+							const props = feature.properties;
+							let infoContent = '';
+							
+							if (props._fireSource === 'AU') {
+								// Australian bushfire info display...
+								let fireName = props.fire_name || "(unknown)";
+								let fireType = props.fire_type || "(not available)";
+								let ignitionDate = props.ignition_date;
+								if (ignitionDate == null) {
+									ignitionDate = "(not available)";
+								} else if (typeof ignitionDate === 'number') {
+									ignitionDate = new Date(ignitionDate).toLocaleDateString('en-AU');
+								}
+								let perimKm = props.perim_km;
+								if (perimKm == null) {
+									perimKm = "(not available)";
+								} else {
+									perimKm = Number(perimKm).toLocaleString('en-AU', numFormatOptions) + ' km';
+								}
+								let state = props.state || "(not available)";
+								let agency = props.agency || "(not available)";
+								
+								infoContent = '<div style="line-height:1.35;overflow:hidden;color:black;">' +
+									'<span style="font-weight:700;">Bushfire &quot;' + fireName + '&quot;</span><br/>' +
+									'<br/><b>Fire Type:</b> ' + fireType +
+									'<br/><b>Ignition Date:</b> ' + ignitionDate +
+									'<br/><b>Perimeter:</b> ' + perimKm +
+									'<br/><b>State:</b> ' + state +
+									'<br/><b>Agency:</b> ' + agency +
+									'</div>';
+							} else {
+								// US wildfire info display...
+								let comments = props.Comments || "(comments not available)";
+								let acres = props.GISAcres;
+								if (acres == null) {
+									acres = "(not available)";
+								} else {
+									acres = Number(acres).toLocaleString('en-US', numFormatOptions);
+								}
+								let fireCategory = props.FeatureCategory || "(not available)";
+								
+								infoContent = '<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">' +
+									'<span style="font-weight:700;">Wildfire &quot;' + props.IncidentName + '&quot;</span><br/>' +
+									comments + '<br/><br/>Calculated Acres: ' + acres +
+									'<br/>Category: ' + fireCategory +
+									'<br/>Days Since Last GIS Update: ' + props.CurrentDateAge +
+									'<br/>GIS Map Method: ' + props.MapMethod +
+									'</div>';
+							}
+							
+							layer.bindPopup(infoContent);
+							
+							if (showWildfireInfoEvent == "mouseover") {
+								layer.on('mouseover', function(e) {
+									this.openPopup(e.latlng);
+								});
+								layer.on('mouseout', function(e) {
+									this.closePopup();
+								});
+							}
+						}
+					}).addTo(map);
 				}).catch(error => {
 					console.error('Error loading wildfire data:', error);
 				});
-
-				// Color the wildfire areas as red...
-				map.data.setStyle({ fillColor: 'red', strokeWeight: 1.0, strokeColor: 'salmon' });
-
-				// Show wildfire info on either "click" or "mouseover" (refer to the 'showWildfireInfoEvent' variable set at the top of this script)...
-				parent.overlayInfoWindowListenerHandle = map.data.addListener(showWildfireInfoEvent, function(event) {
-					// Determine if this is a US or Australian fire based on the source property...
-					const fireSource = event.feature.getProperty("_fireSource");
-					let infoContent = '';
-					
-					if (fireSource === 'AU') {
-						// Australian bushfire info display...
-						let fireName = event.feature.getProperty("fire_name");
-						if (fireName == null) {
-							fireName = "(unknown)";
-						}
-						let fireType = event.feature.getProperty("fire_type");
-						if (fireType == null) {
-							fireType = "(not available)";
-						}
-						let ignitionDate = event.feature.getProperty("ignition_date");
-						if (ignitionDate == null) {
-							ignitionDate = "(not available)";
-						} else {
-							// Convert epoch timestamp to readable date if it's a number...
-							if (typeof ignitionDate === 'number') {
-								ignitionDate = new Date(ignitionDate).toLocaleDateString('en-AU');
-							}
-						}
-						let perimKm = event.feature.getProperty("perim_km");
-						if (perimKm == null) {
-							perimKm = "(not available)";
-						} else {
-							perimKm = Number(perimKm).toLocaleString('en-AU', numFormatOptions) + ' km';
-						}
-						let state = event.feature.getProperty("state");
-						if (state == null) {
-							state = "(not available)";
-						}
-						let agency = event.feature.getProperty("agency");
-						if (agency == null) {
-							agency = "(not available)";
-						}
-						
-						infoContent = '<div style="line-height:1.35;overflow:hidden;color:black;">' +
-							'<span style="font-weight:700;">Bushfire &quot;' + fireName + '&quot;</span><br/>' +
-							'<br/><b>Fire Type:</b> ' + fireType +
-							'<br/><b>Ignition Date:</b> ' + ignitionDate +
-							'<br/><b>Perimeter:</b> ' + perimKm +
-							'<br/><b>State:</b> ' + state +
-							'<br/><b>Agency:</b> ' + agency +
-							'</div>';
-					} else {
-						// US wildfire info display (original logic)...
-						let comments = event.feature.getProperty("Comments");
-						if (comments == null) {
-							comments = "(comments not available)";
-						}
-						let acres = event.feature.getProperty("GISAcres");
-						if (acres == null) {
-							acres = "(not available)";
-						} else {
-							acres = Number(acres).toLocaleString('en-US', numFormatOptions);
-						}
-						let fireCategory = event.feature.getProperty("FeatureCategory");
-						if (fireCategory == null) {
-							fireCategory = "(not available)";
-						}
-						
-						infoContent = '<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">' +
-							'<span style="font-weight:700;">Wildfire &quot;' + event.feature.getProperty("IncidentName") + '&quot;</span><br/>' +
-							comments + '<br/><br/>Calculated Acres: ' + acres +
-							'<br/>Category: ' + fireCategory +
-							'<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") +
-							'<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") +
-							'</div>';
-					}
-					
-					// Close any cluster InfoWindow that might be open...
-					if (clusterInfoWindow) {
-						clusterInfoWindow.close();
-					}
-					// Close any marker InfoWindow that might be open...
-					if (markerInfoWindow) {
-						markerInfoWindow.close();
-						markerInfoWindow = null;
-					}
-					parent.overlayInfoWindow.setContent(infoContent);
-					parent.overlayInfoWindow.setPosition(event.latLng);
-					parent.overlayInfoWindow.open(map);
-				});
-				if (showWildfireInfoEvent == "mouseover") {
-					parent.overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
-						parent.overlayInfoWindow.close();
-					});
-				}
 			// Look to see if we should add power outages to the map...
 			} else if (optionalMapType == "us-poweroutages") {
 				// USA Today power outage data URL (fetched via CORS proxy)...
@@ -3442,23 +3889,16 @@
 				const usaTodayTotalCustomersURL = 'https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_total.js';
 
 				try {
-					// Clear any previous load of the overlay data...
-					map.data.forEach(function(feature) {
-						map.data.remove(feature);
-					});
-					// Remove any existing overlay listeners...
-					if (typeof parent.overlayInfoWindowListenerHandle == "object") {
-						google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
+					// Clear any previous overlay layer...
+					if (overlayLayer && map.hasLayer(overlayLayer)) {
+						map.removeLayer(overlayLayer);
+						overlayLayer = null;
 					}
-					// Initialize or close the shared overlay InfoWindow...
-					if (parent.overlayInfoWindow) {
-						parent.overlayInfoWindow.close();
-						parent.overlayInfoWindow = null;
-					}
-					parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
 					// Clear any previous earthquake contour lines...
 					if (parent.mmiContourLines) {
-						parent.mmiContourLines.forEach(line => line.setMap(null));
+						parent.mmiContourLines.forEach(line => {
+							if (map.hasLayer(line)) map.removeLayer(line);
+						});
 						parent.mmiContourLines = [];
 					}
 
@@ -3541,194 +3981,158 @@
 
 					console.debug(`US power outages loaded: ${countiesWithOutages} counties have active outages`);
 
-					// Add the merged GeoJSON to the map...
-					map.data.addGeoJson(countiesGeoJson);
+					// Create Leaflet GeoJSON layer with styling based on outage percentage...
+					overlayLayer = L.geoJSON(countiesGeoJson, {
+						style: function(feature) {
+							let percentAffected = feature.properties.PercentAffected || 0;
+							let strokeColor = "#0000002e";
+							let strokeOpacity = 0.1;
+							let fillColor = "transparent";
+							let fillOpacity = 0.0;
+							
+							if (percentAffected > 0) {
+								strokeColor = "salmon";
+								fillColor = "red";
+								fillOpacity = Math.min(percentAffected / 100, 0.8);
+							}
 
-					// Color the county borders dynamically based on outage percentage...
-					map.data.setStyle(function(feature) {
-						let percentAffected = feature.getProperty('PercentAffected') || 0;
-						let strokeColor = "#0000002e";
-						let strokeOpacity = 0.1;
-						let fillColor = "transparent";
-						let fillOpacity = 0.0;
-						
-						if (percentAffected > 0) {
-							strokeColor = "salmon";
-							fillColor = "red";
-							// Scale the fill opacity based on percentage (cap at 50% for visibility)
-							fillOpacity = Math.min(percentAffected / 100, 0.8);
+							return {
+								fillColor: fillColor,
+								fillOpacity: fillOpacity,
+								weight: 1,
+								color: strokeColor,
+								opacity: strokeOpacity
+							};
+						},
+						onEachFeature: function(feature, layer) {
+							const countyName = feature.properties.CountyName || 'Unknown County';
+							const outageCount = feature.properties.OutageCount || 0;
+							const percentAffected = feature.properties.PercentAffected || 0;
+
+							// Calculate donut chart values
+							const circumference = 219.91;
+							const filledAmount = (percentAffected / 100) * circumference;
+							const donutChart = `
+								<svg width="100" height="100" viewBox="0 0 100 100" style="display:block;margin:10px auto;">
+									<circle cx="50" cy="50" r="35" fill="none" stroke="#e0e0e0" stroke-width="12"/>
+									<circle cx="50" cy="50" r="35" fill="none" stroke="#dc3545" stroke-width="12"
+										stroke-dasharray="${filledAmount} ${circumference - filledAmount}"
+										stroke-linecap="round"
+										transform="rotate(-90 50 50)"/>
+									<text x="50" y="50" text-anchor="middle" dominant-baseline="middle"
+										font-size="16" font-weight="bold" fill="#333">${percentAffected.toFixed(1)}%</text>
+								</svg>
+							`;
+
+							const popupContent = `
+								<div style="line-height:1.5;overflow:hidden;white-space:nowrap;color:#333;">
+									<h3 style="margin:0;">${countyName} Power Outages</h3>
+									${donutChart}
+									<p style="padding:5px 0;">
+										Customers Without Power: <strong>${outageCount.toLocaleString()}</strong> (${percentAffected.toFixed(1)}%)
+									</p>
+									<p style="font-size:11px; color:#777; margin: 0;">
+										Data source: <a href="https://data.usatoday.com/national-power-outage-map-tracker/" target="_blank" style="color:#0085c4; text-decoration: none;">USA Today</a>
+									</p>
+								</div>
+							`;
+
+							layer.bindPopup(popupContent, { maxWidth: 350 });
+
+							// Highlight counties on mouseover
+							layer.on('mouseover', function(e) {
+								this.setStyle({ weight: 3, opacity: 0.5 });
+								this.bringToFront();
+							});
+							layer.on('mouseout', function(e) {
+								overlayLayer.resetStyle(this);
+							});
 						}
-
-						return {
-							fillColor: fillColor,
-							fillOpacity: fillOpacity,
-							strokeWeight: 1.0,
-							strokeColor: strokeColor,
-							strokeOpacity: strokeOpacity
-						}
-					});
-
-					// Show county info on click...
-					parent.overlayInfoWindowListenerHandle = map.data.addListener('click', function(event) {
-						const countyName = event.feature.getProperty('CountyName') || 'Unknown County';
-						const outageCount = event.feature.getProperty('OutageCount') || 0;
-						const percentAffected = event.feature.getProperty('PercentAffected') || 0;
-
-						// Calculate donut chart values (circumference = 2 * π * 35 ≈ 219.91)...
-						const circumference = 219.91;
-						const filledAmount = (percentAffected / 100) * circumference;
-						const donutChart = `
-							<svg width="100" height="100" viewBox="0 0 100 100" style="display:block;margin:10px auto;">
-								<circle cx="50" cy="50" r="35" fill="none" stroke="#e0e0e0" stroke-width="12"/>
-								<circle cx="50" cy="50" r="35" fill="none" stroke="#dc3545" stroke-width="12"
-									stroke-dasharray="${filledAmount} ${circumference - filledAmount}"
-									stroke-linecap="round"
-									transform="rotate(-90 50 50)"/>
-								<text x="50" y="50" text-anchor="middle" dominant-baseline="middle"
-									font-size="16" font-weight="bold" fill="#333">${percentAffected.toFixed(1)}%</text>
-							</svg>
-						`;
-
-						// Set the content of the info window...
-						parent.overlayInfoWindow.setContent(`
-							<div style="line-height:1.5;overflow:hidden;white-space:nowrap;color:#333;">
-								<h3 style="margin:0;">${countyName} Power Outages</h3>
-								${donutChart}
-								<p style="padding:5px 0;">
-									Customers Without Power: <strong>${outageCount.toLocaleString()}</strong> (${percentAffected.toFixed(1)}%)
-								</p>
-								<p style="font-size:11px; color:#777; margin: 0;">
-									Data source: <a href="https://data.usatoday.com/national-power-outage-map-tracker/" target="_blank" style="color:#0085c4; text-decoration: none;">USA Today</a>
-								</p>
-							</div>
-						`);
-
-						// Close any cluster InfoWindow that might be open...
-						if (clusterInfoWindow) {
-							clusterInfoWindow.close();
-						}
-						// Close any marker InfoWindow that might be open...
-						if (markerInfoWindow) {
-							markerInfoWindow.close();
-							markerInfoWindow = null;
-						}
-						parent.overlayInfoWindow.setPosition(event.latLng);
-						parent.overlayInfoWindow.open(map);
-					});
-
-					// Highlight counties on mouseover...
-					map.data.addListener('mouseover', function(event) {
-						map.data.revertStyle();
-						map.data.overrideStyle(event.feature, {strokeWeight: 3, strokeOpacity: 0.5});
-					});
-					map.data.addListener('mouseout', function(event) {
-						map.data.revertStyle();
-					});
+					}).addTo(map);
 
 				} catch (error) {
 					console.error("Failed to fetch power outage data:", error);
 				}
 			} else if (optionalMapType == "earthquakes") {
-				// Clear any previous load of the overlay data...
-				map.data.forEach(function(feature) {
-					map.data.remove(feature);
-				});
-				// Remove any existing overlay listeners...
-				if (typeof parent.overlayInfoWindowListenerHandle == "object") {
-					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
+				// Clear any previous overlay layer...
+				if (overlayLayer && map.hasLayer(overlayLayer)) {
+					map.removeLayer(overlayLayer);
+					overlayLayer = null;
 				}
-				// Initialize or close the shared overlay InfoWindow...
-				if (parent.overlayInfoWindow) {
-					parent.overlayInfoWindow.close();
-					parent.overlayInfoWindow = null;
-				}
-				parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
 				// Clear any previous earthquake contour lines...
 				if (parent.mmiContourLines) {
-					parent.mmiContourLines.forEach(line => line.setMap(null));
+					parent.mmiContourLines.forEach(line => {
+						if (map.hasLayer(line)) map.removeLayer(line);
+					});
 					parent.mmiContourLines = [];
 				}
 
 				// Load the earthquake data for the past day from the USGS site...
 				// More info about this source of earthquake data can be found at: https://publicapis.io/usgs-earthquake-hazards-program-api
+				let earthquakeUrl;
 				if (quakeMode == "time") {
-					await map.data.loadGeoJson(`https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.geojson?ts=${Date.now()}`);
+					earthquakeUrl = `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.geojson?ts=${Date.now()}`;
 				} else {
-					await map.data.loadGeoJson(`https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_day.geojson?ts=${Date.now()}`);
+					earthquakeUrl = `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_day.geojson?ts=${Date.now()}`;
 				}
-				// Other options for different timeframes and magnitudes...
-				// map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson");
-				// await map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson");
-				// await map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson");
-				// await map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson");
-				// await map.data.loadGeoJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson");
-				console.debug("Earthquake data loaded");
+				
+				const earthquakeResponse = await fetch(earthquakeUrl);
+				const earthquakeData = await earthquakeResponse.json();
+				console.debug(`Earthquake data loaded: ${earthquakeData.features?.length || 0} earthquakes`);
 
-				// Style the earthquake markers...
-				// map.data.setStyle({ fillColor: 'red', strokeWeight: 1.0, strokeColor: 'salmon', icon: {url: quakeIcon, scaledSize: { width: 40, height: 40}, anchor: { x: 20, y: 20 } } });
-				map.data.setStyle(function(feature) {
+				// Function to calculate icon styling based on earthquake properties...
+				function getEarthquakeIcon(feature) {
 					let alertColor = "crimson";
-					let iconOpacity = 1.0;
-					// Set our minimum opacity...
-					iconOpacity = 0.5;
-
-					// Leaving logic here commented out for color-coding the icons based on PAGER alert color...
-					// alertColor = "gray";
-					// if (feature.getProperty('alert') != null) {
-					// 	alertColor = feature.getProperty('alert');
-					// 	if (alertColor == "green") {
-					// 		alertColor = "limegreen";
-					// 	} else if (alertColor == "yellow") {
-					// 		alertColor = "rgb(209 209 43)";
-					// 	};
-					// };
+					let iconOpacity = 0.5;
 
 					if (quakeMode == "time") {
-						// Leaving logic here commented out for changing the icon's opacity based on recency...
-						// Calculate the icon's opacity based on how recent the quake occurred (newer = more opaque)...
 						let now = new Date();
-						let quakeTime = new Date(feature.getProperty('time'));
-						// Calculate seconds since the quake occurred...
+						let quakeTime = new Date(feature.properties.time);
 						let timeDiff = now - quakeTime;
-						// Calculate a scale based on seconds in a day...
 						let timeScale = (86400 * 12) / timeDiff * 100;
-						// Change icon opacity based on age of the event...
 						if (timeScale > iconOpacity) {
 							iconOpacity = timeScale;
 						}
 					} else {
-						let mag = feature.getProperty("mag");
-						// We'll use magnitude 7 as a the top of our scale (i.e. mag 7 will be full opacity, with lesser being more faded)...
+						let mag = feature.properties.mag;
 						let magScale = 1 - ((7 - mag) / 10);
 						if (magScale > 0.5) {
 							iconOpacity = magScale;
 						}
 					}
-					// console.debug(`Opacity of ${feature.getProperty("place")} (mag ${feature.getProperty("mag")}): ${iconOpacity}`);
 
-					return {
-						icon: {url: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' data-tooltip='Earthquake' viewBox='0 0 302.836 302.836'%3E%3Cpath d='M271 256a15 15 0 0 1-15 15 15 15 0 0 1-15-15 15 15 0 0 1 15-15 15 15 0 0 1 15 15z' style='opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};stroke:none;stroke-width:8;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 139.29c-64.44 0-116.71 52.27-116.71 116.71S191.56 372.71 256 372.71 372.71 320.44 372.71 256 320.44 139.29 256 139.29zm0 3c62.818 0 113.71 50.892 113.71 113.71 0 62.818-50.892 113.71-113.71 113.71-62.818 0-113.71-50.892-113.71-113.71 0-62.818 50.892-113.71 113.71-113.71z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:.55474453;fill-rule:nonzero;stroke:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 214.266c-22.996 0-41.734 18.738-41.734 41.734 0 22.996 18.738 41.734 41.734 41.734 22.996 0 41.734-18.738 41.734-41.734 0-22.996-18.738-41.734-41.734-41.734zm0 9c18.132 0 32.734 14.602 32.734 32.734S274.132 288.734 256 288.734 223.266 274.132 223.266 256s14.602-32.734 32.734-32.734z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:${alertColor};stroke-width:3;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 189.678c-36.594 0-66.322 29.728-66.322 66.322s29.728 66.322 66.322 66.322 66.322-29.728 66.322-66.322-29.728-66.322-66.322-66.322zm0 6c33.35 0 60.322 26.971 60.322 60.322 0 33.35-26.971 60.322-60.322 60.322-33.35 0-60.322-26.971-60.322-60.322 0-33.35 26.971-60.322 60.322-60.322z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:none;stroke-width:6;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 166.164c-49.591 0-89.836 40.245-89.836 89.836S206.41 345.836 256 345.836 345.836 305.59 345.836 256 305.59 166.164 256 166.164zm0 4c47.43 0 85.836 38.406 85.836 85.836S303.43 341.836 256 341.836 170.164 303.43 170.164 256 208.57 170.164 256 170.164z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 109.582c-80.853 0-146.418 65.565-146.418 146.418 0 80.853 65.565 146.418 146.418 146.418 80.853 0 146.418-65.565 146.418-146.418 0-80.853-65.565-146.418-146.418-146.418zm0 2c79.772 0 144.418 64.646 144.418 144.418S335.772 400.418 256 400.418 111.582 335.772 111.582 256 176.228 111.582 256 111.582z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:.35766422;fill-rule:nonzero;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3C/svg%3E`, scaledSize: { width: 40, height: 40}, anchor: { x: 20, y: 20 } },
-					}
-				});
+					// Build SVG icon URL
+					const iconUrl = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 302.836 302.836'%3E%3Cpath d='M271 256a15 15 0 0 1-15 15 15 15 0 0 1-15-15 15 15 0 0 1 15-15 15 15 0 0 1 15 15z' style='opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity}' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 139.29c-64.44 0-116.71 52.27-116.71 116.71S191.56 372.71 256 372.71 372.71 320.44 372.71 256 320.44 139.29 256 139.29zm0 3c62.818 0 113.71 50.892 113.71 113.71 0 62.818-50.892 113.71-113.71 113.71-62.818 0-113.71-50.892-113.71-113.71 0-62.818 50.892-113.71 113.71-113.71z' style='opacity:${iconOpacity};fill:${alertColor};fill-opacity:.55' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 214.266c-22.996 0-41.734 18.738-41.734 41.734 0 22.996 18.738 41.734 41.734 41.734 22.996 0 41.734-18.738 41.734-41.734 0-22.996-18.738-41.734-41.734-41.734zm0 9c18.132 0 32.734 14.602 32.734 32.734S274.132 288.734 256 288.734 223.266 274.132 223.266 256s14.602-32.734 32.734-32.734z' style='opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity}' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 189.678c-36.594 0-66.322 29.728-66.322 66.322s29.728 66.322 66.322 66.322 66.322-29.728 66.322-66.322-29.728-66.322-66.322-66.322zm0 6c33.35 0 60.322 26.971 60.322 60.322 0 33.35-26.971 60.322-60.322 60.322-33.35 0-60.322-26.971-60.322-60.322 0-33.35 26.971-60.322 60.322-60.322z' style='opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity}' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 166.164c-49.591 0-89.836 40.245-89.836 89.836S206.41 345.836 256 345.836 345.836 305.59 345.836 256 305.59 166.164 256 166.164zm0 4c47.43 0 85.836 38.406 85.836 85.836S303.43 341.836 256 341.836 170.164 303.43 170.164 256 208.57 170.164 256 170.164z' style='opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity}' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 109.582c-80.853 0-146.418 65.565-146.418 146.418 0 80.853 65.565 146.418 146.418 146.418 80.853 0 146.418-65.565 146.418-146.418 0-80.853-65.565-146.418-146.418-146.418zm0 2c79.772 0 144.418 64.646 144.418 144.418S335.772 400.418 256 400.418 111.582 335.772 111.582 256 176.228 111.582 256 111.582z' style='opacity:${iconOpacity};fill:${alertColor};fill-opacity:.35' transform='translate(-104.582 -104.582)'/%3E%3C/svg%3E`;
 
-				// Show earthquake info on click...
-				parent.overlayInfoWindowListenerHandle = map.data.addListener('click', async function(event) {
-					// Show an infowindow on click...
-					let quakeTime = new Date(event.feature.getProperty("time"));
-					let updated = new Date(event.feature.getProperty("updated"));
-					let alertLabel = "(not available)";
-					let alertLabelColor = "white";
-					if (event.feature.getProperty("alert") != null) {
-						alertLabelColor = event.feature.getProperty("alert");
-						alertLabel = event.feature.getProperty("alert").toUpperCase();
-						if (alertLabelColor == "green") {
-							alertLabelColor = "lawngreen";
+					return L.icon({
+						iconUrl: iconUrl,
+						iconSize: [40, 40],
+						iconAnchor: [20, 20],
+						popupAnchor: [0, -20]
+					});
+				}
+
+				// Create Leaflet GeoJSON layer for earthquakes
+				overlayLayer = L.geoJSON(earthquakeData, {
+					pointToLayer: function(feature, latlng) {
+						return L.marker(latlng, { icon: getEarthquakeIcon(feature) });
+					},
+					onEachFeature: async function(feature, layer) {
+						const props = feature.properties;
+						let quakeTime = new Date(props.time);
+						let alertLabel = "(not available)";
+						let alertLabelColor = "white";
+						if (props.alert != null) {
+							alertLabelColor = props.alert;
+							alertLabel = props.alert.toUpperCase();
+							if (alertLabelColor == "green") {
+								alertLabelColor = "lawngreen";
+							}
 						}
-					}
-					let quakeAgeInDays = (new Date() - quakeTime) / (86400 * 1000);
+						let quakeAgeInDays = (new Date() - quakeTime) / (86400 * 1000);
 
 					// Fetch detail data first to get impact-link info for tsunami warning...
-					const detailUrl = event.feature.getProperty("detail");
+					const detailUrl = props.detail;
 					let tsunamiWarningHtml = 'Tsunami risk';
 					let detailData = null;
 					if (detailUrl) {
@@ -3757,141 +4161,60 @@
 						}
 					}
 
-					parent.overlayInfoWindow.setContent(`
-						<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;width:250px;">
+					// Build popup content for earthquake
+					let updated = new Date(props.updated);
+					const popupContent = `
+						<div style="line-height:1.35;overflow:hidden;color:black;width:260px;">
 							<div style="font-size: 1.2em;">
-								<div style="font-weight:700;">Earthquake: Magnitude ${event.feature.getProperty("mag")}</div>
-								${event.feature.getProperty("place")}
+								<div style="font-weight:700;">Earthquake: Magnitude ${props.mag}</div>
+								${props.place}
 							</div>
 							<div style="margin: 12px 0; display: flex; flex-direction: column; gap: 12px; min-width: 220px;">
-								<!-- Magnitude Gauge (0-8) -->
 								<div style="display: flex; flex-direction: column; gap: 4px;">
 									<div style="display: flex; justify-content: space-between; align-items: baseline;">
-										<span style="font-size: 11px; font-weight: 600; color: #333; display: inline-flex; align-items: center; gap: 4px;">Magnitude<span title="Magnitude is a logarithmic measure of the size of an earthquake at its source." style="display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: #888; color: white; font-size: 9px; font-weight: 700; cursor: help; font-style: italic; font-family: Georgia, serif;">i</span></span>
-										<span style="font-size: 14px; font-weight: 700; color: #333;">${event.feature.getProperty("mag").toFixed(1)}</span>
-									</div>
-									<div style="position: relative; height: 24px;">
-										<svg width="100%" height="24" viewBox="0 0 220 24" preserveAspectRatio="none">
-											<defs>
-												<linearGradient id="barGradientMag" x1="0%" y1="0%" x2="100%" y2="0%">
-													<stop offset="0%" style="stop-color:#c5e8eb"/>
-													<stop offset="50%" style="stop-color:#FFF9C4"/>
-													<stop offset="62.5%" style="stop-color:#FFEB3B"/>
-													<stop offset="75%" style="stop-color:#FF9800"/>
-													<stop offset="87.5%" style="stop-color:#FF5722"/>
-													<stop offset="100%" style="stop-color:#F44336"/>
-												</linearGradient>
-											</defs>
-											<!-- Background bar -->
-											<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientMag)"/>
-										</svg>
-										<!-- Marker (HTML element to avoid SVG stretching) -->
-										<div class="quakeMarker" style="left: calc(${Math.min(100, Math.max(0, event.feature.getProperty("mag") / 8 * 100))}% - 14px);">
-											<div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-										</div>
-									</div>
-									<div style="display: flex; justify-content: space-between; font-size: 9px; color: #666;">
-										<span>0</span><span>2</span><span>4</span><span>6</span><span>8</span>
+										<span style="font-size: 11px; font-weight: 600; color: #333;">Magnitude</span>
+										<span style="font-size: 14px; font-weight: 700; color: #333;">${props.mag.toFixed(1)}</span>
 									</div>
 								</div>
-								<!-- Significance Gauge (0-1000) -->
 								<div style="display: flex; flex-direction: column; gap: 4px;">
 									<div style="display: flex; justify-content: space-between; align-items: baseline;">
-										<span style="font-size: 11px; font-weight: 600; color: #333; display: inline-flex; align-items: center; gap: 4px;">Significance<span title="A quake's significance is determined on a number of factors, including: magnitude, maximum MMI, felt reports, and estimated impact." style="display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: #888; color: white; font-size: 9px; font-weight: 700; cursor: help; font-style: italic; font-family: Georgia, serif;">i</span></span>
-										<span style="font-size: 14px; font-weight: 700; color: #333;">${(event.feature.getProperty("sig") || 0).toFixed(0)}</span>
-									</div>
-									<div style="position: relative; height: 24px;">
-										<svg width="100%" height="24" viewBox="0 0 220 24" preserveAspectRatio="none">
-											<defs>
-												<linearGradient id="barGradientSig" x1="0%" y1="0%" x2="100%" y2="0%">
-													<stop offset="0%" style="stop-color:#4CAF50"/>
-													<stop offset="37.5%" style="stop-color:#FFEB3B"/>
-													<stop offset="62.5%" style="stop-color:#FF9800"/>
-													<stop offset="100%" style="stop-color:#F44336"/>
-												</linearGradient>
-											</defs>
-											<!-- Background bar -->
-											<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientSig)"/>
-										</svg>
-										<!-- Marker (HTML element to avoid SVG stretching) -->
-										<div class="quakeMarker" style="left: calc(${Math.min(100, Math.max(0, (event.feature.getProperty("sig") || 0) / 1000 * 100))}% - 14px);">
-											<div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-										</div>
-									</div>
-									<div style="display: flex; justify-content: space-between; font-size: 9px; color: #666;">
-										<span>0</span><span>250</span><span>500</span><span>750</span><span>1000</span>
+										<span style="font-size: 11px; font-weight: 600; color: #333;">Significance</span>
+										<span style="font-size: 14px; font-weight: 700; color: #333;">${(props.sig || 0).toFixed(0)}</span>
 									</div>
 								</div>
-								<!-- Intensity Gauge (0-10, CDI) -->
 								<div style="display: flex; flex-direction: column; gap: 4px;">
 									<div style="display: flex; justify-content: space-between; align-items: baseline;">
-										<span style="font-size: 11px; font-weight: 600; color: #333; display: inline-flex; align-items: center; gap: 4px;">Intensity (MMI)<span title="This value is determined using the Modified Mercalli Intensity scale (MMI), which is a measure of the shaking intensity at a given location." style="display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: #888; color: white; font-size: 9px; font-weight: 700; cursor: help; font-style: italic; font-family: Georgia, serif;">i</span></span>
-										<span style="font-size: 14px; font-weight: 700; color: #333;">${(event.feature.getProperty("cdi") || 0).toFixed(1)}</span>
-									</div>
-									<div style="position: relative; height: 24px;">
-										<svg width="100%" height="24" viewBox="0 0 220 24" preserveAspectRatio="none">
-											<defs>
-												<linearGradient id="barGradientInt" x1="0%" y1="0%" x2="100%" y2="0%">
-													<stop offset="0%" style="stop-color:#EEE"/>
-													<stop offset="25%" style="stop-color:#ACD8E9"/>
-													<stop offset="60%" style="stop-color:#FFEB3B"/>
-													<stop offset="75%" style="stop-color:#FF9800"/>
-													<stop offset="100%" style="stop-color:#F44336"/>
-												</linearGradient>
-											</defs>
-											<!-- Background bar -->
-											<rect x="0" y="6" width="220" height="12" rx="6" fill="url(#barGradientInt)"/>
-										</svg>
-										<!-- Marker (HTML element to avoid SVG stretching) -->
-										<div class="quakeMarker" style="left: calc(${Math.min(100, Math.max(0, (event.feature.getProperty("cdi") || 0) / 10 * 100))}% - 14px);">
-											<div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-										</div>
-									</div>
-									<div style="display: flex; justify-content: space-between; font-size: 9px; color: #666;">
-										<span>0</span><span>2.5</span><span>5</span><span>7.5</span><span>10</span>
+										<span style="font-size: 11px; font-weight: 600; color: #333;">Intensity (MMI)</span>
+										<span style="font-size: 14px; font-weight: 700; color: #333;">${(props.cdi || 0).toFixed(1)}</span>
 									</div>
 								</div>
 							</div>
-							${event.feature.getProperty("tsunami") === 1 && quakeAgeInDays < 1 ? `
+							${props.tsunami === 1 && quakeAgeInDays < 1 ? `
 								<div style="display: flex; flex-wrap: wrap; text-wrap: auto; align-items: center; gap: 8px; justify-content: center;">
-									<?xml version='1.0' encoding='UTF-8' standalone='no'?>
-									<svg width="35px" height="35px" viewBox="0 0 60.601004 60.601004" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" version="1.1" xmlns="http://www.w3.org/2000/svg">
-										<path d="m 57.316128,56.958628 c 1.125,0 2.225,-0.5825 2.825,-1.63125 0.6125,-1.04625 0.5625,-2.28875 0,-3.265 L 33.128628,5.2773777 c -0.5625,-0.97375 -1.6125,-1.635 -2.8375,-1.635 -1.2,0.0025 -2.25,0.66125 -2.8125,1.635 L 0.46612771,52.062378 c -0.575,0.97625 -0.6125,2.21875 -0.0125,3.265 0.61249999,1.04875 1.69999999,1.63125 2.83749999,1.63125 l 54.0250003,0" style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"/>
-										<path d="m 30.291127,9.0848757 -13.85,23.9900003 c 14.9125,-7.8575 22.4375,-2.24875 24.7875,3.58875 l -0.4625,0.26625 c -0.3625,-0.3475 -0.775,-0.65625 -1.2375,-0.935 -3.1125,-1.86375 -6.9375,-1.21 -8.55,1.46625 -1.6125,2.685 -0.3875,6.37375 2.725,8.24125 6.1375,3.68625 13.975,2.81 18.725,1.71125 L 30.291127,9.0848757" style="fill:white;fill-opacity:1;fill-rule:evenodd;stroke:none"/>
-									</svg>
-								<span style="font-weight: bold; color: #333;">${tsunamiWarningHtml}</span>
-							</div>
-						` : ''}
-							<div style="margin: 15px 0;">Current <a href="https://earthquake.usgs.gov/data/pager/onepager.php" target="_blank">USGS PAGER</a> Alert Level: <strong style="color: ${alertLabelColor}; background-color: black; padding: 5px; border-radius: 7px; font-size: 0.9em;">${alertLabel}</strong></div>
+									<span style="font-weight: bold; color: #333;">${tsunamiWarningHtml}</span>
+								</div>
+							` : ''}
+							<div style="margin: 15px 0;">PAGER Alert: <strong style="color: ${alertLabelColor}; background-color: black; padding: 5px; border-radius: 7px; font-size: 0.9em;">${alertLabel}</strong></div>
 							<div style="font-size: 0.95em;">
 								<span style="font-weight: 500;">Detected:</span> ${quakeTime.toLocaleString()} <span style="font-size: 0.95em;">(${quakeAgeInDays.toFixed(1)} days ago)</span><br/>
 								<span style="font-weight: 500;">Updated:</span> ${updated.toLocaleString()}
 							</div>
 							<div style="margin: 15px 0 5px 0;">
-								<a href="${event.feature.getProperty("url")}" target="_blank" style="background-color: dodgerblue; padding: 3px 7px; border-radius: 5px; color: white; text-decoration: none; font-size: 1.15em; font-weight: 400; display: inline-flex; align-items: center; gap: 5px;">
-									<svg xmlns="http://www.w3.org/2000/svg" width="22" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM288 224C288 206.3 302.3 192 320 192C337.7 192 352 206.3 352 224C352 241.7 337.7 256 320 256C302.3 256 288 241.7 288 224zM280 288L328 288C341.3 288 352 298.7 352 312L352 400L360 400C373.3 400 384 410.7 384 424C384 437.3 373.3 448 360 448L280 448C266.7 448 256 437.3 256 424C256 410.7 266.7 400 280 400L304 400L304 336L280 336C266.7 336 256 325.3 256 312C256 298.7 266.7 288 280 288z" fill="white"/></svg>
+								<a href="${props.url}" target="_blank" style="background-color: dodgerblue; padding: 3px 7px; border-radius: 5px; color: white; text-decoration: none; font-size: 1.15em; font-weight: 400; display: inline-flex; align-items: center; gap: 5px;">
 									Earthquake details
 								</a>
 							</div>
-						</div>`
-					);
+						</div>`;
 
-					// Close any cluster InfoWindow that might be open...
-					if (clusterInfoWindow) {
-						clusterInfoWindow.close();
-					}
-					// Close any marker InfoWindow that might be open...
-					if (markerInfoWindow) {
-						markerInfoWindow.close();
-						markerInfoWindow = null;
-					}
-					parent.overlayInfoWindow.setPosition(event.latLng);
-					parent.overlayInfoWindow.open(map);
+					// Bind popup to the layer
+					layer.bindPopup(popupContent, { maxWidth: 320 });
 
 					// Display ShakeMap MMI contour lines using the already-fetched detail data...
 					// Clear any previous contour lines...
 					if (parent.mmiContourLines) {
-						parent.mmiContourLines.forEach(line => line.setMap(null));
+						parent.mmiContourLines.forEach(line => {
+							if (map.hasLayer(line)) map.removeLayer(line);
+						});
 						parent.mmiContourLines = [];
 					}
 					parent.mmiContourLines = [];
@@ -3934,14 +4257,12 @@
 										
 										// MultiLineString has multiple line arrays
 										feature.geometry.coordinates.forEach(lineCoords => {
-											const path = lineCoords.map(coord => ({lat: coord[1], lng: coord[0]}));
-											const polyline = new google.maps.Polyline({
-												path: path,
-												strokeColor: strokeColor,
-												strokeOpacity: strokeOpacity,
-												strokeWeight: strokeWeight,
-												map: map
-											});
+											const path = lineCoords.map(coord => [coord[1], coord[0]]);
+											const polyline = L.polyline(path, {
+												color: strokeColor,
+												opacity: strokeOpacity,
+												weight: strokeWeight
+											}).addTo(map);
 											parent.mmiContourLines.push(polyline);
 										});
 									}
@@ -3952,29 +4273,23 @@
 							console.debug("Could not load ShakeMap MMI data:", err.message);
 						}
 					}
-				});
+					}
+				}).addTo(map);
 			} else if (optionalMapType == "us-flooding") {
 				// const countiesGeoJsonURL = `https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json?v=${Date.now()}`;
 				// const countyIDsJsonURL = `https://api.waterdata.usgs.gov/rtfi-api/counties?page=1&limit=4000&v=${Date.now()}`;
 				const floodingDataURL = `https://api.waterdata.usgs.gov/rtfi-api/referencepoints/flooding?v=${Date.now()}`;
 
-				// Clear any previous load of the overlay data...
-				map.data.forEach(function(feature) {
-					map.data.remove(feature);
-				});
-				// Remove any existing overlay listeners...
-				if (typeof parent.overlayInfoWindowListenerHandle == "object") {
-					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
+				// Clear any previous overlay layer...
+				if (overlayLayer && map.hasLayer(overlayLayer)) {
+					map.removeLayer(overlayLayer);
+					overlayLayer = null;
 				}
-				// Initialize or close the shared overlay InfoWindow...
-				if (parent.overlayInfoWindow) {
-					parent.overlayInfoWindow.close();
-					parent.overlayInfoWindow = null;
-				}
-				parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
 				// Clear any previous earthquake contour lines...
 				if (parent.mmiContourLines) {
-					parent.mmiContourLines.forEach(line => line.setMap(null));
+					parent.mmiContourLines.forEach(line => {
+						if (map.hasLayer(line)) map.removeLayer(line);
+					});
 					parent.mmiContourLines = [];
 				}
 
@@ -3988,117 +4303,200 @@
 					const floodingData = await floodingResponse.json();
 					console.debug(`Flooding data loaded: ${floodingData.length} sites currently flooding`);
 
-					// Convert flooding data to GeoJSON and add to the Data layer...
-					let floodingFeatureCount = 0;
-					floodingData.forEach(entry => {
-						if (entry.latitude && entry.longitude) {
-							map.data.addGeoJson({
-								type: "Feature",
-								geometry: {
-									type: "Point",
-									coordinates: [parseFloat(entry.longitude), parseFloat(entry.latitude)]
-								},
-								properties: entry  // Store all entry data as feature properties
+					// Convert flooding data to GeoJSON feature collection...
+					const floodingGeoJson = {
+						type: "FeatureCollection",
+						features: floodingData.filter(entry => entry.latitude && entry.longitude).map(entry => ({
+							type: "Feature",
+							geometry: {
+								type: "Point",
+								coordinates: [parseFloat(entry.longitude), parseFloat(entry.latitude)]
+							},
+							properties: entry
+						}))
+					};
+
+					// Create Leaflet GeoJSON layer with circle markers...
+					if (overlayLayer && map.hasLayer(overlayLayer)) {
+						map.removeLayer(overlayLayer);
+					}
+					overlayLayer = L.geoJSON(floodingGeoJson, {
+						pointToLayer: function(feature, latlng) {
+							return L.circleMarker(latlng, {
+								radius: 8,
+								fillColor: '#87ceeb',
+								fillOpacity: 0.9,
+								color: '#4682b4',
+								weight: 1
 							});
-							floodingFeatureCount++;
-						}
-					});
-
-					// Apply styling to the flooding Data layer...
-					map.data.setStyle({
-						icon: {
-							path: google.maps.SymbolPath.CIRCLE,
-							fillColor: '#87ceeb9c',
-							fillOpacity: 0.9,
-							strokeColor: '#4682b496',
-							strokeWeight: 1.0,
-							scale: 5
-						}
-					});
-
-					parent.overlayInfoWindowListenerHandle = map.data.addListener('click', function(event) {
-						const feature = event.feature;
-						// Extract properties from the feature...
-						const data = {
-							site_name: feature.getProperty('site_name'),
-							description: feature.getProperty('description'),
-							gage_height: feature.getProperty('gage_height'),
-							rp_elevation: feature.getProperty('rp_elevation'),
-							nwis_id: feature.getProperty('nwis_id')
-						}
-						parent.overlayInfoWindow.setContent(`
-							<div style="line-height:1.5;overflow:hidden;color:#333;max-width:300px;">
-								<h3 style="margin:0 0 8px 0;color:#4682B4;">${data.site_name || 'Unknown Site'}</h3>
-								<p style="margin:0;font-size:13px;">${data.description || 'No description available'}</p>
-								<div style="margin-top:12px;">
-									<div style="position:relative;width:100%;height:auto;">
-										<!-- Flooding level (red) -->
-										${data.gage_height && data.rp_elevation ? `
-										<div style="position:relative;width:80%;margin:0 auto;">
-											<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
-												<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#ffb3b3"/>
-											</svg>
-											<div style="
-												background: linear-gradient(to bottom, #ffb3b3, #fe8787);
-												height:${Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5))}px;
-												width:100%;
-												border-radius:4px 4px 0 0;
-												display:flex;
-												align-items:center;
-												justify-content:center;
-												color:#8b0000;
-												font-weight:bold;
-												font-size:12px;
-											">
-												<span style="margin-top: -5px; filter: drop-shadow(0 0 4px white);">+${(parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2)} ft</span>
-											</div>
-											<!-- Normal water level (blue) with wavy top -->
-											<div style="position:relative;">
+						},
+						onEachFeature: function(feature, layer) {
+							const data = feature.properties;
+							const popupContent = `
+								<div style="line-height:1.5;overflow:hidden;color:#333;max-width:300px;">
+									<h3 style="margin:0 0 8px 0;color:#4682B4;">${data.site_name || 'Unknown Site'}</h3>
+									<p style="margin:0;font-size:13px;">${data.description || 'No description available'}</p>
+									<div style="margin-top:12px;">
+										<div style="position:relative;width:100%;height:auto;">
+											${data.gage_height && data.rp_elevation ? `
+											<div style="position:relative;width:80%;margin:0 auto;">
 												<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
-													<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#87CEEB"/>
+													<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#ffb3b3"/>
 												</svg>
 												<div style="
-													background: linear-gradient(to bottom, #87CEEB, #8ea6ba);
-													height:40px;
+													background: linear-gradient(to bottom, #ffb3b3, #fe8787);
+													height:${Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5))}px;
 													width:100%;
-													border-radius:0 0 4px 4px;
+													border-radius:4px 4px 0 0;
 													display:flex;
 													align-items:center;
 													justify-content:center;
-													color:#142d47;
+													color:#8b0000;
 													font-weight:bold;
 													font-size:12px;
 												">
-													<span style="filter: drop-shadow(0 0 4px white);">Normal Elevation: ${parseFloat(data.rp_elevation).toFixed(2)} ft</span>
+													<span style="margin-top: -5px; filter: drop-shadow(0 0 4px white);">+${(parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2)} ft</span>
+												</div>
+												<div style="position:relative;">
+													<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
+														<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#87CEEB"/>
+													</svg>
+													<div style="
+														background: linear-gradient(to bottom, #87CEEB, #8ea6ba);
+														height:40px;
+														width:100%;
+														border-radius:0 0 4px 4px;
+														display:flex;
+														align-items:center;
+														justify-content:center;
+														color:#142d47;
+														font-weight:bold;
+														font-size:12px;
+													">
+														<span style="filter: drop-shadow(0 0 4px white);">Normal Elevation: ${parseFloat(data.rp_elevation).toFixed(2)} ft</span>
+													</div>
 												</div>
 											</div>
+											` : ''}
 										</div>
-										` : ''}
+									</div>
+									<div style="margin: 30px 0 5px 0;">
+										<a href="https://waterdata.usgs.gov/monitoring-location/USGS-${data.nwis_id}/all-graphs/#period=P7D" target="_blank" style="background-color: dodgerblue; padding: 3px 7px; border-radius: 5px; color: white; text-decoration: none; font-size: 1.05em; font-weight: 400; display: inline-flex; align-items: center; gap: 5px;" title="View USGS monitoring station details">
+											<svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><path fill="white" d="M384 64C366.3 64 352 78.3 352 96C352 113.7 366.3 128 384 128L466.7 128L265.3 329.4C252.8 341.9 252.8 362.2 265.3 374.7C277.8 387.2 298.1 387.2 310.6 374.7L512 173.3L512 256C512 273.7 526.3 288 544 288C561.7 288 576 273.7 576 256L576 96C576 78.3 561.7 64 544 64L384 64zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 416C480 398.3 465.7 384 448 384C430.3 384 416 398.3 416 416L416 496C416 504.8 408.8 512 400 512L144 512C135.2 512 128 504.8 128 496L128 240C128 231.2 135.2 224 144 224L224 224C241.7 224 256 209.7 256 192C256 174.3 241.7 160 224 160L144 160z"/></svg>
+											USGS monitoring station details
+										</a>
 									</div>
 								</div>
-								<div style="margin: 30px 0 5px 0;">
-									<a href="https://waterdata.usgs.gov/monitoring-location/USGS-${data.nwis_id}/all-graphs/#period=P7D" target="_blank" style="background-color: dodgerblue; padding: 3px 7px; border-radius: 5px; color: white; text-decoration: none; font-size: 1.05em; font-weight: 400; display: inline-flex; align-items: center; gap: 5px;" title="View USGS monitoring station details">
-										<svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path fill="white" d="M384 64C366.3 64 352 78.3 352 96C352 113.7 366.3 128 384 128L466.7 128L265.3 329.4C252.8 341.9 252.8 362.2 265.3 374.7C277.8 387.2 298.1 387.2 310.6 374.7L512 173.3L512 256C512 273.7 526.3 288 544 288C561.7 288 576 273.7 576 256L576 96C576 78.3 561.7 64 544 64L384 64zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 416C480 398.3 465.7 384 448 384C430.3 384 416 398.3 416 416L416 496C416 504.8 408.8 512 400 512L144 512C135.2 512 128 504.8 128 496L128 240C128 231.2 135.2 224 144 224L224 224C241.7 224 256 209.7 256 192C256 174.3 241.7 160 224 160L144 160z"/></svg>
-										USGS monitoring station details
-									</a>
-								</div>
-							</div>
-						`);
-						// Close any cluster InfoWindow that might be open...
-						if (clusterInfoWindow) {
-							clusterInfoWindow.close();
+							`;
+							layer.bindPopup(popupContent, { maxWidth: 350 });
 						}
-						// Close any marker InfoWindow that might be open...
-						if (markerInfoWindow) {
-							markerInfoWindow.close();
-							markerInfoWindow = null;
-						}
-						parent.overlayInfoWindow.setPosition(event.latLng);
-						parent.overlayInfoWindow.open(map);
-					});
+					}).addTo(map);
+					console.debug(`Flooding layer added with ${floodingGeoJson.features.length} features`);
 				} catch (error) {
 					console.error("Failed to fetch flooding data:", error);
 				}
+			// Add hurricane/tropical storm layer using NOAA NHC WMS...
+			} else if (optionalMapType == "hurricanes") {
+				// Remove any previous overlay layer...
+				if (overlayLayer && map.hasLayer(overlayLayer)) {
+					map.removeLayer(overlayLayer);
+					overlayLayer = null;
+				}
+				if (hurricaneLayer && map.hasLayer(hurricaneLayer)) {
+					map.removeLayer(hurricaneLayer);
+				}
+
+				// Create NOAA NHC WMS layer for tropical cyclones
+				// This shows current tropical storm tracks, cones of uncertainty, and watches/warnings
+				hurricaneLayer = L.tileLayer.wms('https://nowcoast.noaa.gov/geoserver/wms', {
+					layers: 'obs_meteocean_insitu_sfc_time',
+					format: 'image/png',
+					transparent: true,
+					opacity: 0.7,
+					attribution: 'Hurricane data &copy; <a href="https://www.nhc.noaa.gov/">NOAA NHC</a>'
+				}).addTo(map);
+
+				// Also add the hurricane forecast track layer
+				const hurricaneTrackLayer = L.tileLayer.wms('https://nowcoast.noaa.gov/geoserver/wms', {
+					layers: 'forecasts_tropical_cyclone',
+					format: 'image/png',
+					transparent: true,
+					opacity: 0.8
+				}).addTo(map);
+
+				console.debug("Hurricane layers loaded from NOAA NHC");
+
+			// Add Air Quality Index layer using EPA AirNow data...
+			} else if (optionalMapType == "air-quality") {
+				// Remove any previous overlay layer...
+				if (overlayLayer && map.hasLayer(overlayLayer)) {
+					map.removeLayer(overlayLayer);
+					overlayLayer = null;
+				}
+				if (aqiLayer && map.hasLayer(aqiLayer)) {
+					map.removeLayer(aqiLayer);
+				}
+
+				// EPA AirNow AQI contours from ArcGIS
+				const aqiUrl = `https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/AirNowLatestContoursCombined/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson&ts=${Date.now()}`;
+
+				fetch(aqiUrl)
+					.then(response => response.ok ? response.json() : null)
+					.then(data => {
+						if (data && data.features) {
+							// AQI color scale
+							const getAQIColor = (aqi) => {
+								if (aqi <= 50) return '#00e400'; // Good - Green
+								if (aqi <= 100) return '#ffff00'; // Moderate - Yellow
+								if (aqi <= 150) return '#ff7e00'; // Unhealthy for Sensitive - Orange
+								if (aqi <= 200) return '#ff0000'; // Unhealthy - Red
+								if (aqi <= 300) return '#8f3f97'; // Very Unhealthy - Purple
+								return '#7e0023'; // Hazardous - Maroon
+							};
+
+							const getAQICategory = (aqi) => {
+								if (aqi <= 50) return 'Good';
+								if (aqi <= 100) return 'Moderate';
+								if (aqi <= 150) return 'Unhealthy for Sensitive Groups';
+								if (aqi <= 200) return 'Unhealthy';
+								if (aqi <= 300) return 'Very Unhealthy';
+								return 'Hazardous';
+							};
+
+							aqiLayer = L.geoJSON(data, {
+								style: function(feature) {
+									const aqi = feature.properties.gridcode || feature.properties.AQI || 0;
+									return {
+										fillColor: getAQIColor(aqi),
+										fillOpacity: 0.4,
+										weight: 1,
+										color: getAQIColor(aqi),
+										opacity: 0.8
+									};
+								},
+								onEachFeature: function(feature, layer) {
+									const aqi = feature.properties.gridcode || feature.properties.AQI || 'N/A';
+									const category = getAQICategory(parseInt(aqi) || 0);
+									const pollutant = feature.properties.Pollutant || 'Combined';
+									
+									const popupContent = `
+										<div style="line-height:1.35;color:black;">
+											<span style="font-weight:700;">Air Quality Index</span><br/>
+											<br/><b>AQI:</b> ${aqi}
+											<br/><b>Category:</b> ${category}
+											<br/><b>Pollutant:</b> ${pollutant}
+										</div>
+									`;
+									layer.bindPopup(popupContent);
+								}
+							}).addTo(map);
+
+							console.debug(`AQI data loaded: ${data.features.length} contours`);
+						}
+					})
+					.catch(error => {
+						console.error("Failed to fetch AQI data:", error);
+					});
 			}
 		}
 	}
@@ -4106,20 +4504,12 @@
 	// Function called when the "Reset Zoom" button is pressed...
 	function resetZoom() {
 		// If there's only 1 marker, avoid zooming in super close (i.e. use the default zoom level 3)...
-		if (markers.length > 0) {
+		if (markers.length > 0 && bounds && bounds.isValid()) {
 			// Add padding to avoid markers appearing under the map's UI controls...
 			map.fitBounds(bounds, {
-				top: 70,
-				right: 70,
-				bottom: 70,
-				left: 70
+				padding: [70, 70]
 			});
 		}
-		// Reset the tilt & heading back to their original values...
-		mapTilt = defaultMapTilt;
-		mapHeading = defaultMapHeading;
-		map.setTilt(mapTilt);
-		map.setHeading(mapHeading);
 	}
 
 	// Function to capture presses of the Enter key in the 'Group Filter' field (without this the widget refreshes in an error)...
@@ -4174,8 +4564,4 @@
 	}
 </script>
 
-<!-- If used as an embedded widget outside a normal LM dashboard then trying to load Google's marker clustering script or Font Awesome's CSS externally breaks due to XSS, so I'm embedding the entire script here. Normally we would load this from https://unpkg.com/@googlemaps/markerclusterer@2.5.3/dist/index.min.js and https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.1/css/svg-with-js.min.css respectively.-->
-<script>
-	const markerClusterer=function(t){"use strict";function e(t,e){var s={};for(var r in t)Object.prototype.hasOwnProperty.call(t,r)&&e.indexOf(r)<0&&(s[r]=t[r]);if(null!=t&&"function"==typeof Object.getOwnPropertySymbols){var o=0;for(r=Object.getOwnPropertySymbols(t);o<r.length;o++)e.indexOf(r[o])<0&&Object.prototype.propertyIsEnumerable.call(t,r[o])&&(s[r[o]]=t[r[o]])}return s}class s{static isAdvancedMarkerAvailable(t){return google.maps.marker&&!0===t.getMapCapabilities().isAdvancedMarkersAvailable}static isAdvancedMarker(t){return google.maps.marker&&t instanceof google.maps.marker.AdvancedMarkerElement}static setMap(t,e){this.isAdvancedMarker(t)?t.map=e:t.setMap(e)}static getPosition(t){if(this.isAdvancedMarker(t)){if(t.position){if(t.position instanceof google.maps.LatLng)return t.position;if(t.position.lat&&t.position.lng)return new google.maps.LatLng(t.position.lat,t.position.lng)}return new google.maps.LatLng(null)}return t.getPosition()}static getVisible(t){return!!this.isAdvancedMarker(t)||t.getVisible()}}class r{constructor(t){let{markers:e,position:s}=t;this.markers=e,s&&(s instanceof google.maps.LatLng?this._position=s:this._position=new google.maps.LatLng(s))}get bounds(){if(0===this.markers.length&&!this._position)return;const t=new google.maps.LatLngBounds(this._position,this._position);for(const e of this.markers)t.extend(s.getPosition(e));return t}get position(){return this._position||this.bounds.getCenter()}get count(){return this.markers.filter((t=>s.getVisible(t))).length}push(t){this.markers.push(t)}delete(){this.marker&&(s.setMap(this.marker,null),this.marker=void 0),this.markers.length=0}}const o=(t,e,r,o)=>{const n=i(t.getBounds(),e,o);return r.filter((t=>n.contains(s.getPosition(t))))},i=(t,e,s)=>{const{northEast:r,southWest:o}=h(t,e),i=l({northEast:r,southWest:o},s);return c(i,e)},n=(t,e,s)=>{const r=i(t,e,s),o=r.getNorthEast(),n=r.getSouthWest();return[n.lng(),n.lat(),o.lng(),o.lat()]},a=(t,e)=>{const s=(e.lat-t.lat)*Math.PI/180,r=(e.lng-t.lng)*Math.PI/180,o=Math.sin(s/2),i=Math.sin(r/2),n=o*o+Math.cos(t.lat*Math.PI/180)*Math.cos(e.lat*Math.PI/180)*i*i;return 6371*(2*Math.atan2(Math.sqrt(n),Math.sqrt(1-n)))},h=(t,e)=>({northEast:e.fromLatLngToDivPixel(t.getNorthEast()),southWest:e.fromLatLngToDivPixel(t.getSouthWest())}),l=(t,e)=>{let{northEast:s,southWest:r}=t;return s.x+=e,s.y-=e,r.x-=e,r.y+=e,{northEast:s,southWest:r}},c=(t,e)=>{let{northEast:s,southWest:r}=t;const o=e.fromDivPixelToLatLng(r),i=e.fromDivPixelToLatLng(s);return new google.maps.LatLngBounds(o,i)};class u{constructor(t){let{maxZoom:e=16}=t;this.maxZoom=e}noop(t){let{markers:e}=t;return m(e)}}class p extends u{constructor(t){var{viewportPadding:s=60}=t;super(e(t,["viewportPadding"])),this.viewportPadding=60,this.viewportPadding=s}calculate(t){let{markers:e,map:s,mapCanvasProjection:r}=t;return s.getZoom()>=this.maxZoom?{clusters:this.noop({markers:e}),changed:!1}:{clusters:this.cluster({markers:o(s,r,e,this.viewportPadding),map:s,mapCanvasProjection:r})}}}const m=t=>t.map((t=>new r({position:s.getPosition(t),markers:[t]})));function d(t){return t&&t.__esModule&&Object.prototype.hasOwnProperty.call(t,"default")?t.default:t}var g=function t(e,s){if(e===s)return!0;if(e&&s&&"object"==typeof e&&"object"==typeof s){if(e.constructor!==s.constructor)return!1;var r,o,i;if(Array.isArray(e)){if((r=e.length)!=s.length)return!1;for(o=r;0!=o--;)if(!t(e[o],s[o]))return!1;return!0}if(e.constructor===RegExp)return e.source===s.source&&e.flags===s.flags;if(e.valueOf!==Object.prototype.valueOf)return e.valueOf()===s.valueOf();if(e.toString!==Object.prototype.toString)return e.toString()===s.toString();if((r=(i=Object.keys(e)).length)!==Object.keys(s).length)return!1;for(o=r;0!=o--;)if(!Object.prototype.hasOwnProperty.call(s,i[o]))return!1;for(o=r;0!=o--;){var n=i[o];if(!t(e[n],s[n]))return!1}return!0}return e!=e&&s!=s},f=d(g);const k=[Int8Array,Uint8Array,Uint8ClampedArray,Int16Array,Uint16Array,Int32Array,Uint32Array,Float32Array,Float64Array];class w{static from(t){if(!(t instanceof ArrayBuffer))throw new Error("Data must be an instance of ArrayBuffer.");const[e,s]=new Uint8Array(t,0,2);if(219!==e)throw new Error("Data does not appear to be in a KDBush format.");const r=s>>4;if(1!==r)throw new Error(`Got v${r} data when expected v1.`);const o=k[15&s];if(!o)throw new Error("Unrecognized array type.");const[i]=new Uint16Array(t,2,1),[n]=new Uint32Array(t,4,1);return new w(n,i,o,t)}constructor(t,e=64,s=Float64Array,r){if(isNaN(t)||t<0)throw new Error(`Unpexpected numItems value: ${t}.`);this.numItems=+t,this.nodeSize=Math.min(Math.max(+e,2),65535),this.ArrayType=s,this.IndexArrayType=t<65536?Uint16Array:Uint32Array;const o=k.indexOf(this.ArrayType),i=2*t*this.ArrayType.BYTES_PER_ELEMENT,n=t*this.IndexArrayType.BYTES_PER_ELEMENT,a=(8-n%8)%8;if(o<0)throw new Error(`Unexpected typed array class: ${s}.`);r&&r instanceof ArrayBuffer?(this.data=r,this.ids=new this.IndexArrayType(this.data,8,t),this.coords=new this.ArrayType(this.data,8+n+a,2*t),this._pos=2*t,this._finished=!0):(this.data=new ArrayBuffer(8+i+n+a),this.ids=new this.IndexArrayType(this.data,8,t),this.coords=new this.ArrayType(this.data,8+n+a,2*t),this._pos=0,this._finished=!1,new Uint8Array(this.data,0,2).set([219,16+o]),new Uint16Array(this.data,2,1)[0]=e,new Uint32Array(this.data,4,1)[0]=t)}add(t,e){const s=this._pos>>1;return this.ids[s]=s,this.coords[this._pos++]=t,this.coords[this._pos++]=e,s}finish(){const t=this._pos>>1;if(t!==this.numItems)throw new Error(`Added ${t} items when expected ${this.numItems}.`);return y(this.ids,this.coords,this.nodeSize,0,this.numItems-1,0),this._finished=!0,this}range(t,e,s,r){if(!this._finished)throw new Error("Data not yet indexed - call index.finish().");const{ids:o,coords:i,nodeSize:n}=this,a=[0,o.length-1,0],h=[];for(;a.length;){const l=a.pop()||0,c=a.pop()||0,u=a.pop()||0;if(c-u<=n){for(let n=u;n<=c;n++){const a=i[2*n],l=i[2*n+1];a>=t&&a<=s&&l>=e&&l<=r&&h.push(o[n])}continue}const p=u+c>>1,m=i[2*p],d=i[2*p+1];m>=t&&m<=s&&d>=e&&d<=r&&h.push(o[p]),(0===l?t<=m:e<=d)&&(a.push(u),a.push(p-1),a.push(1-l)),(0===l?s>=m:r>=d)&&(a.push(p+1),a.push(c),a.push(1-l))}return h}within(t,e,s){if(!this._finished)throw new Error("Data not yet indexed - call index.finish().");const{ids:r,coords:o,nodeSize:i}=this,n=[0,r.length-1,0],a=[],h=s*s;for(;n.length;){const l=n.pop()||0,c=n.pop()||0,u=n.pop()||0;if(c-u<=i){for(let s=u;s<=c;s++)C(o[2*s],o[2*s+1],t,e)<=h&&a.push(r[s]);continue}const p=u+c>>1,m=o[2*p],d=o[2*p+1];C(m,d,t,e)<=h&&a.push(r[p]),(0===l?t-s<=m:e-s<=d)&&(n.push(u),n.push(p-1),n.push(1-l)),(0===l?t+s>=m:e+s>=d)&&(n.push(p+1),n.push(c),n.push(1-l))}return a}}function y(t,e,s,r,o,i){if(o-r<=s)return;const n=r+o>>1;M(t,e,n,r,o,i),y(t,e,s,r,n-1,1-i),y(t,e,s,n+1,o,1-i)}function M(t,e,s,r,o,i){for(;o>r;){if(o-r>600){const n=o-r+1,a=s-r+1,h=Math.log(n),l=.5*Math.exp(2*h/3),c=.5*Math.sqrt(h*l*(n-l)/n)*(a-n/2<0?-1:1);M(t,e,s,Math.max(r,Math.floor(s-a*l/n+c)),Math.min(o,Math.floor(s+(n-a)*l/n+c)),i)}const n=e[2*s+i];let a=r,h=o;for(v(t,e,r,s),e[2*o+i]>n&&v(t,e,r,o);a<h;){for(v(t,e,a,h),a++,h--;e[2*a+i]<n;)a++;for(;e[2*h+i]>n;)h--}e[2*r+i]===n?v(t,e,r,h):(h++,v(t,e,h,o)),h<=s&&(r=h+1),s<=h&&(o=h-1)}}function v(t,e,s,r){x(t,s,r),x(e,2*s,2*r),x(e,2*s+1,2*r+1)}function x(t,e,s){const r=t[e];t[e]=t[s],t[s]=r}function C(t,e,s,r){const o=t-s,i=e-r;return o*o+i*i}const P={minZoom:0,maxZoom:16,minPoints:2,radius:40,extent:512,nodeSize:64,log:!1,generateId:!1,reduce:null,map:t=>t},_=Math.fround||(E=new Float32Array(1),t=>(E[0]=+t,E[0]));var E;const A=3,b=5,L=6;class O{constructor(t){this.options=Object.assign(Object.create(P),t),this.trees=new Array(this.options.maxZoom+1),this.stride=this.options.reduce?7:6,this.clusterProps=[]}load(t){const{log:e,minZoom:s,maxZoom:r}=this.options;e&&console.time("total time");const o=`prepare ${t.length} points`;e&&console.time(o),this.points=t;const i=[];for(let e=0;e<t.length;e++){const s=t[e];if(!s.geometry)continue;const[r,o]=s.geometry.coordinates,n=_(T(r)),a=_(j(o));i.push(n,a,1/0,e,-1,1),this.options.reduce&&i.push(0)}let n=this.trees[r+1]=this._createTree(i);e&&console.timeEnd(o);for(let t=r;t>=s;t--){const s=+Date.now();n=this.trees[t]=this._createTree(this._cluster(n,t)),e&&console.log("z%d: %d clusters in %dms",t,n.numItems,+Date.now()-s)}return e&&console.timeEnd("total time"),this}getClusters(t,e){let s=((t[0]+180)%360+360)%360-180;const r=Math.max(-90,Math.min(90,t[1]));let o=180===t[2]?180:((t[2]+180)%360+360)%360-180;const i=Math.max(-90,Math.min(90,t[3]));if(t[2]-t[0]>=360)s=-180,o=180;else if(s>o){const t=this.getClusters([s,r,180,i],e),n=this.getClusters([-180,r,o,i],e);return t.concat(n)}const n=this.trees[this._limitZoom(e)],a=n.range(T(s),j(i),T(o),j(r)),h=n.data,l=[];for(const t of a){const e=this.stride*t;l.push(h[e+b]>1?Z(h,e,this.clusterProps):this.points[h[e+A]])}return l}getChildren(t){const e=this._getOriginId(t),s=this._getOriginZoom(t),r="No cluster with the specified id.",o=this.trees[s];if(!o)throw new Error(r);const i=o.data;if(e*this.stride>=i.length)throw new Error(r);const n=this.options.radius/(this.options.extent*Math.pow(2,s-1)),a=i[e*this.stride],h=i[e*this.stride+1],l=o.within(a,h,n),c=[];for(const e of l){const s=e*this.stride;i[s+4]===t&&c.push(i[s+b]>1?Z(i,s,this.clusterProps):this.points[i[s+A]])}if(0===c.length)throw new Error(r);return c}getLeaves(t,e,s){e=e||10,s=s||0;const r=[];return this._appendLeaves(r,t,e,s,0),r}getTile(t,e,s){const r=this.trees[this._limitZoom(t)],o=Math.pow(2,t),{extent:i,radius:n}=this.options,a=n/i,h=(s-a)/o,l=(s+1+a)/o,c={features:[]};return this._addTileFeatures(r.range((e-a)/o,h,(e+1+a)/o,l),r.data,e,s,o,c),0===e&&this._addTileFeatures(r.range(1-a/o,h,1,l),r.data,o,s,o,c),e===o-1&&this._addTileFeatures(r.range(0,h,a/o,l),r.data,-1,s,o,c),c.features.length?c:null}getClusterExpansionZoom(t){let e=this._getOriginZoom(t)-1;for(;e<=this.options.maxZoom;){const s=this.getChildren(t);if(e++,1!==s.length)break;t=s[0].properties.cluster_id}return e}_appendLeaves(t,e,s,r,o){const i=this.getChildren(e);for(const e of i){const i=e.properties;if(i&&i.cluster?o+i.point_count<=r?o+=i.point_count:o=this._appendLeaves(t,i.cluster_id,s,r,o):o<r?o++:t.push(e),t.length===s)break}return o}_createTree(t){const e=new w(t.length/this.stride|0,this.options.nodeSize,Float32Array);for(let s=0;s<t.length;s+=this.stride)e.add(t[s],t[s+1]);return e.finish(),e.data=t,e}_addTileFeatures(t,e,s,r,o,i){for(const n of t){const t=n*this.stride,a=e[t+b]>1;let h,l,c;if(a)h=I(e,t,this.clusterProps),l=e[t],c=e[t+1];else{const s=this.points[e[t+A]];h=s.properties;const[r,o]=s.geometry.coordinates;l=T(r),c=j(o)}const u={type:1,geometry:[[Math.round(this.options.extent*(l*o-s)),Math.round(this.options.extent*(c*o-r))]],tags:h};let p;p=a||this.options.generateId?e[t+A]:this.points[e[t+A]].id,void 0!==p&&(u.id=p),i.features.push(u)}}_limitZoom(t){return Math.max(this.options.minZoom,Math.min(Math.floor(+t),this.options.maxZoom+1))}_cluster(t,e){const{radius:s,extent:r,reduce:o,minPoints:i}=this.options,n=s/(r*Math.pow(2,e)),a=t.data,h=[],l=this.stride;for(let s=0;s<a.length;s+=l){if(a[s+2]<=e)continue;a[s+2]=e;const r=a[s],c=a[s+1],u=t.within(a[s],a[s+1],n),p=a[s+b];let m=p;for(const t of u){const s=t*l;a[s+2]>e&&(m+=a[s+b])}if(m>p&&m>=i){let t,i=r*p,n=c*p,d=-1;const g=((s/l|0)<<5)+(e+1)+this.points.length;for(const r of u){const h=r*l;if(a[h+2]<=e)continue;a[h+2]=e;const c=a[h+b];i+=a[h]*c,n+=a[h+1]*c,a[h+4]=g,o&&(t||(t=this._map(a,s,!0),d=this.clusterProps.length,this.clusterProps.push(t)),o(t,this._map(a,h)))}a[s+4]=g,h.push(i/m,n/m,1/0,g,-1,m),o&&h.push(d)}else{for(let t=0;t<l;t++)h.push(a[s+t]);if(m>1)for(const t of u){const s=t*l;if(!(a[s+2]<=e)){a[s+2]=e;for(let t=0;t<l;t++)h.push(a[s+t])}}}}return h}_getOriginId(t){return t-this.points.length>>5}_getOriginZoom(t){return(t-this.points.length)%32}_map(t,e,s){if(t[e+b]>1){const r=this.clusterProps[t[e+L]];return s?Object.assign({},r):r}const r=this.points[t[e+A]].properties,o=this.options.map(r);return s&&o===r?Object.assign({},o):o}}function Z(t,e,s){return{type:"Feature",id:t[e+A],properties:I(t,e,s),geometry:{type:"Point",coordinates:[(r=t[e],360*(r-.5)),S(t[e+1])]}};var r}function I(t,e,s){const r=t[e+b],o=r>=1e4?`${Math.round(r/1e3)}k`:r>=1e3?Math.round(r/100)/10+"k":r,i=t[e+L],n=-1===i?{}:Object.assign({},s[i]);return Object.assign(n,{cluster:!0,cluster_id:t[e+A],point_count:r,point_count_abbreviated:o})}function T(t){return t/360+.5}function j(t){const e=Math.sin(t*Math.PI/180),s=.5-.25*Math.log((1+e)/(1-e))/Math.PI;return s<0?0:s>1?1:s}function S(t){const e=(180-360*t)*Math.PI/180;return 360*Math.atan(Math.exp(e))/Math.PI-90}class z extends u{constructor(t){var{maxZoom:s,radius:r=60}=t,o=e(t,["maxZoom","radius"]);super({maxZoom:s}),this.state={zoom:-1},this.superCluster=new O(Object.assign({maxZoom:this.maxZoom,radius:r},o))}calculate(t){let e=!1;const r={zoom:t.map.getZoom()};if(!f(t.markers,this.markers)){e=!0,this.markers=[...t.markers];const r=this.markers.map((t=>{const e=s.getPosition(t);return{type:"Feature",geometry:{type:"Point",coordinates:[e.lng(),e.lat()]},properties:{marker:t}}}));this.superCluster.load(r)}return e||(this.state.zoom<=this.maxZoom||r.zoom<=this.maxZoom)&&(e=!f(this.state,r)),this.state=r,e&&(this.clusters=this.cluster(t)),{clusters:this.clusters,changed:e}}cluster(t){let{map:e}=t;return this.superCluster.getClusters([-180,-90,180,90],Math.round(e.getZoom())).map((t=>this.transformCluster(t)))}transformCluster(t){let{geometry:{coordinates:[e,o]},properties:i}=t;if(i.cluster)return new r({markers:this.superCluster.getLeaves(i.cluster_id,1/0).map((t=>t.properties.marker)),position:{lat:o,lng:e}});const n=i.marker;return new r({markers:[n],position:s.getPosition(n)})}}class U{constructor(t,e){this.markers={sum:t.length};const s=e.map((t=>t.count)),r=s.reduce(((t,e)=>t+e),0);this.clusters={count:e.length,markers:{mean:r/e.length,sum:r,min:Math.min(...s),max:Math.max(...s)}}}}class B{render(t,e,r){let{count:o,position:i}=t;const n=`<svg fill="${o>Math.max(10,e.clusters.markers.mean)?"#ff0000":"#0000ff"}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="50" height="50">\n<circle cx="120" cy="120" opacity=".6" r="70" />\n<circle cx="120" cy="120" opacity=".3" r="90" />\n<circle cx="120" cy="120" opacity=".2" r="110" />\n<text x="50%" y="50%" style="fill:#fff" text-anchor="middle" font-size="50" dominant-baseline="middle" font-family="roboto,arial,sans-serif">${o}</text>\n</svg>`,a=`Cluster of ${o} markers`,h=Number(google.maps.Marker.MAX_ZINDEX)+o;if(s.isAdvancedMarkerAvailable(r)){const t=(new DOMParser).parseFromString(n,"image/svg+xml").documentElement;t.setAttribute("transform","translate(0 25)");const e={map:r,position:i,zIndex:h,title:a,content:t};return new google.maps.marker.AdvancedMarkerElement(e)}const l={position:i,zIndex:h,title:a,icon:{url:`data:image/svg+xml;base64,${btoa(n)}`,anchor:new google.maps.Point(25,25)}};return new google.maps.Marker(l)}}class D{constructor(){!function(t,e){for(let s in e.prototype)t.prototype[s]=e.prototype[s]}(D,google.maps.OverlayView)}}var N;t.MarkerClustererEvents=void 0,(N=t.MarkerClustererEvents||(t.MarkerClustererEvents={})).CLUSTERING_BEGIN="clusteringbegin",N.CLUSTERING_END="clusteringend",N.CLUSTER_CLICK="click";const F=(t,e,s)=>{s.fitBounds(e.bounds)};return t.AbstractAlgorithm=u,t.AbstractViewportAlgorithm=p,t.Cluster=r,t.ClusterStats=U,t.DefaultRenderer=B,t.GridAlgorithm=class extends p{constructor(t){var{maxDistance:s=4e4,gridSize:r=40}=t;super(e(t,["maxDistance","gridSize"])),this.clusters=[],this.state={zoom:-1},this.maxDistance=s,this.gridSize=r}calculate(t){let{markers:e,map:s,mapCanvasProjection:r}=t;const i={zoom:s.getZoom()};let n=!1;return this.state.zoom>=this.maxZoom&&i.zoom>=this.maxZoom||(n=!f(this.state,i)),this.state=i,s.getZoom()>=this.maxZoom?{clusters:this.noop({markers:e}),changed:n}:{clusters:this.cluster({markers:o(s,r,e,this.viewportPadding),map:s,mapCanvasProjection:r})}}cluster(t){let{markers:e,map:s,mapCanvasProjection:r}=t;return this.clusters=[],e.forEach((t=>{this.addToClosestCluster(t,s,r)})),this.clusters}addToClosestCluster(t,e,o){let n=this.maxDistance,h=null;for(let e=0;e<this.clusters.length;e++){const r=this.clusters[e],o=a(r.bounds.getCenter().toJSON(),s.getPosition(t).toJSON());o<n&&(n=o,h=r)}if(h&&i(h.bounds,o,this.gridSize).contains(s.getPosition(t)))h.push(t);else{const e=new r({markers:[t]});this.clusters.push(e)}}},t.MarkerClusterer=class extends D{constructor(t){let{map:e,markers:s=[],algorithmOptions:r={},algorithm:o=new z(r),renderer:i=new B,onClusterClick:n=F}=t;super(),this.markers=[...s],this.clusters=[],this.algorithm=o,this.renderer=i,this.onClusterClick=n,e&&this.setMap(e)}addMarker(t,e){this.markers.includes(t)||(this.markers.push(t),e||this.render())}addMarkers(t,e){t.forEach((t=>{this.addMarker(t,!0)})),e||this.render()}removeMarker(t,e){const r=this.markers.indexOf(t);return-1!==r&&(s.setMap(t,null),this.markers.splice(r,1),e||this.render(),!0)}removeMarkers(t,e){let s=!1;return t.forEach((t=>{s=this.removeMarker(t,!0)||s})),s&&!e&&this.render(),s}clearMarkers(t){this.markers.length=0,t||this.render()}render(){const e=this.getMap();if(e instanceof google.maps.Map&&e.getProjection()){google.maps.event.trigger(this,t.MarkerClustererEvents.CLUSTERING_BEGIN,this);const{clusters:r,changed:o}=this.algorithm.calculate({markers:this.markers,map:e,mapCanvasProjection:this.getProjection()});if(o||null==o){const t=new Set;for(const e of r)1==e.markers.length&&t.add(e.markers[0]);const e=[];for(const r of this.clusters)null!=r.marker&&(1==r.markers.length?t.has(r.marker)||s.setMap(r.marker,null):e.push(r.marker));this.clusters=r,this.renderClusters(),requestAnimationFrame((()=>e.forEach((t=>s.setMap(t,null)))))}google.maps.event.trigger(this,t.MarkerClustererEvents.CLUSTERING_END,this)}}onAdd(){this.idleListener=this.getMap().addListener("idle",this.render.bind(this)),this.render()}onRemove(){google.maps.event.removeListener(this.idleListener),this.reset()}reset(){this.markers.forEach((t=>s.setMap(t,null))),this.clusters.forEach((t=>t.delete())),this.clusters=[]}renderClusters(){const e=new U(this.markers,this.clusters),r=this.getMap();this.clusters.forEach((o=>{1===o.markers.length?o.marker=o.markers[0]:(o.marker=this.renderer.render(o,e,r),o.markers.forEach((t=>s.setMap(t,null))),this.onClusterClick&&o.marker.addListener("click",(e=>{google.maps.event.trigger(this,t.MarkerClustererEvents.CLUSTER_CLICK,o),this.onClusterClick(e,o,r)}))),s.setMap(o.marker,r)}))}},t.MarkerUtils=s,t.NoopAlgorithm=class extends u{constructor(t){super(e(t,[]))}calculate(t){let{markers:e,map:s,mapCanvasProjection:r}=t;return{clusters:this.cluster({markers:e,map:s,mapCanvasProjection:r}),changed:!1}}cluster(t){return this.noop(t)}},t.SuperClusterAlgorithm=z,t.SuperClusterViewportAlgorithm=class extends p{constructor(t){var{maxZoom:s,radius:r=60,viewportPadding:o=60}=t,i=e(t,["maxZoom","radius","viewportPadding"]);super({maxZoom:s,viewportPadding:o}),this.superCluster=new O(Object.assign({maxZoom:this.maxZoom,radius:r},i)),this.state={zoom:-1,view:[0,0,0,0]}}calculate(t){const e={zoom:Math.round(t.map.getZoom()),view:n(t.map.getBounds(),t.mapCanvasProjection,this.viewportPadding)};let r=!f(this.state,e);if(!f(t.markers,this.markers)){r=!0,this.markers=[...t.markers];const e=this.markers.map((t=>{const e=s.getPosition(t);return{type:"Feature",geometry:{type:"Point",coordinates:[e.lng(),e.lat()]},properties:{marker:t}}}));this.superCluster.load(e)}return r&&(this.clusters=this.cluster(t),this.state=e),{clusters:this.clusters,changed:r}}cluster(t){let{map:e,mapCanvasProjection:s}=t;const r={zoom:Math.round(e.getZoom()),view:n(e.getBounds(),s,this.viewportPadding)};return this.superCluster.getClusters(r.view,r.zoom).map((t=>this.transformCluster(t)))}transformCluster(t){let{geometry:{coordinates:[e,o]},properties:i}=t;if(i.cluster)return new r({markers:this.superCluster.getLeaves(i.cluster_id,1/0).map((t=>t.properties.marker)),position:{lat:o,lng:e}});const n=i.marker;return new r({markers:[n],position:s.getPosition(n)})}},t.defaultOnClusterClickHandler=F,t.distanceBetweenPoints=a,t.extendBoundsToPaddedViewport=i,t.extendPixelBounds=l,t.filterMarkersToPaddedViewport=o,t.getPaddedViewport=n,t.noop=m,t.pixelBoundsToLatLngBounds=c,Object.defineProperty(t,"__esModule",{value:!0}),t}({});
-//# sourceMappingURL=index.min.js.map
-</script>
+<!-- Leaflet MarkerCluster is loaded via CDN in the head section -->
