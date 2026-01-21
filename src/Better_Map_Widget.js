@@ -41,7 +41,7 @@ if (typeof disableClustering === 'undefined') { let disableClustering = false; }
 // You can set it here or in a dashboard token named "MapShowWeather"...
 if (typeof showWeatherDefault === 'undefined') { let showWeatherDefault = "no"; };
 
-	// If weather is shown, whether to show "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
+	// If weather is shown, whether to show "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes" or "tropical-storms"...
 // You can set it here or in a dashboard token named "MapOverlayOption"...
 if (typeof additionalOverlayOption === 'undefined') { let additionalOverlayOption = "earthquakes"; };
 
@@ -460,6 +460,7 @@ const _dom = {
 	usPowerOutages: document.getElementById("usPowerOutages"),
 	earthquakes: document.getElementById("earthquakes"),
 	usFlooding: document.getElementById("usFlooding"),
+	tropicalStorms: document.getElementById("tropicalStorms"),
 	customGroupFilterField: document.getElementById("customGroupFilterField"),
 	mapOptionsArea: document.getElementById("mapOptionsArea"),
 	refreshStatusArea: null, // Set later after map init
@@ -495,6 +496,8 @@ if (additionalOverlayOption == "wildfires" || additionalOverlayOption == "us-wil
 	_dom.earthquakes.checked = true;
 } else if (additionalOverlayOption == "us-flooding") {
 	_dom.usFlooding.checked = true;
+} else if (additionalOverlayOption == "tropical-storms") {
+	_dom.tropicalStorms.checked = true;
 }
 
 // Capture information about the current dashboard for use in subsequent REST calls...
@@ -3477,6 +3480,298 @@ async function addWeatherLayer() {
 				});
 			} catch (error) {
 				console.error("Failed to fetch flooding data:", error);
+			}
+		} else if (optionalMapType == "tropical-storms") {
+			// Clear any previous load of the overlay data...
+			map.data.forEach(function(feature) {
+				map.data.remove(feature);
+			});
+			// Remove any existing overlay listeners...
+			if (typeof parent.overlayInfoWindowListenerHandle == "object") {
+				google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
+			}
+			// Initialize or close the shared overlay InfoWindow...
+			if (parent.overlayInfoWindow) {
+				parent.overlayInfoWindow.close();
+				parent.overlayInfoWindow = null;
+			}
+			parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
+			// Clear any previous earthquake contour lines...
+			if (parent.mmiContourLines) {
+				parent.mmiContourLines.forEach(line => line.setMap(null));
+				parent.mmiContourLines = [];
+			}
+			// Clear any previous storm track polylines...
+			if (parent.stormTrackLines) {
+				parent.stormTrackLines.forEach(line => line.setMap(null));
+				parent.stormTrackLines = [];
+			}
+			parent.stormTrackLines = [];
+
+			try {
+				// Fetch active tropical storm data from NOAA National Hurricane Center (NHC)
+				// Data source: https://www.nhc.noaa.gov/gis/
+				// This includes Atlantic (AL), Eastern Pacific (EP), and Central Pacific (CP) basins
+				// Note: NHC doesn't support CORS, so we use a proxy
+				const corsProxy = 'https://corsproxy.io/?';
+				const nhcActiveStormsUrl = `https://www.nhc.noaa.gov/CurrentStorms.json?ts=${Date.now()}`;
+				
+				const stormsResponse = await fetch(corsProxy + encodeURIComponent(nhcActiveStormsUrl));
+				if (!stormsResponse.ok) {
+					throw new Error(`NHC storms data fetch error: ${stormsResponse.status}`);
+				}
+				const stormsData = await stormsResponse.json();
+				
+				// Track how many storms we're processing
+				let stormCount = 0;
+				const activeStorms = stormsData.activeStorms || [];
+				
+				console.debug(`Tropical storms data loaded: ${activeStorms.length} active storms`);
+
+				// Process each active storm
+				for (const storm of activeStorms) {
+					stormCount++;
+					
+					// Fetch forecast track cone GeoJSON for this storm if available
+					if (storm.forecastConePGN5kmLine120hr) {
+						try {
+							const coneResponse = await fetch(corsProxy + encodeURIComponent(storm.forecastConePGN5kmLine120hr));
+							if (coneResponse.ok) {
+								const coneData = await coneResponse.json();
+								// Add cone of uncertainty as a polygon
+								if (coneData.features) {
+									coneData.features.forEach(feature => {
+										feature.properties = feature.properties || {};
+										feature.properties._stormType = 'cone';
+										feature.properties._stormName = storm.name;
+										feature.properties._stormId = storm.id;
+									});
+									map.data.addGeoJson(coneData);
+								}
+							}
+						} catch (e) {
+							console.debug(`Could not load forecast cone for ${storm.name}:`, e.message);
+						}
+					}
+
+					// Fetch forecast track points for this storm if available
+					if (storm.forecastTrackPtsPGN) {
+						try {
+							const trackResponse = await fetch(corsProxy + encodeURIComponent(storm.forecastTrackPtsPGN));
+							if (trackResponse.ok) {
+								const trackData = await trackResponse.json();
+								if (trackData.features) {
+									trackData.features.forEach(feature => {
+										feature.properties = feature.properties || {};
+										feature.properties._stormType = 'forecast';
+										feature.properties._stormName = storm.name;
+										feature.properties._stormId = storm.id;
+										feature.properties._stormClassification = storm.classification;
+									});
+									map.data.addGeoJson(trackData);
+								}
+							}
+						} catch (e) {
+							console.debug(`Could not load forecast track for ${storm.name}:`, e.message);
+						}
+					}
+
+					// Fetch observed track (best track) for this storm if available
+					if (storm.bestTrackPtsPGN) {
+						try {
+							const bestTrackResponse = await fetch(corsProxy + encodeURIComponent(storm.bestTrackPtsPGN));
+							if (bestTrackResponse.ok) {
+								const bestTrackData = await bestTrackResponse.json();
+								if (bestTrackData.features) {
+									bestTrackData.features.forEach(feature => {
+										feature.properties = feature.properties || {};
+										feature.properties._stormType = 'observed';
+										feature.properties._stormName = storm.name;
+										feature.properties._stormId = storm.id;
+										feature.properties._stormClassification = storm.classification;
+									});
+									map.data.addGeoJson(bestTrackData);
+								}
+							}
+						} catch (e) {
+							console.debug(`Could not load best track for ${storm.name}:`, e.message);
+						}
+					}
+				}
+
+				// Style the storm features based on type and intensity
+				map.data.setStyle(function(feature) {
+					const stormType = feature.getProperty('_stormType');
+					const intensity = feature.getProperty('INTENSITY') || feature.getProperty('MAXWIND') || 0;
+					const stormCat = feature.getProperty('STORMTYPE') || feature.getProperty('DVLBL') || '';
+					
+					// Cone of uncertainty styling
+					if (stormType === 'cone') {
+						return {
+							fillColor: '#ff990040',
+							fillOpacity: 0.25,
+							strokeColor: '#ff9900',
+							strokeWeight: 1.5,
+							strokeOpacity: 0.6
+						};
+					}
+					
+					// Determine marker color based on storm intensity (Saffir-Simpson scale for Atlantic)
+					let markerColor = '#5ebaff'; // Tropical Depression (< 34 kt)
+					let markerSize = 6;
+					
+					if (intensity >= 137) {
+						markerColor = '#ff6060'; // Category 5 (137+ kt)
+						markerSize = 14;
+					} else if (intensity >= 113) {
+						markerColor = '#ff8f20'; // Category 4 (113-136 kt)
+						markerSize = 12;
+					} else if (intensity >= 96) {
+						markerColor = '#ffc140'; // Category 3 (96-112 kt)
+						markerSize = 11;
+					} else if (intensity >= 83) {
+						markerColor = '#ffe775'; // Category 2 (83-95 kt)
+						markerSize = 10;
+					} else if (intensity >= 64) {
+						markerColor = '#ffffcc'; // Category 1 (64-82 kt)
+						markerSize = 9;
+					} else if (intensity >= 34) {
+						markerColor = '#00faf4'; // Tropical Storm (34-63 kt)
+						markerSize = 8;
+					}
+					
+					// Forecast points are slightly smaller/more transparent
+					if (stormType === 'forecast') {
+						return {
+							icon: {
+								path: google.maps.SymbolPath.CIRCLE,
+								fillColor: markerColor,
+								fillOpacity: 0.7,
+								strokeColor: '#333',
+								strokeWeight: 1,
+								scale: markerSize * 0.8
+							}
+						};
+					}
+					
+					// Observed track points
+					return {
+						icon: {
+							path: google.maps.SymbolPath.CIRCLE,
+							fillColor: markerColor,
+							fillOpacity: 0.9,
+							strokeColor: '#333',
+							strokeWeight: 1.5,
+							scale: markerSize
+						}
+					};
+				});
+
+				// Add click handler for storm info
+				parent.overlayInfoWindowListenerHandle = map.data.addListener('click', function(event) {
+					const feature = event.feature;
+					const stormName = feature.getProperty('_stormName') || feature.getProperty('STORMNAME') || 'Unknown Storm';
+					const stormType = feature.getProperty('_stormType');
+					const intensity = feature.getProperty('INTENSITY') || feature.getProperty('MAXWIND') || 'N/A';
+					const pressure = feature.getProperty('MSLP') || feature.getProperty('MINPRES') || 'N/A';
+					const movement = feature.getProperty('MOVEMENT') || feature.getProperty('MOVEMENTDIR') || '';
+					const speed = feature.getProperty('MOVEMENTSPEED') || feature.getProperty('SPEED') || '';
+					const stormCat = feature.getProperty('STORMTYPE') || feature.getProperty('DVLBL') || feature.getProperty('_stormClassification') || '';
+					const validTime = feature.getProperty('VALIDTIME') || feature.getProperty('DTEFCST') || feature.getProperty('TAU') || '';
+					const gust = feature.getProperty('GUST') || '';
+					
+					// Determine storm category label
+					let categoryLabel = 'Tropical Depression';
+					let categoryColor = '#5ebaff';
+					const windSpeed = parseInt(intensity) || 0;
+					
+					if (windSpeed >= 137) {
+						categoryLabel = 'Category 5 Hurricane';
+						categoryColor = '#ff6060';
+					} else if (windSpeed >= 113) {
+						categoryLabel = 'Category 4 Hurricane';
+						categoryColor = '#ff8f20';
+					} else if (windSpeed >= 96) {
+						categoryLabel = 'Category 3 Hurricane';
+						categoryColor = '#ffc140';
+					} else if (windSpeed >= 83) {
+						categoryLabel = 'Category 2 Hurricane';
+						categoryColor = '#ffe775';
+					} else if (windSpeed >= 64) {
+						categoryLabel = 'Category 1 Hurricane';
+						categoryColor = '#ffffcc';
+					} else if (windSpeed >= 34) {
+						categoryLabel = 'Tropical Storm';
+						categoryColor = '#00faf4';
+					}
+					
+					// Build info content
+					let infoContent = `
+						<div style="line-height:1.5;overflow:hidden;color:#333;max-width:320px;">
+							<h3 style="margin:0 0 8px 0;display:flex;align-items:center;gap:8px;">
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${categoryColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41M12 8a4 4 0 0 0-4 4c0 1.5.8 2.8 2 3.5L9 21h6l-1-5.5c1.2-.7 2-2 2-3.5a4 4 0 0 0-4-4z"/>
+									<circle cx="12" cy="12" r="3"/>
+								</svg>
+								${stormName}
+							</h3>
+							<div style="background:${categoryColor};color:#333;padding:6px 10px;border-radius:6px;font-weight:bold;margin-bottom:12px;text-align:center;">
+								${categoryLabel}
+							</div>`;
+					
+					if (stormType !== 'cone') {
+						infoContent += `
+							<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+								<div style="background:#f5f5f5;padding:8px;border-radius:4px;text-align:center;">
+									<div style="font-size:11px;color:#666;">Max Wind</div>
+									<div style="font-size:16px;font-weight:bold;">${intensity} kt</div>
+								</div>
+								<div style="background:#f5f5f5;padding:8px;border-radius:4px;text-align:center;">
+									<div style="font-size:11px;color:#666;">Pressure</div>
+									<div style="font-size:16px;font-weight:bold;">${pressure} mb</div>
+								</div>
+							</div>`;
+						
+						if (gust) {
+							infoContent += `<p style="margin:4px 0;"><strong>Gusts:</strong> ${gust} kt</p>`;
+						}
+						if (movement || speed) {
+							infoContent += `<p style="margin:4px 0;"><strong>Movement:</strong> ${movement} ${speed ? 'at ' + speed + ' mph' : ''}</p>`;
+						}
+						if (validTime) {
+							infoContent += `<p style="margin:4px 0;font-size:12px;color:#666;"><strong>Valid:</strong> ${validTime}</p>`;
+						}
+					} else {
+						infoContent += `<p style="margin:8px 0;color:#666;">This shaded area represents the probable track of the storm center over the forecast period.</p>`;
+					}
+					
+					infoContent += `
+							<div style="margin: 15px 0 5px 0;">
+								<a href="https://www.nhc.noaa.gov/" target="_blank" style="background-color: #005ea2; padding: 3px 7px; border-radius: 5px; color: white; text-decoration: none; font-size: 1.05em; font-weight: 400; display: inline-flex; align-items: center; gap: 5px;">
+									<svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path fill="white" d="M384 64C366.3 64 352 78.3 352 96C352 113.7 366.3 128 384 128L466.7 128L265.3 329.4C252.8 341.9 252.8 362.2 265.3 374.7C277.8 387.2 298.1 387.2 310.6 374.7L512 173.3L512 256C512 273.7 526.3 288 544 288C561.7 288 576 273.7 576 256L576 96C576 78.3 561.7 64 544 64L384 64zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 416C480 398.3 465.7 384 448 384C430.3 384 416 398.3 416 416L416 496C416 504.8 408.8 512 400 512L144 512C135.2 512 128 504.8 128 496L128 240C128 231.2 135.2 224 144 224L224 224C241.7 224 256 209.7 256 192C256 174.3 241.7 160 224 160L144 160z"/></svg>
+									NHC Storm Center
+								</a>
+							</div>
+							<p style="font-size:10px;color:#999;margin:8px 0 0 0;">Data: NOAA National Hurricane Center</p>
+						</div>`;
+					
+					parent.overlayInfoWindow.setContent(infoContent);
+					
+					// Close any cluster InfoWindow that might be open...
+					if (clusterInfoWindow) {
+						clusterInfoWindow.close();
+					}
+					// Close any marker InfoWindow that might be open...
+					if (markerInfoWindow) {
+						markerInfoWindow.close();
+						markerInfoWindow = null;
+					}
+					parent.overlayInfoWindow.setPosition(event.latLng);
+					parent.overlayInfoWindow.open(map);
+				});
+
+			} catch (error) {
+				console.error("Failed to fetch tropical storm data:", error);
 			}
 		}
 	}
