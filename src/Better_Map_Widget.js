@@ -3242,7 +3242,7 @@ async function addWeatherLayer() {
 						</div>
 					` : ''}
 						<div style="margin: 15px 0; text-wrap: auto; line-height: 20px;">Current <a href="https://earthquake.usgs.gov/data/pager/onepager.php" target="_blank">USGS PAGER</a> Alert Level: <strong style="color: ${alertLabelColor}; background-color: black; padding: 5px; border-radius: 7px; font-size: 0.9em; white-space: nowrap;">${alertLabel}</strong></div>
-						<div style="font-size: 0.95em;">
+						<div style="font-size: 0.9em;">
 							<span style="font-weight: 500;">Detected:</span> ${quakeTime.toLocaleString()} <span style="font-size: 0.95em;">(${quakeAgeInDays.toFixed(1)} days ago)</span><br/>
 							<span style="font-weight: 500;">Updated:</span> ${updated.toLocaleString()}
 						</div>
