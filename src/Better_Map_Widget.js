@@ -1,5 +1,5 @@
 // Better Map Widget
-// Version 3.13
+// Version 3.14
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
@@ -87,13 +87,16 @@ if (typeof connectingLineWeight === 'undefined') { const connectingLineWeight = 
 if (typeof useGeodesicLines === 'undefined') { const useGeodesicLines = false; };
 
 // Default opacity for weather layers...
-if (typeof weatherOpacity === 'undefined') { const weatherOpacity = 0.2; };
+if (typeof weatherOpacity === 'undefined') { const weatherOpacity = 0.35; };
+// Color scheme for the "global" weather option...
+// See https://rainviewer.com/api/color-schemes.html for color scheme options (values are 0-8)...
+if (typeof rvOptionColorScheme === 'undefined') { const rvOptionColorScheme = 8; };
 // Weather refresh interval in minutes...
 if (typeof weatherRefreshMinutes === 'undefined') { const weatherRefreshMinutes = 5; };
 // Whether to display details about a wildfire on "click" or "mouseover"...
 if (typeof showWildfireInfoEvent === 'undefined') { const showWildfireInfoEvent = "click"; };
 // Whether the opacity of an earthquake's icon reflects "time" since the event, or "magnitude"...
-if (typeof quakeMode === 'undefined') { let quakeMode = "time"; };
+if (typeof quakeMode === 'undefined') { let quakeMode = "magnitude"; };
 
 // ------------------------------------------------------------
 
@@ -535,7 +538,6 @@ const aubergineStyle = [ { "elementType": "geometry", "stylers": [ { "color": "#
 
 // RainViewer map options (feel free to change these to suit your taste)...
 const rvOptionKind = 'radar'; // can be 'radar' or 'satellite'
-const rvOptionColorScheme = 4; // from 0 to 8. Check the https://rainviewer.com/api/color-schemes.html for additional inforvation
 const rvOptionSmoothData = 1; // 0 - not smooth, 1 - smooth
 const rvOptionSnowColors = 1; // 0 - do not show snow colors, 1 - show snow colors
 // Variables for holding RainViewer API data...
@@ -2644,7 +2646,7 @@ async function addWeatherLayer() {
 					return "https://tile.openweathermap.org/map/" + mapType + "/" + zoom + "/" + coord.x + "/" + coord.y + ".png?appid=" + openWeatherMapsAPIKey;
 				},
 				tileSize: new google.maps.Size(256, 256),
-				maxZoom: 9,
+				maxZoom: 11,
 				minZoom: 0,
 				opacity: weatherOpacity,
 				name: mapType
@@ -2811,48 +2813,70 @@ async function addWeatherLayer() {
 				parent.overlayInfoWindow.close();
 			});
 		}
-		// Look to see if we should add power outages to the map...
-		} else if (optionalMapType == "us-poweroutages") {
-			// USA Today power outage data URL (fetched via CORS proxy)...
-			const usaTodayDataURL = `https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_data.js`;
-			const corsProxy = 'https://corsproxy.io/?';
-			// US Counties GeoJSON with FIPS codes (from plotly datasets)...
-			const countiesGeoJsonURL = 'https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json';
-			const usaTodayTotalCustomersURL = 'https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_total.js';
+	// Look to see if we should add power outages to the map...
+	} else if (optionalMapType == "us-poweroutages") {
+		// USA Today power outage data URL (fetched via CORS proxy)...
+		const usaTodayDataURL = `https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_data.js`;
+		// Multiple CORS proxies for fallback (some may be blocked or rate-limited)...
+		const corsProxies = [
+			{ url: 'https://api.allorigins.win/raw?url=', encode: true },
+			{ url: 'https://corsproxy.io/?', encode: true },
+			{ url: 'https://api.codetabs.com/v1/proxy?quest=', encode: false }
+		];
+		// US Counties GeoJSON with FIPS codes (from plotly datasets)...
+		const countiesGeoJsonURL = 'https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json';
+		const usaTodayTotalCustomersURL = 'https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_total.js';
 
-			try {
-				// Clear any previous load of the overlay data...
-				map.data.forEach(function(feature) {
-					map.data.remove(feature);
-				});
-				// Remove any existing overlay listeners...
-				if (typeof parent.overlayInfoWindowListenerHandle == "object") {
-					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
+		// Helper function to try fetching with fallback proxies...
+		async function fetchWithCorsProxy(targetUrl) {
+			const urlWithCacheBust = targetUrl + `?v=${Date.now()}`;
+			for (let i = 0; i < corsProxies.length; i++) {
+				const proxy = corsProxies[i];
+				const proxyUrl = proxy.url + (proxy.encode ? encodeURIComponent(urlWithCacheBust) : urlWithCacheBust);
+				try {
+					const response = await fetch(proxyUrl);
+					if (response.ok) {
+						console.debug(`Power outage data fetched successfully using proxy ${i + 1}`);
+						return response;
+					}
+					console.warn(`CORS proxy ${i + 1} returned ${response.status}, trying next...`);
+				} catch (err) {
+					console.warn(`CORS proxy ${i + 1} failed: ${err.message}, trying next...`);
 				}
-				// Initialize or close the shared overlay InfoWindow...
-				if (parent.overlayInfoWindow) {
-					parent.overlayInfoWindow.close();
-					parent.overlayInfoWindow = null;
-				}
-				parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
-				// Clear any previous earthquake contour lines...
-				if (parent.mmiContourLines) {
-					parent.mmiContourLines.forEach(line => line.setMap(null));
-					parent.mmiContourLines = [];
-				}
+			}
+			throw new Error(`All CORS proxies failed to fetch power outage data`);
+		}
 
-				// Fetch both data sources in parallel...
-				const [countiesResponse, outageResponse] = await Promise.all([
-					fetch(countiesGeoJsonURL),
-					fetch(corsProxy + encodeURIComponent(usaTodayDataURL + `?v=${Date.now()}`))
-				]);
+		try {
+			// Clear any previous load of the overlay data...
+			map.data.forEach(function(feature) {
+				map.data.remove(feature);
+			});
+			// Remove any existing overlay listeners...
+			if (typeof parent.overlayInfoWindowListenerHandle == "object") {
+				google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
+			}
+			// Initialize or close the shared overlay InfoWindow...
+			if (parent.overlayInfoWindow) {
+				parent.overlayInfoWindow.close();
+				parent.overlayInfoWindow = null;
+			}
+			parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
+			// Clear any previous earthquake contour lines...
+			if (parent.mmiContourLines) {
+				parent.mmiContourLines.forEach(line => line.setMap(null));
+				parent.mmiContourLines = [];
+			}
 
-				if (!countiesResponse.ok) {
-					throw new Error(`Counties GeoJSON fetch error: ${countiesResponse.status}`);
-				}
-				if (!outageResponse.ok) {
-					throw new Error(`Power outage data fetch error: ${outageResponse.status}`);
-				}
+			// Fetch both data sources (counties direct, outages via proxy with fallback)...
+			const [countiesResponse, outageResponse] = await Promise.all([
+				fetch(countiesGeoJsonURL),
+				fetchWithCorsProxy(usaTodayDataURL)
+			]);
+
+			if (!countiesResponse.ok) {
+				throw new Error(`Counties GeoJSON fetch error: ${countiesResponse.status}`);
+			}
 
 				// Parse the counties GeoJSON...
 				const countiesGeoJson = await countiesResponse.json();
