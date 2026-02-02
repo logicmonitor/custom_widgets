@@ -1,6 +1,6 @@
 <!--
 	Better Map Widget
-	Version 3.14
+	Version 3.15
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
@@ -675,35 +675,35 @@
 					</span>
 
 					<span id="weatherOptions">
-						<span data-title="Weather across the globe (~10-15 minute updates)" onclick="enableWeather();">
-							<input type="radio" id="globalWeather" name="weatherType" value="radar" checked="true" />
+						<span data-title="Weather across the globe (~10-15 minute updates)">
+							<input type="radio" id="globalWeather" name="weatherType" value="radar" onclick="enableWeather();" checked="true" />
 							<label for="globalWeather">Global</label>
 						</span>
 
-						<span data-title="US NEXRAD Base radar (~5 minute updates)" onclick="enableWeather();">
-							<input type="radio" id="nexradWeather" name="weatherType" value="nexrad-n0q-900913" />
+						<span data-title="US NEXRAD Base radar (~5 minute updates)">
+							<input type="radio" id="nexradWeather" name="weatherType" value="nexrad-n0q-900913" onclick="enableWeather();" />
 							<label for="nexradWeather">NEXRAD (US)</label>
 						</span>
 
 						<span id="additionalOverlayOptions">
 							<!-- <strong class="optionsHeader">additional overlays:</strong> -->
-							<span data-title="Active wildfires in the US and Australia" onclick="enableWeather();">
-								<input type="radio" id="usWildfires" name="otherWeatherOverlays" value="us-fires" checked="true" />
+							<span data-title="Active wildfires in the US and Australia">
+								<input type="radio" id="usWildfires" name="otherWeatherOverlays" value="us-fires" onclick="enableWeather();" checked="true" />
 								<label for="usWildfires">Wildfires</label>
 							</span>
 
-							<span data-title="US power outages by county" onclick="enableWeather();">
-								<input type="radio" id="usPowerOutages" name="otherWeatherOverlays" value="us-poweroutages" />
+							<span data-title="US power outages by county">
+								<input type="radio" id="usPowerOutages" name="otherWeatherOverlays" value="us-poweroutages" onclick="enableWeather();" />
 								<label for="usPowerOutages">US Power Outages</label>
 							</span>
 
-							<span data-title="Significant earthquakes (magnitude 6+) over the past 7 days" onclick="enableWeather();">
-								<input type="radio" id="earthquakes" name="otherWeatherOverlays" value="earthquakes" />
+							<span data-title="Significant earthquakes (magnitude 6+) over the past 7 days">
+								<input type="radio" id="earthquakes" name="otherWeatherOverlays" value="earthquakes" onclick="enableWeather();" />
 								<label for="earthquakes">Earthquakes</label>
 							</span>
 
-							<span data-title="Active US flood warnings" onclick="enableWeather();">
-								<input type="radio" id="usFlooding" name="otherWeatherOverlays" value="us-flooding" />
+							<span data-title="Active US flood warnings">
+								<input type="radio" id="usFlooding" name="otherWeatherOverlays" value="us-flooding" onclick="enableWeather();" />
 								<label for="usFlooding">US Flooding</label>
 							</span>
 						</span>
