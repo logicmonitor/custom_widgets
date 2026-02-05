@@ -1,5 +1,5 @@
 // Better Map Widget
-// Version 3.15
+// Version 3.16
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
@@ -96,7 +96,7 @@ if (typeof weatherRefreshMinutes === 'undefined') { const weatherRefreshMinutes 
 // Whether to display details about a wildfire on "click" or "mouseover"...
 if (typeof showWildfireInfoEvent === 'undefined') { const showWildfireInfoEvent = "click"; };
 // Whether the opacity of an earthquake's icon reflects "time" since the event, or "magnitude"...
-if (typeof quakeMode === 'undefined') { let quakeMode = "magnitude"; };
+if (typeof quakeMode === 'undefined') { let quakeMode = "time"; };
 
 // ------------------------------------------------------------
 
@@ -2819,9 +2819,9 @@ async function addWeatherLayer() {
 		const usaTodayDataURL = `https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_data.js`;
 		// Multiple CORS proxies for fallback (some may be blocked or rate-limited)...
 		const corsProxies = [
+			{ url: 'https://api.codetabs.com/v1/proxy?quest=', encode: false },
 			{ url: 'https://api.allorigins.win/raw?url=', encode: true },
-			{ url: 'https://corsproxy.io/?', encode: true },
-			{ url: 'https://api.codetabs.com/v1/proxy?quest=', encode: false }
+			{ url: 'https://corsproxy.io/?', encode: true }
 		];
 		// US Counties GeoJSON with FIPS codes (from plotly datasets)...
 		const countiesGeoJsonURL = 'https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json';

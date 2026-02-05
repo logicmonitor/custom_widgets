@@ -1,6 +1,6 @@
 <!--
 	Better Map Widget
-	Version 3.15
+	Version 3.16
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
@@ -132,7 +132,7 @@
 	// Whether to display details about a wildfire on "click" or "mouseover"...
 	const showWildfireInfoEvent = "click";
 	// Whether the opacity of an earthquake's icon reflects "time" since the event, or "magnitude"...
-	let quakeMode = "magnitude";
+	let quakeMode = "time";
 </script>
 
 <!-- We'll use FontAwesome icons to help pretty up things... -->
@@ -3440,13 +3440,48 @@
 				const usaTodayDataURL = `https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_data.js`;
 				// Multiple CORS proxies for fallback (some may be blocked or rate-limited)...
 				const corsProxies = [
+					{ url: 'https://api.codetabs.com/v1/proxy?quest=', encode: false },
 					{ url: 'https://api.allorigins.win/raw?url=', encode: true },
-					{ url: 'https://corsproxy.io/?', encode: true },
-					{ url: 'https://api.codetabs.com/v1/proxy?quest=', encode: false }
+					{ url: 'https://corsproxy.io/?', encode: true }
 				];
 				// US Counties GeoJSON with FIPS codes (from plotly datasets)...
 				const countiesGeoJsonURL = 'https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json';
 				const usaTodayTotalCustomersURL = 'https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_total.js';
+
+				// Cache key for county GeoJSON - stored in localStorage since boundaries are static
+				const COUNTIES_CACHE_KEY = 'lm_bmw.countiesGeoJson.v1';
+
+				// Helper function to get cached county GeoJSON or fetch fresh...
+				async function getCountiesGeoJson() {
+					// Try localStorage cache first (county boundaries are static, persist across sessions)
+					try {
+						const cached = localStorage.getItem(COUNTIES_CACHE_KEY);
+						if (cached) {
+							console.debug('Using cached counties GeoJSON from localStorage');
+							return JSON.parse(cached);
+						}
+					} catch (e) {
+						console.debug('localStorage read failed:', e.message);
+					}
+
+					// Fetch fresh if not cached
+					console.debug('Fetching fresh counties GeoJSON (will cache for future use)...');
+					const response = await fetch(countiesGeoJsonURL);
+					if (!response.ok) {
+						throw new Error(`Counties GeoJSON fetch error: ${response.status}`);
+					}
+					const data = await response.json();
+
+					// Cache in localStorage for future loads (boundaries don't change)
+					try {
+						localStorage.setItem(COUNTIES_CACHE_KEY, JSON.stringify(data));
+						console.debug('Counties GeoJSON cached to localStorage');
+					} catch (e) {
+						console.debug('localStorage write failed (quota exceeded?):', e.message);
+					}
+
+					return data;
+				}
 
 				// Helper function to try fetching with fallback proxies...
 				async function fetchWithCorsProxy(targetUrl) {
@@ -3466,6 +3501,36 @@
 						}
 					}
 					throw new Error(`All CORS proxies failed to fetch power outage data`);
+				}
+
+				// Helper to parse outage data in single pass (optimized from two-pass approach)
+				function parseOutageData(outageText) {
+					const allEntries = [];
+					let maxTimeIndex = 0;
+					const propsRegex = /"properties":\s*\{\s*"n"\s*:\s*"([^"]+)"\s*,\s*"o"\s*:\s*"([^"]+)"\s*,\s*"c"\s*:\s*([\d.]+)\s*,\s*"f"\s*:\s*"(\d+)"\s*,\s*"m"\s*:\s*(\d+)/g;
+					let match;
+
+					// Single pass: collect entries and track max time index simultaneously
+					while ((match = propsRegex.exec(outageText)) !== null) {
+						const [_, name, outageCount, percentage, fips, timeIndex] = match;
+						const timeIdx = parseInt(timeIndex, 10) || 0;
+						if (timeIdx > maxTimeIndex) maxTimeIndex = timeIdx;
+						allEntries.push({ name, outageCount, percentage, fips, timeIdx });
+					}
+
+					// Filter for current time entries and build lookup
+					const outageDataByFips = {};
+					for (const entry of allEntries) {
+						if (entry.timeIdx === maxTimeIndex) {
+							outageDataByFips[entry.fips] = {
+								name: entry.name,
+								outageCount: parseInt(entry.outageCount.replace(/,/g, ''), 10) || 0,
+								percentage: parseFloat(entry.percentage) || 0,
+								fips: entry.fips
+							};
+						}
+					}
+					return { outageDataByFips, maxTimeIndex };
 				}
 
 				try {
@@ -3489,60 +3554,17 @@
 						parent.mmiContourLines = [];
 					}
 
-					// Fetch both data sources (counties direct, outages via proxy with fallback)...
-					const [countiesResponse, outageResponse] = await Promise.all([
-						fetch(countiesGeoJsonURL),
+					// Fetch both data sources in parallel (counties use cache, outages via proxy)
+					const [countiesGeoJson, outageResponse] = await Promise.all([
+						getCountiesGeoJson(),
 						fetchWithCorsProxy(usaTodayDataURL)
 					]);
 
-					if (!countiesResponse.ok) {
-						throw new Error(`Counties GeoJSON fetch error: ${countiesResponse.status}`);
-					}
-
-					// Parse the counties GeoJSON...
-					const countiesGeoJson = await countiesResponse.json();
-
-					// Parse USA Today data (it's a JS file with variable assignment, not pure JSON)
-					// Format: var PowerOutagesJSON = { "type": "FeatureCollection", "features":[...] };
-					// Properties: n=name, o=outage count, c=percentage, f=FIPS code, m=time index
-					// Note: The highest m value represents the current data, lower values are historical.
+					// Parse outage text in single pass (optimized)
 					const outageText = await outageResponse.text();
+					const { outageDataByFips, maxTimeIndex: CURRENT_TIME_INDEX } = parseOutageData(outageText);
 
-					// First pass: determine the maximum 'm' value (current time index) from the data
-					// This value can vary, so we dynamically detect it from the first county's data pattern
-					const mValueRegex = /"m"\s*:\s*(\d+)/g;
-					let maxTimeIndex = 0;
-					let mMatch;
-					while ((mMatch = mValueRegex.exec(outageText)) !== null) {
-						const mValue = parseInt(mMatch[1], 10) || 0;
-						if (mValue > maxTimeIndex) {
-							maxTimeIndex = mValue;
-						}
-					}
-					const CURRENT_TIME_INDEX = maxTimeIndex;
 					console.debug(`Detected maximum time index (m) value: ${CURRENT_TIME_INDEX}`);
-
-					// Extract properties from the USA Today data using regex
-					// We only need the properties, not the geometry (which references undefined variables)
-					const outageDataByFips = {};
-					const propsRegex = /"properties":\s*\{\s*"n"\s*:\s*"([^"]+)"\s*,\s*"o"\s*:\s*"([^"]+)"\s*,\s*"c"\s*:\s*([\d.]+)\s*,\s*"f"\s*:\s*"(\d+)"\s*,\s*"m"\s*:\s*(\d+)/g;
-					let match;
-
-					while ((match = propsRegex.exec(outageText)) !== null) {
-						const [_, name, outageCount, percentage, fips, timeIndex] = match;
-						const timeIdx = parseInt(timeIndex, 10) || 0;
-
-						// Only keep entries where m equals the maximum (current data)
-						if (timeIdx === CURRENT_TIME_INDEX) {
-							outageDataByFips[fips] = {
-								name: name,
-								outageCount: parseInt(outageCount.replace(/,/g, ''), 10) || 0,
-								percentage: parseFloat(percentage) || 0,
-								fips: fips
-							}
-						}
-					}
-
 					console.debug(`Parsed ${Object.keys(outageDataByFips).length} counties with current outage data (m=${CURRENT_TIME_INDEX}) from USA Today`);
 
 					// Merge outage data into the counties GeoJSON by FIPS code...
