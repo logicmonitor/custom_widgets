@@ -1,5 +1,5 @@
 // Better Map Widget
-// Version 3.17
+// Version 3.18
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
@@ -20,7 +20,7 @@ if (typeof mapSourceType === 'undefined') { let mapSourceType = "groups"; };
 // You can either set it here or in a dashboard token named 'MapLocationProperty'...
 if (typeof mapLocationProperty === 'undefined') { let mapLocationProperty = "location"; };
 
-// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", or "silverblue"...
+// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", "silverblue", or "satellite"...
 if (typeof mapStyle === 'undefined') { let mapStyle = "silverblue"; };
 
 // Whether to ignore items with no active alerts (useful for maps with thousands of markers)...
@@ -1181,19 +1181,24 @@ async function initMap() {
 
 	// *** MAP THEME ***
 	// Set our map theme (can be set via default at beginning of this script or via a "MapStyle" dashboard token)...
-	let styledMapType = new google.maps.StyledMapType(silverStyle);
-	if (mapStyle == "standard") {
-		styledMapType = new google.maps.StyledMapType(standardStyle);
-	} else if (mapStyle == "dark") {
-		styledMapType = new google.maps.StyledMapType(darkStyle);
-	} else if (mapStyle == "aubergine") {
-		styledMapType = new google.maps.StyledMapType(aubergineStyle);
-	} else if (mapStyle == "silverblue") {
-		styledMapType = new google.maps.StyledMapType(silverBlueStyle);
-	}
+	if (mapStyle == "satellite") {
+		// Use Google Maps built-in satellite imagery...
+		map.setMapTypeId("satellite");
+	} else {
+		let styledMapType = new google.maps.StyledMapType(silverStyle);
+		if (mapStyle == "standard") {
+			styledMapType = new google.maps.StyledMapType(standardStyle);
+		} else if (mapStyle == "dark") {
+			styledMapType = new google.maps.StyledMapType(darkStyle);
+		} else if (mapStyle == "aubergine") {
+			styledMapType = new google.maps.StyledMapType(aubergineStyle);
+		} else if (mapStyle == "silverblue") {
+			styledMapType = new google.maps.StyledMapType(silverBlueStyle);
+		}
 
-	map.mapTypes.set("customMapStyle", styledMapType);
-	map.setMapTypeId("customMapStyle");
+		map.mapTypes.set("customMapStyle", styledMapType);
+		map.setMapTypeId("customMapStyle");
+	}
 
 	// Toggle visibility of our weather options...
 	enableWeather();
