@@ -1,6 +1,6 @@
 <!--
 	Better Map Widget
-	Version 1.13 - CDN Version
+	Version 1.14 - CDN Version
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
@@ -57,7 +57,7 @@
 	// You can either set it here or in a dashboard token named 'MapLocationProperty'...
 	let mapLocationProperty = "location";
 
-	// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", "silverblue", or "satellite"...
+	// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", "silverblue", "satellite", or "satellite-light"...
 	let mapStyle = "silverblue";
 
 	// Whether to ignore items with no active alerts (useful for maps with thousands of markers)...
@@ -128,7 +128,9 @@
 	const useGeodesicLines = false;
 
 	// Default opacity for weather layers...
-	const weatherOpacity = 0.35;
+	let weatherOpacity = 0.35;
+	// Default opacity for satellite weather layers...
+	const satelliteWeatherOpacity = 0.6;
 	// Color scheme for the "global" weather option...
 	// See https://rainviewer.com/api/color-schemes.html for color scheme options (values are 0-8)...
 	const rvOptionColorScheme = 8;

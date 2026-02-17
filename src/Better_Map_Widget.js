@@ -1,5 +1,5 @@
 // Better Map Widget
-// Version 3.18
+// Version 3.19
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
@@ -20,7 +20,7 @@ if (typeof mapSourceType === 'undefined') { let mapSourceType = "groups"; };
 // You can either set it here or in a dashboard token named 'MapLocationProperty'...
 if (typeof mapLocationProperty === 'undefined') { let mapLocationProperty = "location"; };
 
-// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", "silverblue", or "satellite"...
+// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", "silverblue", "satellite", or "satellite-light"...
 if (typeof mapStyle === 'undefined') { let mapStyle = "silverblue"; };
 
 // Whether to ignore items with no active alerts (useful for maps with thousands of markers)...
@@ -92,6 +92,7 @@ if (typeof useGeodesicLines === 'undefined') { const useGeodesicLines = false; }
 
 // Default opacity for weather layers...
 if (typeof weatherOpacity === 'undefined') { const weatherOpacity = 0.35; };
+const satelliteWeatherOpacity = 0.6;
 // Color scheme for the "global" weather option...
 // See https://rainviewer.com/api/color-schemes.html for color scheme options (values are 0-8)...
 if (typeof rvOptionColorScheme === 'undefined') { const rvOptionColorScheme = 8; };
@@ -1085,6 +1086,49 @@ async function initMap() {
 		}
 	}
 
+	// SatelliteLightOverlay class - creates a semi-transparent white overlay below markers to lighten satellite imagery
+	window.SatelliteLightOverlay = class extends google.maps.OverlayView {
+		constructor() {
+			super();
+			this.div = null;
+		}
+
+		onAdd() {
+			this.div = document.createElement('div');
+			this.div.style.position = 'absolute';
+			this.div.style.backgroundColor = 'rgba(255, 255, 255, 0.25)';
+			this.div.style.pointerEvents = 'none';
+			// Add to the mapPane (lowest pane, below markers and overlays)
+			const panes = this.getPanes();
+			panes.mapPane.appendChild(this.div);
+		}
+
+		draw() {
+			if (!this.div) return;
+			const projection = this.getProjection();
+			if (!projection) return;
+			const bounds = this.getMap().getBounds();
+			if (!bounds) return;
+
+			const sw = projection.fromLatLngToDivPixel(bounds.getSouthWest());
+			const ne = projection.fromLatLngToDivPixel(bounds.getNorthEast());
+
+			// Extend beyond visible bounds to cover during panning
+			const padding = 1000;
+			this.div.style.left = (sw.x - padding) + 'px';
+			this.div.style.top = (ne.y - padding) + 'px';
+			this.div.style.width = (ne.x - sw.x + padding * 2) + 'px';
+			this.div.style.height = (sw.y - ne.y + padding * 2) + 'px';
+		}
+
+		onRemove() {
+			if (this.div && this.div.parentNode) {
+				this.div.parentNode.removeChild(this.div);
+				this.div = null;
+			}
+		}
+	}
+
 	// Create our Google Map...
 	map = new google.maps.Map(document.getElementById("googleMap"), {
 		zoom: 3,
@@ -1184,6 +1228,13 @@ async function initMap() {
 	if (mapStyle == "satellite") {
 		// Use Google Maps built-in satellite imagery...
 		map.setMapTypeId("satellite");
+		weatherOpacity = satelliteWeatherOpacity;
+	} else if (mapStyle == "satellite-light") {
+		// Use Google Maps built-in satellite imagery with lightened appearance for better icon/overlay visibility...
+		map.setMapTypeId("satellite");
+		const satelliteLightOverlay = new SatelliteLightOverlay();
+		satelliteLightOverlay.setMap(map);
+		weatherOpacity = satelliteWeatherOpacity;
 	} else {
 		let styledMapType = new google.maps.StyledMapType(silverStyle);
 		if (mapStyle == "standard") {
