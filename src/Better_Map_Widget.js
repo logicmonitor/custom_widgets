@@ -1,5 +1,5 @@
 // Better Map Widget
-// Version 3.19
+// Version 3.20
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
