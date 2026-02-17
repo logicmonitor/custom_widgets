@@ -1,5 +1,5 @@
 // Better Map Widget
-// Version 3.16
+// Version 3.17
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
@@ -15,6 +15,10 @@
 // Whether we're plotting "groups" or "resources" or "services" (strongly recommend staying with groups or services)...
 // You can either set it here or in a dashboard token named 'MapSourceType'...
 if (typeof mapSourceType === 'undefined') { let mapSourceType = "groups"; };
+
+// The property to use for the location of the items on the map. Default is "location"...
+// You can either set it here or in a dashboard token named 'MapLocationProperty'...
+if (typeof mapLocationProperty === 'undefined') { let mapLocationProperty = "location"; };
 
 // Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", or "silverblue"...
 if (typeof mapStyle === 'undefined') { let mapStyle = "silverblue"; };
@@ -111,6 +115,14 @@ if (mapSourceTypeToken != "##MapSourceType##") {
 	mapSourceType = mapSourceTypeToken.toLowerCase();
 }
 // console.debug("mapSourceTypeToken", mapSourceTypeToken);
+
+// Capture from token whether to override the map location property...
+let mapLocationPropertyToken = document.getElementById("mapLocationPropertyToken").innerText;
+// If the token value wasn't set then use the values hard-coded above at the beginning of this script...
+if (mapLocationPropertyToken != "##MapLocationProperty##") {
+	mapLocationProperty = mapLocationPropertyToken;
+}
+// console.debug("mapLocationPropertyToken", mapLocationPropertyToken);
 
 // Capture from token whether override the map theme...
 let mapStyleToken = document.getElementById("mapStyleToken").innerText;
@@ -472,7 +484,7 @@ const _dom = {
 	showErrorsLabel: document.getElementById("showErrorsLabel"),
 	showCriticalsLabel: document.getElementById("showCriticalsLabel"),
 	showSDTLabel: document.getElementById("showSDTLabel"),
-};
+}
 
 // Set the form fields as appropriate...
 _dom.showCleared.checked = showCleared;
@@ -750,36 +762,36 @@ const MAX_INIT_ATTEMPTS = 10;
 // Robust map initialization wrapper that handles timing issues in dashboard widgets...
 async function ensureMapInitialized() {
 	if (mapInitialized) return;
-	
+
 	initAttempts++;
 	console.log(`Map initialization attempt ${initAttempts}...`);
-	
+
 	try {
 		// Check if Google Maps API is available...
 		if (typeof google === 'undefined' || !google.maps || typeof google.maps.importLibrary !== 'function') {
 			throw new Error('Google Maps API not yet available');
 		}
-		
+
 		// Check if map container exists and has dimensions...
 		const mapContainer = document.getElementById('googleMap');
 		if (!mapContainer) {
 			throw new Error('Map container element not found');
 		}
-		
+
 		// Get computed dimensions - container may exist but have no size yet...
 		const rect = mapContainer.getBoundingClientRect();
 		if (rect.width === 0 || rect.height === 0) {
 			throw new Error('Map container has no dimensions yet');
 		}
-		
+
 		// All checks passed - initialize the map...
 		await initMap();
 		mapInitialized = true;
 		console.log('Map initialized successfully');
-		
+
 	} catch (error) {
 		console.warn(`Map init attempt ${initAttempts} failed:`, error.message);
-		
+
 		if (initAttempts < MAX_INIT_ATTEMPTS) {
 			// Exponential backoff: 100ms, 200ms, 400ms, etc. up to 2 seconds...
 			const delay = Math.min(100 * Math.pow(2, initAttempts - 1), 2000);
@@ -1560,7 +1572,7 @@ async function refreshGroupData(timedRefresh = false) {
 	try {
 		while (offset < totalGroups) {
 			// let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
-			let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=customProperties.name:"location",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+			let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=customProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
 
 			// The 'fullpath' attribute only exists for group queries - for devices & services we'll use 'system.groups' instead...
 			if (mapSourceType != "groups") {
@@ -1569,10 +1581,10 @@ async function refreshGroupData(timedRefresh = false) {
 					let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
 					if (tmpPathFilter != "") {
 						// queryParams = '?v=3&size=1000&offset=' + offset + '&filter=systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
-						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"location",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
+						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
 					}
 				} else {
-					queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"location"' + statusFilter + deviceFilter;
+					queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"${mapLocationProperty}"' + statusFilter + deviceFilter;
 				}
 			}
 
@@ -1632,7 +1644,7 @@ async function refreshGroupData(timedRefresh = false) {
 			let tmpTotalGroups = 1000;
 			while (offset < tmpTotalGroups) {
 				// let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
-				let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=inheritedProperties.name:"location",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+				let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=inheritedProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
 
 				// The 'fullpath' attribute only exists for group queries - for devices & services we'll use 'system.groups' instead...
 				if (groupPathFilter != "*") {
@@ -1640,10 +1652,10 @@ async function refreshGroupData(timedRefresh = false) {
 					let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
 					if (tmpPathFilter != "") {
 						// queryParams = '?v=3&size=1000&offset=' + offset + '&filter=systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
-						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"location",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
+						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
 					}
 				} else {
-					queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"location"' + statusFilter + deviceFilter;
+					queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"${mapLocationProperty}"' + statusFilter + deviceFilter;
 				}
 				// console.debug("Query params for inherited locations: " + queryParams);
 
@@ -1686,6 +1698,67 @@ async function refreshGroupData(timedRefresh = false) {
 				}
 			}
 			// console.debug("totalGroups: " + totalGroups + " / tmpTotalGroups: " + tmpTotalGroups + " / offset: " + offset);
+		}
+
+		// Start fetching data from LM that have location in an auto property...
+		if (mapSourceType != "groups" && mapLocationProperty.match(/^auto\./)) {
+			// If the map location property starts with "auto.", then we're looking for auto properties...
+			offset = 0;
+			let tmpTotalGroups = 1000;
+			while (offset < tmpTotalGroups) {
+				let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=autoProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+
+				// The 'fullpath' attribute only exists for group queries - for devices & services we'll use 'system.groups' instead...
+				if (groupPathFilter != "*") {
+					// Strip off leading or trailing asterisks since they're not needed in this case...
+					let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
+					if (tmpPathFilter != "") {
+						queryParams = `?v=3&size=1000&offset=${offset}&filter=autoProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
+					}
+				} else {
+					queryParams = `?v=3&size=1000&offset=${offset}&filter=autoProperties.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
+				}
+				console.debug("Query params for auto properties: " + queryParams);
+
+				// Call the LogicMonitor API to get a list of groups...
+				const markerData = await LMClient({
+					resourcePath: resourcePath,
+					queryParams: queryParams,
+					httpVerb: httpVerb,
+					postBody: null,
+					apiVersion: '3',
+					signal: refreshSignal, // Allow cancellation of in-progress requests
+				});
+				// Process the group data we received...
+				console.debug('Group request succeeded with JSON response', markerData);
+				// console.debug('Total groups: ' + markerData.total + ' / tmpTotalGroups: ' + tmpTotalGroups + ' / offset: ' + offset);
+
+				if (markerData.total != 0) {
+					if (markerData.total != tmpTotalGroups) {
+						tmpTotalGroups = markerData.total;
+						if (totalGroups >= 0) {
+							totalGroups = totalGroups + markerData.total;
+						} else {
+							totalGroups = markerData.total;
+						}
+						// console.debug('Total groups: ' + markerData.total + ' / tmpTotalGroups: ' + tmpTotalGroups + ' / offset: ' + offset);
+					}
+
+					groupData = groupData.concat(markerData.items);
+
+					offset = groupData.length;
+
+					// Display our progress to the user...
+					_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating: " + offset + " of " + tmpTotalGroups + " (" + Math.round(offset/tmpTotalGroups*100) + "%)";
+					// _dom.refreshStatusArea.innerHTML = "Updating: " + Math.round(offset/totalGroups*100) + "%";
+				} else {
+					// We're done so stop the loop...
+					// console.debug("We're done fetching auto properties");
+					tmpTotalGroups = 0;
+					offset = totalGroups;
+					break;
+				}
+			}
 		}
 	} catch (error) {
 		// Silently handle aborted requests (user triggered a new refresh)
@@ -1791,31 +1864,16 @@ async function refreshGroupData(timedRefresh = false) {
 			alreadyGeocoded = false;
 			// First check to see if the location is in custom properties (defined on the group/resource itself)...
 			if (fullRefresh) {
-				try {
-					address = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "location").value;
+				// See if we're looking for a location in an auto property...
+				if (mapLocationProperty.match(/^auto\./)) {
 
-					// See if there are custom properties for latitude and longitude...
-					if (!ignoreLatLongProps) {
-						latProp = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
-						lngProp = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
-						if (latProp && lngProp) {
-							let latVal = Number(latProp.value);
-							let lngVal = Number(lngProp.value);
-							if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
-								// address = `${latProp.value}, ${lngProp.value}`;
-								alreadyGeocoded = true;
-							}
-						}
-					}
-				} catch(e) {
 					try {
-						// If not found in custom properties, try to get it from inherited properties...
-						address = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "location").value;
+						address = thisItem.autoProperties.find((locationProp) => locationProp.name.toLowerCase() === mapLocationProperty).value;
 
 						// See if there are inherited properties for latitude and longitude...
 						if (!ignoreLatLongProps) {
-							latProp = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
-							lngProp = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
+							latProp = thisItem.autoProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
+							lngProp = thisItem.autoProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
 							if (latProp && lngProp) {
 								let latVal = Number(latProp.value);
 								let lngVal = Number(lngProp.value);
@@ -1828,6 +1886,46 @@ async function refreshGroupData(timedRefresh = false) {
 					} catch(y) {
 						// console.log("No address found for " + thisItem.name);
 						// totalGroups = totalGroups - 1;
+					}
+				} else {
+					try {
+						address = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === mapLocationProperty).value;
+
+						// See if there are custom properties for latitude and longitude...
+						if (!ignoreLatLongProps) {
+							latProp = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
+							lngProp = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
+							if (latProp && lngProp) {
+								let latVal = Number(latProp.value);
+								let lngVal = Number(lngProp.value);
+								if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
+									// address = `${latProp.value}, ${lngProp.value}`;
+									alreadyGeocoded = true;
+								}
+							}
+						}
+					} catch(e) {
+						try {
+							// If not found in custom properties, try to get it from inherited properties...
+							address = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === mapLocationProperty).value;
+
+							// See if there are inherited properties for latitude and longitude...
+							if (!ignoreLatLongProps) {
+								latProp = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
+								lngProp = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
+								if (latProp && lngProp) {
+									let latVal = Number(latProp.value);
+									let lngVal = Number(lngProp.value);
+									if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
+										// address = `${latProp.value}, ${lngProp.value}`;
+										alreadyGeocoded = true;
+									}
+								}
+							}
+						} catch(y) {
+							// console.log("No address found for " + thisItem.name);
+							// totalGroups = totalGroups - 1;
+						}
 					}
 				}
 			}
@@ -2656,198 +2754,8 @@ async function addWeatherLayer() {
 			map.overlayMapTypes.insertAt(0, myMapType);
 		}
 
-	// Look to see if we should add wildfire into the map...
-	if (optionalMapType == "us-fires") {
-		// Clear any previous load of the overlay data...
-		map.data.forEach(function(feature) {
-			map.data.remove(feature);
-		});
-		// Remove any existing overlay listeners...
-		if (typeof parent.overlayInfoWindowListenerHandle == "object") {
-			google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
-		}
-		// Initialize or close the shared overlay InfoWindow...
-		if (parent.overlayInfoWindow) {
-			parent.overlayInfoWindow.close();
-			parent.overlayInfoWindow = null;
-		}
-		parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
-		// Clear any previous earthquake contour lines...
-		if (parent.mmiContourLines) {
-			parent.mmiContourLines.forEach(line => line.setMap(null));
-			parent.mmiContourLines = [];
-		}
-
-		// Load the wildfire data from the ArcGIS site...
-		// More info about this source of active US wildfire data can be found at: https://www.arcgis.com/home/item.html?id=d957997ccee7408287a963600a77f61f
-		// From that site, you can click "View" above the "URL" field on the right-hand side. From there, you'll see info on the two available layers. We're using layer "1" for perimeter data (denoted in the URL below with the "_1"), and pulling geojson data (per the suffix).
-		//map.data.loadGeoJson("https://opendata.arcgis.com/datasets/d957997ccee7408287a963600a77f61f_1.geojson");
-		const usWildfireUrl = `https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/USA_Wildfires_v1/FeatureServer/1/query?where=CurrentDateAge+<%3D+7&outFields=*&f=geojson&ts=${Date.now()}`;
-		
-		// Australian bushfire data from ArcGIS (near real-time bushfire boundaries)...
-		// More info: https://services-ap1.arcgis.com/ypkPEy1AmwPKGNNv/arcgis/rest/services/Near_Real_Time_Bushfire_Boundaries_view/FeatureServer
-		const auWildfireUrl = `https://services-ap1.arcgis.com/ypkPEy1AmwPKGNNv/arcgis/rest/services/Near_Real_Time_Bushfire_Boundaries_view/FeatureServer/3/query?where=0%3D0&geometryType=esriGeometryPolyline&units=esriSRUnit_Meter&outFields=*&returnGeometry=true&f=pgeojson&ts=${Date.now()}`;
-
-		// Fetch both US and Australian wildfire data in parallel...
-		Promise.all([
-			fetch(usWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null),
-			fetch(auWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null)
-		]).then(([usData, auData]) => {
-			// Add US wildfire data if available...
-			if (usData && usData.features) {
-				// Tag US features with a source property for identification in click handler...
-				usData.features.forEach(feature => {
-					feature.properties = feature.properties || {};
-					feature.properties._fireSource = 'US';
-				});
-				map.data.addGeoJson(usData);
-				console.debug(`US wildfires loaded: ${usData.features.length} features`);
-			}
-			
-			// Add Australian wildfire data if available...
-			if (auData && auData.features) {
-				// Tag Australian features with a source property for identification in click handler...
-				auData.features.forEach(feature => {
-					feature.properties = feature.properties || {};
-					feature.properties._fireSource = 'AU';
-				});
-				map.data.addGeoJson(auData);
-				console.debug(`Australian bushfires loaded: ${auData.features.length} features`);
-			}
-		}).catch(error => {
-			console.error('Error loading wildfire data:', error);
-		});
-
-		// Color the wildfire areas as red...
-		map.data.setStyle({ fillColor: 'red', strokeWeight: 1.0, strokeColor: 'salmon' });
-
-		// Show wildfire info on either "click" or "mouseover" (refer to the 'showWildfireInfoEvent' variable set at the top of this script)...
-		parent.overlayInfoWindowListenerHandle = map.data.addListener(showWildfireInfoEvent, function(event) {
-			// Determine if this is a US or Australian fire based on the source property...
-			const fireSource = event.feature.getProperty("_fireSource");
-			let infoContent = '';
-			
-			if (fireSource === 'AU') {
-				// Australian bushfire info display...
-				let fireName = event.feature.getProperty("fire_name");
-				if (fireName == null) {
-					fireName = "(unknown)";
-				}
-				let fireType = event.feature.getProperty("fire_type");
-				if (fireType == null) {
-					fireType = "(not available)";
-				}
-				let ignitionDate = event.feature.getProperty("ignition_date");
-				if (ignitionDate == null) {
-					ignitionDate = "(not available)";
-				} else {
-					// Convert epoch timestamp to readable date if it's a number...
-					if (typeof ignitionDate === 'number') {
-						ignitionDate = new Date(ignitionDate).toLocaleDateString('en-AU');
-					}
-				}
-				let perimKm = event.feature.getProperty("perim_km");
-				if (perimKm == null) {
-					perimKm = "(not available)";
-				} else {
-					perimKm = Number(perimKm).toLocaleString('en-AU', numFormatOptions) + ' km';
-				}
-				let state = event.feature.getProperty("state");
-				if (state == null) {
-					state = "(not available)";
-				}
-				let agency = event.feature.getProperty("agency");
-				if (agency == null) {
-					agency = "(not available)";
-				}
-				
-				infoContent = '<div style="line-height:1.35;overflow:hidden;color:black;">' +
-					'<span style="font-weight:700;">Bushfire &quot;' + fireName + '&quot;</span><br/>' +
-					'<br/><b>Fire Type:</b> ' + fireType +
-					'<br/><b>Ignition Date:</b> ' + ignitionDate +
-					'<br/><b>Perimeter:</b> ' + perimKm +
-					'<br/><b>State:</b> ' + state +
-					'<br/><b>Agency:</b> ' + agency +
-					'</div>';
-			} else {
-				// US wildfire info display (original logic)...
-				let comments = event.feature.getProperty("Comments");
-				if (comments == null) {
-					comments = "(comments not available)";
-				}
-				let acres = event.feature.getProperty("GISAcres");
-				if (acres == null) {
-					acres = "(not available)";
-				} else {
-					acres = Number(acres).toLocaleString('en-US', numFormatOptions);
-				}
-				let fireCategory = event.feature.getProperty("FeatureCategory");
-				if (fireCategory == null) {
-					fireCategory = "(not available)";
-				}
-				
-				infoContent = '<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">' +
-					'<span style="font-weight:700;">Wildfire &quot;' + event.feature.getProperty("IncidentName") + '&quot;</span><br/>' +
-					comments + '<br/><br/>Calculated Acres: ' + acres +
-					'<br/>Category: ' + fireCategory +
-					'<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") +
-					'<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") +
-					'</div>';
-			}
-			
-			// Close any cluster InfoWindow that might be open...
-			if (clusterInfoWindow) {
-				clusterInfoWindow.close();
-			}
-			// Close any marker InfoWindow that might be open...
-			if (markerInfoWindow) {
-				markerInfoWindow.close();
-				markerInfoWindow = null;
-			}
-			parent.overlayInfoWindow.setContent(infoContent);
-			parent.overlayInfoWindow.setPosition(event.latLng);
-			parent.overlayInfoWindow.open(map);
-		});
-		if (showWildfireInfoEvent == "mouseover") {
-			parent.overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
-				parent.overlayInfoWindow.close();
-			});
-		}
-	// Look to see if we should add power outages to the map...
-	} else if (optionalMapType == "us-poweroutages") {
-		// USA Today power outage data URL (fetched via CORS proxy)...
-		const usaTodayDataURL = `https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_data.js`;
-		// Multiple CORS proxies for fallback (some may be blocked or rate-limited)...
-		const corsProxies = [
-			{ url: 'https://api.codetabs.com/v1/proxy?quest=', encode: false },
-			{ url: 'https://api.allorigins.win/raw?url=', encode: true },
-			{ url: 'https://corsproxy.io/?', encode: true }
-		];
-		// US Counties GeoJSON with FIPS codes (from plotly datasets)...
-		const countiesGeoJsonURL = 'https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json';
-		const usaTodayTotalCustomersURL = 'https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_total.js';
-
-		// Helper function to try fetching with fallback proxies...
-		async function fetchWithCorsProxy(targetUrl) {
-			const urlWithCacheBust = targetUrl + `?v=${Date.now()}`;
-			for (let i = 0; i < corsProxies.length; i++) {
-				const proxy = corsProxies[i];
-				const proxyUrl = proxy.url + (proxy.encode ? encodeURIComponent(urlWithCacheBust) : urlWithCacheBust);
-				try {
-					const response = await fetch(proxyUrl);
-					if (response.ok) {
-						console.debug(`Power outage data fetched successfully using proxy ${i + 1}`);
-						return response;
-					}
-					console.warn(`CORS proxy ${i + 1} returned ${response.status}, trying next...`);
-				} catch (err) {
-					console.warn(`CORS proxy ${i + 1} failed: ${err.message}, trying next...`);
-				}
-			}
-			throw new Error(`All CORS proxies failed to fetch power outage data`);
-		}
-
-		try {
+		// Look to see if we should add wildfire into the map...
+		if (optionalMapType == "us-fires") {
 			// Clear any previous load of the overlay data...
 			map.data.forEach(function(feature) {
 				map.data.remove(feature);
@@ -2868,60 +2776,272 @@ async function addWeatherLayer() {
 				parent.mmiContourLines = [];
 			}
 
-			// Fetch both data sources (counties direct, outages via proxy with fallback)...
-			const [countiesResponse, outageResponse] = await Promise.all([
-				fetch(countiesGeoJsonURL),
-				fetchWithCorsProxy(usaTodayDataURL)
-			]);
+			// Load the wildfire data from the ArcGIS site...
+			// More info about this source of active US wildfire data can be found at: https://www.arcgis.com/home/item.html?id=d957997ccee7408287a963600a77f61f
+			// From that site, you can click "View" above the "URL" field on the right-hand side. From there, you'll see info on the two available layers. We're using layer "1" for perimeter data (denoted in the URL below with the "_1"), and pulling geojson data (per the suffix).
+			//map.data.loadGeoJson("https://opendata.arcgis.com/datasets/d957997ccee7408287a963600a77f61f_1.geojson");
+			const usWildfireUrl = `https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/USA_Wildfires_v1/FeatureServer/1/query?where=CurrentDateAge+<%3D+7&outFields=*&f=geojson&ts=${Date.now()}`;
 
-			if (!countiesResponse.ok) {
-				throw new Error(`Counties GeoJSON fetch error: ${countiesResponse.status}`);
+			// Australian bushfire data from ArcGIS (near real-time bushfire boundaries)...
+			// More info: https://www.arcgis.com/home/item.html?id=8b28109ce26b43b8968a3c9baa608f43
+			const auWildfireUrl = `https://services-ap1.arcgis.com/ypkPEy1AmwPKGNNv/arcgis/rest/services/Near_Real_Time_Bushfire_Boundaries_view/FeatureServer/3/query?where=0%3D0&geometryType=esriGeometryPolyline&units=esriSRUnit_Meter&outFields=*&returnGeometry=true&f=pgeojson&ts=${Date.now()}`;
+
+			// Fetch both US and Australian wildfire data in parallel...
+			Promise.all([
+				fetch(usWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null),
+				fetch(auWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null)
+			]).then(([usData, auData]) => {
+				// Add US wildfire data if available...
+				if (usData && usData.features) {
+					// Tag US features with a source property for identification in click handler...
+					usData.features.forEach(feature => {
+						feature.properties = feature.properties || {};
+						feature.properties._fireSource = 'US';
+					});
+					map.data.addGeoJson(usData);
+					console.debug(`US wildfires loaded: ${usData.features.length} features`);
+				}
+
+				// Add Australian wildfire data if available...
+				if (auData && auData.features) {
+					// Tag Australian features with a source property for identification in click handler...
+					auData.features.forEach(feature => {
+						feature.properties = feature.properties || {};
+						feature.properties._fireSource = 'AU';
+					});
+					map.data.addGeoJson(auData);
+					console.debug(`Australian bushfires loaded: ${auData.features.length} features`);
+				}
+			}).catch(error => {
+				console.error('Error loading wildfire data:', error);
+			});
+
+			// Color the wildfire areas as red...
+			map.data.setStyle({ fillColor: 'red', strokeWeight: 1.0, strokeColor: 'salmon' });
+
+			// Show wildfire info on either "click" or "mouseover" (refer to the 'showWildfireInfoEvent' variable set at the top of this script)...
+			parent.overlayInfoWindowListenerHandle = map.data.addListener(showWildfireInfoEvent, function(event) {
+				// Determine if this is a US or Australian fire based on the source property...
+				const fireSource = event.feature.getProperty("_fireSource");
+				let infoContent = '';
+
+				if (fireSource === 'AU') {
+					// Australian bushfire info display...
+					let fireName = event.feature.getProperty("fire_name");
+					if (fireName == null) {
+						fireName = "(unknown)";
+					}
+					let fireType = event.feature.getProperty("fire_type");
+					if (fireType == null) {
+						fireType = "(not available)";
+					}
+					let ignitionDate = event.feature.getProperty("ignition_date");
+					if (ignitionDate == null) {
+						ignitionDate = "(not available)";
+					} else {
+						// Convert epoch timestamp to readable date if it's a number...
+						if (typeof ignitionDate === 'number') {
+							ignitionDate = new Date(ignitionDate).toLocaleDateString('en-AU');
+						}
+					}
+					let perimKm = event.feature.getProperty("perim_km");
+					if (perimKm == null) {
+						perimKm = "(not available)";
+					} else {
+						perimKm = Number(perimKm).toLocaleString('en-AU', numFormatOptions) + ' km';
+					}
+					let state = event.feature.getProperty("state");
+					if (state == null) {
+						state = "(not available)";
+					}
+					let agency = event.feature.getProperty("agency");
+					if (agency == null) {
+						agency = "(not available)";
+					}
+
+					infoContent = '<div style="line-height:1.35;overflow:hidden;color:black;">' +
+						'<span style="font-weight:700;">Bushfire &quot;' + fireName + '&quot;</span><br/>' +
+						'<br/><b>Fire Type:</b> ' + fireType +
+						'<br/><b>Ignition Date:</b> ' + ignitionDate +
+						'<br/><b>Perimeter:</b> ' + perimKm +
+						'<br/><b>State:</b> ' + state +
+						'<br/><b>Agency:</b> ' + agency +
+						'</div>';
+				} else {
+					// US wildfire info display (original logic)...
+					let comments = event.feature.getProperty("Comments");
+					if (comments == null) {
+						comments = "(comments not available)";
+					}
+					let acres = event.feature.getProperty("GISAcres");
+					if (acres == null) {
+						acres = "(not available)";
+					} else {
+						acres = Number(acres).toLocaleString('en-US', numFormatOptions);
+					}
+					let fireCategory = event.feature.getProperty("FeatureCategory");
+					if (fireCategory == null) {
+						fireCategory = "(not available)";
+					}
+
+					infoContent = '<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">' +
+						'<span style="font-weight:700;">Wildfire &quot;' + event.feature.getProperty("IncidentName") + '&quot;</span><br/>' +
+						comments + '<br/><br/>Calculated Acres: ' + acres +
+						'<br/>Category: ' + fireCategory +
+						'<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") +
+						'<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") +
+						'</div>';
+				}
+
+				// Close any cluster InfoWindow that might be open...
+				if (clusterInfoWindow) {
+					clusterInfoWindow.close();
+				}
+				// Close any marker InfoWindow that might be open...
+				if (markerInfoWindow) {
+					markerInfoWindow.close();
+					markerInfoWindow = null;
+				}
+				parent.overlayInfoWindow.setContent(infoContent);
+				parent.overlayInfoWindow.setPosition(event.latLng);
+				parent.overlayInfoWindow.open(map);
+			});
+			if (showWildfireInfoEvent == "mouseover") {
+				parent.overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
+					parent.overlayInfoWindow.close();
+				});
+			}
+		// Look to see if we should add power outages to the map...
+		} else if (optionalMapType == "us-poweroutages") {
+			// USA Today power outage data URL (fetched via CORS proxy)...
+			const usaTodayDataURL = `https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_data.js`;
+			// Multiple CORS proxies for fallback (some may be blocked or rate-limited)...
+			const corsProxies = [
+				{ url: 'https://api.codetabs.com/v1/proxy?quest=', encode: false },
+				{ url: 'https://api.allorigins.win/raw?url=', encode: true },
+				{ url: 'https://corsproxy.io/?', encode: true }
+			];
+			// US Counties GeoJSON with FIPS codes (from plotly datasets)...
+			const countiesGeoJsonURL = 'https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json';
+			const usaTodayTotalCustomersURL = 'https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_total.js';
+
+			// Cache key for county GeoJSON - stored in localStorage since boundaries are static
+			const COUNTIES_CACHE_KEY = 'lm_bmw.countiesGeoJson.v1';
+
+			// Helper function to get cached county GeoJSON or fetch fresh...
+			async function getCountiesGeoJson() {
+				// Try localStorage cache first (county boundaries are static, persist across sessions)
+				try {
+					const cached = localStorage.getItem(COUNTIES_CACHE_KEY);
+					if (cached) {
+						console.debug('Using cached counties GeoJSON from localStorage');
+						return JSON.parse(cached);
+					}
+				} catch (e) {
+					console.debug('localStorage read failed:', e.message);
+				}
+
+				// Fetch fresh if not cached
+				console.debug('Fetching fresh counties GeoJSON (will cache for future use)...');
+				const response = await fetch(countiesGeoJsonURL);
+				if (!response.ok) {
+					throw new Error(`Counties GeoJSON fetch error: ${response.status}`);
+				}
+				const data = await response.json();
+
+				// Cache in localStorage for future loads (boundaries don't change)
+				try {
+					localStorage.setItem(COUNTIES_CACHE_KEY, JSON.stringify(data));
+					console.debug('Counties GeoJSON cached to localStorage');
+				} catch (e) {
+					console.debug('localStorage write failed (quota exceeded?):', e.message);
+				}
+
+				return data;
 			}
 
-				// Parse the counties GeoJSON...
-				const countiesGeoJson = await countiesResponse.json();
-
-				// Parse USA Today data (it's a JS file with variable assignment, not pure JSON)
-				// Format: var PowerOutagesJSON = { "type": "FeatureCollection", "features":[...] };
-				// Properties: n=name, o=outage count, c=percentage, f=FIPS code, m=time index
-				// Note: The highest m value represents the current data, lower values are historical.
-				const outageText = await outageResponse.text();
-
-				// First pass: determine the maximum 'm' value (current time index) from the data
-				// This value can vary, so we dynamically detect it from the first county's data pattern
-				const mValueRegex = /"m"\s*:\s*(\d+)/g;
-				let maxTimeIndex = 0;
-				let mMatch;
-				while ((mMatch = mValueRegex.exec(outageText)) !== null) {
-					const mValue = parseInt(mMatch[1], 10) || 0;
-					if (mValue > maxTimeIndex) {
-						maxTimeIndex = mValue;
+			// Helper function to try fetching with fallback proxies...
+			async function fetchWithCorsProxy(targetUrl) {
+				const urlWithCacheBust = targetUrl + `?v=${Date.now()}`;
+				for (let i = 0; i < corsProxies.length; i++) {
+					const proxy = corsProxies[i];
+					const proxyUrl = proxy.url + (proxy.encode ? encodeURIComponent(urlWithCacheBust) : urlWithCacheBust);
+					try {
+						const response = await fetch(proxyUrl);
+						if (response.ok) {
+							console.debug(`Power outage data fetched successfully using proxy ${i + 1}`);
+							return response;
+						}
+						console.warn(`CORS proxy ${i + 1} returned ${response.status}, trying next...`);
+					} catch (err) {
+						console.warn(`CORS proxy ${i + 1} failed: ${err.message}, trying next...`);
 					}
 				}
-				const CURRENT_TIME_INDEX = maxTimeIndex;
-				console.debug(`Detected maximum time index (m) value: ${CURRENT_TIME_INDEX}`);
+				throw new Error(`All CORS proxies failed to fetch power outage data`);
+			}
 
-				// Extract properties from the USA Today data using regex
-				// We only need the properties, not the geometry (which references undefined variables)
-				const outageDataByFips = {};
+			// Helper to parse outage data in single pass (optimized from two-pass approach)
+			function parseOutageData(outageText) {
+				const allEntries = [];
+				let maxTimeIndex = 0;
 				const propsRegex = /"properties":\s*\{\s*"n"\s*:\s*"([^"]+)"\s*,\s*"o"\s*:\s*"([^"]+)"\s*,\s*"c"\s*:\s*([\d.]+)\s*,\s*"f"\s*:\s*"(\d+)"\s*,\s*"m"\s*:\s*(\d+)/g;
 				let match;
 
+				// Single pass: collect entries and track max time index simultaneously
 				while ((match = propsRegex.exec(outageText)) !== null) {
 					const [_, name, outageCount, percentage, fips, timeIndex] = match;
 					const timeIdx = parseInt(timeIndex, 10) || 0;
-
-					// Only keep entries where m equals the maximum (current data)
-					if (timeIdx === CURRENT_TIME_INDEX) {
-						outageDataByFips[fips] = {
-							name: name,
-							outageCount: parseInt(outageCount.replace(/,/g, ''), 10) || 0,
-							percentage: parseFloat(percentage) || 0,
-							fips: fips
-						}
-					}
+					if (timeIdx > maxTimeIndex) maxTimeIndex = timeIdx;
+					allEntries.push({ name, outageCount, percentage, fips, timeIdx });
 				}
 
+				// Filter for current time entries and build lookup
+				const outageDataByFips = {};
+				for (const entry of allEntries) {
+					if (entry.timeIdx === maxTimeIndex) {
+						outageDataByFips[entry.fips] = {
+							name: entry.name,
+							outageCount: parseInt(entry.outageCount.replace(/,/g, ''), 10) || 0,
+							percentage: parseFloat(entry.percentage) || 0,
+							fips: entry.fips
+						};
+					}
+				}
+				return { outageDataByFips, maxTimeIndex };
+			}
+
+			try {
+				// Clear any previous load of the overlay data...
+				map.data.forEach(function(feature) {
+					map.data.remove(feature);
+				});
+				// Remove any existing overlay listeners...
+				if (typeof parent.overlayInfoWindowListenerHandle == "object") {
+					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
+				}
+				// Initialize or close the shared overlay InfoWindow...
+				if (parent.overlayInfoWindow) {
+					parent.overlayInfoWindow.close();
+					parent.overlayInfoWindow = null;
+				}
+				parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
+				// Clear any previous earthquake contour lines...
+				if (parent.mmiContourLines) {
+					parent.mmiContourLines.forEach(line => line.setMap(null));
+					parent.mmiContourLines = [];
+				}
+
+				// Fetch both data sources in parallel (counties use cache, outages via proxy)
+				const [countiesGeoJson, outageResponse] = await Promise.all([
+					getCountiesGeoJson(),
+					fetchWithCorsProxy(usaTodayDataURL)
+				]);
+
+				// Parse outage text in single pass (optimized)
+				const outageText = await outageResponse.text();
+				const { outageDataByFips, maxTimeIndex: CURRENT_TIME_INDEX } = parseOutageData(outageText);
+
+				console.debug(`Detected maximum time index (m) value: ${CURRENT_TIME_INDEX}`);
 				console.debug(`Parsed ${Object.keys(outageDataByFips).length} counties with current outage data (m=${CURRENT_TIME_INDEX}) from USA Today`);
 
 				// Merge outage data into the counties GeoJSON by FIPS code...
@@ -3349,12 +3469,12 @@ async function addWeatherLayer() {
 									});
 								}
 							});
-					console.debug("Loaded " + parent.mmiContourLines.length + " MMI contour lines");
+							console.debug("Loaded " + parent.mmiContourLines.length + " MMI contour lines");
+						}
+					} catch (err) {
+						console.debug("Could not load ShakeMap MMI data:", err.message);
+					}
 				}
-			} catch (err) {
-				console.debug("Could not load ShakeMap MMI data:", err.message);
-			}
-		}
 			});
 		} else if (optionalMapType == "us-flooding") {
 			// const countiesGeoJsonURL = `https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json?v=${Date.now()}`;

@@ -1,6 +1,6 @@
 <!--
 	Better Map Widget
-	Version 1.11 - CDN Version
+	Version 1.12 - CDN Version
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
@@ -25,6 +25,7 @@
 
 	OPTIONAL DASHBOARD TOKENS:
 	* 'MapGroupPathFilter': Allows setting a default group path to start. Default is "*".
+	* 'MapLocationProperty': The property to use for the location of the items on the map. Default is "location".
 	* 'MapShowWeather': If weather should be shown by default. Options are "global" or "nexrad". Default is "global".
 	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding" or "earthquakes". Default is "earthquakes".
 	* 'HideMapOptions': If "true" then will hide the options bar by default. Default is "false".
@@ -51,6 +52,10 @@
 	// Whether we're plotting "groups" or "resources" or "services" (strongly recommend staying with groups or services)...
 	// You can either set it here or in a dashboard token named 'MapSourceType'...
 	let mapSourceType = "groups";
+
+	// The property to use for the location of the items on the map. Default is "location"...
+	// You can either set it here or in a dashboard token named 'MapLocationProperty'...
+	let mapLocationProperty = "location";
 
 	// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", or "silverblue"...
 	let mapStyle = "silverblue";
@@ -238,6 +243,7 @@
 	<!-- Area for capturing dashboard tokens... -->
 	<div id="tokenCaptureArea" style="display: none;">
 		<div id="mapSourceTypeToken">##MapSourceType##</div>
+		<div id="mapLocationPropertyToken">##MapLocationProperty##</div>
 		<div id="mapStyleToken">##MapStyle##</div>
 		<div id="hideMapOptionsByDefaultToken">##HideMapOptions##</div>
 		<div id="ignoreClearedToken">##MapIgnoreCleared##</div>

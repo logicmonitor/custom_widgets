@@ -1,6 +1,6 @@
 <!--
 	Better Map Widget
-	Version 3.16
+	Version 3.17
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
@@ -25,6 +25,7 @@
 
 	OPTIONAL DASHBOARD TOKENS:
 	* 'MapGroupPathFilter': Allows setting a default group path to start. Default is "*".
+	* 'MapLocationProperty': The property to use for the location of the items on the map. Default is "location".
 	* 'MapShowWeather': If weather should be shown by default. Options are "global" or "nexrad". Default is "global".
 	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding" or "earthquakes". Default is "earthquakes".
 	* 'HideMapOptions': If "true" then will hide the options bar by default. Default is "false".
@@ -51,6 +52,10 @@
 	// Whether we're plotting "groups" or "resources" or "services" (strongly recommend staying with groups or services)...
 	// You can either set it here or in a dashboard token named 'MapSourceType'...
 	let mapSourceType = "groups";
+
+	// The property to use for the location of the items on the map. Default is "location"...
+	// You can either set it here or in a dashboard token named 'MapLocationProperty'...
+	let mapLocationProperty = "location";
 
 	// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", or "silverblue"...
 	let mapStyle = "silverblue";
@@ -966,6 +971,13 @@
 	// If the token value wasn't set then use the values hard-coded above at the beginning of this script...
 	if (mapSourceTypeToken != "\#\#MapSourceType\#\#") {
 		mapSourceType = mapSourceTypeToken.toLowerCase();
+	}
+
+	// Capture from token whether to override the map location property...
+	let mapLocationPropertyToken = "##MapLocationProperty##";
+	// If the token value wasn't set then use the values hard-coded above at the beginning of this script...
+	if (mapLocationPropertyToken != "\#\#MapLocationProperty\#\#") {
+		mapLocationProperty = mapLocationPropertyToken;
 	}
 
 	// Capture from token whether override the map theme...
@@ -2181,7 +2193,7 @@
 		try {
 			while (offset < totalGroups) {
 				// let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
-				let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=customProperties.name:"location",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+				let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=customProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
 
 				// The 'fullpath' attribute only exists for group queries - for devices & services we'll use 'system.groups' instead...
 				if (mapSourceType != "groups") {
@@ -2190,10 +2202,10 @@
 						let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
 						if (tmpPathFilter != "") {
 							// queryParams = '?v=3&size=1000&offset=' + offset + '&filter=systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
-							queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"location",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
+							queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
 						}
 					} else {
-						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"location"' + statusFilter + deviceFilter;
+						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"${mapLocationProperty}"' + statusFilter + deviceFilter;
 					}
 				}
 
@@ -2253,7 +2265,7 @@
 				let tmpTotalGroups = 1000;
 				while (offset < tmpTotalGroups) {
 					// let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
-					let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=inheritedProperties.name:"location",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+					let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=inheritedProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
 
 					// The 'fullpath' attribute only exists for group queries - for devices & services we'll use 'system.groups' instead...
 					if (groupPathFilter != "*") {
@@ -2261,10 +2273,10 @@
 						let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
 						if (tmpPathFilter != "") {
 							// queryParams = '?v=3&size=1000&offset=' + offset + '&filter=systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
-							queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"location",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
+							queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
 						}
 					} else {
-						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"location"' + statusFilter + deviceFilter;
+						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"${mapLocationProperty}"' + statusFilter + deviceFilter;
 					}
 					// console.debug("Query params for inherited locations: " + queryParams);
 
@@ -2307,6 +2319,67 @@
 					}
 				}
 				// console.debug("totalGroups: " + totalGroups + " / tmpTotalGroups: " + tmpTotalGroups + " / offset: " + offset);
+			}
+			
+			// Start fetching data from LM that have location in an auto property...
+			if (mapSourceType != "groups" && mapLocationProperty.match(/^auto\./)) {
+				// If the map location property starts with "auto.", then we're looking for auto properties...
+				offset = 0;
+				let tmpTotalGroups = 1000;
+				while (offset < tmpTotalGroups) {
+					let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=autoProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+
+					// The 'fullpath' attribute only exists for group queries - for devices & services we'll use 'system.groups' instead...
+					if (groupPathFilter != "*") {
+						// Strip off leading or trailing asterisks since they're not needed in this case...
+						let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
+						if (tmpPathFilter != "") {
+							queryParams = `?v=3&size=1000&offset=${offset}&filter=autoProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
+						}
+					} else {
+						queryParams = `?v=3&size=1000&offset=${offset}&filter=autoProperties.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
+					}
+					console.debug("Query params for auto properties: " + queryParams);
+
+					// Call the LogicMonitor API to get a list of groups...
+					const markerData = await LMClient({
+						resourcePath: resourcePath,
+						queryParams: queryParams,
+						httpVerb: httpVerb,
+						postBody: null,
+						apiVersion: '3',
+						signal: refreshSignal, // Allow cancellation of in-progress requests
+					});
+					// Process the group data we received...
+					console.debug('Group request succeeded with JSON response', markerData);
+					// console.debug('Total groups: ' + markerData.total + ' / tmpTotalGroups: ' + tmpTotalGroups + ' / offset: ' + offset);
+
+					if (markerData.total != 0) {
+						if (markerData.total != tmpTotalGroups) {  
+							tmpTotalGroups = markerData.total;
+							if (totalGroups >= 0) {
+								totalGroups = totalGroups + markerData.total;
+							} else {
+								totalGroups = markerData.total;
+							}
+							// console.debug('Total groups: ' + markerData.total + ' / tmpTotalGroups: ' + tmpTotalGroups + ' / offset: ' + offset);
+						}
+
+						groupData = groupData.concat(markerData.items);
+
+						offset = groupData.length;
+
+						// Display our progress to the user...
+						_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating: " + offset + " of " + tmpTotalGroups + " (" + Math.round(offset/tmpTotalGroups*100) + "%)";
+						// _dom.refreshStatusArea.innerHTML = "Updating: " + Math.round(offset/totalGroups*100) + "%";
+					} else {
+						// We're done so stop the loop...
+						// console.debug("We're done fetching auto properties");
+						tmpTotalGroups = 0;
+						offset = totalGroups;
+						break;
+					}
+				}
 			}
 		} catch (error) {
 			// Silently handle aborted requests (user triggered a new refresh)
@@ -2412,31 +2485,16 @@
 				alreadyGeocoded = false;
 				// First check to see if the location is in custom properties (defined on the group/resource itself)...
 				if (fullRefresh) {
-					try {
-						address = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "location").value;
+					// See if we're looking for a location in an auto property...
+					if (mapLocationProperty.match(/^auto\./)) {
 
-						// See if there are custom properties for latitude and longitude...
-						if (!ignoreLatLongProps) {
-							latProp = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
-							lngProp = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
-							if (latProp && lngProp) {
-								let latVal = Number(latProp.value);
-								let lngVal = Number(lngProp.value);
-								if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
-									// address = `${latProp.value}, ${lngProp.value}`;
-									alreadyGeocoded = true;
-								}
-							}
-						}
-					} catch(e) {
 						try {
-							// If not found in custom properties, try to get it from inherited properties...
-							address = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "location").value;
+							address = thisItem.autoProperties.find((locationProp) => locationProp.name.toLowerCase() === mapLocationProperty).value;
 
 							// See if there are inherited properties for latitude and longitude...
 							if (!ignoreLatLongProps) {
-								latProp = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
-								lngProp = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
+								latProp = thisItem.autoProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
+								lngProp = thisItem.autoProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
 								if (latProp && lngProp) {
 									let latVal = Number(latProp.value);
 									let lngVal = Number(lngProp.value);
@@ -2449,6 +2507,46 @@
 						} catch(y) {
 							// console.log("No address found for " + thisItem.name);
 							// totalGroups = totalGroups - 1;
+						}
+					} else {
+						try {
+							address = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === mapLocationProperty).value;
+
+							// See if there are custom properties for latitude and longitude...
+							if (!ignoreLatLongProps) {
+								latProp = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
+								lngProp = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
+								if (latProp && lngProp) {
+									let latVal = Number(latProp.value);
+									let lngVal = Number(lngProp.value);
+									if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
+										// address = `${latProp.value}, ${lngProp.value}`;
+										alreadyGeocoded = true;
+									}
+								}
+							}
+						} catch(e) {
+							try {
+								// If not found in custom properties, try to get it from inherited properties...
+								address = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === mapLocationProperty).value;
+
+								// See if there are inherited properties for latitude and longitude...
+								if (!ignoreLatLongProps) {
+									latProp = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
+									lngProp = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
+									if (latProp && lngProp) {
+										let latVal = Number(latProp.value);
+										let lngVal = Number(lngProp.value);
+										if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
+											// address = `${latProp.value}, ${lngProp.value}`;
+											alreadyGeocoded = true;
+										}
+									}
+								}
+							} catch(y) {
+								// console.log("No address found for " + thisItem.name);
+								// totalGroups = totalGroups - 1;
+							}
 						}
 					}
 				}
