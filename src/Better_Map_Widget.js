@@ -1,5 +1,5 @@
 // Better Map Widget
-// Version 3.20
+// Version 3.21
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
@@ -1637,10 +1637,10 @@ async function refreshGroupData(timedRefresh = false) {
 					let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
 					if (tmpPathFilter != "") {
 						// queryParams = '?v=3&size=1000&offset=' + offset + '&filter=systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
-						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
+						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"' + mapLocationProperty + '",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
 					}
 				} else {
-					queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"${mapLocationProperty}"' + statusFilter + deviceFilter;
+					queryParams = '?v=3&size=1000&offset=' + offset + '&filter=customProperties.name:"' + mapLocationProperty + '"' + statusFilter + deviceFilter;
 				}
 			}
 
@@ -1708,10 +1708,10 @@ async function refreshGroupData(timedRefresh = false) {
 					let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
 					if (tmpPathFilter != "") {
 						// queryParams = '?v=3&size=1000&offset=' + offset + '&filter=systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
-						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
+						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"' + mapLocationProperty + '",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
 					}
 				} else {
-					queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"${mapLocationProperty}"' + statusFilter + deviceFilter;
+					queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"' + mapLocationProperty + '"' + statusFilter + deviceFilter;
 				}
 				// console.debug("Query params for inherited locations: " + queryParams);
 
