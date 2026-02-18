@@ -1,5 +1,5 @@
 // Better Map Widget
-// Version 3.21
+// Version 3.22
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
@@ -205,6 +205,9 @@ if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexra
 let dashboardAddlOverlayToken = document.getElementById("dashboardAddlOverlayToken").innerText.toLowerCase();
 if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
 	additionalOverlayOption = dashboardAddlOverlayToken;
+	if (additionalOverlayOption == "us-wildfires") {
+		additionalOverlayOption = "wildfires";
+	}
 }
 // console.debug("dashboardAddlOverlayToken", dashboardAddlOverlayToken);
 // Capture from token any custom properties to display when viewing an item's details...
@@ -472,7 +475,7 @@ const _dom = {
 	weather: document.getElementById("weather"),
 	globalWeather: document.getElementById("globalWeather"),
 	nexradWeather: document.getElementById("nexradWeather"),
-	usWildfires: document.getElementById("usWildfires"),
+	wildfires: document.getElementById("wildfires"),
 	usPowerOutages: document.getElementById("usPowerOutages"),
 	earthquakes: document.getElementById("earthquakes"),
 	usFlooding: document.getElementById("usFlooding"),
@@ -503,8 +506,8 @@ if (showWeatherDefault == "global") {
 	_dom.nexradWeather.checked = true;
 }
 
-if (additionalOverlayOption == "wildfires" || additionalOverlayOption == "us-wildfires") {
-	_dom.usWildfires.checked = true;
+if (additionalOverlayOption == "wildfires") {
+	_dom.wildfires.checked = true;
 } else if (additionalOverlayOption == "outages" || additionalOverlayOption == "us-poweroutages") {
 	_dom.usPowerOutages.checked = true;
 } else if (additionalOverlayOption == "earthquakes") {
