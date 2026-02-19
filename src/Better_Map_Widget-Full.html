@@ -51,8 +51,8 @@
 <script>
 	// Optional: You can specify a LogicMonitor API bearer token or API ID & key to use for the widget...
 	let apiBearerToken = "";
-	let apiID = "";
-	let apiKey = "";
+	let lmAPIID = "";
+	let lmAPIKey = "";
 
 	// Whether we're plotting "groups" or "resources" or "services" (strongly recommend staying with groups or services)...
 	// You can either set it here or in a dashboard token named 'MapSourceType'...
@@ -736,7 +736,7 @@
 <!-- Initialize Google Maps... -->
 <script>
 	// Fetch our map API key to use...
-	let googleMapApiKey = parent.LMGlobalData.googleMapInfo.key.toString();
+	let googleMaplmAPIKey = parent.LMGlobalData.googleMapInfo.key.toString();
 
 	(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
 	({key: googleMapApiKey, v: "weekly"});
@@ -843,7 +843,7 @@
 		const requestVars = httpVerb + epoch + requestData + resourcePath;
 
 		const encoder = new TextEncoder();
-		const keyData = encoder.encode(apiKey);
+		const keyData = encoder.encode(lmAPIKey);
 		const messageData = encoder.encode(requestVars);
 
 		const cryptoKey = await crypto.subtle.importKey(
@@ -852,7 +852,7 @@
 		const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
 		const base64Signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
 
-		return `LMv1 ${apiID}:${base64Signature}:${epoch}`;
+		return `LMv1 ${lmAPIID}:${base64Signature}:${epoch}`;
 	}
 
 	/**
@@ -860,7 +860,7 @@
 		*
 		* Authentication is determined automatically based on the configured credentials:
 		*   1. Bearer token (apiBearerToken) - highest priority
-		*   2. LMv1 HMAC (apiID + apiKey)
+		*   2. LMv1 HMAC (lmAPIID + lmAPIKey)
 		*   3. CSRF token with session cookies - default integrated portal auth
 		*
 		* Credit for this function goes to Steven Villardi
@@ -916,7 +916,7 @@
 			// 2. Set auth headers: bearer token > API ID/key (LMv1) > CSRF session auth
 			if (apiBearerToken) {
 				headers['Authorization'] = `Bearer ${apiBearerToken}`;
-			} else if (apiID && apiKey) {
+			} else if (lmAPIID && lmAPIKey) {
 				headers['Authorization'] = await generateLMv1Auth(httpVerb, resourcePath, postBody);
 			} else {
 				const csrfToken = await fetchCsrfToken();
@@ -1027,10 +1027,10 @@
 		apiBearerToken = apiBearerTokenToken;
 	}
 	if (apiIDToken != "\#\#apiID\#\#") {
-		apiID = apiIDToken;
+		lmAPIID = apiIDToken;
 	}
 	if (apiKeyToken != "\#\#apiKey\#\#") {
-		apiKey = apiKeyToken;
+		lmAPIKey = apiKeyToken;
 	}
 
 	// Capture from token whether to override the map location property...

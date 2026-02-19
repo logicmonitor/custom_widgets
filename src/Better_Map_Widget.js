@@ -14,8 +14,8 @@
 
 // Optional: You can specify a LogicMonitor API bearer token or API ID & key to use for the widget...
 if (typeof apiBearerToken === 'undefined') { let apiBearerToken = ""; };
-if (typeof apiID === 'undefined') { let apiID = ""; };
-if (typeof apiKey === 'undefined') { let apiKey = ""; };
+if (typeof lmAPIID === 'undefined') { let lmAPIID = ""; };
+if (typeof lmAPIKey === 'undefined') { let lmAPIKey = ""; };
 
 // Whether we're plotting "groups" or "resources" or "services" (strongly recommend staying with groups or services)...
 // You can either set it here or in a dashboard token named 'MapSourceType'...
@@ -244,10 +244,10 @@ if (apiBearerTokenToken != "##apiBearerToken##") {
 	apiBearerToken = apiBearerTokenToken;
 }
 if (apiIDToken != "##apiID##") {
-	apiID = apiIDToken;
+	lmAPIID = apiIDToken;
 }
 if (apiKeyToken != "##apiKey##") {
-	apiKey = apiKeyToken;
+	lmAPIKey = apiKeyToken;
 }
 
 // ------------------------------------------------------------
@@ -356,7 +356,7 @@ async function generateLMv1Auth(httpVerb, resourcePath, postBody) {
 	const requestVars = httpVerb + epoch + requestData + resourcePath;
 
 	const encoder = new TextEncoder();
-	const keyData = encoder.encode(apiKey);
+	const keyData = encoder.encode(lmAPIKey);
 	const messageData = encoder.encode(requestVars);
 
 	const cryptoKey = await crypto.subtle.importKey(
@@ -365,7 +365,7 @@ async function generateLMv1Auth(httpVerb, resourcePath, postBody) {
 	const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
 	const base64Signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
 
-	return `LMv1 ${apiID}:${base64Signature}:${epoch}`;
+	return `LMv1 ${lmAPIID}:${base64Signature}:${epoch}`;
 }
 
 /**
@@ -373,7 +373,7 @@ async function generateLMv1Auth(httpVerb, resourcePath, postBody) {
 	*
 	* Authentication is determined automatically based on the configured credentials:
 	*   1. Bearer token (apiBearerToken) - highest priority
-	*   2. LMv1 HMAC (apiID + apiKey)
+	*   2. LMv1 HMAC (lmAPIID + lmAPIKey)
 	*   3. CSRF token with session cookies - default integrated portal auth
 	*
 	* Credit for this function goes to Steven Villardi
@@ -429,7 +429,7 @@ async function LMClient({
 		// 2. Set auth headers: bearer token > API ID/key (LMv1) > CSRF session auth
 		if (apiBearerToken) {
 			headers['Authorization'] = `Bearer ${apiBearerToken}`;
-		} else if (apiID && apiKey) {
+		} else if (lmAPIID && lmAPIKey) {
 			headers['Authorization'] = await generateLMv1Auth(httpVerb, resourcePath, postBody);
 		} else {
 			const csrfToken = await fetchCsrfToken();
