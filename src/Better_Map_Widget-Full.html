@@ -1,6 +1,6 @@
 <!--
 	Better Map Widget
-	Version 3.22
+	Version 3.23
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
@@ -3466,31 +3466,45 @@
 				// More info: https://www.arcgis.com/home/item.html?id=8b28109ce26b43b8968a3c9baa608f43
 				const auWildfireUrl = `https://services-ap1.arcgis.com/ypkPEy1AmwPKGNNv/arcgis/rest/services/Near_Real_Time_Bushfire_Boundaries_view/FeatureServer/3/query?where=0%3D0&geometryType=esriGeometryPolyline&units=esriSRUnit_Meter&outFields=*&returnGeometry=true&f=pgeojson&ts=${Date.now()}`;
 
+				// Merge multiple GeoJSON FeatureCollections into a single FeatureCollection...
+				function mergeGeoJson(...datasets) {
+					const merged = { type: "FeatureCollection", features: [] };
+					datasets.forEach(data => {
+						if (data && data.features) {
+							merged.features = merged.features.concat(data.features);
+						}
+					});
+					return merged;
+				}
+
 				// Fetch both US and Australian wildfire data in parallel...
 				Promise.all([
 					fetch(usWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null),
 					fetch(auWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null)
 				]).then(([usData, auData]) => {
-					// Add US wildfire data if available...
+					// Tag features with source and namespace the IDs to prevent collisions when merged...
 					if (usData && usData.features) {
-						// Tag US features with a source property for identification in click handler...
 						usData.features.forEach(feature => {
 							feature.properties = feature.properties || {};
 							feature.properties._fireSource = 'US';
+							if (feature.id != null) feature.id = 'US_' + feature.id;
 						});
-						map.data.addGeoJson(usData);
 						console.debug(`US wildfires loaded: ${usData.features.length} features`);
 					}
-					
-					// Add Australian wildfire data if available...
 					if (auData && auData.features) {
-						// Tag Australian features with a source property for identification in click handler...
 						auData.features.forEach(feature => {
 							feature.properties = feature.properties || {};
 							feature.properties._fireSource = 'AU';
+							if (feature.id != null) feature.id = 'AU_' + feature.id;
 						});
-						map.data.addGeoJson(auData);
 						console.debug(`Australian bushfires loaded: ${auData.features.length} features`);
+					}
+
+					// Merge all wildfire data into a single FeatureCollection and add to map...
+					const combined = mergeGeoJson(usData, auData);
+					if (combined.features.length > 0) {
+						map.data.addGeoJson(combined);
+						console.debug(`Total wildfire features plotted: ${combined.features.length}`);
 					}
 				}).catch(error => {
 					console.error('Error loading wildfire data:', error);

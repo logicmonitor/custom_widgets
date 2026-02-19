@@ -1,5 +1,5 @@
 // Better Map Widget
-// Version 3.22
+// Version 3.23
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
@@ -2814,7 +2814,7 @@ async function addWeatherLayer() {
 		}
 
 		// Look to see if we should add wildfire into the map...
-		if (optionalMapType == "us-fires") {
+		if (optionalMapType == "wildfires") {
 			// Clear any previous load of the overlay data...
 			map.data.forEach(function(feature) {
 				map.data.remove(feature);
@@ -2845,35 +2845,49 @@ async function addWeatherLayer() {
 			// More info: https://www.arcgis.com/home/item.html?id=8b28109ce26b43b8968a3c9baa608f43
 			const auWildfireUrl = `https://services-ap1.arcgis.com/ypkPEy1AmwPKGNNv/arcgis/rest/services/Near_Real_Time_Bushfire_Boundaries_view/FeatureServer/3/query?where=0%3D0&geometryType=esriGeometryPolyline&units=esriSRUnit_Meter&outFields=*&returnGeometry=true&f=pgeojson&ts=${Date.now()}`;
 
-			// Fetch both US and Australian wildfire data in parallel...
-			Promise.all([
-				fetch(usWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null),
-				fetch(auWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null)
-			]).then(([usData, auData]) => {
-				// Add US wildfire data if available...
-				if (usData && usData.features) {
-					// Tag US features with a source property for identification in click handler...
-					usData.features.forEach(feature => {
-						feature.properties = feature.properties || {};
-						feature.properties._fireSource = 'US';
-					});
-					map.data.addGeoJson(usData);
-					console.debug(`US wildfires loaded: ${usData.features.length} features`);
+		// Merge multiple GeoJSON FeatureCollections into a single FeatureCollection...
+		function mergeGeoJson(...datasets) {
+			const merged = { type: "FeatureCollection", features: [] };
+			datasets.forEach(data => {
+				if (data && data.features) {
+					merged.features = merged.features.concat(data.features);
 				}
-
-				// Add Australian wildfire data if available...
-				if (auData && auData.features) {
-					// Tag Australian features with a source property for identification in click handler...
-					auData.features.forEach(feature => {
-						feature.properties = feature.properties || {};
-						feature.properties._fireSource = 'AU';
-					});
-					map.data.addGeoJson(auData);
-					console.debug(`Australian bushfires loaded: ${auData.features.length} features`);
-				}
-			}).catch(error => {
-				console.error('Error loading wildfire data:', error);
 			});
+			return merged;
+		}
+
+		// Fetch both US and Australian wildfire data in parallel...
+		Promise.all([
+			fetch(usWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null),
+			fetch(auWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null)
+		]).then(([usData, auData]) => {
+			// Tag features with source and namespace the IDs to prevent collisions when merged...
+			if (usData && usData.features) {
+				usData.features.forEach(feature => {
+					feature.properties = feature.properties || {};
+					feature.properties._fireSource = 'US';
+					if (feature.id != null) feature.id = 'US_' + feature.id;
+				});
+				console.debug(`US wildfires loaded: ${usData.features.length} features`);
+			}
+			if (auData && auData.features) {
+				auData.features.forEach(feature => {
+					feature.properties = feature.properties || {};
+					feature.properties._fireSource = 'AU';
+					if (feature.id != null) feature.id = 'AU_' + feature.id;
+				});
+				console.debug(`Australian bushfires loaded: ${auData.features.length} features`);
+			}
+
+			// Merge all wildfire data into a single FeatureCollection and add to map...
+			const combined = mergeGeoJson(usData, auData);
+			if (combined.features.length > 0) {
+				map.data.addGeoJson(combined);
+				console.debug(`Total wildfire features plotted: ${combined.features.length}`);
+			}
+		}).catch(error => {
+			console.error('Error loading wildfire data:', error);
+		});
 
 			// Color the wildfire areas as red...
 			map.data.setStyle({ fillColor: 'red', strokeWeight: 1.0, strokeColor: 'salmon' });
