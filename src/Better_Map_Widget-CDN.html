@@ -1,6 +1,6 @@
 <!--
 	Better Map Widget
-	Version 1.15 - CDN Version
+	Version 1.16 - CDN Version
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
@@ -49,6 +49,11 @@
 
 <!-- Here you can change specific defaults for the map. Many of these can be overridden via the dashboard tokens mentioned above. -->
 <script>
+	// Optional: You can specify a LogicMonitor API bearer token or API ID & key to use for the widget...
+	let apiBearerToken = "";
+	let apiID = "";
+	let apiKey = "";
+
 	// Whether we're plotting "groups" or "resources" or "services" (strongly recommend staying with groups or services)...
 	// You can either set it here or in a dashboard token named 'MapSourceType'...
 	let mapSourceType = "groups";
@@ -261,6 +266,9 @@
 		<div id="displayPropsToken">##MapDisplayProperties##</div>
 		<div id="disableClusteringToken">##MapDisableClustering##</div>
 		<div id="showRoadLabelsToken">##MapShowRoadLabels##</div>
+		<div id="apiBearerTokenToken">##apiBearerToken##</div>
+		<div id="apiIDToken">##apiID##</div>
+		<div id="apiKeyToken">##apiKey##</div>
 	</div>
 </div>
 

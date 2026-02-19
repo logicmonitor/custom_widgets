@@ -1,5 +1,5 @@
 // Better Map Widget
-// Version 3.23
+// Version 3.24
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
@@ -11,6 +11,11 @@
 
 // ------------------------------------------------------------
 // Default values for the widget if not already set by the calling HTML...
+
+// Optional: You can specify a LogicMonitor API bearer token or API ID & key to use for the widget...
+if (typeof apiBearerToken === 'undefined') { let apiBearerToken = ""; };
+if (typeof apiID === 'undefined') { let apiID = ""; };
+if (typeof apiKey === 'undefined') { let apiKey = ""; };
 
 // Whether we're plotting "groups" or "resources" or "services" (strongly recommend staying with groups or services)...
 // You can either set it here or in a dashboard token named 'MapSourceType'...
@@ -231,14 +236,28 @@ if (isTruthyToken(showRoadLabelsToken)) {
 	showRoadLabels = "yes";
 }
 
+// Capture from token whether to use a LogicMonitor API bearer token or API ID & key...
+let apiBearerTokenToken = document.getElementById("apiBearerTokenToken").innerText;
+let apiIDToken = document.getElementById("apiIDToken").innerText;
+let apiKeyToken = document.getElementById("apiKeyToken").innerText;
+if (apiBearerTokenToken != "##apiBearerToken##") {
+	apiBearerToken = apiBearerTokenToken;
+}
+if (apiIDToken != "##apiID##") {
+	apiID = apiIDToken;
+}
+if (apiKeyToken != "##apiKey##") {
+	apiKey = apiKeyToken;
+}
+
 // ------------------------------------------------------------
 // Initialize Google Maps...
 
 // Fetch our map API key to use...
-let apiKey = parent.LMGlobalData.googleMapInfo.key.toString();
+let googleMapApiKey = parent.LMGlobalData.googleMapInfo.key.toString();
 
 (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
-({key: apiKey, v: "weekly"});
+({key: googleMapApiKey, v: "weekly"});
 
 // ------------------------------------------------------------
 // CSRF Token caching for performance optimization
@@ -318,11 +337,44 @@ async function fetchCsrfToken(forceRefresh = false) {
 }
 
 /**
+* Generates an LMv1 HMAC-SHA256 authorization header for LogicMonitor API authentication.
+* Uses the Web Crypto API to compute the signature from the HTTP verb, epoch timestamp,
+* request body (if applicable), and resource path.
+*
+* @async
+* @function generateLMv1Auth
+* @param {string} httpVerb - The HTTP method (GET, POST, PUT, PATCH, DELETE).
+* @param {string} resourcePath - The API resource path (e.g., /device/devices).
+* @param {object|Array|undefined} postBody - The request body for POST/PUT/PATCH, or undefined.
+* @returns {Promise<string>} The complete LMv1 Authorization header value.
+*/
+async function generateLMv1Auth(httpVerb, resourcePath, postBody) {
+	const epoch = new Date().getTime();
+	const requestData = (postBody && ['POST', 'PUT', 'PATCH'].includes(httpVerb))
+		? JSON.stringify(postBody)
+		: '';
+	const requestVars = httpVerb + epoch + requestData + resourcePath;
+
+	const encoder = new TextEncoder();
+	const keyData = encoder.encode(apiKey);
+	const messageData = encoder.encode(requestVars);
+
+	const cryptoKey = await crypto.subtle.importKey(
+		'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+	);
+	const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+	const base64Signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
+
+	return `LMv1 ${apiID}:${base64Signature}:${epoch}`;
+}
+
+/**
 	* Performs an HTTP request to the LogicMonitor REST API.
 	*
-	* This function handles fetching a CSRF token, constructing the API request,
-	* sending the request, and processing the response. It supports common HTTP verbs
-	* and automatically includes necessary headers and credentials.
+	* Authentication is determined automatically based on the configured credentials:
+	*   1. Bearer token (apiBearerToken) - highest priority
+	*   2. LMv1 HMAC (apiID + apiKey)
+	*   3. CSRF token with session cookies - default integrated portal auth
 	*
 	* Credit for this function goes to Steven Villardi
 	*
@@ -361,22 +413,28 @@ async function LMClient({
 	// console.debug(`Initiating LogicMonitor API call: ${httpVerb} ${resourcePath}${queryParams}`);
 
 	try {
-		// 1. Fetch the CSRF token
-		const csrfToken = await fetchCsrfToken();
-
-		// 2. Construct the API URL and request options
+		// 1. Construct the API URL and base headers
 		const apiUrl = `/santaba/rest${resourcePath}${queryParams}`;
 		const headers = {
-			'Content-Type': 'application/json', // Consistently set Content-Type
-			'Accept': 'application/json', // Expect JSON response
-			'X-Csrf-Token': csrfToken,
-			'X-Version': apiVersion, // Use the appropriate API version for the main request
-		}
+			'Content-Type': 'application/json',
+			'Accept': 'application/json',
+			'X-Version': apiVersion,
+		};
 
 		const requestOptions = {
 			method: httpVerb,
 			headers: headers,
-			credentials: 'include', // Necessary for session/cookie-based auth
+		};
+
+		// 2. Set auth headers: bearer token > API ID/key (LMv1) > CSRF session auth
+		if (apiBearerToken) {
+			headers['Authorization'] = `Bearer ${apiBearerToken}`;
+		} else if (apiID && apiKey) {
+			headers['Authorization'] = await generateLMv1Auth(httpVerb, resourcePath, postBody);
+		} else {
+			const csrfToken = await fetchCsrfToken();
+			headers['X-Csrf-Token'] = csrfToken;
+			requestOptions.credentials = 'include';
 		}
 
 		// Add AbortSignal if provided
@@ -441,7 +499,7 @@ async function LMClient({
 			throw error; // Throw the augmented error object
 		}
 	} catch (error) {
-		// Catch errors from fetchCsrfToken, fetch itself (network errors), or JSON parsing/stringifying
+		// Catch errors from authentication, fetch itself (network errors), or JSON parsing/stringifying
 		console.error('An error occurred in LMClient:', error.message || error);
 
 		// Re-throw the error to be handled by the caller.
