@@ -49,6 +49,11 @@ body {
 	flex-wrap: nowrap;
 	flex: none;
 	align-items: center;
+	justify-content: space-between;
+}
+#versionInfo {
+	font-size: smaller;
+	color: gray;
 }
 #googleMap {
 	order: 2;
@@ -160,6 +165,7 @@ body {
 	border-radius: 3px;
 	cursor: pointer;
 	margin-right: 4px;
+	padding: 0 5px;
 }
 #releaseNotesButton:hover {
 	background-color: #f0f0f0;
@@ -189,7 +195,7 @@ body {
 	max-height: 80vh;
 	overflow-y: auto;
 	position: relative;
-	font-family: system-ui, -apple-system, sans-serif;
+	font-size: 0.9em;
 	color: rgb(20, 29, 48);
 }
 #releaseNotesCloseBtn {
