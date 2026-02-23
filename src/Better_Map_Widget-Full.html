@@ -1,6 +1,6 @@
 <!--
 	Better Map Widget
-	Version 3.24
+	Version 3.25
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
@@ -232,7 +232,7 @@
 		align-items: center;
 		margin: 0 5px;
 	}
-	#sevFilterOptions, #weatherOptions {
+	#sevFilterOptions {
 		display: flex;
 		border: 1px solid #ddd;
 		margin: 3px 10px 3px 5px;
@@ -242,6 +242,21 @@
 		height: 30px;
 		border-radius: 5px;
 	}
+	#weatherOptions {
+		display: inline-flex;
+		/* gap: 6px; */
+		margin: 3px 10px 3px 5px;
+		align-items: center;
+	}
+	#weatherOptions select, #additionalOverlayOptions select {
+		height: 28px;
+		border: 1px solid #ddd;
+		border-radius: 5px;
+		padding: 0 4px;
+		font-size: 12px;
+		background-color: #fff;
+		cursor: pointer;
+	}
 	.sevFilterOption {
 		display: inline-flex;
 		align-items: center;
@@ -249,9 +264,8 @@
 	}
 	#additionalOverlayOptions {
 		padding: 0 5px;
-		margin-left: 5px;
-		border-left: 2px solid lightsteelblue;
-		height: 25px;
+		/* margin-left: 5px;
+		border-left: 2px solid lightsteelblue; */
 		display: inline-flex;
 		align-items: center;
 	}
@@ -637,8 +651,11 @@
 </style>
 
 <!-- Our main widget body... -->
-<div class="customMapBody">
-	<!-- Create our options bar above the map... -->
+<div class="customMapBody">&nbsp;</div>
+
+<script>
+	// Populate the widget body...
+	document.querySelector(".customMapBody").innerHTML = `<!-- Create our options bar above the map... -->
 	<div id="optionsBar" class="optionsVisible">
 		<div id="mapOptionsArea">
 			<span id="customGroupFilterOptions" data-title="Path to the items you'd like on the map. Examples:&quot;*&quot;, &quot;Locations/*&quot;">
@@ -687,37 +704,18 @@
 					</span>
 
 					<span id="weatherOptions">
-						<span data-title="Weather across the globe (~10-15 minute updates)">
-							<input type="radio" id="globalWeather" name="weatherType" value="radar" onclick="enableWeather();" checked="true" />
-							<label for="globalWeather">Global</label>
-						</span>
-
-						<span data-title="US NEXRAD Base radar (~5 minute updates)">
-							<input type="radio" id="nexradWeather" name="weatherType" value="nexrad-n0q-900913" onclick="enableWeather();" />
-							<label for="nexradWeather">NEXRAD (US)</label>
-						</span>
+						<select id="weatherType" onchange="enableWeather();">
+							<option value="radar" selected>Global Radar (~10-15 min updates)</option>
+							<option value="nexrad-n0q-900913">US NEXRAD Radar (~5 min updates)</option>
+						</select>
 
 						<span id="additionalOverlayOptions">
-							<!-- <strong class="optionsHeader">additional overlays:</strong> -->
-							<span data-title="Active wildfires in the US and Australia">
-								<input type="radio" id="wildfires" name="otherWeatherOverlays" value="wildfires" onclick="enableWeather();" checked="true" />
-								<label for="wildfires">Wildfires</label>
-							</span>
-
-							<span data-title="US power outages by county">
-								<input type="radio" id="usPowerOutages" name="otherWeatherOverlays" value="us-poweroutages" onclick="enableWeather();" />
-								<label for="usPowerOutages">US Power Outages</label>
-							</span>
-
-							<span data-title="Significant earthquakes (magnitude 6+) over the past 7 days">
-								<input type="radio" id="earthquakes" name="otherWeatherOverlays" value="earthquakes" onclick="enableWeather();" />
-								<label for="earthquakes">Earthquakes</label>
-							</span>
-
-							<span data-title="Active US flood warnings">
-								<input type="radio" id="usFlooding" name="otherWeatherOverlays" value="us-flooding" onclick="enableWeather();" />
-								<label for="usFlooding">US Flooding</label>
-							</span>
+							<select id="otherWeatherOverlays" onchange="enableWeather();">
+								<option value="wildfires" selected>Wildfires</option>
+								<option value="us-poweroutages">US Power Outages</option>
+								<option value="earthquakes">Earthquakes (mag 6+, 7d)</option>
+								<option value="us-flooding">US Flooding</option>
+							</select>
 						</span>
 					</span>
 				</span>
@@ -731,13 +729,13 @@
 	</div>
 
 	<!-- Placeholder for our map... -->
-	<div id="googleMap">&nbsp;</div>
-</div>
+	<div id="googleMap">&nbsp;</div>`;
+</script>
 
 <!-- Initialize Google Maps... -->
 <script>
 	// Fetch our map API key to use...
-	let googleMaplmAPIKey = parent.LMGlobalData.googleMapInfo.key.toString();
+	let googleMapApiKey = parent.LMGlobalData.googleMapInfo.key.toString();
 
 	(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
 	({key: googleMapApiKey, v: "weekly"});
@@ -1154,12 +1152,8 @@
 		showSDT: document.getElementById("showSDT"),
 		autoZoom: document.getElementById("autoZoom"),
 		weather: document.getElementById("weather"),
-		globalWeather: document.getElementById("globalWeather"),
-		nexradWeather: document.getElementById("nexradWeather"),
-		wildfires: document.getElementById("wildfires"),
-		usPowerOutages: document.getElementById("usPowerOutages"),
-		earthquakes: document.getElementById("earthquakes"),
-		usFlooding: document.getElementById("usFlooding"),
+		weatherType: document.getElementById("weatherType"),
+		otherWeatherOverlays: document.getElementById("otherWeatherOverlays"),
 		customGroupFilterField: document.getElementById("customGroupFilterField"),
 		mapOptionsArea: document.getElementById("mapOptionsArea"),
 		refreshStatusArea: null, // Set later after map init
@@ -1181,20 +1175,20 @@
 
 	if (showWeatherDefault == "global") {
 		_dom.weather.checked = true;
-		_dom.globalWeather.checked = true;
+		_dom.weatherType.value = "radar";
 	} else if (showWeatherDefault == "nexrad") {
 		_dom.weather.checked = true;
-		_dom.nexradWeather.checked = true;
+		_dom.weatherType.value = "nexrad-n0q-900913";
 	}
 
 	if (additionalOverlayOption == "wildfires") {
-		_dom.wildfires.checked = true;
+		_dom.otherWeatherOverlays.value = "wildfires";
 	} else if (additionalOverlayOption == "outages" || additionalOverlayOption == "us-poweroutages") {
-		_dom.usPowerOutages.checked = true;
+		_dom.otherWeatherOverlays.value = "us-poweroutages";
 	} else if (additionalOverlayOption == "earthquakes") {
-		_dom.earthquakes.checked = true;
+		_dom.otherWeatherOverlays.value = "earthquakes";
 	} else if (additionalOverlayOption == "us-flooding") {
-		_dom.usFlooding.checked = true;
+		_dom.otherWeatherOverlays.value = "us-flooding";
 	}
 
 	// Capture information about the current dashboard for use in subsequent REST calls...
@@ -3420,8 +3414,8 @@
 		const optionsElement = document.getElementById("weatherOptions");
 
 		if (weatherCheckbox.checked) {
-			const mapType = document.querySelector('input[name="weatherType"]:checked').value;
-			const optionalMapType = document.querySelector('input[name="otherWeatherOverlays"]:checked').value;
+			const mapType = document.getElementById("weatherType").value;
+			const optionalMapType = document.getElementById("otherWeatherOverlays").value;
 
 			// Add RainViewer layer if appropriate...
 			if (mapType == "radar") {

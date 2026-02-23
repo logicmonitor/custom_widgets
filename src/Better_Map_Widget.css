@@ -77,7 +77,7 @@ body {
 	align-items: center;
 	margin: 0 5px;
 }
-#sevFilterOptions, #weatherOptions {
+#sevFilterOptions {
 	display: flex;
 	border: 1px solid #ddd;
 	margin: 3px 10px 3px 5px;
@@ -87,6 +87,21 @@ body {
 	height: 30px;
 	border-radius: 5px;
 }
+#weatherOptions {
+	display: inline-flex;
+	/* gap: 6px; */
+	margin: 3px 10px 3px 5px;
+	align-items: center;
+}
+#weatherOptions select, #additionalOverlayOptions select {
+	height: 28px;
+	border: 1px solid #ddd;
+	border-radius: 5px;
+	padding: 0 4px;
+	font-size: 12px;
+	background-color: #fff;
+	cursor: pointer;
+}
 .sevFilterOption {
 	display: inline-flex;
 	align-items: center;
@@ -94,9 +109,8 @@ body {
 }
 #additionalOverlayOptions {
 	padding: 0 5px;
-	margin-left: 5px;
-	border-left: 2px solid lightsteelblue;
-	height: 25px;
+	/* margin-left: 5px;
+	border-left: 2px solid lightsteelblue; */
 	display: inline-flex;
 	align-items: center;
 }
