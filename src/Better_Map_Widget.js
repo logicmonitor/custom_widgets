@@ -10,9 +10,10 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.25";
+const version = "3.25 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
+	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
 	<h3>Version 3.25</h3>
 	<ul>
 		<li>Added the ability to select the weather type and additional overlays from dropdowns instead of radio buttons.</li>
