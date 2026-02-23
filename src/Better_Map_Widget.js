@@ -1,5 +1,5 @@
 // Better Map Widget
-// Version 3.25
+// Version 3.26
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
@@ -10,11 +10,11 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.25 CDN";
+const version = "3.26 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-	<h3>Version 3.25</h3>
+	<h3>Version 3.26</h3>
 	<ul>
 		<li>Added the ability to select the weather type and additional overlays from dropdowns instead of radio buttons.</li>
 		<li>Shifted the few static HTML portions to Javascript to make the CDN version easier to update.</li>
@@ -116,11 +116,18 @@ document.querySelector(".customMapBody").innerHTML = `<!-- Create our options ba
 			</div>
 		</div>
 
-		<!-- <span id="refreshStatusArea">&nbsp;</span> -->
+		<div id="versionInfo">v${version}</div>
 	</div>
 
 	<!-- Placeholder for our map... -->
-	<div id="googleMap">&nbsp;</div>`;
+	<div id="googleMap">&nbsp;</div>
+
+	<div id="releaseNotesOverlay" onclick="if(event.target===this)closeReleaseNotes();">
+		<div id="releaseNotesPopup">
+			<button id="releaseNotesCloseBtn" onclick="closeReleaseNotes();">&times;</button>
+			<div id="releaseNotesContent">${releaseNotes}</div>
+		</div>
+	</div>`;
 
 // ------------------------------------------------------------
 // Default values for the widget if not already set by the calling HTML...
