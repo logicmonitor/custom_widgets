@@ -1,6 +1,6 @@
 <!--
 	Better Map Widget
-	Version 3.26
+	Version 3.27
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
@@ -50,11 +50,11 @@
 
 
 <script>
-	const version = "3.26";
+	const version = "3.27";
 	const releaseNotes = `
 		<h2>Release Notes</h2>
 		<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-		<h3>Version 3.26</h3>
+		<h3>Version 3.27</h3>
 		<ul>
 			<li>Added the ability to select the weather type and additional overlays from dropdowns instead of radio buttons.</li>
 			<li>Shifted the few static HTML portions to Javascript to make the CDN version easier to update.</li>
@@ -62,13 +62,13 @@
 		</ul>
 		<h3>Version 3.23</h3>
 		<ul>
-			<li>Re-added ability to use LM API credentials instead of just integrated portal authentication.</li>
+			<li>Re-added the option to specify credentials (bearer token or ID/key) for the widget's LM API calls.  If not specified then integrated portal authentication will be used.</li>
 			<li>Fix for US wildfire data not plotting correctly.</li>
 		</ul>
 		<h3>Version 3.19</h3>
 		<ul>
-			<li>Added new map styles: "satellite" and "satellite-light".</li>
-			<li>Fix for US wildfire data not plotting correctly.</li>
+			<li>Added two new 'MapStyle' options: "satellite" and "satellite-light".</li>
+			<li>Fix for US power outage data not plotting correctly.</li>
 		</ul>
 		<h3>Version 3.16</h3>
 		<ul>
