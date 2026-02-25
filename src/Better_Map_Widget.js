@@ -9,10 +9,14 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.28 CDN";
+const version = "3.29 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.29</h3>
+	<ul>
+		<li>Fixed an infinite loop that could occur in certain situations.</li>
+	</ul>
 	<h3>Version 3.28</h3>
 	<ul>
 		<li>Optimized support for system & auto properties for location data.</li>
@@ -1812,94 +1816,36 @@ async function refreshGroupData(timedRefresh = false) {
 		centerCalculated = false;
 	}
 
+	// Start fetching data from LM that have location in custom properties, paginating the data as necessary...
 	try {
 		while (offset < totalGroups) {
 			// Start fetching data from LM that have location in an auto property...
 			if (mapSourceType != "groups" && (mapLocationProperty.match(/^auto\./) || mapLocationProperty.match(/^system\./))) {
 				// If the map location property starts with "auto.", then we're looking for auto properties...
-				offset = 0;
-				let tmpTotalGroups = 1000;
-				while (offset < tmpTotalGroups) {
-					if (mapLocationProperty.match(/^auto\./)) {
-						let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=autoProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
-					} else {
-						let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=systemProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
-					}
-
-					// The 'fullpath' attribute only exists for group queries - for devices & services we'll use 'system.groups' instead...
-					if (groupPathFilter != "*") {
-						// Strip off leading or trailing asterisks since they're not needed in this case...
-						let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
-						if (tmpPathFilter != "") {
-							if (mapLocationProperty.match(/^auto\./)) {
-								queryParams = `?v=3&size=1000&offset=${offset}&filter=autoProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
-							} else {
-								queryParams = `?v=3&size=1000&offset=${offset}&filter=systemProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
-							}
-						}
-					} else {
-						if (mapLocationProperty.match(/^auto\./)) {
-							queryParams = `?v=3&size=1000&offset=${offset}&filter=autoProperties.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
-						} else {
-							queryParams = `?v=3&size=1000&offset=${offset}&filter=systemProperties.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
-						}
-					}
-					console.debug("Query params for " + mapLocationProperty + " properties: " + queryParams);
-
-					// Call the LogicMonitor API to get a list of groups...
-					const markerData = await LMClient({
-						resourcePath: resourcePath,
-						queryParams: queryParams,
-						httpVerb: httpVerb,
-						postBody: null,
-						apiVersion: '3',
-						signal: refreshSignal, // Allow cancellation of in-progress requests
-					});
-					// Process the group data we received...
-					console.debug('Group request succeeded with JSON response', markerData);
-					// console.debug('Total groups: ' + markerData.total + ' / tmpTotalGroups: ' + tmpTotalGroups + ' / offset: ' + offset);
-
-					if (markerData.total != 0) {
-						if (markerData.total != tmpTotalGroups) {  
-							tmpTotalGroups = markerData.total;
-							if (totalGroups >= 0) {
-								totalGroups = totalGroups + markerData.total;
-							} else {
-								totalGroups = markerData.total;
-							}
-							// console.debug('Total groups: ' + markerData.total + ' / tmpTotalGroups: ' + tmpTotalGroups + ' / offset: ' + offset);
-						}
-
-						groupData = groupData.concat(markerData.items);
-
-						offset = groupData.length;
-
-						// Display our progress to the user...
-						_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating: " + offset + " of " + tmpTotalGroups + " (" + Math.round(offset/tmpTotalGroups*100) + "%)";
-						// _dom.refreshStatusArea.innerHTML = "Updating: " + Math.round(offset/totalGroups*100) + "%";
-					} else {
-						// We're done so stop the loop...
-						// console.debug("We're done fetching auto properties");
-						tmpTotalGroups = 0;
-						offset = totalGroups;
-						break;
-					}
+				// console.debug('Fetching custom properties');
+				if (mapLocationProperty.match(/^auto\./)) {
+					let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=autoProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+					// console.debug('Fetching auto properties');
+				} else {
+					let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=systemProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+					// console.debug('Fetching system properties');
 				}
-			} else {
-				// let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
-				let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=customProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
 
-				// The 'fullpath' attribute only exists for group queries - for devices & services we'll use 'system.groups' instead...
-				if (mapSourceType != "groups") {
-					if (groupPathFilter != "*") {
-						// Strip off leading or trailing asterisks since they're not needed in this case...
-						let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
-						if (tmpPathFilter != "") {
-							// queryParams = '?v=3&size=1000&offset=' + offset + '&filter=systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
-							queryParams = `?v=3&size=1000&offset=${offset}&filter=customProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
+				if (groupPathFilter != "*") {
+					// Strip off leading or trailing asterisks since they're not needed in this case...
+					let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
+					if (tmpPathFilter != "") {
+						if (mapLocationProperty.match(/^auto\./)) {
+							queryParams = `?v=3&size=1000&offset=${offset}&filter=autoProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
+						} else {
+							queryParams = `?v=3&size=1000&offset=${offset}&filter=systemProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
 						}
+					}
+				} else {
+					if (mapLocationProperty.match(/^auto\./)) {
+						queryParams = `?v=3&size=1000&offset=${offset}&filter=autoProperties.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
 					} else {
-						queryParams = `?v=3&size=1000&offset=${offset}&filter=customProperties.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
+						queryParams = `?v=3&size=1000&offset=${offset}&filter=systemProperties.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
 					}
 				}
 
@@ -1913,7 +1859,7 @@ async function refreshGroupData(timedRefresh = false) {
 					signal: refreshSignal, // Allow cancellation of in-progress requests
 				});
 				// Process the group data we received...
-				console.debug('Group request succeeded with JSON response', markerData);
+				// console.debug('Group request succeeded with JSON response', markerData);
 
 				if (markerData.total != 0) {
 					if (markerData.total != totalGroups) {
@@ -1948,70 +1894,71 @@ async function refreshGroupData(timedRefresh = false) {
 						centerCalculated = false;
 					}
 				}
-			}
+				// console.debug("After custom properties: totalGroups: " + totalGroups + " / offset: " + offset);
+			} else {
+				// console.debug('Fetching custom properties');
+				let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=customProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
 
-			// Start fetching data from LM that have location in inherited properties, paginating the data as necessary...
-			// Inherited properties don't apply to groups, so skip this if not looking at resources and/or services...
-			// console.debug('totalGroups: ' + totalGroups);
-			if (mapSourceType != "groups" && pollInheritedLocations) {
-				offset = 0;
-				let tmpTotalGroups = 1000;
-				while (offset < tmpTotalGroups) {
-					// let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
-					let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=inheritedProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
-
-					// The 'fullpath' attribute only exists for group queries - for devices & services we'll use 'system.groups' instead...
+				// The 'fullpath' attribute only exists for group queries - for devices & services we'll use 'system.groups' instead...
+				if (mapSourceType != "groups") {
 					if (groupPathFilter != "*") {
 						// Strip off leading or trailing asterisks since they're not needed in this case...
 						let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
 						if (tmpPathFilter != "") {
 							// queryParams = '?v=3&size=1000&offset=' + offset + '&filter=systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
-							queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"' + mapLocationProperty + '",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
+							queryParams = `?v=3&size=1000&offset=${offset}&filter=customProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
 						}
 					} else {
-						queryParams = '?v=3&size=1000&offset=' + offset + '&filter=inheritedProperties.name:"' + mapLocationProperty + '"' + statusFilter + deviceFilter;
-					}
-					// console.debug("Query params for inherited locations: " + queryParams);
-
-					// Call the LogicMonitor API to get a list of groups...
-					const markerData = await LMClient({
-						resourcePath: resourcePath,
-						queryParams: queryParams,
-						httpVerb: httpVerb,
-						postBody: null,
-						apiVersion: '3',
-						signal: refreshSignal, // Allow cancellation of in-progress requests
-					});
-					// Process the group data we received...
-					// console.debug('Group request succeeded with JSON response', markerData);
-
-					// console.debug("Inherited locations found: " + markerData.total);
-					if (markerData.total != 0) {
-						if (markerData.total != tmpTotalGroups) {
-							tmpTotalGroups = markerData.total;
-							if (totalGroups >= 0) {
-								totalGroups = totalGroups + markerData.total;
-							} else {
-								totalGroups = markerData.total;
-							}
-						}
-
-						groupData = groupData.concat(markerData.items);
-
-						offset = groupData.length;
-
-						// Display our progress to the user...
-						_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating: " + offset + " of " + tmpTotalGroups + " (" + Math.round(offset/tmpTotalGroups*100) + "%)";
-						// _dom.refreshStatusArea.innerHTML = "Updating: " + Math.round(offset/totalGroups*100) + "%";
-					} else {
-						// We're done so stop the loop...
-						// console.debug("We're done fetching inherited locations");
-						tmpTotalGroups = 0;
-						offset = totalGroups;
-						break;
+						queryParams = `?v=3&size=1000&offset=${offset}&filter=customProperties.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
 					}
 				}
-				// console.debug("totalGroups: " + totalGroups + " / tmpTotalGroups: " + tmpTotalGroups + " / offset: " + offset);
+
+				// Call the LogicMonitor API to get a list of groups...
+				const markerData = await LMClient({
+					resourcePath: resourcePath,
+					queryParams: queryParams,
+					httpVerb: httpVerb,
+					postBody: null,
+					apiVersion: '3',
+					signal: refreshSignal, // Allow cancellation of in-progress requests
+				});
+				// Process the group data we received...
+				// console.debug('Group request succeeded with JSON response', markerData);
+
+				if (markerData.total != 0) {
+					if (markerData.total != totalGroups) {
+						totalGroups = markerData.total;
+					}
+
+					groupData = groupData.concat(markerData.items);
+
+					offset = groupData.length;
+
+					// Display our progress to the user...
+					_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating: " + offset + " of " + totalGroups + " (" + Math.round(offset/totalGroups*100) + "%)";
+					// _dom.refreshStatusArea.innerHTML = "Updating: " + Math.round(offset/totalGroups*100) + "%";
+				} else {
+					// Indicate that no results were found...
+					if (offset == 0) {
+						console.debug('No results found');
+						_dom.refreshStatusArea.innerHTML = "<span class='noResultMessage'>No results</span>";
+						totalGroups = -1; // Stop the loop
+						// Re-enable the toolbar fields...
+						_dom.mapOptionsArea.classList.remove("disabled");
+						if (_dom.weatherRefreshButton) {
+							_dom.weatherRefreshButton.classList.remove("disabled");
+						}
+
+						// Clear any previous markers from the map...
+						clearAllMarkers();
+
+						// Reset the map zoom...
+						bounds = new google.maps.LatLngBounds();
+						resetZoom();
+						centerCalculated = false;
+					}
+				}
+				// console.debug("After custom properties: totalGroups: " + totalGroups + " / offset: " + offset);
 			}
 		}
 	} catch (error) {
@@ -2028,6 +1975,85 @@ async function refreshGroupData(timedRefresh = false) {
 		if (_dom.weatherRefreshButton) {
 			_dom.weatherRefreshButton.classList.remove("disabled");
 		}
+	}
+
+	// Start fetching data from LM that have location in inherited properties, paginating the data as necessary...
+	// Inherited properties don't apply to groups, so skip this if not looking at resources and/or services...
+	// console.debug('totalGroups: ' + totalGroups);
+	if (mapSourceType != "groups" && pollInheritedLocations) {
+		console.debug('Fetching inherited locations');
+		offset = 0;
+		let tmpOffset = 0;
+		let tmpTotalGroups = 1000;
+		try {
+			while (tmpOffset < tmpTotalGroups) {
+				// let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+				let queryParams = `?v=3&size=1000&offset=${tmpOffset}&fields=${fieldList}&filter=inheritedProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+
+				// The 'fullpath' attribute only exists for group queries - for devices & services we'll use 'system.groups' instead...
+				if (groupPathFilter != "*") {
+					// Strip off leading or trailing asterisks since they're not needed in this case...
+					let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
+					if (tmpPathFilter != "") {
+						// queryParams = '?v=3&size=1000&offset=' + offset + '&filter=systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
+						queryParams = '?v=3&size=1000&offset=' + tmpOffset + '&filter=inheritedProperties.name:"' + mapLocationProperty + '",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
+					}
+				} else {
+					queryParams = '?v=3&size=1000&offset=' + tmpOffset + '&filter=inheritedProperties.name:"' + mapLocationProperty + '"' + statusFilter + deviceFilter;
+				}
+				// console.debug("Query params for inherited locations: " + queryParams);
+
+				// Call the LogicMonitor API to get a list of groups...
+				const markerData = await LMClient({
+					resourcePath: resourcePath,
+					queryParams: queryParams,
+					httpVerb: httpVerb,
+					postBody: null,
+					apiVersion: '3',
+					signal: refreshSignal, // Allow cancellation of in-progress requests
+				});
+				// Process the group data we received...
+				console.debug('Inherited locations request succeeded with JSON response', markerData);
+
+				// console.debug("Inherited locations found: " + markerData.total);
+				if (markerData.total != 0) {
+					if (markerData.total != tmpTotalGroups) {
+						tmpTotalGroups = markerData.total;
+						if (totalGroups >= 0) {
+							totalGroups = totalGroups + markerData.total;
+						} else {
+							totalGroups = markerData.total;
+						}
+					}
+
+					groupData = groupData.concat(markerData.items);
+
+					offset = groupData.length;
+					tmpOffset = tmpOffset + markerData.items.length;
+
+					// Display our progress to the user...
+					_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating: " + tmpOffset + " of " + tmpTotalGroups + " (" + Math.round(tmpOffset/tmpTotalGroups*100) + "%)";
+					// _dom.refreshStatusArea.innerHTML = "Updating: " + Math.round(offset/totalGroups*100) + "%";
+				} else {
+					// We're done so stop the loop...
+					console.debug("We're done fetching inherited locations");
+					// tmpTotalGroups = 0;
+					tmpTotalGroups = offset;
+					offset = totalGroups;
+					break;
+				}
+			}
+		} catch (error) {
+			console.error('Error fetching inherited locations:', error);
+			_dom.refreshStatusArea.innerHTML = `<span class='noResultMessage'>Error loading data: ${error.message || 'Unknown error'}</span>`;
+			// totalGroups = -1; // Stop the loop on error
+			// Re-enable the toolbar fields...
+			_dom.mapOptionsArea.classList.remove("disabled");
+			if (_dom.weatherRefreshButton) {
+				_dom.weatherRefreshButton.classList.remove("disabled");
+			}
+		}
+		console.debug("After inherited locations: totalGroups: " + totalGroups + " / tmpTotalGroups: " + tmpTotalGroups + " / offset: " + offset);
 	}
 
 	// If we've finished fetching all the group/resource data...
