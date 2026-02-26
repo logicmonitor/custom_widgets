@@ -48,10 +48,14 @@
 -->
 
 <script>
-	const version = "3.29";
+	const version = "3.30";
 	const releaseNotes = `
 		<h2>Release Notes</h2>
 		<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+		<h3>Version 3.30</h3>
+		<ul>
+			<li>Added Catchpoint beacon for performance monitoring (no confidential data is collected).</li>
+		</ul>
 		<h3>Version 3.29</h3>
 		<ul>
 			<li>Fixed an infinite loop that could occur in certain situations.</li>
@@ -839,6 +843,8 @@
 			</div>
 		</div>`;
 </script>
+<!-- Catchpoint beacon for performance monitoring (no confidential data is collected!)... -->
+<script defer src='https://g.3gl.net/jp/14586/latest/InitialLoadScript.js'></script>
 
 <!-- Initialize Google Maps... -->
 <script>

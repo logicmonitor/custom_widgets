@@ -9,10 +9,14 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.29 CDN";
+const version = "3.30 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.30</h3>
+	<ul>
+		<li>Added Catchpoint beacon for performance monitoring (no confidential data is collected).</li>
+	</ul>
 	<h3>Version 3.29</h3>
 	<ul>
 		<li>Fixed an infinite loop that could occur in certain situations.</li>
@@ -385,6 +389,15 @@ let googleMapApiKey = parent.LMGlobalData.googleMapInfo.key.toString();
 
 (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
 ({key: googleMapApiKey, v: "weekly"});
+
+// ------------------------------------------------------------
+// Catchpoint beacon for performance monitoring (no confidential data is collected!)...
+(function() {
+  var s = document.createElement('script');
+  s.defer = true;
+  s.src = 'https://g.3gl.net/jp/14586/latest/InitialLoadScript.js';
+  document.head.appendChild(s);
+})();
 
 // ------------------------------------------------------------
 // CSRF Token caching for performance optimization
