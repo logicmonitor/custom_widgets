@@ -1,6 +1,6 @@
 <!--
 	Better Map Widget
-	Version 1.18 - CDN Version
+	Version 1.19 - CDN Version
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
@@ -29,6 +29,7 @@
 	* 'MapShowWeather': If weather should be shown by default. Options are "global" or "nexrad". Default is "global".
 	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding" or "earthquakes". Default is "earthquakes".
 	* 'HideMapOptions': If "true" then will hide the options bar by default. Default is "false".
+	* 'ShowMapSidebar': If "true" then will show the sidebar by default. Default is "false".
 	* 'MapSourceType': Whether to map "groups", "resources", or "services". Default is "groups".
 	* 'MapIgnoreCleared': If "true" then will only show items currently alerting (useful for maps with thousands of markers). Default is "false".
 	* 'MapIgnoreWarnings': If "true" then won't show items in "Warning" status. Default is "false".
@@ -95,6 +96,10 @@
 	// Whether to show or hide the map options along the top of the widget by default...
 	// You can set it here or in a dashboard token named "HideMapOptions"...
 	let hideMapOptionsByDefault = false;
+
+	// Whether to show the map sidebar by default...
+	// You can set it here or in a dashboard token named "ShowMapSidebar"...
+	let showMapSidebarByDefault = false;
 
 	// Whether to automatically center the map to encompass all items during timed refreshes...
 	// You can set it here or in a dashboard token named "AutoResetMapOnRefresh"...
@@ -163,6 +168,7 @@
 	<div id="mapLocationPropertyToken">##MapLocationProperty##</div>
 	<div id="mapStyleToken">##MapStyle##</div>
 	<div id="hideMapOptionsByDefaultToken">##HideMapOptions##</div>
+	<div id="showMapSidebarByDefaultToken">##ShowMapSidebar##</div>
 	<div id="ignoreClearedToken">##MapIgnoreCleared##</div>
 	<div id="ignoreWarningsToken">##MapIgnoreWarnings##</div>
 	<div id="ignoreErrorsToken">##MapIgnoreErrors##</div>
