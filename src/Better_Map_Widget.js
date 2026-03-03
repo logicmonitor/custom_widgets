@@ -3199,7 +3199,7 @@ async function addWeatherLayer() {
 						<div style="display:flex;align-items:center;margin-bottom:4px;">
 							<span style="color:#cc0000;font-size:28px;margin-right:8px;line-height:1;">&#128293;</span>
 							<div>
-								<span style="font-weight:700;">Bushfire &quot;${fireName}&quot;</span>
+								<span style="font-weight:700;font-size:1.2em;">Bushfire &quot;${fireName}&quot;</span>
 							</div>
 						</div>
 						<br/><b>Fire Type:</b> ${fireType}
@@ -3231,7 +3231,7 @@ async function addWeatherLayer() {
 						<div style="display:flex;align-items:center;margin-bottom:8px;">
 							<span style="color:#cc0000;font-size:28px;margin-right:8px;line-height:1;">&#128293;</span>
 							<div>
-								<span style="font-weight:700;">Wildfire &quot;${event.feature.getProperty("IncidentName")}&quot;</span>
+								<span style="font-weight:700;font-size:1.2em;">Wildfire &quot;${event.feature.getProperty("IncidentName")}&quot;</span>
 								${comments}
 							</div>
 						</div>
