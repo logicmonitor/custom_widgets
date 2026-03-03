@@ -9,11 +9,11 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.31 CDN";
+const version = "3.32 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-	<h3>Version 3.31</h3>
+	<h3>Version 3.32</h3>
 	<ul>
 		<li>Improved the display of wildfire information.</li>
 	</ul>
@@ -3195,18 +3195,21 @@ async function addWeatherLayer() {
 						agency = "(not available)";
 					}
 					
-					infoContent = '<div style="line-height:1.35;overflow:hidden;color:black;">' +
-						'<div style="display:flex;align-items:center;margin-bottom:4px;">' +
-						'<span style="color:#cc0000;font-size:28px;margin-right:8px;line-height:1;">&#128293;</span>' +
-						'<div>' +
-						'<span style="font-weight:700;">Bushfire &quot;' + fireName + '&quot;</span>' +
-						'</div></div>' +
-						'<br/><b>Fire Type:</b> ' + fireType +
-						'<br/><b>Ignition Date:</b> ' + ignitionDate +
-						'<br/><b>Perimeter:</b> ' + perimKm +
-						'<br/><b>State:</b> ' + state +
-						'<br/><b>Agency:</b> ' + agency +
-						'</div>';
+					infoContent = `<div style="line-height:1.35;overflow:hidden;color:black;">
+						<div style="display:flex;align-items:center;margin-bottom:4px;">
+							<span style="color:#cc0000;font-size:28px;margin-right:8px;line-height:1;">&#128293;</span>
+							<div>
+								<span style="font-weight:700;">Bushfire &quot;${fireName}&quot;</span>
+							</div>
+						</div>
+						<br/><b>Fire Type:</b> ${fireType}
+						<br/><b>Ignition Date:</b> ${ignitionDate}
+						<br/><b>Perimeter:</b> ${perimKm}
+						<div style="padding-top:8px;">
+							<b>State:</b> ${state}
+							<br/><b>Agency:</b> ${agency}
+						</div>
+						</div>`;
 				} else {
 					// US wildfire info display (original logic)...
 					let comments = `<br/>${event.feature.getProperty("Comments")}`;
@@ -3228,16 +3231,17 @@ async function addWeatherLayer() {
 						<div style="display:flex;align-items:center;margin-bottom:8px;">
 							<span style="color:#cc0000;font-size:28px;margin-right:8px;line-height:1;">&#128293;</span>
 							<div>
-							<span style="font-weight:700;">Wildfire &quot;${event.feature.getProperty("IncidentName")}&quot;</span><br/>
-							${comments}
-						</div></div>
-						<div style="padding-bottom:4px;">
+								<span style="font-weight:700;">Wildfire &quot;${event.feature.getProperty("IncidentName")}&quot;</span>
+								${comments}
+							</div>
+						</div>
+						<div style="padding-bottom:8px;">
 							<b>Category:</b> ${fireCategory}<br/>
 							<b>Calculated Acres:</b> ${acres}
 						</div>
 						<b>Days Since Last GIS Update:</b> ${event.feature.getProperty("CurrentDateAge")}<br/>
 						<b>GIS Map Method:</b> ${event.feature.getProperty("MapMethod")}
-						'</div>`;
+						</div>`;
 				}
 				
 				// Close any cluster InfoWindow that might be open...
