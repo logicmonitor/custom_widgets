@@ -9,10 +9,14 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.30 CDN";
+const version = "3.31 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.31</h3>
+	<ul>
+		<li>Improved the display of wildfire information.</li>
+	</ul>
 	<h3>Version 3.30</h3>
 	<ul>
 		<li>Added Catchpoint beacon for performance monitoring (no confidential data is collected).</li>
@@ -2998,74 +3002,78 @@ async function addWeatherLayer() {
 		const optionalMapType = document.getElementById("otherWeatherOverlays").value;
 
 		// Add RainViewer layer if appropriate...
-		if (mapType == "radar") {
-			// Get the latest radar frame from RainViewer...
-			initRainViewerData();
+		try {
+			if (mapType == "radar") {
+				// Get the latest radar frame from RainViewer...
+				initRainViewerData();
 
-			// The following three lines really only apply if we use RainViewer's satellite imagery, which I'm not currently but left it in here if needed...
-			let colorScheme = rvOptionKind == 'satellite' ? 0 : rvOptionColorScheme;
-			let smooth = rvOptionKind == 'satellite' ? 0 : rvOptionSmoothData;
-			let snow = rvOptionKind == 'satellite' ? 0 : rvOptionSnowColors;
+				// The following three lines really only apply if we use RainViewer's satellite imagery, which I'm not currently but left it in here if needed...
+				let colorScheme = rvOptionKind == 'satellite' ? 0 : rvOptionColorScheme;
+				let smooth = rvOptionKind == 'satellite' ? 0 : rvOptionSmoothData;
+				let snow = rvOptionKind == 'satellite' ? 0 : rvOptionSnowColors;
 
-			// Remove any previous overlay to ensure we don't keep stacking layers...
-			map.overlayMapTypes.clear();
+				// Remove any previous overlay to ensure we don't keep stacking layers...
+				map.overlayMapTypes.clear();
 
-			// Create the Google Maps layer...
-			let myMapType = new google.maps.ImageMapType({
-				getTileUrl: function(tile, zoom) {
-					return [rvAPIData.host + rvMapFrames[rvLastPastFramePosition].path, 256, zoom, tile.x, tile.y, colorScheme, smooth + '_' + snow + '.png'].join('/');
-				},
-				tileSize: new google.maps.Size(256, 256),
-				opacity: weatherOpacity,
-				name : mapType,
-				isPng: true
-			});
+				// Create the Google Maps layer...
+				let myMapType = new google.maps.ImageMapType({
+					getTileUrl: function(tile, zoom) {
+						return [rvAPIData.host + rvMapFrames[rvLastPastFramePosition].path, 256, zoom, tile.x, tile.y, colorScheme, smooth + '_' + snow + '.png'].join('/');
+					},
+					tileSize: new google.maps.Size(256, 256),
+					opacity: weatherOpacity,
+					name : mapType,
+					isPng: true
+				});
 
-			// Attach the weather layer to our maps widget...
-			map.overlayMapTypes.insertAt(0, myMapType);
+				// Attach the weather layer to our maps widget...
+				map.overlayMapTypes.insertAt(0, myMapType);
 
-			// Update the timestamp...
-			// document.querySelector("#mapTimestampArea").style.display = "block"; // Unhides the timestamp area.
-			// document.getElementById("mapTimestamp").innerHTML = (new Date(rvMapFrames[rvLastPastFramePosition].time * 1000)).toString();
+				// Update the timestamp...
+				// document.querySelector("#mapTimestampArea").style.display = "block"; // Unhides the timestamp area.
+				// document.getElementById("mapTimestamp").innerHTML = (new Date(rvMapFrames[rvLastPastFramePosition].time * 1000)).toString();
 
-		// Show NEXRAD layers if appropriate...
-		} else if (mapType.match(/(nexrad|q2)/g)) {
-			// Remove any previous overlay to ensure we don't keep stacking layers...
-			map.overlayMapTypes.clear();
+			// Show NEXRAD layers if appropriate...
+			} else if (mapType.match(/(nexrad|q2)/g)) {
+				// Remove any previous overlay to ensure we don't keep stacking layers...
+				map.overlayMapTypes.clear();
 
-			// Create the Google Maps layer...
-			let myMapType = new google.maps.ImageMapType({
-				getTileUrl: function(tile, zoom) {
-					return "http://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/" + mapType + "/" + zoom + "/" + tile.x + "/" + tile.y +".png?"+ (new Date()).getTime();
-				},
-				tileSize: new google.maps.Size(256, 256),
-				opacity: weatherOpacity,
-				name: mapType,
-				isPng: true
-			});
+				// Create the Google Maps layer...
+				let myMapType = new google.maps.ImageMapType({
+					getTileUrl: function(tile, zoom) {
+						return "http://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/" + mapType + "/" + zoom + "/" + tile.x + "/" + tile.y +".png?"+ (new Date()).getTime();
+					},
+					tileSize: new google.maps.Size(256, 256),
+					opacity: weatherOpacity,
+					name: mapType,
+					isPng: true
+				});
 
-			// Attach the weather layer to our maps widget...
-			map.overlayMapTypes.insertAt(0, myMapType);
+				// Attach the weather layer to our maps widget...
+				map.overlayMapTypes.insertAt(0, myMapType);
 
-		// Show OpenWeather layers if appropriate...
-		} else if (mapType != "" && openWeatherMapsAPIKey.length >= 32) {
-			// Remove any previous overlay to ensure we don't keep stacking layers...
-			map.overlayMapTypes.clear();
+			// Show OpenWeather layers if appropriate...
+			} else if (mapType != "" && openWeatherMapsAPIKey.length >= 32) {
+				// Remove any previous overlay to ensure we don't keep stacking layers...
+				map.overlayMapTypes.clear();
 
-			// Create the Google Maps layer...
-			let myMapType = new google.maps.ImageMapType({
-				getTileUrl: function(coord, zoom) {
-					return "https://tile.openweathermap.org/map/" + mapType + "/" + zoom + "/" + coord.x + "/" + coord.y + ".png?appid=" + openWeatherMapsAPIKey;
-				},
-				tileSize: new google.maps.Size(256, 256),
-				maxZoom: 11,
-				minZoom: 0,
-				opacity: weatherOpacity,
-				name: mapType
-			});
+				// Create the Google Maps layer...
+				let myMapType = new google.maps.ImageMapType({
+					getTileUrl: function(coord, zoom) {
+						return "https://tile.openweathermap.org/map/" + mapType + "/" + zoom + "/" + coord.x + "/" + coord.y + ".png?appid=" + openWeatherMapsAPIKey;
+					},
+					tileSize: new google.maps.Size(256, 256),
+					maxZoom: 11,
+					minZoom: 0,
+					opacity: weatherOpacity,
+					name: mapType
+				});
 
-			// Attach the weather layer to our maps widget...
-			map.overlayMapTypes.insertAt(0, myMapType);
+				// Attach the weather layer to our maps widget...
+				map.overlayMapTypes.insertAt(0, myMapType);
+			}
+		} catch (error) {
+			console.error('Error adding weather layer:', error);
 		}
 
 		// Look to see if we should add wildfire into the map...
@@ -3082,7 +3090,7 @@ async function addWeatherLayer() {
 			if (parent.overlayInfoWindow) {
 				parent.overlayInfoWindow.close();
 				parent.overlayInfoWindow = null;
-			}
+			}				
 			parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
 			// Clear any previous earthquake contour lines...
 			if (parent.mmiContourLines) {
@@ -3095,54 +3103,54 @@ async function addWeatherLayer() {
 			// From that site, you can click "View" above the "URL" field on the right-hand side. From there, you'll see info on the two available layers. We're using layer "1" for perimeter data (denoted in the URL below with the "_1"), and pulling geojson data (per the suffix).
 			//map.data.loadGeoJson("https://opendata.arcgis.com/datasets/d957997ccee7408287a963600a77f61f_1.geojson");
 			const usWildfireUrl = `https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/USA_Wildfires_v1/FeatureServer/1/query?where=CurrentDateAge+<%3D+7&outFields=*&f=geojson&ts=${Date.now()}`;
-
+			
 			// Australian bushfire data from ArcGIS (near real-time bushfire boundaries)...
 			// More info: https://www.arcgis.com/home/item.html?id=8b28109ce26b43b8968a3c9baa608f43
 			const auWildfireUrl = `https://services-ap1.arcgis.com/ypkPEy1AmwPKGNNv/arcgis/rest/services/Near_Real_Time_Bushfire_Boundaries_view/FeatureServer/3/query?where=0%3D0&geometryType=esriGeometryPolyline&units=esriSRUnit_Meter&outFields=*&returnGeometry=true&f=pgeojson&ts=${Date.now()}`;
 
-		// Merge multiple GeoJSON FeatureCollections into a single FeatureCollection...
-		function mergeGeoJson(...datasets) {
-			const merged = { type: "FeatureCollection", features: [] };
-			datasets.forEach(data => {
-				if (data && data.features) {
-					merged.features = merged.features.concat(data.features);
+			// Merge multiple GeoJSON FeatureCollections into a single FeatureCollection...
+			function mergeGeoJson(...datasets) {
+				const merged = { type: "FeatureCollection", features: [] };
+				datasets.forEach(data => {
+					if (data && data.features) {
+						merged.features = merged.features.concat(data.features);
+					}
+				});
+				return merged;
+			}
+
+			// Fetch both US and Australian wildfire data in parallel...
+			Promise.all([
+				fetch(usWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null),
+				fetch(auWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null)
+			]).then(([usData, auData]) => {
+				// Tag features with source and namespace the IDs to prevent collisions when merged...
+				if (usData && usData.features) {
+					usData.features.forEach(feature => {
+						feature.properties = feature.properties || {};
+						feature.properties._fireSource = 'US';
+						if (feature.id != null) feature.id = 'US_' + feature.id;
+					});
+					console.debug(`US wildfires loaded: ${usData.features.length} features`);
 				}
+				if (auData && auData.features) {
+					auData.features.forEach(feature => {
+						feature.properties = feature.properties || {};
+						feature.properties._fireSource = 'AU';
+						if (feature.id != null) feature.id = 'AU_' + feature.id;
+					});
+					console.debug(`Australian bushfires loaded: ${auData.features.length} features`);
+				}
+
+				// Merge all wildfire data into a single FeatureCollection and add to map...
+				const combined = mergeGeoJson(usData, auData);
+				if (combined.features.length > 0) {
+					map.data.addGeoJson(combined);
+					console.debug(`Total wildfire features plotted: ${combined.features.length}`);
+				}
+			}).catch(error => {
+				console.error('Error loading wildfire data:', error);
 			});
-			return merged;
-		}
-
-		// Fetch both US and Australian wildfire data in parallel...
-		Promise.all([
-			fetch(usWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null),
-			fetch(auWildfireUrl).then(response => response.ok ? response.json() : null).catch(() => null)
-		]).then(([usData, auData]) => {
-			// Tag features with source and namespace the IDs to prevent collisions when merged...
-			if (usData && usData.features) {
-				usData.features.forEach(feature => {
-					feature.properties = feature.properties || {};
-					feature.properties._fireSource = 'US';
-					if (feature.id != null) feature.id = 'US_' + feature.id;
-				});
-				console.debug(`US wildfires loaded: ${usData.features.length} features`);
-			}
-			if (auData && auData.features) {
-				auData.features.forEach(feature => {
-					feature.properties = feature.properties || {};
-					feature.properties._fireSource = 'AU';
-					if (feature.id != null) feature.id = 'AU_' + feature.id;
-				});
-				console.debug(`Australian bushfires loaded: ${auData.features.length} features`);
-			}
-
-			// Merge all wildfire data into a single FeatureCollection and add to map...
-			const combined = mergeGeoJson(usData, auData);
-			if (combined.features.length > 0) {
-				map.data.addGeoJson(combined);
-				console.debug(`Total wildfire features plotted: ${combined.features.length}`);
-			}
-		}).catch(error => {
-			console.error('Error loading wildfire data:', error);
-		});
 
 			// Color the wildfire areas as red...
 			map.data.setStyle({ fillColor: 'red', strokeWeight: 1.0, strokeColor: 'salmon' });
@@ -3152,7 +3160,7 @@ async function addWeatherLayer() {
 				// Determine if this is a US or Australian fire based on the source property...
 				const fireSource = event.feature.getProperty("_fireSource");
 				let infoContent = '';
-
+				
 				if (fireSource === 'AU') {
 					// Australian bushfire info display...
 					let fireName = event.feature.getProperty("fire_name");
@@ -3186,9 +3194,13 @@ async function addWeatherLayer() {
 					if (agency == null) {
 						agency = "(not available)";
 					}
-
+					
 					infoContent = '<div style="line-height:1.35;overflow:hidden;color:black;">' +
-						'<span style="font-weight:700;">Bushfire &quot;' + fireName + '&quot;</span><br/>' +
+						'<div style="display:flex;align-items:center;margin-bottom:4px;">' +
+						'<span style="color:#cc0000;font-size:28px;margin-right:8px;line-height:1;">&#128293;</span>' +
+						'<div>' +
+						'<span style="font-weight:700;">Bushfire &quot;' + fireName + '&quot;</span>' +
+						'</div></div>' +
 						'<br/><b>Fire Type:</b> ' + fireType +
 						'<br/><b>Ignition Date:</b> ' + ignitionDate +
 						'<br/><b>Perimeter:</b> ' + perimKm +
@@ -3197,9 +3209,9 @@ async function addWeatherLayer() {
 						'</div>';
 				} else {
 					// US wildfire info display (original logic)...
-					let comments = event.feature.getProperty("Comments");
-					if (comments == null) {
-						comments = "(comments not available)";
+					let comments = `<br/>${event.feature.getProperty("Comments")}`;
+					if (event.feature.getProperty("Comments") == null) {
+						comments = "";
 					}
 					let acres = event.feature.getProperty("GISAcres");
 					if (acres == null) {
@@ -3211,16 +3223,23 @@ async function addWeatherLayer() {
 					if (fireCategory == null) {
 						fireCategory = "(not available)";
 					}
-
-					infoContent = '<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">' +
-						'<span style="font-weight:700;">Wildfire &quot;' + event.feature.getProperty("IncidentName") + '&quot;</span><br/>' +
-						comments + '<br/><br/>Calculated Acres: ' + acres +
-						'<br/>Category: ' + fireCategory +
-						'<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") +
-						'<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") +
-						'</div>';
+					
+					infoContent = `<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">
+						<div style="display:flex;align-items:center;margin-bottom:8px;">
+							<span style="color:#cc0000;font-size:28px;margin-right:8px;line-height:1;">&#128293;</span>
+							<div>
+							<span style="font-weight:700;">Wildfire &quot;${event.feature.getProperty("IncidentName")}&quot;</span><br/>
+							${comments}
+						</div></div>
+						<div style="padding-bottom:4px;">
+							<b>Category:</b> ${fireCategory}<br/>
+							<b>Calculated Acres:</b> ${acres}
+						</div>
+						<b>Days Since Last GIS Update:</b> ${event.feature.getProperty("CurrentDateAge")}<br/>
+						<b>GIS Map Method:</b> ${event.feature.getProperty("MapMethod")}
+						'</div>`;
 				}
-
+				
 				// Close any cluster InfoWindow that might be open...
 				if (clusterInfoWindow) {
 					clusterInfoWindow.close();

@@ -48,10 +48,14 @@
 -->
 
 <script>
-	const version = "3.30";
+	const version = "3.31";
 	const releaseNotes = `
 		<h2>Release Notes</h2>
 		<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+		<h3>Version 3.31</h3>
+		<ul>
+			<li>Improved the display of wildfire information.</li>
+		</ul>
 		<h3>Version 3.30</h3>
 		<ul>
 			<li>Added Catchpoint beacon for performance monitoring (no confidential data is collected).</li>
@@ -3593,74 +3597,78 @@
 			const optionalMapType = document.getElementById("otherWeatherOverlays").value;
 
 			// Add RainViewer layer if appropriate...
-			if (mapType == "radar") {
-				// Get the latest radar frame from RainViewer...
-				initRainViewerData();
+			try {
+				if (mapType == "radar") {
+					// Get the latest radar frame from RainViewer...
+					initRainViewerData();
 
-				// The following three lines really only apply if we use RainViewer's satellite imagery, which I'm not currently but left it in here if needed...
-				let colorScheme = rvOptionKind == 'satellite' ? 0 : rvOptionColorScheme;
-				let smooth = rvOptionKind == 'satellite' ? 0 : rvOptionSmoothData;
-				let snow = rvOptionKind == 'satellite' ? 0 : rvOptionSnowColors;
+					// The following three lines really only apply if we use RainViewer's satellite imagery, which I'm not currently but left it in here if needed...
+					let colorScheme = rvOptionKind == 'satellite' ? 0 : rvOptionColorScheme;
+					let smooth = rvOptionKind == 'satellite' ? 0 : rvOptionSmoothData;
+					let snow = rvOptionKind == 'satellite' ? 0 : rvOptionSnowColors;
 
-				// Remove any previous overlay to ensure we don't keep stacking layers...
-				map.overlayMapTypes.clear();
+					// Remove any previous overlay to ensure we don't keep stacking layers...
+					map.overlayMapTypes.clear();
 
-				// Create the Google Maps layer...
-				let myMapType = new google.maps.ImageMapType({
-					getTileUrl: function(tile, zoom) {
-						return [rvAPIData.host + rvMapFrames[rvLastPastFramePosition].path, 256, zoom, tile.x, tile.y, colorScheme, smooth + '_' + snow + '.png'].join('/');
-					},
-					tileSize: new google.maps.Size(256, 256),
-					opacity: weatherOpacity,
-					name : mapType,
-					isPng: true
-				});
+					// Create the Google Maps layer...
+					let myMapType = new google.maps.ImageMapType({
+						getTileUrl: function(tile, zoom) {
+							return [rvAPIData.host + rvMapFrames[rvLastPastFramePosition].path, 256, zoom, tile.x, tile.y, colorScheme, smooth + '_' + snow + '.png'].join('/');
+						},
+						tileSize: new google.maps.Size(256, 256),
+						opacity: weatherOpacity,
+						name : mapType,
+						isPng: true
+					});
 
-				// Attach the weather layer to our maps widget...
-				map.overlayMapTypes.insertAt(0, myMapType);
+					// Attach the weather layer to our maps widget...
+					map.overlayMapTypes.insertAt(0, myMapType);
 
-				// Update the timestamp...
-				// document.querySelector("#mapTimestampArea").style.display = "block"; // Unhides the timestamp area.
-				// document.getElementById("mapTimestamp").innerHTML = (new Date(rvMapFrames[rvLastPastFramePosition].time * 1000)).toString();
+					// Update the timestamp...
+					// document.querySelector("#mapTimestampArea").style.display = "block"; // Unhides the timestamp area.
+					// document.getElementById("mapTimestamp").innerHTML = (new Date(rvMapFrames[rvLastPastFramePosition].time * 1000)).toString();
 
-			// Show NEXRAD layers if appropriate...
-			} else if (mapType.match(/(nexrad|q2)/g)) {
-				// Remove any previous overlay to ensure we don't keep stacking layers...
-				map.overlayMapTypes.clear();
+				// Show NEXRAD layers if appropriate...
+				} else if (mapType.match(/(nexrad|q2)/g)) {
+					// Remove any previous overlay to ensure we don't keep stacking layers...
+					map.overlayMapTypes.clear();
 
-				// Create the Google Maps layer...
-				let myMapType = new google.maps.ImageMapType({
-					getTileUrl: function(tile, zoom) {
-						return "http://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/" + mapType + "/" + zoom + "/" + tile.x + "/" + tile.y +".png?"+ (new Date()).getTime();
-					},
-					tileSize: new google.maps.Size(256, 256),
-					opacity: weatherOpacity,
-					name: mapType,
-					isPng: true
-				});
+					// Create the Google Maps layer...
+					let myMapType = new google.maps.ImageMapType({
+						getTileUrl: function(tile, zoom) {
+							return "http://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/" + mapType + "/" + zoom + "/" + tile.x + "/" + tile.y +".png?"+ (new Date()).getTime();
+						},
+						tileSize: new google.maps.Size(256, 256),
+						opacity: weatherOpacity,
+						name: mapType,
+						isPng: true
+					});
 
-				// Attach the weather layer to our maps widget...
-				map.overlayMapTypes.insertAt(0, myMapType);
+					// Attach the weather layer to our maps widget...
+					map.overlayMapTypes.insertAt(0, myMapType);
 
-			// Show OpenWeather layers if appropriate...
-			} else if (mapType != "" && openWeatherMapsAPIKey.length >= 32) {
-				// Remove any previous overlay to ensure we don't keep stacking layers...
-				map.overlayMapTypes.clear();
+				// Show OpenWeather layers if appropriate...
+				} else if (mapType != "" && openWeatherMapsAPIKey.length >= 32) {
+					// Remove any previous overlay to ensure we don't keep stacking layers...
+					map.overlayMapTypes.clear();
 
-				// Create the Google Maps layer...
-				let myMapType = new google.maps.ImageMapType({
-					getTileUrl: function(coord, zoom) {
-						return "https://tile.openweathermap.org/map/" + mapType + "/" + zoom + "/" + coord.x + "/" + coord.y + ".png?appid=" + openWeatherMapsAPIKey;
-					},
-					tileSize: new google.maps.Size(256, 256),
-					maxZoom: 11,
-					minZoom: 0,
-					opacity: weatherOpacity,
-					name: mapType
-				});
+					// Create the Google Maps layer...
+					let myMapType = new google.maps.ImageMapType({
+						getTileUrl: function(coord, zoom) {
+							return "https://tile.openweathermap.org/map/" + mapType + "/" + zoom + "/" + coord.x + "/" + coord.y + ".png?appid=" + openWeatherMapsAPIKey;
+						},
+						tileSize: new google.maps.Size(256, 256),
+						maxZoom: 11,
+						minZoom: 0,
+						opacity: weatherOpacity,
+						name: mapType
+					});
 
-				// Attach the weather layer to our maps widget...
-				map.overlayMapTypes.insertAt(0, myMapType);
+					// Attach the weather layer to our maps widget...
+					map.overlayMapTypes.insertAt(0, myMapType);
+				}
+			} catch (error) {
+				console.error('Error adding weather layer:', error);
 			}
 
 			// Look to see if we should add wildfire into the map...
@@ -3783,7 +3791,11 @@
 						}
 						
 						infoContent = '<div style="line-height:1.35;overflow:hidden;color:black;">' +
-							'<span style="font-weight:700;">Bushfire &quot;' + fireName + '&quot;</span><br/>' +
+							'<div style="display:flex;align-items:center;margin-bottom:4px;">' +
+							'<span style="color:#cc0000;font-size:28px;margin-right:8px;line-height:1;">&#128293;</span>' +
+							'<div>' +
+							'<span style="font-weight:700;">Bushfire &quot;' + fireName + '&quot;</span>' +
+							'</div></div>' +
 							'<br/><b>Fire Type:</b> ' + fireType +
 							'<br/><b>Ignition Date:</b> ' + ignitionDate +
 							'<br/><b>Perimeter:</b> ' + perimKm +
@@ -3792,9 +3804,9 @@
 							'</div>';
 					} else {
 						// US wildfire info display (original logic)...
-						let comments = event.feature.getProperty("Comments");
-						if (comments == null) {
-							comments = "(comments not available)";
+						let comments = `<br/>${event.feature.getProperty("Comments")}`;
+						if (event.feature.getProperty("Comments") == null) {
+							comments = "";
 						}
 						let acres = event.feature.getProperty("GISAcres");
 						if (acres == null) {
@@ -3807,13 +3819,20 @@
 							fireCategory = "(not available)";
 						}
 						
-						infoContent = '<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">' +
-							'<span style="font-weight:700;">Wildfire &quot;' + event.feature.getProperty("IncidentName") + '&quot;</span><br/>' +
-							comments + '<br/><br/>Calculated Acres: ' + acres +
-							'<br/>Category: ' + fireCategory +
-							'<br/>Days Since Last GIS Update: ' + event.feature.getProperty("CurrentDateAge") +
-							'<br/>GIS Map Method: ' + event.feature.getProperty("MapMethod") +
-							'</div>';
+						infoContent = `<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">
+							<div style="display:flex;align-items:center;margin-bottom:8px;">
+								<span style="color:#cc0000;font-size:28px;margin-right:8px;line-height:1;">&#128293;</span>
+								<div>
+								<span style="font-weight:700;">Wildfire &quot;${event.feature.getProperty("IncidentName")}&quot;</span><br/>
+								${comments}
+							</div></div>
+							<div style="padding-bottom:4px;">
+								<b>Category:</b> ${fireCategory}<br/>
+								<b>Calculated Acres:</b> ${acres}
+							</div>
+							<b>Days Since Last GIS Update:</b> ${event.feature.getProperty("CurrentDateAge")}<br/>
+							<b>GIS Map Method:</b> ${event.feature.getProperty("MapMethod")}
+							'</div>`;
 					}
 					
 					// Close any cluster InfoWindow that might be open...
