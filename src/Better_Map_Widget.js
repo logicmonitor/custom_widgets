@@ -9,13 +9,14 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.36 CDN";
+const version = "3.38 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-	<h3>Version 3.37</h3>
+	<h3>Version 3.38</h3>
 	<ul>
 		<li>Added options for sorting items in the map sidebar by severity or by address.</li>
+		<li>If a value for the 'MapDisplayProperties' dashboard token is set, then those properties will be displayed in the map sidebar.</li>
 	</ul>
 	<h3>Version 3.36</h3>
 	<ul>
@@ -2751,6 +2752,8 @@ let sidebarItems = [];
 // Build the sidebar item list from current groupData
 function buildSidebarItems() {
 	const severityOrder = { critical: 0, error: 1, warn: 2, sdt: 3, clear: 4 };
+	const propList = displayProps ? displayProps.split(",").map(p => p.trim()).filter(Boolean) : [];
+
 	sidebarItems = groupData.map(item => {
 		let severity = "clear";
 		const m = item.alertStatus && item.alertStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
@@ -2765,12 +2768,34 @@ function buildSidebarItems() {
 			severity = "sdt";
 		}
 		const cached = cachedAddresses[item.id];
+
+		const props = [];
+		propList.forEach(propName => {
+			let found = null;
+			if (item.customProperties) {
+				const match = item.customProperties.filter(p => p.name === propName);
+				if (match.length === 1) found = match[0];
+			}
+			if (!found && item.inheritedProperties) {
+				const match = item.inheritedProperties.filter(p => p.name === propName);
+				if (match.length === 1) found = match[0];
+			}
+			if (!found && item.autoProperties) {
+				const match = item.autoProperties.filter(p => p.name === propName);
+				if (match.length === 1) found = match[0];
+			}
+			if (found) {
+				props.push({ name: found.name, value: found.value });
+			}
+		});
+
 		return {
 			id: item.id,
 			name: item.displayName || item.name,
 			severity: severity,
 			severityIndex: severityOrder[severity] ?? 99,
 			location: (cached && cached.address) || "Unknown",
+			props: props,
 		};
 	}).filter(item => {
 		return markersByDeviceID.has(item.id) || markersByDeviceID.has(String(item.id));
@@ -2816,9 +2841,13 @@ function renderSidebarList() {
 		}
 		const color = severityColors[item.severity] || "#85c25d";
 		const label = severityLabels[item.severity] || "OK";
+		let propsHtml = "";
+		if (item.props && item.props.length > 0) {
+			propsHtml = `<div class="sidebar-item-props">${item.props.map(p => `<div class="sidebar-item-prop" title="${p.name}: ${p.value}"><span class="sidebar-item-prop-label">${p.name}:</span> ${p.value}</div>`).join("")}</div>`;
+		}
 		html += `<div class="sidebar-item" data-device-id="${item.id}" title="${item.name} — ${label}">
 			<span class="sidebar-dot" style="background-color:${color};"></span>
-			<span class="sidebar-item-name">${item.name}</span>
+			<span class="sidebar-item-content"><span class="sidebar-item-name">${item.name}</span>${propsHtml}</span>
 		</div>`;
 	});
 	sidebar.innerHTML = html;
