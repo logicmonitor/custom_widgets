@@ -9,11 +9,11 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.34 CDN";
+const version = "3.35 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-	<h3>Version 3.34</h3>
+	<h3>Version 3.35</h3>
 	<ul>
 		<li>Added the ability to show a map sidebar listing the status of all items on the map. It can be shown by default (or not) via a new dashboard token named "ShowMapSidebar".</li>
 	</ul>

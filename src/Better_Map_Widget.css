@@ -11,15 +11,18 @@ body {
 	padding: 0;
 	margin: 0;
 }
-.optionsHidden * {
-	max-height: 0;
-	min-height: 0;
-	transition: all 0.4s ease-out;
+.optionsHidden {
+	max-height: 0 !important;
+	opacity: 0;
+	overflow: hidden !important;
+	padding-top: 0 !important;
+	padding-bottom: 0 !important;
+	transition: max-height 0.25s ease-out, opacity 0.25s ease-out, padding 0.25s ease-out;
 }
-.optionsVisible * {
-	max-height: unset;
-	min-height: auto;
-	transition: all 0.4s ease-out;
+.optionsVisible {
+	max-height: 100px;
+	opacity: 1;
+	transition: max-height 0.25s ease-out, opacity 0.25s ease-out, padding 0.25s ease-out;
 }
 .optionsVisibleToggle {
 	rotate: 0;
@@ -66,6 +69,7 @@ body {
 	min-width: 0;
 	border: 1px solid #aaa;
 	border-radius: 7px 0 0 7px;
+	transition: border-radius 0.25s ease-out;
 }
 #sidebarArea {
 	width: 300px;
@@ -77,6 +81,7 @@ body {
 	background: #fff;
 	font-family: system-ui, -apple-system, sans-serif;
 	font-size: 13px;
+	transition: width 0.25s ease-out, border-width 0.25s ease-out, opacity 0.25s ease-out;
 }
 #sidebarArea .sidebar-header {
 	position: sticky;
@@ -119,10 +124,14 @@ body {
 	white-space: nowrap;
 }
 #sidebarArea.sidebar-hidden {
-	display: none;
+	width: 0;
+	border-width: 0;
+	opacity: 0;
+	overflow: hidden;
 }
 #googleMap.sidebar-hidden {
 	border-radius: 7px;
+	transition: border-radius 0.25s ease-out;
 }
 #customMapRefreshButton, #customMapResetZoom {
 	margin-right: 5px;
