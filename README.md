@@ -1,4 +1,4 @@
-### A collection of useful custom-scripted LogicMonitor dashboard widgets.
+<img width="1726" height="1035" alt="image" src="https://github.com/user-attachments/assets/bd1e3cd6-a3d9-4134-a4d9-ea495ec61c64" />### A collection of useful custom-scripted LogicMonitor dashboard widgets.
 
 **NOTE:** While this work is provided for use by the LogicMonitor community, they were created as personal projects and are *not* officially supported by LogicMonitor.
 
@@ -72,6 +72,7 @@ Behavior of the widget can be customized using the following optional dashboard 
   	- "**us-poweroutages**" (or just "outages" for short): Color-codes US counties by current number of customers without power (darker colors = higher % of customers affected). Clicking a county displays more info.
   	- "**us-flooding**": Plots blue dots for areas with active US flood alerts. Clicking a dot displays more details about the flooding.
 - **HideMapOptions**: If "true" then will hide the options bar by default. Default is "false".
+- **ShowMapSidebar**: If "true" then will show the sidebar by default. Default is "false".
 - **MapIgnoreCleared**: If "true" then will only show items currently alerting (useful for maps with thousands of markers). Default is "false".
 - **MapIgnoreWarnings**: If "true" then won't show items in "Warning" status. Default is "false".
 - **MapIgnoreErrors**: If "true" then won't show items in "Error" status. Default is "false".
