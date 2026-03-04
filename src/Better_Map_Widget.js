@@ -13,6 +13,10 @@ const version = "3.36 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.37</h3>
+	<ul>
+		<li>Added options for sorting items in the map sidebar by severity or by address.</li>
+	</ul>
 	<h3>Version 3.36</h3>
 	<ul>
 		<li>Added the ability to show a map sidebar listing the status of all items on the map. It can be shown by default (or not) via a new dashboard token named "ShowMapSidebar".</li>
@@ -2741,12 +2745,43 @@ function toggleHighlight(markerView, group) {
 	markerInfoWindow.open(map);
 }
 
-// Populate the sidebar with all plotted items, sorted by alert severity (highest first)
-function populateSidebar() {
+let sidebarSortMode = "severity";
+let sidebarItems = [];
+
+// Build the sidebar item list from current groupData
+function buildSidebarItems() {
+	const severityOrder = { critical: 0, error: 1, warn: 2, sdt: 3, clear: 4 };
+	sidebarItems = groupData.map(item => {
+		let severity = "clear";
+		const m = item.alertStatus && item.alertStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
+		if (m) {
+			const sev = m[2];
+			if (sev === "critical") severity = "critical";
+			else if (sev === "error") severity = "error";
+			else if (sev === "warn") severity = "warn";
+		}
+		const sdtMatch = item.sdtStatus && item.sdtStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
+		if (sdtMatch && (sdtMatch[1].toLowerCase() === "sdt" || sdtMatch[2].toLowerCase() === "sdt")) {
+			severity = "sdt";
+		}
+		const cached = cachedAddresses[item.id];
+		return {
+			id: item.id,
+			name: item.displayName || item.name,
+			severity: severity,
+			severityIndex: severityOrder[severity] ?? 99,
+			location: (cached && cached.address) || "Unknown",
+		};
+	}).filter(item => {
+		return markersByDeviceID.has(item.id) || markersByDeviceID.has(String(item.id));
+	});
+}
+
+// Render the sidebar list based on the current sort mode
+function renderSidebarList() {
 	const sidebar = _dom.sidebarArea;
 	if (!sidebar) return;
 
-	const severityOrder = { critical: 0, error: 1, warn: 2, sdt: 3, clear: 4 };
 	const severityColors = {
 		critical: "#e0351b",
 		error:    "#ff8c00",
@@ -2762,32 +2797,23 @@ function populateSidebar() {
 		clear:    "OK",
 	};
 
-	const items = groupData.map(item => {
-		let severity = "clear";
-		const m = item.alertStatus && item.alertStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
-		if (m) {
-			const sev = m[2];
-			if (sev === "critical") severity = "critical";
-			else if (sev === "error") severity = "error";
-			else if (sev === "warn") severity = "warn";
-		}
-		const sdtMatch = item.sdtStatus && item.sdtStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
-		if (sdtMatch && (sdtMatch[1].toLowerCase() === "sdt" || sdtMatch[2].toLowerCase() === "sdt")) {
-			severity = "sdt";
-		}
-		return {
-			id: item.id,
-			name: item.displayName || item.name,
-			severity: severity,
-		};
-	}).filter(item => {
-		return markersByDeviceID.has(item.id) || markersByDeviceID.has(String(item.id));
-	});
+	const sorted = [...sidebarItems];
+	if (sidebarSortMode === "severity") {
+		sorted.sort((a, b) => a.severityIndex - b.severityIndex || a.name.localeCompare(b.name));
+	} else {
+		sorted.sort((a, b) => a.location.localeCompare(b.location) || a.severityIndex - b.severityIndex || a.name.localeCompare(b.name));
+	}
 
-	items.sort((a, b) => (severityOrder[a.severity] ?? 99) - (severityOrder[b.severity] ?? 99) || a.name.localeCompare(b.name));
+	let html = `<div class="sidebar-header"><span>Items (${sorted.length})</span><span class="sidebar-sort-buttons"><button class="sidebar-sort-btn${sidebarSortMode === "severity" ? " active" : ""}" data-sort="severity" title="Group by severity">Severity</button><button class="sidebar-sort-btn${sidebarSortMode === "location" ? " active" : ""}" data-sort="location" title="Group by address">Address</button></span></div>`;
 
-	let html = `<div class="sidebar-header">Items (${items.length})</div>`;
-	items.forEach(item => {
+	let currentGroup = null;
+	sorted.forEach(item => {
+		const groupKey = sidebarSortMode === "severity" ? item.severity : item.location;
+		if (groupKey !== currentGroup) {
+			currentGroup = groupKey;
+			const headerLabel = sidebarSortMode === "severity" ? (severityLabels[groupKey] || groupKey) : groupKey;
+			html += `<div class="sidebar-group-header" title="${headerLabel}">${headerLabel}</div>`;
+		}
 		const color = severityColors[item.severity] || "#85c25d";
 		const label = severityLabels[item.severity] || "OK";
 		html += `<div class="sidebar-item" data-device-id="${item.id}" title="${item.name} — ${label}">
@@ -2796,10 +2822,26 @@ function populateSidebar() {
 		</div>`;
 	});
 	sidebar.innerHTML = html;
+}
+
+// Populate the sidebar with all plotted items
+function populateSidebar() {
+	const sidebar = _dom.sidebarArea;
+	if (!sidebar) return;
+
+	buildSidebarItems();
+	renderSidebarList();
 
 	if (!sidebar._clickBound) {
 		sidebar._clickBound = true;
 		sidebar.addEventListener("click", (e) => {
+			const sortBtn = e.target.closest(".sidebar-sort-btn");
+			if (sortBtn) {
+				sidebarSortMode = sortBtn.dataset.sort;
+				renderSidebarList();
+				return;
+			}
+
 			const row = e.target.closest(".sidebar-item");
 			if (!row) return;
 			const deviceId = row.dataset.deviceId;
