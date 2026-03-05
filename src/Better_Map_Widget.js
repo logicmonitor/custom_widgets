@@ -9,10 +9,14 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.38 CDN";
+const version = "3.39 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.39</h3>
+	<ul>
+		<li>Made the width of the map sidebar adjustable via drag handle.</li>
+	</ul>
 	<h3>Version 3.38</h3>
 	<ul>
 		<li>Added options for sorting items in the map sidebar by severity or by address.</li>
@@ -146,6 +150,7 @@ document.querySelector(".customMapBody").innerHTML = `<!-- Create our options ba
 	<!-- Placeholder for our map... -->
 	<div id="mapContainer">
 		<div id="googleMap">&nbsp;</div>
+		<div id="sidebarResizeHandle"></div>
 		<div id="sidebarArea">&nbsp;</div>
 	</div>
 
@@ -703,6 +708,7 @@ const _dom = {
 	showCriticalsLabel: document.getElementById("showCriticalsLabel"),
 	showSDTLabel: document.getElementById("showSDTLabel"),
 	sidebarArea: document.getElementById("sidebarArea"),
+	sidebarResizeHandle: document.getElementById("sidebarResizeHandle"),
 }
 
 // Set the form fields as appropriate...
@@ -1449,6 +1455,7 @@ async function initMap() {
 	// Create a button to toggle the sidebar...
 	const sidebarToggle = createSidebarToggleControl(map);
 	map.controls[google.maps.ControlPosition.INLINE_END_BLOCK_START].push(sidebarToggle);
+	initSidebarResize();
 
 	// Add an area to display when we're updating...
 	const updateAreaDiv = await createUpdateArea(map);
@@ -1618,29 +1625,72 @@ function createSidebarToggleControl(map) {
 	if (!sidebarStartsVisible) {
 		const sidebar = _dom.sidebarArea;
 		const mapEl = document.getElementById("googleMap");
+		const handle = _dom.sidebarResizeHandle;
 		if (sidebar) {
 			sidebar.classList.add("sidebar-hidden");
 			mapEl.classList.add("sidebar-hidden");
+			if (handle) handle.classList.add("sidebar-hidden");
 		}
 	}
 
 	btn.addEventListener("click", () => {
 		const sidebar = _dom.sidebarArea;
 		const mapEl = document.getElementById("googleMap");
+		const handle = _dom.sidebarResizeHandle;
 		if (!sidebar) return;
 		const svg = btn.querySelector("svg");
 		if (sidebar.classList.contains("sidebar-hidden")) {
 			sidebar.classList.remove("sidebar-hidden");
+			if (sidebarDefaultWidth) sidebar.style.width = sidebarDefaultWidth + "px";
 			mapEl.classList.remove("sidebar-hidden");
+			if (handle) handle.classList.remove("sidebar-hidden");
 			svg.style.transform = "rotate(90deg)";
 		} else {
+			sidebar.style.width = "";
 			sidebar.classList.add("sidebar-hidden");
 			mapEl.classList.add("sidebar-hidden");
+			if (handle) handle.classList.add("sidebar-hidden");
 			svg.style.transform = "rotate(-90deg)";
 		}
 	});
 
 	return btn;
+}
+
+// Sidebar resize drag logic
+function initSidebarResize() {
+	const handle = _dom.sidebarResizeHandle;
+	const sidebar = _dom.sidebarArea;
+	const container = document.getElementById("mapContainer");
+	if (!handle || !sidebar || !container) return;
+
+	let startX, startWidth;
+
+	handle.addEventListener("mousedown", (e) => {
+		e.preventDefault();
+		startX = e.clientX;
+		startWidth = sidebar.getBoundingClientRect().width;
+		handle.classList.add("dragging");
+		document.body.style.cursor = "col-resize";
+		document.body.style.userSelect = "none";
+		document.addEventListener("mousemove", onMouseMove);
+		document.addEventListener("mouseup", onMouseUp);
+	});
+
+	function onMouseMove(e) {
+		const delta = startX - e.clientX;
+		const newWidth = Math.max(220, Math.min(startWidth + delta, container.getBoundingClientRect().width * 0.4));
+		sidebar.style.width = newWidth + "px";
+	}
+
+	function onMouseUp() {
+		handle.classList.remove("dragging");
+		document.body.style.cursor = "";
+		document.body.style.userSelect = "";
+		sidebarDefaultWidth = sidebar.getBoundingClientRect().width;
+		document.removeEventListener("mousemove", onMouseMove);
+		document.removeEventListener("mouseup", onMouseUp);
+	}
 }
 
 function createRotateRightControl(map) {
@@ -2746,6 +2796,7 @@ function toggleHighlight(markerView, group) {
 	markerInfoWindow.open(map);
 }
 
+if (typeof sidebarDefaultWidth === 'undefined') { sidebarDefaultWidth = 300; }
 let sidebarSortMode = "severity";
 let sidebarItems = [];
 

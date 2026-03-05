@@ -73,6 +73,8 @@ body {
 }
 #sidebarArea {
 	width: 300px;
+	min-width: 220px;
+	max-width: 40%;
 	flex-shrink: 0;
 	overflow-x: hidden;
 	overflow-y: auto;
@@ -182,7 +184,24 @@ body {
 }
 #sidebarArea.sidebar-hidden {
 	width: 0;
+	min-width: 0;
 	border-width: 0;
+	opacity: 0;
+	overflow: hidden;
+}
+#sidebarResizeHandle {
+	width: 5px;
+	cursor: col-resize;
+	background: #ddd;
+	flex-shrink: 0;
+	transition: background-color 0.15s, width 0.25s ease-out, opacity 0.25s ease-out;
+}
+#sidebarResizeHandle:hover,
+#sidebarResizeHandle.dragging {
+	background: #aaa;
+}
+#sidebarResizeHandle.sidebar-hidden {
+	width: 0;
 	opacity: 0;
 	overflow: hidden;
 }
