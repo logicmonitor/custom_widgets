@@ -9,7 +9,7 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.39 CDN";
+const version = "3.40 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
@@ -3894,7 +3894,7 @@ async function addWeatherLayer() {
 							const impactUrl = latestImpactLink.properties?.url || latestImpactLink.url;
 							if (impactText && impactUrl) {
 								// tsunamiWarningHtml = `<a href="${impactUrl}" target="_blank" style="color: #333; text-decoration: underline;">${impactText}</a>`;
-								tsunamiWarningHtml = `<a href="${impactUrl}" title="View Tsunami details" target="_blank" style="color: #333; text-decoration: underline;">Tsunami Risk</a>`;
+								tsunamiWarningHtml = `<a href="${impactUrl}" title="View Tsunami details" target="_blank">Tsunami Risk</a>`;
 							}
 						}
 					} catch (err) {
@@ -4004,7 +4004,7 @@ async function addWeatherLayer() {
 									<path d="m 57.316128,56.958628 c 1.125,0 2.225,-0.5825 2.825,-1.63125 0.6125,-1.04625 0.5625,-2.28875 0,-3.265 L 33.128628,5.2773777 c -0.5625,-0.97375 -1.6125,-1.635 -2.8375,-1.635 -1.2,0.0025 -2.25,0.66125 -2.8125,1.635 L 0.46612771,52.062378 c -0.575,0.97625 -0.6125,2.21875 -0.0125,3.265 0.61249999,1.04875 1.69999999,1.63125 2.83749999,1.63125 l 54.0250003,0" style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"/>
 									<path d="m 30.291127,9.0848757 -13.85,23.9900003 c 14.9125,-7.8575 22.4375,-2.24875 24.7875,3.58875 l -0.4625,0.26625 c -0.3625,-0.3475 -0.775,-0.65625 -1.2375,-0.935 -3.1125,-1.86375 -6.9375,-1.21 -8.55,1.46625 -1.6125,2.685 -0.3875,6.37375 2.725,8.24125 6.1375,3.68625 13.975,2.81 18.725,1.71125 L 30.291127,9.0848757" style="fill:white;fill-opacity:1;fill-rule:evenodd;stroke:none"/>
 								</svg>
-							<span style="font-weight: bold; color: #333;">${tsunamiWarningHtml}</span>
+							<span style="font-weight: bold;">${tsunamiWarningHtml}</span>
 						</div>
 					` : ''}
 						<div style="margin: 15px 0; text-wrap: auto; line-height: 20px;">Current <a href="https://earthquake.usgs.gov/data/pager/onepager.php" target="_blank">USGS PAGER</a> Alert Level: <strong style="color: ${alertLabelColor}; background-color: black; padding: 5px; border-radius: 7px; font-size: 0.9em; white-space: nowrap;">${alertLabel}</strong></div>
