@@ -1,4 +1,4 @@
-<img width="1726" height="1035" alt="image" src="https://github.com/user-attachments/assets/bd1e3cd6-a3d9-4134-a4d9-ea495ec61c64" />### A collection of useful custom-scripted LogicMonitor dashboard widgets.
+### A collection of useful custom-scripted LogicMonitor dashboard widgets.
 
 **NOTE:** While this work is provided for use by the LogicMonitor community, they were created as personal projects and are *not* officially supported by LogicMonitor.
 
