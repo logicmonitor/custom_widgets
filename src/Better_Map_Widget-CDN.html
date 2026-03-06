@@ -26,7 +26,10 @@
 	OPTIONAL DASHBOARD TOKENS:
 	* 'MapGroupPathFilter': Allows setting a default group path to start. Default is "*".
 	* 'MapLocationProperty': The property to use for the location of the items on the map. Default is "location".
-	* 'MapShowWeather': If weather should be shown by default. Options are "global" or "nexrad". Default is "global".
+	* 'MapShowWeather': If weather should be shown by default. Options are "global", "nexrad", "openweather", or "xweather". Default is "no".
+	* 'OpenWeatherAPIKey': API key for OpenWeather radar tiles (required when using "openweather" weather option).
+	* 'XweatherAPIID': API ID for Xweather radar tiles (required when using "xweather" weather option).
+	* 'XweatherAPIKey': API secret for Xweather radar tiles (required when using "xweather" weather option).
 	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding" or "earthquakes". Default is "earthquakes".
 	* 'HideMapOptions': If "true" then will hide the options bar by default. Default is "false".
 	* 'ShowMapSidebar': If "true" then will show the sidebar by default. Default is "false".
@@ -85,7 +88,7 @@
 	// Flag to disable marker clustering if needed...
 	let disableClustering = false;
 
-	// Whether to show weather by default. Options are: "no", "global", "nexrad"...
+	// Whether to show weather by default. Options are: "no", "global", "nexrad", "openweather", "xweather"...
 	// You can set it here or in a dashboard token named "MapShowWeather"...
 	let showWeatherDefault = "no";
 
@@ -138,6 +141,15 @@
 	// Whether to use geodesic lines when connecting two locations (I recommend not so it just plots a straight line vs curve of the Earth)...
 	const useGeodesicLines = false;
 
+	// OpenWeather API key (required for OpenWeather radar)...
+	// You can set it here or in a dashboard token named "OpenWeatherAPIKey"...
+	let openWeatherAPIKey = "";
+
+	// Xweather API credentials (required for Xweather radar)...
+	// You can set them here or in dashboard tokens named "XweatherAPIID" and "XweatherAPIKey"...
+	let xweatherAPIID = "";
+	let xweatherAPIKey = "";
+
 	// Default opacity for weather layers...
 	let weatherOpacity = 0.35;
 	// Default opacity for satellite weather layers...
@@ -178,6 +190,9 @@
 	<div id="autoResetMapOnRefreshToken">##AutoResetMapOnRefresh##</div>
 	<div id="dashboardGroupPathToken">##MapGroupPathFilter##</div>
 	<div id="dashboardShowWeatherToken">##MapShowWeather##</div>
+	<div id="openWeatherAPIKeyToken">##OpenWeatherAPIKey##</div>
+	<div id="xweatherAPIIDToken">##XweatherAPIID##</div>
+	<div id="xweatherAPIKeyToken">##XweatherAPIKey##</div>
 	<div id="dashboardAddlOverlayToken">##MapOverlayOption##</div>
 	<div id="displayPropsToken">##MapDisplayProperties##</div>
 	<div id="disableClusteringToken">##MapDisableClustering##</div>

@@ -9,10 +9,14 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.40 CDN";
+const version = "3.41 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.41</h3>
+	<ul>
+		<li>Added the ability to show Xweather Global Radar (requires API ID & key available from https://www.xweather.com/weather-api). Xweather is offers a great deal of optional details such as lightning strikes, hail, wind gusts, etc. Many personal weather stations such as Ecowitt provide free Xweather API access if you feed them your weather data.</li>
+	</ul>
 	<h3>Version 3.39</h3>
 	<ul>
 		<li>Made the width of the map sidebar adjustable via drag handle.</li>
@@ -121,8 +125,10 @@ document.querySelector(".customMapBody").innerHTML = `<!-- Create our options ba
 
 					<span id="weatherOptions">
 						<select id="weatherType" onchange="enableWeather();">
-							<option value="radar" selected>Global Radar (~10-15 min updates)</option>
-							<option value="nexrad-n0q-900913">US NEXRAD Radar (~5 min updates)</option>
+							<option value="radar" selected>Global Radar</option>
+							<option value="nexrad-n0q-900913">US NEXRAD Radar</option>
+							<option value="xweather">Xweather Global Radar</option>
+							<!-- <option value="openweather">OpenWeather Radar</option> -->
 						</select>
 
 						<span id="additionalOverlayOptions">
@@ -198,7 +204,7 @@ if (typeof statusUpdateIntervalMinutes === 'undefined') { let statusUpdateInterv
 // Flag to disable marker clustering if needed...
 if (typeof disableClustering === 'undefined') { let disableClustering = false; };
 
-// Whether to show weather by default. Options are: "no", "global", "nexrad"...
+// Whether to show weather by default. Options are: "no", "global", "nexrad", "openweather", "xweather"...
 // You can set it here or in a dashboard token named "MapShowWeather"...
 if (typeof showWeatherDefault === 'undefined') { let showWeatherDefault = "no"; };
 
@@ -250,6 +256,15 @@ if (typeof connectionInfoProp === 'undefined') { const connectionInfoProp = "aut
 if (typeof connectingLineWeight === 'undefined') { const connectingLineWeight = 3; };
 // Whether to use geodesic lines when connecting two locations (I recommend not so it just plots a straight line vs curve of the Earth)...
 if (typeof useGeodesicLines === 'undefined') { const useGeodesicLines = false; };
+
+// OpenWeather API key (required for OpenWeather radar)...
+// You can set it here or in a dashboard token named "OpenWeatherAPIKey"...
+if (typeof openWeatherAPIKey === 'undefined') { let openWeatherAPIKey = ""; };
+
+// Xweather API credentials (required for Xweather radar)...
+// You can set them here or in dashboard tokens named "XweatherAPIID" and "XweatherAPIKey"...
+if (typeof xweatherAPIID === 'undefined') { let xweatherAPIID = ""; };
+if (typeof xweatherAPIKey === 'undefined') { let xweatherAPIKey = ""; };
 
 // Default opacity for weather layers...
 if (typeof weatherOpacity === 'undefined') { const weatherOpacity = 0.35; };
@@ -357,11 +372,36 @@ if (groupPathFilter == "") {
 }
 // Capture the current path filter to reset the form field if the user completely clears it out...
 const initialGroupPathFilter = groupPathFilter;
-// console.debug("dashboardGroupPathToken", dashboardGroupPathToken);
 // Capture our overlay defaults if defined as tokens...
 let dashboardShowWeatherToken = document.getElementById("dashboardShowWeatherToken").innerText.toLowerCase();
-if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexrad") {
+// if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexrad" || dashboardShowWeatherToken == "openweather" || dashboardShowWeatherToken == "xweather") {
+if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexrad" || dashboardShowWeatherToken == "xweather" || dashboardShowWeatherToken == "true" || dashboardShowWeatherToken == "yes") {
+	// If the token value is "true" or "yes" then default to "global"...
+	if (dashboardShowWeatherToken == "true" || dashboardShowWeatherToken == "yes") {
+		dashboardShowWeatherToken = "global";
+	}
 	showWeatherDefault = dashboardShowWeatherToken;
+}
+let openWeatherAPIKeyTokenEl = document.getElementById("openWeatherAPIKeyToken");
+if (openWeatherAPIKeyTokenEl) {
+	let owKeyVal = openWeatherAPIKeyTokenEl.innerText;
+	if (owKeyVal !== "##OpenWeatherAPIKey##" && owKeyVal.trim() !== "") {
+		openWeatherAPIKey = owKeyVal.trim();
+	}
+}
+let xweatherAPIIDTokenEl = document.getElementById("xweatherAPIIDToken");
+if (xweatherAPIIDTokenEl) {
+	let xwIDVal = xweatherAPIIDTokenEl.innerText;
+	if (xwIDVal !== "##XweatherAPIID##" && xwIDVal.trim() !== "") {
+		xweatherAPIID = xwIDVal.trim();
+	}
+}
+let xweatherAPIKeyTokenEl = document.getElementById("xweatherAPIKeyToken");
+if (xweatherAPIKeyTokenEl) {
+	let xwKeyVal = xweatherAPIKeyTokenEl.innerText;
+	if (xwKeyVal !== "##XweatherAPIKey##" && xwKeyVal.trim() !== "") {
+		xweatherAPIKey = xwKeyVal.trim();
+	}
 }
 let dashboardAddlOverlayToken = document.getElementById("dashboardAddlOverlayToken").innerText.toLowerCase();
 if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
@@ -725,6 +765,18 @@ if (showWeatherDefault == "global") {
 } else if (showWeatherDefault == "nexrad") {
 	_dom.weather.checked = true;
 	_dom.weatherType.value = "nexrad-n0q-900913";
+} else if (showWeatherDefault == "openweather") {
+	_dom.weather.checked = true;
+	_dom.weatherType.value = "openweather";
+} else if (showWeatherDefault == "xweather") {
+	_dom.weather.checked = true;
+	_dom.weatherType.value = "xweather";
+}
+
+const xweatherOption = _dom.weatherType.querySelector('option[value="xweather"]');
+if (xweatherOption && (!xweatherAPIID || !xweatherAPIKey)) {
+	xweatherOption.disabled = true;
+	xweatherOption.textContent += " (API key required)";
 }
 
 if (additionalOverlayOption == "wildfires") {
@@ -3225,29 +3277,37 @@ function enableWeather() {
 	}
 }
 
-// Initialize the RainViewer API...
+// Initialize weather data and start refresh interval...
 async function initWeather() {
-	try {
-		const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-		if (!response.ok) {
-			throw new Error(`RainViewer API error: ${response.status} ${response.statusText}`);
+	const mapType = document.getElementById("weatherType").value;
+
+	// Only fetch RainViewer data when using the global radar option...
+	if (mapType === "radar") {
+		try {
+			const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+			if (!response.ok) {
+				throw new Error(`RainViewer API error: ${response.status} ${response.statusText}`);
+			}
+			rvAPIData = await response.json();
+		} catch (error) {
+			console.error("Failed to fetch RainViewer weather data:", error);
 		}
-		// Store the API response for re-use purposes in memory...
-		rvAPIData = await response.json();
-		addWeatherLayer();
-	} catch (error) {
-		console.error("Failed to fetch RainViewer weather data:", error);
 	}
+
+	addWeatherLayer();
 
 	// Refresh the weather data at regular intervals (using the 'weatherRefreshMinutes' variable set near the top of this script)...
 	weatherRefresher = setInterval(async function() {
-		try {
-			const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-			if (response.ok) {
-				rvAPIData = await response.json();
+		const currentType = document.getElementById("weatherType").value;
+		if (currentType === "radar") {
+			try {
+				const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+				if (response.ok) {
+					rvAPIData = await response.json();
+				}
+			} catch (error) {
+				console.error("Failed to refresh weather data:", error);
 			}
-		} catch (error) {
-			console.error("Failed to refresh weather data:", error);
 		}
 		addWeatherLayer();
 		console.log("Weather maps refreshed.");
@@ -3323,25 +3383,43 @@ async function addWeatherLayer() {
 				// Attach the weather layer to our maps widget...
 				map.overlayMapTypes.insertAt(0, myMapType);
 
-			// Show OpenWeather layers if appropriate...
-			} else if (mapType != "" && openWeatherMapsAPIKey.length >= 32) {
-				// Remove any previous overlay to ensure we don't keep stacking layers...
+			// Show OpenWeather radar if appropriate...
+			} else if (mapType === "openweather") {
 				map.overlayMapTypes.clear();
 
-				// Create the Google Maps layer...
-				let myMapType = new google.maps.ImageMapType({
-					getTileUrl: function(coord, zoom) {
-						return "https://tile.openweathermap.org/map/" + mapType + "/" + zoom + "/" + coord.x + "/" + coord.y + ".png?appid=" + openWeatherMapsAPIKey;
-					},
-					tileSize: new google.maps.Size(256, 256),
-					maxZoom: 11,
-					minZoom: 0,
-					opacity: weatherOpacity,
-					name: mapType
-				});
+				if (!openWeatherAPIKey) {
+					console.error("OpenWeather radar requires an API key. Set it via the 'OpenWeatherAPIKey' dashboard token or the 'openWeatherAPIKey' variable.");
+				} else {
+					let myMapType = new google.maps.ImageMapType({
+						getTileUrl: function(tile, zoom) {
+							return "https://tile.openweathermap.org/map/precipitation_new/" + zoom + "/" + tile.x + "/" + tile.y + ".png?appid=" + openWeatherAPIKey;
+						},
+						tileSize: new google.maps.Size(256, 256),
+						opacity: weatherOpacity,
+						name: "openweather",
+						isPng: true
+					});
+					map.overlayMapTypes.insertAt(0, myMapType);
+				}
 
-				// Attach the weather layer to our maps widget...
-				map.overlayMapTypes.insertAt(0, myMapType);
+			// Show Xweather radar if appropriate...
+			} else if (mapType === "xweather") {
+				map.overlayMapTypes.clear();
+
+				if (!xweatherAPIID || !xweatherAPIKey) {
+					console.error("Xweather radar requires an API ID and secret. Set them via the 'XweatherAPIID' and 'XweatherAPIKey' dashboard tokens or the 'xweatherAPIID' and 'xweatherAPIKey' variables.");
+				} else {
+					let myMapType = new google.maps.ImageMapType({
+						getTileUrl: function(tile, zoom) {
+							return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar,lightning-strikes-15m-icons/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
+						},
+						tileSize: new google.maps.Size(256, 256),
+						opacity: weatherOpacity,
+						name: "xweather",
+						isPng: true
+					});
+					map.overlayMapTypes.insertAt(0, myMapType);
+				}
 			}
 		} catch (error) {
 			console.error('Error adding weather layer:', error);
