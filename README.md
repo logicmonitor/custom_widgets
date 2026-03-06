@@ -1,4 +1,4 @@
-<img width="1726" height="1035" alt="image" src="https://github.com/user-attachments/assets/bd1e3cd6-a3d9-4134-a4d9-ea495ec61c64" />### A collection of useful custom-scripted LogicMonitor dashboard widgets.
+### A collection of useful custom-scripted LogicMonitor dashboard widgets.
 
 **NOTE:** While this work is provided for use by the LogicMonitor community, they were created as personal projects and are *not* officially supported by LogicMonitor.
 
@@ -84,6 +84,7 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapStyle**: Allows one of the following available map style options: "silver", "standard", "dark", "aubergine", "satellite", "satellite-light", or "silverblue". Default is "silverblue".
 - **MapShowRoadLabels**: If "true" then road labels will be shown on the map. Default is "false".
 - **apiBearerToken**, or **apiID** + **apiKey**: Optional LogicMonitor API bearer token or API ID & key to use for the widget (primarily useful if embedding the widget outside of an LM dashboard). If not specified then the widget will use integrated portal authentication.
+- **XweatherAPIID** & **XweatherAPIKey**: Optional Xweather API ID & key to enable showing Xweather weather data (requires API ID & key available from [https://www.xweather.com/weather-api](https://www.xweather.com/weather-api). Xweather is offers a great deal of optional details such as lightning strikes, hail, wind gusts, etc. Many personal weather stations such as Ecowitt provide free Xweather API access if you feed them your weather data.
 
 ## Showing Connections between Locations
 
