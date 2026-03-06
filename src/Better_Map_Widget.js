@@ -9,7 +9,7 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.41 CDN";
+const version = "3.42 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
@@ -3411,7 +3411,8 @@ async function addWeatherLayer() {
 				} else {
 					let myMapType = new google.maps.ImageMapType({
 						getTileUrl: function(tile, zoom) {
-							return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar,lightning-strikes-15m-icons/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
+							// return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar,lightning-strikes-15m-icons/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
+							return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
 						},
 						tileSize: new google.maps.Size(256, 256),
 						opacity: weatherOpacity,
