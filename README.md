@@ -11,7 +11,7 @@
 ---
 # Better Map Widget
 
-![Image](Sample%20Dashboards/Screenshots/Better_Map_Widget.png?raw=true)
+
 [Download sample dashboard](Sample%20Dashboards/Better_Map_Widget.json) / [Widget source code](src/Better_Map_Widget-CDN.html)
 
 A fully custom-made widget to overcome some limitations of LogicMonitor's core Map widget. The ideas behind it are:
