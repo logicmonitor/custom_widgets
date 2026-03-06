@@ -259,12 +259,12 @@ if (typeof useGeodesicLines === 'undefined') { const useGeodesicLines = false; }
 
 // OpenWeather API key (required for OpenWeather radar)...
 // You can set it here or in a dashboard token named "OpenWeatherAPIKey"...
-if (typeof openWeatherAPIKey === 'undefined') { let openWeatherAPIKey = ""; };
+if (typeof openWeatherAPIKey === 'undefined') { openWeatherAPIKey = ""; };
 
 // Xweather API credentials (required for Xweather radar)...
 // You can set them here or in dashboard tokens named "XweatherAPIID" and "XweatherAPIKey"...
-if (typeof xweatherAPIID === 'undefined') { let xweatherAPIID = ""; };
-if (typeof xweatherAPIKey === 'undefined') { let xweatherAPIKey = ""; };
+if (typeof xweatherAPIID === 'undefined') { xweatherAPIID = ""; };
+if (typeof xweatherAPIKey === 'undefined') { xweatherAPIKey = ""; };
 
 // Default opacity for weather layers...
 if (typeof weatherOpacity === 'undefined') { const weatherOpacity = 0.35; };
@@ -3982,8 +3982,8 @@ async function addWeatherLayer() {
 
 				parent.overlayInfoWindow.setContent(`
 					<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;width:250px;">
-						<div style="font-size: 1.2em;">
-							<div style="font-weight:700;">Earthquake: Magnitude ${event.feature.getProperty("mag")}</div>
+						<div>
+							<div style="font-weight:700;font-size: 1.2em;">Earthquake: Magnitude ${event.feature.getProperty("mag")}</div>
 							${event.feature.getProperty("place")}
 						</div>
 						<div style="margin: 12px 0; display: flex; flex-direction: column; gap: 12px; min-width: 220px;">
