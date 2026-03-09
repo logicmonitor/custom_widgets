@@ -44,8 +44,15 @@ There are two different versions of the widget's source code:
 ## Initial Configuration
 
 1. Create a new Text widget on your dashboard.
-2. On the Text widget's edit dialog, click the "Source" button, paste in the HTML source code for the script, then save the widget.
+2. On the Text widget's edit dialog, click the "Code View" button (looks like "< >"), paste in the HTML source code of either [Better_Map_Widget-CDN.html](src/Better_Map_Widget-CDN.html) (recommended) or [Better_Map_Widget-Full.html](src/Better_Map_Widget-Full.html), then save the widget.
 3. Add optional dashboard tokens to modify defaults for the widget as desired. A list of token options is provided below. These can also be hard-coded into the widget in a section at the top of the source code.
+
+... alternatively...
+1. [Download sample dashboard](Sample%20Dashboards/Better_Map_Widget.json) to your workstation.
+2. In LogicMonitor go to the Dashboards section.
+3. Click the "+" button then choose "Import from file".
+4. Upload the sample dashboard you downloaded in step 1.
+5. Modify any of the defaults to suite your needs. You can then also easily close the map widget to any other dashboard as needed.
 
 ## Usage
 
