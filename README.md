@@ -38,7 +38,7 @@ There are two different versions of the widget's source code:
 ## Prerequisites
 
 - Groups, resources, or services with valid addresses set in the usual 'location' property
-- The 'Allow Scripts in Dashboard Text Widget' setting under **Settings / Security** much be enabled.
+- The 'Allow Scripts in Dashboard Text Widget' setting under **Settings / Security** must be enabled.
 - If you want to show connections between locations and their status, load the [Set Better Map Widget Connections](LogicModules/Set_Better_Map_Widget_Connections.json) PropertySource into your portal
 
 ## Initial Configuration
