@@ -50,10 +50,14 @@
 -->
 
 <script>
-	const version = "3.42";
+	const version = "3.43";
 	const releaseNotes = `
 		<h2>Release Notes</h2>
 		<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+		<h3>Version 3.43</h3>
+		<ul>
+			<li>A number of small fixes & improvements.</li>
+		</ul>
 		<h3>Version 3.41</h3>
 		<ul>
 			<li>Added the ability to show Xweather Global Radar (requires API ID & key available from https://www.xweather.com/weather-api). Xweather is offers a great deal of optional details such as lightning strikes, hail, wind gusts, etc. Many personal weather stations such as Ecowitt provide free Xweather API access if you feed them your weather data.</li>
@@ -1662,6 +1666,111 @@
 		polylines = [];
 	}
 
+	// Clear all overlay data, listeners, and InfoWindows before loading a new overlay
+	function clearOverlayState() {
+		map.data.forEach(function(feature) {
+			map.data.remove(feature);
+		});
+		if (typeof parent.overlayInfoWindowListenerHandle == "object") {
+			google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
+		}
+		if (parent.overlayInfoWindow) {
+			parent.overlayInfoWindow.close();
+			parent.overlayInfoWindow = null;
+		}
+		parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
+		if (parent.mmiContourLines) {
+			parent.mmiContourLines.forEach(line => line.setMap(null));
+			parent.mmiContourLines = [];
+		}
+	}
+
+	// Close all open InfoWindows (cluster, marker, and overlay). Pass { skipMarker: true } to leave marker open.
+	function closeAllInfoWindows(opts) {
+		if (clusterInfoWindow) clusterInfoWindow.close();
+		if (!opts?.skipMarker && markerInfoWindow) {
+			markerInfoWindow.close();
+			markerInfoWindow = null;
+		}
+		if (parent.overlayInfoWindow) parent.overlayInfoWindow.close();
+	}
+
+	// Find a named property from an item's property arrays in priority order
+	function findItemProperty(item, propName, sources) {
+		if (!sources) sources = ['customProperties', 'inheritedProperties', 'autoProperties'];
+		for (const source of sources) {
+			const props = item[source];
+			if (!props) continue;
+			const found = props.find(p => p.name === propName);
+			if (found) return found;
+		}
+		return null;
+	}
+
+	// Find the location address and optional lat/lng from an item's properties
+	function findLocationFromItem(item, locationProp) {
+		const propSources = locationProp.match(/^auto\./)
+			? ['autoProperties']
+			: locationProp.match(/^system\./)
+				? ['systemProperties']
+				: ['customProperties', 'inheritedProperties'];
+
+		let address = "";
+		let alreadyGeocoded = false;
+		let latProp = null;
+		let lngProp = null;
+
+		for (const source of propSources) {
+			try {
+				const props = item[source];
+				if (!props) continue;
+				const locationLower = locationProp.toLowerCase();
+				const found = props.find(p => p.name.toLowerCase() === locationLower);
+				if (!found) continue;
+				address = found.value;
+				if (!ignoreLatLongProps) {
+					latProp = props.find(p => p.name.toLowerCase() === "latitude");
+					lngProp = props.find(p => p.name.toLowerCase() === "longitude");
+					if (latProp && lngProp) {
+						let latVal = Number(latProp.value);
+						let lngVal = Number(lngProp.value);
+						if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
+							alreadyGeocoded = true;
+						}
+					}
+				}
+				break;
+			} catch(e) { continue; }
+		}
+		return { address, alreadyGeocoded, latProp, lngProp };
+	}
+
+	// Generate earthquake marker icon SVG with given opacity and color
+	function buildEarthquakeIconUrl(iconOpacity, alertColor) {
+		return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' data-tooltip='Earthquake' viewBox='0 0 302.836 302.836'%3E%3Cpath d='M271 256a15 15 0 0 1-15 15 15 15 0 0 1-15-15 15 15 0 0 1 15-15 15 15 0 0 1 15 15z' style='opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};stroke:none;stroke-width:8;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 139.29c-64.44 0-116.71 52.27-116.71 116.71S191.56 372.71 256 372.71 372.71 320.44 372.71 256 320.44 139.29 256 139.29zm0 3c62.818 0 113.71 50.892 113.71 113.71 0 62.818-50.892 113.71-113.71 113.71-62.818 0-113.71-50.892-113.71-113.71 0-62.818 50.892-113.71 113.71-113.71z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:.55474453;fill-rule:nonzero;stroke:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 214.266c-22.996 0-41.734 18.738-41.734 41.734 0 22.996 18.738 41.734 41.734 41.734 22.996 0 41.734-18.738 41.734-41.734 0-22.996-18.738-41.734-41.734-41.734zm0 9c18.132 0 32.734 14.602 32.734 32.734S274.132 288.734 256 288.734 223.266 274.132 223.266 256s14.602-32.734 32.734-32.734z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:${alertColor};stroke-width:3;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 189.678c-36.594 0-66.322 29.728-66.322 66.322s29.728 66.322 66.322 66.322 66.322-29.728 66.322-66.322-29.728-66.322-66.322-66.322zm0 6c33.35 0 60.322 26.971 60.322 60.322 0 33.35-26.971 60.322-60.322 60.322-33.35 0-60.322-26.971-60.322-60.322 0-33.35 26.971-60.322 60.322-60.322z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:none;stroke-width:6;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 166.164c-49.591 0-89.836 40.245-89.836 89.836S206.41 345.836 256 345.836 345.836 305.59 345.836 256 305.59 166.164 256 166.164zm0 4c47.43 0 85.836 38.406 85.836 85.836S303.43 341.836 256 341.836 170.164 303.43 170.164 256 208.57 170.164 256 170.164z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 109.582c-80.853 0-146.418 65.565-146.418 146.418 0 80.853 65.565 146.418 146.418 146.418 80.853 0 146.418-65.565 146.418-146.418 0-80.853-65.565-146.418-146.418-146.418zm0 2c79.772 0 144.418 64.646 144.418 144.418S335.772 400.418 256 400.418 111.582 335.772 111.582 256 176.228 111.582 256 111.582z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:.35766422;fill-rule:nonzero;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3C/svg%3E`;
+	}
+
+	// Helper to create a styled map control button
+	function createMapControlButton({ id, title, innerHTML, size = "40px", bgColor = "rgb(255 255 255 / 0%)", margin = "", onClick }) {
+		const btn = document.createElement("button");
+		btn.id = id;
+		btn.style.backgroundColor = bgColor;
+		btn.style.border = "0";
+		btn.style.borderRadius = "3px";
+		btn.style.cursor = "pointer";
+		btn.style.fontSize = "x-large";
+		btn.style.textAlign = "center";
+		btn.style.height = size;
+		btn.style.width = size;
+		btn.style.verticalAlign = "middle";
+		if (margin) btn.style.margin = margin;
+		btn.title = title;
+		btn.innerHTML = innerHTML;
+		btn.type = "button";
+		if (onClick) btn.addEventListener("click", onClick);
+		return btn;
+	}
+
 	// Update polyline endpoints to follow clusters/markers
 	function updatePolylineEndpoints() {
 		if (!polylines.length) return;
@@ -1771,7 +1880,7 @@
 	let fullRefresh = true;
 
 	// For holding our connection status data...
-	let lineData = [];
+	let lineData = {};
 
 	// Pre-populate the group path filter field...
 	_dom.customGroupFilterField.value = groupPathFilter;
@@ -1820,6 +1929,8 @@
 			// All checks passed - initialize the map...
 			await initMap();
 			mapInitialized = true;
+			if (typeof _visibilityObserver !== 'undefined') _visibilityObserver.disconnect();
+			if (typeof _focusHandler !== 'undefined') window.removeEventListener('focus', _focusHandler);
 			console.log('Map initialized successfully');
 			
 		} catch (error) {
@@ -1847,9 +1958,10 @@
 	}
 	
 	// Also handle visibility changes (widget may be in a hidden tab initially)...
+	let _visibilityObserver;
 	const mapContainer = document.getElementById('googleMap');
 	if (mapContainer && typeof IntersectionObserver !== 'undefined') {
-		const visibilityObserver = new IntersectionObserver((entries) => {
+		_visibilityObserver = new IntersectionObserver((entries) => {
 			entries.forEach(entry => {
 				if (entry.isIntersecting && !mapInitialized) {
 					console.log('Map container became visible, attempting initialization...');
@@ -1857,16 +1969,17 @@
 				}
 			});
 		}, { threshold: 0.1 });
-		visibilityObserver.observe(mapContainer);
+		_visibilityObserver.observe(mapContainer);
 	}
 	
 	// Fallback: Also try when window is focused (handles tab switching)...
-	window.addEventListener('focus', () => {
+	const _focusHandler = () => {
 		if (!mapInitialized) {
 			console.log('Window focused, checking map initialization...');
 			setTimeout(ensureMapInitialized, 100);
 		}
-	});
+	};
+	window.addEventListener('focus', _focusHandler);
 
 
 	// ----- FUNCTIONS
@@ -2355,53 +2468,21 @@
 	}
 
 	function createWeatherRefreshControl(map) {
-		const weatherControls = document.createElement("button");
-
-		weatherControls.id = "weatherRefreshButton";
-		weatherControls.style.backgroundColor = "rgb(255 255 255 / 0%)";
-		weatherControls.style.border = "0";
-		weatherControls.style.borderRadius = "3px";
-		// weatherControls.style.boxShadow = "0 1px 4px rgba(0,0,0,0.3)";
-		// weatherControls.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
-		weatherControls.style.cursor = "pointer";
-		weatherControls.style.fontSize = "x-large";
-		weatherControls.style.textAlign = "center";
-		// weatherControls.style.margin = "10px";
-		weatherControls.style.height = "40px";
-		weatherControls.style.width = "40px";
-		weatherControls.style.verticalAlign = "middle";
-		// weatherControls.innerHTML = 'Toggle Controls';
-		weatherControls.title = "Force refresh the map data";
-		weatherControls.innerHTML = '<svg viewBox="-0.5 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M7.1998 10.8799L3.9998 14.0799L0.799805 10.8799" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M17.72 6.77007C16.6086 5.63347 15.1839 4.85371 13.6275 4.53032C12.0711 4.20693 10.4536 4.35459 8.98145 4.95439C7.5093 5.5542 6.24924 6.57899 5.362 7.898C4.47476 9.21701 4.0006 10.7703 4 12.3599V14.0901" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M16.7998 13.96L19.9998 10.75L23.1998 13.96" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M6.28027 18.0801C7.39163 19.2167 8.8164 19.9962 10.3728 20.3196C11.9292 20.643 13.5467 20.4956 15.0188 19.8958C16.491 19.2959 17.751 18.2712 18.6383 16.9521C19.5255 15.6331 19.9997 14.0796 20.0003 12.49V10.76" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-		weatherControls.type = "button";
-
-		weatherControls.addEventListener("click", refreshGroupData);
-
-		return weatherControls;
+		return createMapControlButton({
+			id: "weatherRefreshButton",
+			title: "Force refresh the map data",
+			innerHTML: '<svg viewBox="-0.5 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M7.1998 10.8799L3.9998 14.0799L0.799805 10.8799" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M17.72 6.77007C16.6086 5.63347 15.1839 4.85371 13.6275 4.53032C12.0711 4.20693 10.4536 4.35459 8.98145 4.95439C7.5093 5.5542 6.24924 6.57899 5.362 7.898C4.47476 9.21701 4.0006 10.7703 4 12.3599V14.0901" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M16.7998 13.96L19.9998 10.75L23.1998 13.96" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M6.28027 18.0801C7.39163 19.2167 8.8164 19.9962 10.3728 20.3196C11.9292 20.643 13.5467 20.4956 15.0188 19.8958C16.491 19.2959 17.751 18.2712 18.6383 16.9521C19.5255 15.6331 19.9997 14.0796 20.0003 12.49V10.76" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+			onClick: refreshGroupData,
+		});
 	}
 
 	function createZoomResetControl(map) {
-		const weatherControls = document.createElement("button");
-
-		weatherControls.id = "weatherZoomResetButton";
-		weatherControls.style.backgroundColor = "rgb(255 255 255 / 0%)";
-		weatherControls.style.border = "0";
-		weatherControls.style.borderRadius = "3px";
-		weatherControls.style.cursor = "pointer";
-		weatherControls.style.fontSize = "x-large";
-		weatherControls.style.textAlign = "center";
-		// weatherControls.style.margin = "10px";
-		weatherControls.style.height = "40px";
-		weatherControls.style.width = "40px";
-		weatherControls.style.verticalAlign = "middle";
-		// weatherControls.innerHTML = 'Toggle Controls';
-		weatherControls.title = "Reset map zoom";
-		weatherControls.innerHTML = '<svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" width="25px" height="25px" viewBox="0 0 400 400.00001" id="svg2" version="1.1" inkscape:version="0.91 r13725" sodipodi:docname="minimize.svg"> <defs id="defs4" /> <g transform="translate(0,-652.36216)"> <path style="opacity:1;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" d="M 17.6035,652.36212 0,670.05352 l 108.5469,109.0918 -84.0235,0 0,25.0195 126.5235,0 0,-127.1563 -24.8965,0 0,84.4434 -108.5469,-109.0898 z m 364.793,0 -108.5469,109.0898 0,-84.4434 -24.8965,0 0,127.1563 126.5235,0 0,-25.0195 -84.0235,0 L 400,670.05352 382.3965,652.36212 Z M 24.5234,900.5593 l 0,25.0196 84.0235,0 L 0,1034.6708 l 17.6035,17.6914 108.5469,-109.09 0,84.4435 24.8965,0 0,-127.1564 -126.5235,0 z m 224.4297,0 0,127.1564 24.8965,0 0,-84.4435 108.5469,109.09 L 400,1034.6708 291.4531,925.5789 l 84.0235,0 0,-25.0196 -126.5235,0 z" id="minimize"> <title id="title23704">Reset map zoom</title></path></g></svg>';
-		weatherControls.type = "button";
-
-		weatherControls.addEventListener("click", resetZoom);
-
-		return weatherControls;
+		return createMapControlButton({
+			id: "weatherZoomResetButton",
+			title: "Reset map zoom",
+			innerHTML: '<svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" width="25px" height="25px" viewBox="0 0 400 400.00001" id="svg2" version="1.1" inkscape:version="0.91 r13725" sodipodi:docname="minimize.svg"> <defs id="defs4" /> <g transform="translate(0,-652.36216)"> <path style="opacity:1;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" d="M 17.6035,652.36212 0,670.05352 l 108.5469,109.0918 -84.0235,0 0,25.0195 126.5235,0 0,-127.1563 -24.8965,0 0,84.4434 -108.5469,-109.0898 z m 364.793,0 -108.5469,109.0898 0,-84.4434 -24.8965,0 0,127.1563 126.5235,0 0,-25.0195 -84.0235,0 L 400,670.05352 382.3965,652.36212 Z M 24.5234,900.5593 l 0,25.0196 84.0235,0 L 0,1034.6708 l 17.6035,17.6914 108.5469,-109.09 0,84.4435 24.8965,0 0,-127.1564 -126.5235,0 z m 224.4297,0 0,127.1564 24.8965,0 0,-84.4435 108.5469,109.09 L 400,1034.6708 291.4531,925.5789 l 84.0235,0 0,-25.0196 -126.5235,0 z" id="minimize"> <title id="title23704">Reset map zoom</title></path></g></svg>',
+			onClick: resetZoom,
+		});
 	}
 
 	function createSidebarToggleControl(map) {
@@ -2494,100 +2575,43 @@
 	}
 
 	function createRotateRightControl(map) {
-		const weatherControls = document.createElement("button");
-
-		weatherControls.id = "mapRotateRightButton";
-		weatherControls.style.backgroundColor = "rgb(255 255 255 / 0%)";
-		weatherControls.style.border = "0";
-		weatherControls.style.borderRadius = "3px";
-		weatherControls.style.cursor = "pointer";
-		weatherControls.style.fontSize = "x-large";
-		weatherControls.style.textAlign = "center";
-		// weatherControls.style.margin = "10px";
-		weatherControls.style.height = "30px";
-		weatherControls.style.width = "30px";
-		weatherControls.style.verticalAlign = "middle";
-		// weatherControls.innerHTML = 'Toggle Controls';
-		weatherControls.title = "Rotate Map Right";
-		weatherControls.innerHTML = '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"> <path id="Path" fill="#000000" stroke="none" d="M 30.322001 21.322001 C 30.228001 21.277 30.118999 21.250999 30.003 21.250999 C 29.705 21.250999 29.448 21.423 29.323999 21.673 L 29.322001 21.677 C 27.145 26.191999 22.604 29.250999 17.348 29.250999 C 10.03 29.250999 4.097 23.318001 4.097 16 C 4.097 8.681999 10.029 2.75 17.347 2.749001 L 17.347 2.749001 C 17.358999 2.749001 17.374001 2.749001 17.389 2.749001 C 21.684999 2.749001 25.499001 4.813 27.893 8.003 L 27.917 8.036999 L 22.274 8.036999 C 21.860001 8.036999 21.524 8.373001 21.524 8.786999 C 21.524 9.201 21.860001 9.536999 22.274 9.536999 L 22.274 9.536999 L 29.346001 9.536999 C 29.365 9.536999 29.381001 9.527 29.4 9.526001 C 29.507 9.512001 29.603001 9.483 29.693001 9.442001 L 29.687 9.445 C 29.702 9.437 29.718 9.437 29.733 9.429001 C 29.754999 9.410999 29.775 9.393 29.792999 9.374001 L 29.792999 9.374001 C 29.837 9.341 29.875999 9.306 29.910999 9.265999 L 29.912001 9.264999 C 29.938999 9.232 29.965 9.195 29.986 9.156 L 29.988001 9.152 C 30.038 9.071999 30.07 8.977001 30.079 8.875 L 30.079 8.873001 C 30.086 8.848999 30.091999 8.82 30.096001 8.790001 L 30.096001 8.785999 L 30.096001 1.715 C 30.096001 1.301001 29.76 0.965 29.346001 0.965 C 28.931999 0.965 28.596001 1.301001 28.596001 1.715 L 28.596001 1.715 L 28.596001 6.485001 C 25.898001 3.275 21.881001 1.247999 17.391001 1.247999 C 17.375 1.247999 17.358999 1.247999 17.344 1.247999 L 17.346001 1.247999 C 9.201 1.25 2.6 7.853001 2.6 15.998001 C 2.6 24.143999 9.204 30.747999 17.35 30.747999 C 23.198999 30.747999 28.253 27.344 30.638 22.408001 L 30.676001 22.32 C 30.722 22.226 30.747999 22.115 30.747999 21.997999 C 30.747999 21.701 30.575001 21.444 30.325001 21.322001 L 30.320999 21.32 Z"/> </svg>';
-		// weatherControls.innerHTML = '<svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"> <g id="Group-copy"> <path id="Path" fill="#000000" stroke="#000000" stroke-width="2" d="M 31.638996 17.068626 C 31.183994 17.524628 31.183994 18.265625 31.638996 18.719627 L 35.817997 22.898624 C 26.449997 22.942627 17.635994 24.545628 10.962997 27.445625 C 3.893997 30.519627 -7e-06 34.722626 -7e-06 39.284626 C -7e-06 48.483627 15.904995 55.684624 36.204998 55.684624 C 56.506996 55.684624 72.410004 48.480625 72.410004 39.284626 C 72.410004 38.640625 71.886002 38.117626 71.241997 38.117626 C 70.598999 38.117626 70.073997 38.640625 70.073997 39.284626 C 70.073997 46.909626 54.562996 53.348625 36.204998 53.348625 C 17.847996 53.348625 2.335999 46.907623 2.335999 39.284626 C 2.335999 35.758625 5.821 32.228626 11.895996 29.586624 C 18.275993 26.810627 26.749996 25.273624 35.798996 25.233627 L 31.638996 29.389626 C 31.183994 29.843624 31.183994 30.584625 31.638996 31.040627 C 32.094997 31.494625 32.834995 31.494625 33.289997 31.040627 L 40.278996 24.056625 L 33.289997 17.067627 C 32.834995 16.610626 32.094997 16.610626 31.638996 17.068626 Z"/> </g> </svg>';
-		weatherControls.type = "button";
-
-		weatherControls.addEventListener("click", function() {adjustMap("rotate", -5);});
-
-		return weatherControls;
+		return createMapControlButton({
+			id: "mapRotateRightButton",
+			title: "Rotate Map Right",
+			innerHTML: '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"> <path id="Path" fill="#000000" stroke="none" d="M 30.322001 21.322001 C 30.228001 21.277 30.118999 21.250999 30.003 21.250999 C 29.705 21.250999 29.448 21.423 29.323999 21.673 L 29.322001 21.677 C 27.145 26.191999 22.604 29.250999 17.348 29.250999 C 10.03 29.250999 4.097 23.318001 4.097 16 C 4.097 8.681999 10.029 2.75 17.347 2.749001 L 17.347 2.749001 C 17.358999 2.749001 17.374001 2.749001 17.389 2.749001 C 21.684999 2.749001 25.499001 4.813 27.893 8.003 L 27.917 8.036999 L 22.274 8.036999 C 21.860001 8.036999 21.524 8.373001 21.524 8.786999 C 21.524 9.201 21.860001 9.536999 22.274 9.536999 L 22.274 9.536999 L 29.346001 9.536999 C 29.365 9.536999 29.381001 9.527 29.4 9.526001 C 29.507 9.512001 29.603001 9.483 29.693001 9.442001 L 29.687 9.445 C 29.702 9.437 29.718 9.437 29.733 9.429001 C 29.754999 9.410999 29.775 9.393 29.792999 9.374001 L 29.792999 9.374001 C 29.837 9.341 29.875999 9.306 29.910999 9.265999 L 29.912001 9.264999 C 29.938999 9.232 29.965 9.195 29.986 9.156 L 29.988001 9.152 C 30.038 9.071999 30.07 8.977001 30.079 8.875 L 30.079 8.873001 C 30.086 8.848999 30.091999 8.82 30.096001 8.790001 L 30.096001 8.785999 L 30.096001 1.715 C 30.096001 1.301001 29.76 0.965 29.346001 0.965 C 28.931999 0.965 28.596001 1.301001 28.596001 1.715 L 28.596001 1.715 L 28.596001 6.485001 C 25.898001 3.275 21.881001 1.247999 17.391001 1.247999 C 17.375 1.247999 17.358999 1.247999 17.344 1.247999 L 17.346001 1.247999 C 9.201 1.25 2.6 7.853001 2.6 15.998001 C 2.6 24.143999 9.204 30.747999 17.35 30.747999 C 23.198999 30.747999 28.253 27.344 30.638 22.408001 L 30.676001 22.32 C 30.722 22.226 30.747999 22.115 30.747999 21.997999 C 30.747999 21.701 30.575001 21.444 30.325001 21.322001 L 30.320999 21.32 Z"/> </svg>',
+			size: "30px",
+			onClick: function() { adjustMap("rotate", -5); },
+		});
 	}
 
 	function createRotateLeftControl(map) {
-		const weatherControls = document.createElement("button");
-
-		weatherControls.id = "mapRotateLeftButton";
-		weatherControls.style.backgroundColor = "rgb(255 255 255 / 0%)";
-		weatherControls.style.border = "0";
-		weatherControls.style.borderRadius = "3px";
-		weatherControls.style.cursor = "pointer";
-		weatherControls.style.fontSize = "x-large";
-		weatherControls.style.textAlign = "center";
-		// weatherControls.style.margin = "10px";
-		weatherControls.style.height = "30px";
-		weatherControls.style.width = "30px";
-		weatherControls.style.verticalAlign = "middle";
-		// weatherControls.innerHTML = 'Toggle Controls';
-		weatherControls.title = "Rotate Map Left";
-		weatherControls.innerHTML = '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"> <path id="Path" fill="#000000" stroke="none" d="M 16 1.25 C 15.987 1.25 15.971 1.25 15.956 1.25 C 11.466 1.25 7.448 3.276001 4.769 6.464001 L 4.751 6.486 L 4.751 1.716999 C 4.751 1.302999 4.415 0.966999 4.001 0.966999 C 3.587 0.966999 3.251 1.302999 3.251 1.716999 L 3.251 1.716999 L 3.251 8.788 C 3.255 8.818001 3.261 8.845001 3.268 8.869999 L 3.267 8.865 C 3.275 8.970001 3.307 9.067001 3.358 9.15 L 3.356 9.146999 C 3.381 9.193001 3.408 9.232 3.438 9.269001 L 3.437 9.268 C 3.471 9.306 3.508 9.34 3.548 9.369999 L 3.55 9.371 C 3.57 9.390999 3.59 9.41 3.612 9.428001 L 3.613 9.429001 C 3.628 9.438 3.645 9.438 3.661 9.445999 C 3.703 9.466999 3.751 9.485001 3.802 9.497 L 3.807 9.498001 C 3.847 9.511 3.894 9.521 3.942 9.526001 L 3.945 9.526001 C 3.964 9.527 3.981 9.536999 4.001 9.536999 L 11.072 9.536999 C 11.486 9.536999 11.822 9.201 11.822 8.786999 C 11.822 8.373001 11.486 8.036999 11.072 8.036999 L 11.072 8.036999 L 5.429 8.036999 C 7.848 4.813 11.662 2.749001 15.958 2.749001 C 15.973 2.749001 15.988 2.749001 16.003 2.749001 L 16.000999 2.749001 C 23.318001 2.750999 29.247999 8.681999 29.247999 15.999001 C 29.247999 23.316 23.316 29.249001 15.998 29.249001 C 10.743 29.249001 6.203 26.190001 4.061 21.756001 L 4.027 21.677 C 3.903 21.423 3.647 21.250999 3.35 21.250999 C 2.936 21.250999 2.6 21.587 2.6 22.000999 C 2.6 22.117001 2.626 22.226999 2.674 22.325001 L 2.672 22.32 C 5.095 27.344999 10.15 30.750999 16.000999 30.750999 C 24.148001 30.750999 30.752001 24.146999 30.752001 16 C 30.752001 7.853001 24.148001 1.249001 16.002001 1.249001 L 16.002001 1.249001 Z"/> </svg>';
-		weatherControls.type = "button";
-
-		weatherControls.addEventListener("click", function() {adjustMap("rotate", 5);});
-
-		return weatherControls;
+		return createMapControlButton({
+			id: "mapRotateLeftButton",
+			title: "Rotate Map Left",
+			innerHTML: '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"> <path id="Path" fill="#000000" stroke="none" d="M 16 1.25 C 15.987 1.25 15.971 1.25 15.956 1.25 C 11.466 1.25 7.448 3.276001 4.769 6.464001 L 4.751 6.486 L 4.751 1.716999 C 4.751 1.302999 4.415 0.966999 4.001 0.966999 C 3.587 0.966999 3.251 1.302999 3.251 1.716999 L 3.251 1.716999 L 3.251 8.788 C 3.255 8.818001 3.261 8.845001 3.268 8.869999 L 3.267 8.865 C 3.275 8.970001 3.307 9.067001 3.358 9.15 L 3.356 9.146999 C 3.381 9.193001 3.408 9.232 3.438 9.269001 L 3.437 9.268 C 3.471 9.306 3.508 9.34 3.548 9.369999 L 3.55 9.371 C 3.57 9.390999 3.59 9.41 3.612 9.428001 L 3.613 9.429001 C 3.628 9.438 3.645 9.438 3.661 9.445999 C 3.703 9.466999 3.751 9.485001 3.802 9.497 L 3.807 9.498001 C 3.847 9.511 3.894 9.521 3.942 9.526001 L 3.945 9.526001 C 3.964 9.527 3.981 9.536999 4.001 9.536999 L 11.072 9.536999 C 11.486 9.536999 11.822 9.201 11.822 8.786999 C 11.822 8.373001 11.486 8.036999 11.072 8.036999 L 11.072 8.036999 L 5.429 8.036999 C 7.848 4.813 11.662 2.749001 15.958 2.749001 C 15.973 2.749001 15.988 2.749001 16.003 2.749001 L 16.000999 2.749001 C 23.318001 2.750999 29.247999 8.681999 29.247999 15.999001 C 29.247999 23.316 23.316 29.249001 15.998 29.249001 C 10.743 29.249001 6.203 26.190001 4.061 21.756001 L 4.027 21.677 C 3.903 21.423 3.647 21.250999 3.35 21.250999 C 2.936 21.250999 2.6 21.587 2.6 22.000999 C 2.6 22.117001 2.626 22.226999 2.674 22.325001 L 2.672 22.32 C 5.095 27.344999 10.15 30.750999 16.000999 30.750999 C 24.148001 30.750999 30.752001 24.146999 30.752001 16 C 30.752001 7.853001 24.148001 1.249001 16.002001 1.249001 L 16.002001 1.249001 Z"/> </svg>',
+			size: "30px",
+			onClick: function() { adjustMap("rotate", 5); },
+		});
 	}
 
 	function createRotateForwardControl(map) {
-		const weatherControls = document.createElement("button");
-
-		weatherControls.id = "mapRotateForwardButton";
-		weatherControls.style.backgroundColor = "rgb(255 255 255 / 0%)";
-		weatherControls.style.border = "0";
-		weatherControls.style.borderRadius = "3px";
-		weatherControls.style.cursor = "pointer";
-		weatherControls.style.fontSize = "x-large";
-		weatherControls.style.textAlign = "center";
-		// weatherControls.style.margin = "10px";
-		weatherControls.style.height = "30px";
-		weatherControls.style.width = "30px";
-		weatherControls.style.verticalAlign = "middle";
-		// weatherControls.innerHTML = 'Toggle Controls';
-		weatherControls.title = "Rotate Map Up";
-		weatherControls.innerHTML = '<svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"> <g id="Group"> <path id="Path" fill="#000000" stroke="#000000" stroke-width="2" d="M 55.341 31.229 C 54.884998 30.773998 54.144001 30.773998 53.689999 31.229 L 49.511002 35.408001 C 49.466999 26.040001 47.863998 17.225998 44.964001 10.553001 C 41.889999 3.484001 37.687 -0.410004 33.125 -0.410004 C 23.926001 -0.410004 16.725 15.494999 16.725 35.795002 C 16.725 56.097 23.929001 72 33.125 72 C 33.769001 72 34.292 71.475998 34.292 70.831993 C 34.292 70.188995 33.769001 69.663994 33.125 69.663994 C 25.5 69.663994 19.061001 54.153 19.061001 35.795002 C 19.061001 17.438 25.502001 1.926003 33.125 1.926003 C 36.651001 1.926003 40.181 5.411003 42.823002 11.486 C 45.598999 17.865997 47.136002 26.34 47.175999 35.389 L 43.02 31.229 C 42.566002 30.773998 41.825001 30.773998 41.368999 31.229 C 40.915001 31.685001 40.915001 32.424999 41.368999 32.880001 L 48.353001 39.868999 L 55.341999 32.880001 C 55.799 32.424999 55.799 31.685001 55.341 31.229 Z"/> </g> </svg>';
-		weatherControls.type = "button";
-
-		weatherControls.addEventListener("click", function() {adjustMap("tilt", 5);});
-
-		return weatherControls;
+		return createMapControlButton({
+			id: "mapRotateForwardButton",
+			title: "Rotate Map Up",
+			innerHTML: '<svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"> <g id="Group"> <path id="Path" fill="#000000" stroke="#000000" stroke-width="2" d="M 55.341 31.229 C 54.884998 30.773998 54.144001 30.773998 53.689999 31.229 L 49.511002 35.408001 C 49.466999 26.040001 47.863998 17.225998 44.964001 10.553001 C 41.889999 3.484001 37.687 -0.410004 33.125 -0.410004 C 23.926001 -0.410004 16.725 15.494999 16.725 35.795002 C 16.725 56.097 23.929001 72 33.125 72 C 33.769001 72 34.292 71.475998 34.292 70.831993 C 34.292 70.188995 33.769001 69.663994 33.125 69.663994 C 25.5 69.663994 19.061001 54.153 19.061001 35.795002 C 19.061001 17.438 25.502001 1.926003 33.125 1.926003 C 36.651001 1.926003 40.181 5.411003 42.823002 11.486 C 45.598999 17.865997 47.136002 26.34 47.175999 35.389 L 43.02 31.229 C 42.566002 30.773998 41.825001 30.773998 41.368999 31.229 C 40.915001 31.685001 40.915001 32.424999 41.368999 32.880001 L 48.353001 39.868999 L 55.341999 32.880001 C 55.799 32.424999 55.799 31.685001 55.341 31.229 Z"/> </g> </svg>',
+			size: "30px",
+			onClick: function() { adjustMap("tilt", 5); },
+		});
 	}
 
 	function createRotateBackControl(map) {
-		const weatherControls = document.createElement("button");
-
-		weatherControls.id = "mapRotateBackButton";
-		weatherControls.style.backgroundColor = "rgb(255 255 255 / 0%)";
-		weatherControls.style.border = "0";
-		weatherControls.style.borderRadius = "3px";
-		weatherControls.style.cursor = "pointer";
-		weatherControls.style.fontSize = "x-large";
-		weatherControls.style.textAlign = "center";
-		// weatherControls.style.margin = "10px";
-		weatherControls.style.height = "30px";
-		weatherControls.style.width = "30px";
-		weatherControls.style.verticalAlign = "middle";
-		// weatherControls.innerHTML = 'Toggle Controls';
-		weatherControls.title = "Rotate Map Down";
-		weatherControls.innerHTML = '<svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"> <g id="Group-copy"> <path id="Path" fill="#000000" stroke="#000000" stroke-width="2" d="M 17.068624 40.361004 C 17.524626 40.816006 18.265623 40.816006 18.719625 40.361004 L 22.898623 36.182003 C 22.942625 45.550003 24.545628 54.364006 27.445625 61.037003 C 30.519627 68.106003 34.722626 72.000008 39.284626 72.000008 C 48.483627 72.000008 55.684624 56.095005 55.684624 35.795002 C 55.684624 15.493004 48.480625 -0.410004 39.284626 -0.410004 C 38.640625 -0.410004 38.117626 0.113998 38.117626 0.758003 C 38.117626 1.401001 38.640625 1.926003 39.284626 1.926003 C 46.909626 1.926003 53.348625 17.437004 53.348625 35.795002 C 53.348625 54.152004 46.907627 69.664001 39.284626 69.664001 C 35.758625 69.664001 32.228626 66.179001 29.586624 60.104004 C 26.810627 53.724007 25.273624 45.250004 25.233627 36.201004 L 29.389626 40.361004 C 29.843624 40.816006 30.584625 40.816006 31.040627 40.361004 C 31.494625 39.905003 31.494625 39.165005 31.040627 38.710003 L 24.056625 31.721004 L 17.067625 38.710003 C 16.610624 39.165005 16.610624 39.905003 17.068624 40.361004 Z"/> </g> </svg>';
-		weatherControls.type = "button";
-
-		weatherControls.addEventListener("click", function() {adjustMap("tilt", -5);});
-
-		return weatherControls;
+		return createMapControlButton({
+			id: "mapRotateBackButton",
+			title: "Rotate Map Down",
+			innerHTML: '<svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"> <g id="Group-copy"> <path id="Path" fill="#000000" stroke="#000000" stroke-width="2" d="M 17.068624 40.361004 C 17.524626 40.816006 18.265623 40.816006 18.719625 40.361004 L 22.898623 36.182003 C 22.942625 45.550003 24.545628 54.364006 27.445625 61.037003 C 30.519627 68.106003 34.722626 72.000008 39.284626 72.000008 C 48.483627 72.000008 55.684624 56.095005 55.684624 35.795002 C 55.684624 15.493004 48.480625 -0.410004 39.284626 -0.410004 C 38.640625 -0.410004 38.117626 0.113998 38.117626 0.758003 C 38.117626 1.401001 38.640625 1.926003 39.284626 1.926003 C 46.909626 1.926003 53.348625 17.437004 53.348625 35.795002 C 53.348625 54.152004 46.907627 69.664001 39.284626 69.664001 C 35.758625 69.664001 32.228626 66.179001 29.586624 60.104004 C 26.810627 53.724007 25.273624 45.250004 25.233627 36.201004 L 29.389626 40.361004 C 29.843624 40.816006 30.584625 40.816006 31.040627 40.361004 C 31.494625 39.905003 31.494625 39.165005 31.040627 38.710003 L 24.056625 31.721004 L 17.067625 38.710003 C 16.610624 39.165005 16.610624 39.905003 17.068624 40.361004 Z"/> </g> </svg>',
+			size: "30px",
+			onClick: function() { adjustMap("tilt", -5); },
+		});
 	}
 
 	function createUpdateArea(map) {
@@ -2705,7 +2729,7 @@
 		// List of fields to fetch...
 		let fieldList = "alertStatus,displayName,description,id,hostStatus,name,sdtStatus,numOfHosts,numOfAWSDevices,numOfAzureDevices,numOfGcpDevices,numOfKubernetesDevices,numOfDirectDevices,numOfSubGroups,customProperties,autoProperties";
 		// Only fetch custom & inherited properties on full refreshes...
-		if (cachedAddresses.length == 0 || pollCount > fullRefreshInterval) {
+		if (Object.keys(cachedAddresses).length === 0 || pollCount > fullRefreshInterval) {
 			fullRefresh = true;
 			fieldList = fieldList + ",inheritedProperties,systemProperties";
 			pollCount = 0;
@@ -2757,11 +2781,12 @@
 				if (mapSourceType != "groups" && (mapLocationProperty.match(/^auto\./) || mapLocationProperty.match(/^system\./))) {
 					// If the map location property starts with "auto.", then we're looking for auto properties...
 					// console.debug('Fetching custom properties');
+					let queryParams;
 					if (mapLocationProperty.match(/^auto\./)) {
-						let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=autoProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+						queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=autoProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
 						// console.debug('Fetching auto properties');
 					} else {
-						let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=systemProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+						queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=systemProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
 						// console.debug('Fetching system properties');
 					}
 
@@ -3042,6 +3067,7 @@
 				let sevIcon = clearedIcon;
 				// We'll use the pin's z-index to reflect the group's severity for use with marker clustering...
 				let pinIndex = 0;
+				let pinBG, pinBorder;
 				if (highestSeverity != "") {
 					if (highestSeverity == "warn") {
 						sevIcon = warningIcon;
@@ -3072,97 +3098,17 @@
 					pinIndex = 4;
 				}
 
-				// Get the group's location (hopefully an address)...
 				let address = "";
-				let latProp = "";
-				let lngProp = "";
-				alreadyGeocoded = false;
+				let latProp = null;
+				let lngProp = null;
+				let alreadyGeocoded = false;
 				
 				if (fullRefresh) {
-					// See if we're looking for a location in an auto property...
-					if (mapLocationProperty.match(/^auto\./)) {
-						try {
-							address = thisItem.autoProperties.find((locationProp) => locationProp.name.toLowerCase() === mapLocationProperty).value;
-
-							// See if there are inherited properties for latitude and longitude...
-							if (!ignoreLatLongProps) {
-								latProp = thisItem.autoProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
-								lngProp = thisItem.autoProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
-								if (latProp && lngProp) {
-									let latVal = Number(latProp.value);
-									let lngVal = Number(lngProp.value);
-									if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
-										// address = `${latProp.value}, ${lngProp.value}`;
-										alreadyGeocoded = true;
-									}
-								}
-							}
-						} catch(y) {
-							// console.log("No address found for " + thisItem.name);
-							// totalGroups = totalGroups - 1;
-						}
-					} else if (mapLocationProperty.match(/^system\./)) {
-						try {
-							address = thisItem.systemProperties.find((locationProp) => locationProp.name.toLowerCase() === mapLocationProperty).value;
-
-							// See if there are inherited properties for latitude and longitude...
-							if (!ignoreLatLongProps) {
-								latProp = thisItem.systemProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
-								lngProp = thisItem.systemProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
-								if (latProp && lngProp) {
-									let latVal = Number(latProp.value);
-									let lngVal = Number(lngProp.value);
-									if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
-										// address = `${latProp.value}, ${lngProp.value}`;
-										alreadyGeocoded = true;
-									}
-								}
-							}
-						} catch(y) {
-							// console.log("No address found for " + thisItem.name);
-							// totalGroups = totalGroups - 1;
-						}
-					} else {
-						try {
-							address = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === mapLocationProperty).value;
-
-							// See if there are custom properties for latitude and longitude...
-							if (!ignoreLatLongProps) {
-								latProp = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
-								lngProp = thisItem.customProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
-								if (latProp && lngProp) {
-									let latVal = Number(latProp.value);
-									let lngVal = Number(lngProp.value);
-									if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
-										// address = `${latProp.value}, ${lngProp.value}`;
-										alreadyGeocoded = true;
-									}
-								}
-							}
-						} catch(e) {
-							try {
-								// If not found in custom properties, try to get it from inherited properties...
-								address = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === mapLocationProperty).value;
-
-								// See if there are inherited properties for latitude and longitude...
-								if (!ignoreLatLongProps) {
-									latProp = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "latitude");
-									lngProp = thisItem.inheritedProperties.find((locationProp) => locationProp.name.toLowerCase() === "longitude");
-									if (latProp && lngProp) {
-										let latVal = Number(latProp.value);
-										let lngVal = Number(lngProp.value);
-										if (latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180) {
-											// address = `${latProp.value}, ${lngProp.value}`;
-											alreadyGeocoded = true;
-										}
-									}
-								}
-							} catch(y) {
-								// console.log("No address found for " + thisItem.name);
-								// totalGroups = totalGroups - 1;
-							}
-						}
-					}
+					const locationResult = findLocationFromItem(thisItem, mapLocationProperty);
+					address = locationResult.address;
+					alreadyGeocoded = locationResult.alreadyGeocoded;
+					latProp = locationResult.latProp;
+					lngProp = locationResult.lngProp;
 				}
 
 				// Remove any extraneous characters from the address...
@@ -3239,28 +3185,12 @@
 						const content = document.createElement("div");
 						let customContent = "";
 
-						// Search the item's properties for any specified to display...
 						if (displayProps != "") {
 							const propList = displayProps.split(",");
 							propList.forEach(thisProp => {
-								// Check the custom properties...
-								if (thisItem.customProperties) {
-									let propArray = thisItem.customProperties.filter(item => item.name == thisProp.trim());
-									if (propArray.length == 1) {
-										customContent = `${customContent}<div class="customItem"><span class="customItemName">${propArray[0].name}</span>: ${propArray[0].value}</div>`;
-									// Check inherited properties...
-									} else if (thisItem.inheritedProperties) {
-										propArray = thisItem.inheritedProperties.filter(item => item.name == thisProp.trim());
-										if (propArray.length == 1) {
-											customContent = `${customContent}<div class="customItem"><span class="customItemName">${propArray[0].name}</span>: ${propArray[0].value}</div>`;
-										// Check auto properties...
-										} else if (thisItem.autoProperties) {
-											propArray = thisItem.autoProperties.filter(item => item.name == thisProp.trim());
-											if (propArray.length == 1) {
-												customContent = `${customContent}<div class="customItem"><span class="customItemName">${propArray[0].name}</span>: ${propArray[0].value}</div>`;
-											}
-										}
-									}
+								const found = findItemProperty(thisItem, thisProp.trim());
+								if (found) {
+									customContent = `${customContent}<div class="customItem"><span class="customItemName">${found.name}</span>: ${found.value}</div>`;
 								}
 							});
 							if (customContent != "") {
@@ -3423,7 +3353,7 @@
 					if (mapSourceType == "resources") {
 						// Clear any existing connecting lines before drawing new ones
 						clearAllPolylines();
-						lineData.forEach(thisConnection => {
+						Object.values(lineData).forEach(thisConnection => {
 							// Look to see if connecting point exists on the map...
 							if (cachedAddresses[thisConnection.deviceIDConnected]) {
 								// Plot the connection on the map...
@@ -3554,14 +3484,7 @@
 
 	// Function for showing/hiding a group's detail when clicked...
 	function toggleHighlight(markerView, group) {
-		// Close any open cluster details...
-		if (clusterInfoWindow) {
-			clusterInfoWindow.close();
-		}
-		// Close any overlay InfoWindow...
-		if (parent.overlayInfoWindow) {
-			parent.overlayInfoWindow.close();
-		}
+		closeAllInfoWindows({ skipMarker: true });
 		
 		// If clicking the same marker that's already open, close it
 		if (markerInfoWindow && markerInfoWindow.markerId === markerView.deviceID) {
@@ -3621,19 +3544,7 @@
 
 			const props = [];
 			propList.forEach(propName => {
-				let found = null;
-				if (item.customProperties) {
-					const match = item.customProperties.filter(p => p.name === propName);
-					if (match.length === 1) found = match[0];
-				}
-				if (!found && item.inheritedProperties) {
-					const match = item.inheritedProperties.filter(p => p.name === propName);
-					if (match.length === 1) found = match[0];
-				}
-				if (!found && item.autoProperties) {
-					const match = item.autoProperties.filter(p => p.name === propName);
-					if (match.length === 1) found = match[0];
-				}
+				const found = findItemProperty(item, propName);
 				if (found) {
 					props.push({ name: found.name, value: found.value });
 				}
@@ -3744,21 +3655,6 @@
 				}
 			});
 		}
-	}
-
-	// Function processing status of Fetch calls...
-	function status(response) {
-		if (response.status >= 200 && response.status < 300) {
-			return Promise.resolve(response);
-		} else {
-			return Promise.reject(new Error(response.statusText));
-		}
-	}
-
-
-	// Pre-processor for JSON responses from Fetch calls...
-	function json(response) {
-		return response.json();
 	}
 
 	// Our custom renderer for MarkerClusterer to create donut charts based on status of clustered items...
@@ -3974,19 +3870,7 @@
 
 			// Add hover listener
 			marker.addListener('click', () => {
-				// Close any other details already open...
-				if (clusterInfoWindow) {
-					clusterInfoWindow.close();
-				}
-				// Close any overlay InfoWindow that might be open...
-				if (parent.overlayInfoWindow) {
-					parent.overlayInfoWindow.close();
-				}
-				// Close any marker InfoWindow that might be open...
-				if (markerInfoWindow) {
-					markerInfoWindow.close();
-					markerInfoWindow = null;
-				}
+				closeAllInfoWindows();
 				clusterInfoWindow = new CustomInfoWindow({
 					position: marker.position,
 					content: getInfoContent(),
@@ -4013,6 +3897,7 @@
 			initWeather();
 		} else {
 			// Clear the timer that refreshes the weather...
+			clearInterval(weatherRefresher);
 			weatherRefresher = null;
 			// Remove any previous overlay to ensure we don't keep stacking layers...
 			map.overlayMapTypes.clear();
@@ -4044,6 +3929,7 @@
 		addWeatherLayer();
 
 		// Refresh the weather data at regular intervals (using the 'weatherRefreshMinutes' variable set near the top of this script)...
+		clearInterval(weatherRefresher);
 		weatherRefresher = setInterval(async function() {
 			const currentType = document.getElementById("weatherType").value;
 			if (currentType === "radar") {
@@ -4176,25 +4062,7 @@
 
 			// Look to see if we should add wildfire into the map...
 			if (optionalMapType == "wildfires") {
-				// Clear any previous load of the overlay data...
-				map.data.forEach(function(feature) {
-					map.data.remove(feature);
-				});
-				// Remove any existing overlay listeners...
-				if (typeof parent.overlayInfoWindowListenerHandle == "object") {
-					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
-				}
-				// Initialize or close the shared overlay InfoWindow...
-				if (parent.overlayInfoWindow) {
-					parent.overlayInfoWindow.close();
-					parent.overlayInfoWindow = null;
-				}				
-				parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
-				// Clear any previous earthquake contour lines...
-				if (parent.mmiContourLines) {
-					parent.mmiContourLines.forEach(line => line.setMap(null));
-					parent.mmiContourLines = [];
-				}
+				clearOverlayState();
 
 				// Load the wildfire data from the ArcGIS site...
 				// More info about this source of active US wildfire data can be found at: https://www.arcgis.com/home/item.html?id=d957997ccee7408287a963600a77f61f
@@ -4342,15 +4210,7 @@
 							</div>`;
 					}
 					
-					// Close any cluster InfoWindow that might be open...
-					if (clusterInfoWindow) {
-						clusterInfoWindow.close();
-					}
-					// Close any marker InfoWindow that might be open...
-					if (markerInfoWindow) {
-						markerInfoWindow.close();
-						markerInfoWindow = null;
-					}
+					closeAllInfoWindows();
 					parent.overlayInfoWindow.setContent(infoContent);
 					parent.overlayInfoWindow.setPosition(event.latLng);
 					parent.overlayInfoWindow.open(map);
@@ -4460,25 +4320,7 @@
 				}
 
 				try {
-					// Clear any previous load of the overlay data...
-					map.data.forEach(function(feature) {
-						map.data.remove(feature);
-					});
-					// Remove any existing overlay listeners...
-					if (typeof parent.overlayInfoWindowListenerHandle == "object") {
-						google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
-					}
-					// Initialize or close the shared overlay InfoWindow...
-					if (parent.overlayInfoWindow) {
-						parent.overlayInfoWindow.close();
-						parent.overlayInfoWindow = null;
-					}
-					parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
-					// Clear any previous earthquake contour lines...
-					if (parent.mmiContourLines) {
-						parent.mmiContourLines.forEach(line => line.setMap(null));
-						parent.mmiContourLines = [];
-					}
+					clearOverlayState();
 
 					// Fetch both data sources in parallel (counties use cache, outages via proxy)
 					const [countiesGeoJson, outageResponse] = await Promise.all([
@@ -4575,15 +4417,7 @@
 							</div>
 						`);
 
-						// Close any cluster InfoWindow that might be open...
-						if (clusterInfoWindow) {
-							clusterInfoWindow.close();
-						}
-						// Close any marker InfoWindow that might be open...
-						if (markerInfoWindow) {
-							markerInfoWindow.close();
-							markerInfoWindow = null;
-						}
+						closeAllInfoWindows();
 						parent.overlayInfoWindow.setPosition(event.latLng);
 						parent.overlayInfoWindow.open(map);
 					});
@@ -4601,25 +4435,7 @@
 					console.error("Failed to fetch power outage data:", error);
 				}
 			} else if (optionalMapType == "earthquakes") {
-				// Clear any previous load of the overlay data...
-				map.data.forEach(function(feature) {
-					map.data.remove(feature);
-				});
-				// Remove any existing overlay listeners...
-				if (typeof parent.overlayInfoWindowListenerHandle == "object") {
-					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
-				}
-				// Initialize or close the shared overlay InfoWindow...
-				if (parent.overlayInfoWindow) {
-					parent.overlayInfoWindow.close();
-					parent.overlayInfoWindow = null;
-				}
-				parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
-				// Clear any previous earthquake contour lines...
-				if (parent.mmiContourLines) {
-					parent.mmiContourLines.forEach(line => line.setMap(null));
-					parent.mmiContourLines = [];
-				}
+				clearOverlayState();
 
 				// Load the earthquake data for the past day from the USGS site...
 				// More info about this source of earthquake data can be found at: https://publicapis.io/usgs-earthquake-hazards-program-api
@@ -4679,7 +4495,7 @@
 					// console.debug(`Opacity of ${feature.getProperty("place")} (mag ${feature.getProperty("mag")}): ${iconOpacity}`);
 
 					return {
-						icon: {url: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' data-tooltip='Earthquake' viewBox='0 0 302.836 302.836'%3E%3Cpath d='M271 256a15 15 0 0 1-15 15 15 15 0 0 1-15-15 15 15 0 0 1 15-15 15 15 0 0 1 15 15z' style='opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};stroke:none;stroke-width:8;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 139.29c-64.44 0-116.71 52.27-116.71 116.71S191.56 372.71 256 372.71 372.71 320.44 372.71 256 320.44 139.29 256 139.29zm0 3c62.818 0 113.71 50.892 113.71 113.71 0 62.818-50.892 113.71-113.71 113.71-62.818 0-113.71-50.892-113.71-113.71 0-62.818 50.892-113.71 113.71-113.71z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:.55474453;fill-rule:nonzero;stroke:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 214.266c-22.996 0-41.734 18.738-41.734 41.734 0 22.996 18.738 41.734 41.734 41.734 22.996 0 41.734-18.738 41.734-41.734 0-22.996-18.738-41.734-41.734-41.734zm0 9c18.132 0 32.734 14.602 32.734 32.734S274.132 288.734 256 288.734 223.266 274.132 223.266 256s14.602-32.734 32.734-32.734z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:${alertColor};stroke-width:3;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 189.678c-36.594 0-66.322 29.728-66.322 66.322s29.728 66.322 66.322 66.322 66.322-29.728 66.322-66.322-29.728-66.322-66.322-66.322zm0 6c33.35 0 60.322 26.971 60.322 60.322 0 33.35-26.971 60.322-60.322 60.322-33.35 0-60.322-26.971-60.322-60.322 0-33.35 26.971-60.322 60.322-60.322z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:none;stroke-width:6;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 166.164c-49.591 0-89.836 40.245-89.836 89.836S206.41 345.836 256 345.836 345.836 305.59 345.836 256 305.59 166.164 256 166.164zm0 4c47.43 0 85.836 38.406 85.836 85.836S303.43 341.836 256 341.836 170.164 303.43 170.164 256 208.57 170.164 256 170.164z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 109.582c-80.853 0-146.418 65.565-146.418 146.418 0 80.853 65.565 146.418 146.418 146.418 80.853 0 146.418-65.565 146.418-146.418 0-80.853-65.565-146.418-146.418-146.418zm0 2c79.772 0 144.418 64.646 144.418 144.418S335.772 400.418 256 400.418 111.582 335.772 111.582 256 176.228 111.582 256 111.582z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:.35766422;fill-rule:nonzero;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3C/svg%3E`, scaledSize: { width: 40, height: 40}, anchor: { x: 20, y: 20 } },
+						icon: {url: buildEarthquakeIconUrl(iconOpacity, alertColor), scaledSize: { width: 40, height: 40}, anchor: { x: 20, y: 20 } },
 					}
 				});
 
@@ -4848,15 +4664,7 @@
 						</div>`
 					);
 
-					// Close any cluster InfoWindow that might be open...
-					if (clusterInfoWindow) {
-						clusterInfoWindow.close();
-					}
-					// Close any marker InfoWindow that might be open...
-					if (markerInfoWindow) {
-						markerInfoWindow.close();
-						markerInfoWindow = null;
-					}
+					closeAllInfoWindows();
 					parent.overlayInfoWindow.setPosition(event.latLng);
 					parent.overlayInfoWindow.open(map);
 
@@ -4930,25 +4738,7 @@
 				// const countyIDsJsonURL = `https://api.waterdata.usgs.gov/rtfi-api/counties?page=1&limit=4000&v=${Date.now()}`;
 				const floodingDataURL = `https://api.waterdata.usgs.gov/rtfi-api/referencepoints/flooding?v=${Date.now()}`;
 
-				// Clear any previous load of the overlay data...
-				map.data.forEach(function(feature) {
-					map.data.remove(feature);
-				});
-				// Remove any existing overlay listeners...
-				if (typeof parent.overlayInfoWindowListenerHandle == "object") {
-					google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
-				}
-				// Initialize or close the shared overlay InfoWindow...
-				if (parent.overlayInfoWindow) {
-					parent.overlayInfoWindow.close();
-					parent.overlayInfoWindow = null;
-				}
-				parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
-				// Clear any previous earthquake contour lines...
-				if (parent.mmiContourLines) {
-					parent.mmiContourLines.forEach(line => line.setMap(null));
-					parent.mmiContourLines = [];
-				}
+				clearOverlayState();
 
 				try {
 					// Fetch the flooding data from the USGS API...
@@ -5056,15 +4846,7 @@
 								</div>
 							</div>
 						`);
-						// Close any cluster InfoWindow that might be open...
-						if (clusterInfoWindow) {
-							clusterInfoWindow.close();
-						}
-						// Close any marker InfoWindow that might be open...
-						if (markerInfoWindow) {
-							markerInfoWindow.close();
-							markerInfoWindow = null;
-						}
+						closeAllInfoWindows();
 						parent.overlayInfoWindow.setPosition(event.latLng);
 						parent.overlayInfoWindow.open(map);
 					});
