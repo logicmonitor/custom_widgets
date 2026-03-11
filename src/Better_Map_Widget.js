@@ -9,11 +9,11 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.43 CDN";
+const version = "3.44 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-	<h3>Version 3.43</h3>
+	<h3>Version 3.44</h3>
 	<ul>
 		<li>A number of small fixes & improvements.</li>
 	</ul>
@@ -492,6 +492,37 @@ function isTruthyToken(tokenValue) {
 	return lower === "true" || lower === "yes" || lower === "1";
 }
 
+// Helper: Parse alert/SDT status into a normalized severity object
+const _severityMeta = {
+	warn:     { icon: () => warningIcon,  pinBG: "#f5ca1d", pinBorder: "#967c14", pinIndex: 1 },
+	error:    { icon: () => errorIcon,    pinBG: "#ff8c00", pinBorder: "#ac5101", pinIndex: 2 },
+	critical: { icon: () => criticalIcon, pinBG: "#e0351b", pinBorder: "#9a2614", pinIndex: 3 },
+	sdt:      { icon: () => sdtIcon,      pinBG: "#00a1fe", pinBorder: "#00a1fe", pinIndex: 4 },
+	clear:    { icon: () => clearedIcon,  pinBG: undefined, pinBorder: undefined, pinIndex: 0 },
+};
+function parseSeverity(item) {
+	let severity = "clear";
+	const alertMatch = item.alertStatus && item.alertStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
+	if (alertMatch) {
+		const sev = alertMatch[2];
+		if (sev === "critical" || sev === "error" || sev === "warn") {
+			severity = sev;
+		}
+	}
+	const sdtMatch = item.sdtStatus && item.sdtStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
+	if (sdtMatch && (sdtMatch[1].toLowerCase() === "sdt" || sdtMatch[2].toLowerCase() === "sdt")) {
+		severity = "sdt";
+	}
+	const meta = _severityMeta[severity];
+	return {
+		severity,
+		sevIcon: meta.icon(),
+		pinBG: meta.pinBG,
+		pinBorder: meta.pinBorder,
+		pinIndex: meta.pinIndex,
+	};
+}
+
 /**
 * Fetches a Cross-Site Request Forgery (CSRF) token required for subsequent API calls.
 * Implements caching to avoid redundant network requests within the TTL period.
@@ -753,6 +784,10 @@ const _dom = {
 	showSDTLabel: document.getElementById("showSDTLabel"),
 	sidebarArea: document.getElementById("sidebarArea"),
 	sidebarResizeHandle: document.getElementById("sidebarResizeHandle"),
+	weatherOptions: document.getElementById("weatherOptions"),
+	optionsToggleArea: document.getElementById("optionsToggleArea"),
+	gearIcon: document.getElementById("gearIcon"),
+	gearIconChevron: document.getElementById("gearIconChevron"),
 }
 
 // Set the form fields as appropriate...
@@ -816,18 +851,15 @@ const optionsToggleVisibleIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBo
 const optionsToggleHiddenIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px;"><rect x="10" y="42" width="428" height="428" rx="54" ry="54" fill="none" stroke="#000000" stroke-width="20"/><path fill="#000000" d="M320 192H128C118.5 192 109.8 197.7 105.1 206.4C102.2 215.1 103.9 225.3 110.4 232.3l96 104C210.9 341.2 217.3 344 224 344s13.09-2.812 17.62-7.719l96-104c6.469-7 8.188-17.19 4.375-25.91C338.2 197.7 329.5 192 320 192z"/></svg>';
 
 
-// I'm making various different map color schemes available, created using Google's style editor (https://mapstyle.withgoogle.com/). Feel free to create your own and add it as a variable. We'll then set which style later in the 'initMap' function.
-
-const standardStyle = [ { "stylers": [ { "lightness": 60 } ] }, { "elementType": "labels", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi.business", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "transit", "stylers": [ { "visibility": "off" } ] } ];
-// const standardStyle = [ { "stylers": [ { "lightness": 60 } ] } ];
-
-const silverStyle = [ { "elementType": "geometry", "stylers": [ { "color": "#f5f5f5" } ] }, { "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "elementType": "labels.text.fill", "stylers": [ { "color": "#616161" }, { "lightness": 70 } ] }, { "elementType": "labels.text.stroke", "stylers": [ { "color": "#f5f5f5" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [ { "color": "#000000" }, { "lightness": 85 } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [ { "color": "#bdbdbd" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [ { "color": "#000000" }, { "lightness": 80 } ] }, { "featureType": "poi", "elementType": "geometry", "stylers": [ { "color": "#eeeeee" } ] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [ { "color": "#e5e5e5" } ] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] }, { "featureType": "road", "stylers": [ { "lightness": 45 } ] }, { "featureType": "road", "elementType": "geometry", "stylers": [ { "color": "#ffffff" }, { "lightness": 55 } ] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [ { "lightness": 55 } ] }, { "featureType": "road", "elementType": "geometry.stroke", "stylers": [ { "lightness": 55 } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "lightness": -15 }, { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.text.stroke", "stylers": [ { "color": "#ffffff" } ] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [ { "color": "#dadada" }, { "lightness": 50 }, { "weight": 0.5 } ] }, { "featureType": "transit.line", "elementType": "geometry", "stylers": [ { "color": "#e5e5e5" } ] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [ { "color": "#eeeeee" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#c9c9c9" }, { "lightness": 20 } ] }, { "featureType": "water", "elementType": "geometry.fill", "stylers": [ { "lightness": 35 } ] }, { "featureType": "water", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] } ];
-
-const silverBlueStyle = [ { "elementType": "geometry", "stylers": [{ "color": "#f5f5f5" }] }, { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] }, { "elementType": "labels.text.fill", "stylers": [{ "color": "#616161" }, { "lightness": 70 }] }, { "elementType": "labels.text.stroke", "stylers": [{ "color": "#f5f5f5" }] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [{ "color": "#000000" }, { "lightness": 85 }] }, { "featureType": "administrative.land_parcel", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [{ "color": "#bdbdbd" }] }, { "featureType": "administrative.neighborhood", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [{ "color": "#000000" }, { "lightness": 80 }] }, { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#eeeeee" }] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [{ "visibility": "off" }] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#e5e5e5" }] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] }, { "featureType": "road", "stylers": [{ "lightness": 45 }] }, { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#ffffff" }, { "lightness": 55 }] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [{ "lightness": 55 }] }, { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "lightness": 55 }] }, { "featureType": "road", "elementType": "labels", "stylers": [{ "visibility": showRoadLabels, "lightness": -15 }] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#dadada" }, { "lightness": 50 }, { "weight": 0.5 }] }, { "featureType": "transit.line", "elementType": "geometry", "stylers": [{ "color": "#e5e5e5" }] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [{ "color": "#eeeeee" }] }, { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#c9c9c9" }, { "lightness": 20 }] }, { "featureType": "water", "elementType": "geometry.fill", "stylers": [{ "color": "#cad0d8" }, { "lightness": 35 }] }, { "featureType": "water", "elementType": "labels.text", "stylers": [{ "visibility": "off" }] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] } ];
-
-const darkStyle = [ { "elementType": "geometry", "stylers": [ { "color": "#212121" } ] }, { "elementType": "geometry.fill", "stylers": [ { "lightness": 10 } ] }, { "elementType": "labels", "stylers": [ { "visibility": "off" } ] }, { "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "elementType": "labels.text.stroke", "stylers": [ { "color": "#212121" } ] }, { "featureType": "administrative", "elementType": "geometry", "stylers": [ { "color": "#757575" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.country", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [ { "color": "#bdbdbd" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [ { "color": "#181818" } ] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [ { "color": "#616161" } ] }, { "featureType": "poi.park", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1b1b1b" } ] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [ { "color": "#2c2c2c" } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.text.fill", "stylers": [ { "color": "#8a8a8a" } ] }, { "featureType": "road.arterial", "elementType": "geometry", "stylers": [ { "color": "#373737" } ] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [ { "color": "#3c3c3c" } ] }, { "featureType": "road.highway.controlled_access", "elementType": "geometry", "stylers": [ { "color": "#4e4e4e" } ] }, { "featureType": "road.local", "elementType": "labels.text.fill", "stylers": [ { "color": "#616161" } ] }, { "featureType": "transit", "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#000000" } ] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [ { "color": "#3d3d3d" } ] } ];
-
-const aubergineStyle = [ { "elementType": "geometry", "stylers": [ { "color": "#1d2c4d" } ] }, { "elementType": "labels", "stylers": [ { "visibility": showRoadLabels } ] }, { "elementType": "labels.text.fill", "stylers": [ { "color": "#8ec3b9" } ] }, { "elementType": "labels.text.stroke", "stylers": [ { "color": "#1a3646" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [ { "color": "#4b6878" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [ { "color": "#64779e" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [ { "color": "#4b6878" } ] }, { "featureType": "landscape.man_made", "elementType": "geometry.stroke", "stylers": [ { "color": "#334e87" } ] }, { "featureType": "landscape.natural", "elementType": "geometry", "stylers": [ { "color": "#023e58" } ] }, { "featureType": "poi", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "geometry", "stylers": [ { "color": "#283d6a" } ] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [ { "color": "#6f9ba5" } ] }, { "featureType": "poi", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1d2c4d" } ] }, { "featureType": "poi.park", "elementType": "geometry.fill", "stylers": [ { "color": "#023e58" } ] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [ { "color": "#3C7680" } ] }, { "featureType": "road", "elementType": "geometry", "stylers": [ { "color": "#304a7d" } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.text.fill", "stylers": [ { "color": "#98a5be" }, { "lightness": -30 } ] }, { "featureType": "road", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1d2c4d" } ] }, { "featureType": "transit", "elementType": "labels.text.fill", "stylers": [ { "color": "#98a5be" } ] }, { "featureType": "transit", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1d2c4d" } ] }, { "featureType": "transit.line", "elementType": "geometry.fill", "stylers": [ { "color": "#283d6a" } ] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [ { "color": "#3a4762" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#0e1626" } ] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [ { "color": "#4e6d70" } ] } ];
+// Map color schemes created using Google's style editor (https://mapstyle.withgoogle.com/).
+// Wrapped in getters so only the selected style is allocated, and showRoadLabels is captured at call time.
+const mapStyles = {
+	get standard() { return [ { "stylers": [ { "lightness": 60 } ] }, { "elementType": "labels", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi.business", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "transit", "stylers": [ { "visibility": "off" } ] } ]; },
+	get silver() { return [ { "elementType": "geometry", "stylers": [ { "color": "#f5f5f5" } ] }, { "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "elementType": "labels.text.fill", "stylers": [ { "color": "#616161" }, { "lightness": 70 } ] }, { "elementType": "labels.text.stroke", "stylers": [ { "color": "#f5f5f5" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [ { "color": "#000000" }, { "lightness": 85 } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [ { "color": "#bdbdbd" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [ { "color": "#000000" }, { "lightness": 80 } ] }, { "featureType": "poi", "elementType": "geometry", "stylers": [ { "color": "#eeeeee" } ] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [ { "color": "#e5e5e5" } ] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] }, { "featureType": "road", "stylers": [ { "lightness": 45 } ] }, { "featureType": "road", "elementType": "geometry", "stylers": [ { "color": "#ffffff" }, { "lightness": 55 } ] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [ { "lightness": 55 } ] }, { "featureType": "road", "elementType": "geometry.stroke", "stylers": [ { "lightness": 55 } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "lightness": -15 }, { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.text.stroke", "stylers": [ { "color": "#ffffff" } ] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [ { "color": "#dadada" }, { "lightness": 50 }, { "weight": 0.5 } ] }, { "featureType": "transit.line", "elementType": "geometry", "stylers": [ { "color": "#e5e5e5" } ] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [ { "color": "#eeeeee" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#c9c9c9" }, { "lightness": 20 } ] }, { "featureType": "water", "elementType": "geometry.fill", "stylers": [ { "lightness": 35 } ] }, { "featureType": "water", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] } ]; },
+	get silverblue() { return [ { "elementType": "geometry", "stylers": [{ "color": "#f5f5f5" }] }, { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] }, { "elementType": "labels.text.fill", "stylers": [{ "color": "#616161" }, { "lightness": 70 }] }, { "elementType": "labels.text.stroke", "stylers": [{ "color": "#f5f5f5" }] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [{ "color": "#000000" }, { "lightness": 85 }] }, { "featureType": "administrative.land_parcel", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [{ "color": "#bdbdbd" }] }, { "featureType": "administrative.neighborhood", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [{ "color": "#000000" }, { "lightness": 80 }] }, { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#eeeeee" }] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [{ "visibility": "off" }] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#e5e5e5" }] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] }, { "featureType": "road", "stylers": [{ "lightness": 45 }] }, { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#ffffff" }, { "lightness": 55 }] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [{ "lightness": 55 }] }, { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "lightness": 55 }] }, { "featureType": "road", "elementType": "labels", "stylers": [{ "visibility": showRoadLabels, "lightness": -15 }] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#dadada" }, { "lightness": 50 }, { "weight": 0.5 }] }, { "featureType": "transit.line", "elementType": "geometry", "stylers": [{ "color": "#e5e5e5" }] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [{ "color": "#eeeeee" }] }, { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#c9c9c9" }, { "lightness": 20 }] }, { "featureType": "water", "elementType": "geometry.fill", "stylers": [{ "color": "#cad0d8" }, { "lightness": 35 }] }, { "featureType": "water", "elementType": "labels.text", "stylers": [{ "visibility": "off" }] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] } ]; },
+	get dark() { return [ { "elementType": "geometry", "stylers": [ { "color": "#212121" } ] }, { "elementType": "geometry.fill", "stylers": [ { "lightness": 10 } ] }, { "elementType": "labels", "stylers": [ { "visibility": "off" } ] }, { "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "elementType": "labels.text.stroke", "stylers": [ { "color": "#212121" } ] }, { "featureType": "administrative", "elementType": "geometry", "stylers": [ { "color": "#757575" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.country", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [ { "color": "#bdbdbd" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [ { "color": "#181818" } ] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [ { "color": "#616161" } ] }, { "featureType": "poi.park", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1b1b1b" } ] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [ { "color": "#2c2c2c" } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.text.fill", "stylers": [ { "color": "#8a8a8a" } ] }, { "featureType": "road.arterial", "elementType": "geometry", "stylers": [ { "color": "#373737" } ] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [ { "color": "#3c3c3c" } ] }, { "featureType": "road.highway.controlled_access", "elementType": "geometry", "stylers": [ { "color": "#4e4e4e" } ] }, { "featureType": "road.local", "elementType": "labels.text.fill", "stylers": [ { "color": "#616161" } ] }, { "featureType": "transit", "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#000000" } ] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [ { "color": "#3d3d3d" } ] } ]; },
+	get aubergine() { return [ { "elementType": "geometry", "stylers": [ { "color": "#1d2c4d" } ] }, { "elementType": "labels", "stylers": [ { "visibility": showRoadLabels } ] }, { "elementType": "labels.text.fill", "stylers": [ { "color": "#8ec3b9" } ] }, { "elementType": "labels.text.stroke", "stylers": [ { "color": "#1a3646" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [ { "color": "#4b6878" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [ { "color": "#64779e" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [ { "color": "#4b6878" } ] }, { "featureType": "landscape.man_made", "elementType": "geometry.stroke", "stylers": [ { "color": "#334e87" } ] }, { "featureType": "landscape.natural", "elementType": "geometry", "stylers": [ { "color": "#023e58" } ] }, { "featureType": "poi", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "geometry", "stylers": [ { "color": "#283d6a" } ] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [ { "color": "#6f9ba5" } ] }, { "featureType": "poi", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1d2c4d" } ] }, { "featureType": "poi.park", "elementType": "geometry.fill", "stylers": [ { "color": "#023e58" } ] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [ { "color": "#3C7680" } ] }, { "featureType": "road", "elementType": "geometry", "stylers": [ { "color": "#304a7d" } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.text.fill", "stylers": [ { "color": "#98a5be" }, { "lightness": -30 } ] }, { "featureType": "road", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1d2c4d" } ] }, { "featureType": "transit", "elementType": "labels.text.fill", "stylers": [ { "color": "#98a5be" } ] }, { "featureType": "transit", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1d2c4d" } ] }, { "featureType": "transit.line", "elementType": "geometry.fill", "stylers": [ { "color": "#283d6a" } ] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [ { "color": "#3a4762" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#0e1626" } ] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [ { "color": "#4e6d70" } ] } ]; },
+};
 
 // RainViewer map options (feel free to change these to suit your taste)...
 const rvOptionKind = 'radar'; // can be 'radar' or 'satellite'
@@ -868,7 +900,7 @@ if (!window.fetchJson) {
 
 // Batch builder to avoid jank when (re)building many markers...
 if (!window.buildMarkersInBatches) {
-	window.buildMarkersInBatches = async function(items, fn, batchSize = 250) {
+	window.buildMarkersInBatches = async function(items, fn, batchSize = 1000) {
 		for (let i = 0; i < items.length; i += batchSize) {
 			const slice = items.slice(i, i + batchSize);
 			for (const it of slice) { try { fn(it); } catch(e) {} }
@@ -1641,17 +1673,8 @@ async function initMap() {
 		satelliteLightOverlay.setMap(map);
 		weatherOpacity = satelliteWeatherOpacity;
 	} else {
-		let styledMapType = new google.maps.StyledMapType(silverStyle);
-		if (mapStyle == "standard") {
-			styledMapType = new google.maps.StyledMapType(standardStyle);
-		} else if (mapStyle == "dark") {
-			styledMapType = new google.maps.StyledMapType(darkStyle);
-		} else if (mapStyle == "aubergine") {
-			styledMapType = new google.maps.StyledMapType(aubergineStyle);
-		} else if (mapStyle == "silverblue") {
-			styledMapType = new google.maps.StyledMapType(silverBlueStyle);
-		}
-
+		const styleData = mapStyles[mapStyle] || mapStyles.silver;
+		const styledMapType = new google.maps.StyledMapType(styleData);
 		map.mapTypes.set("customMapStyle", styledMapType);
 		map.setMapTypeId("customMapStyle");
 	}
@@ -1840,27 +1863,13 @@ function createRotateRightControl(map) {
 }
 
 function createRotateLeftControl(map) {
-	const weatherControls = document.createElement("button");
-
-	weatherControls.id = "mapRotateLeftButton";
-	weatherControls.style.backgroundColor = "rgb(255 255 255 / 0%)";
-	weatherControls.style.border = "0";
-	weatherControls.style.borderRadius = "3px";
-	weatherControls.style.cursor = "pointer";
-	weatherControls.style.fontSize = "x-large";
-	weatherControls.style.textAlign = "center";
-	// weatherControls.style.margin = "10px";
-	weatherControls.style.height = "30px";
-	weatherControls.style.width = "30px";
-	weatherControls.style.verticalAlign = "middle";
-	// weatherControls.innerHTML = 'Toggle Controls';
-	weatherControls.title = "Rotate Map Left";
-	weatherControls.innerHTML = '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"> <path id="Path" fill="#000000" stroke="none" d="M 16 1.25 C 15.987 1.25 15.971 1.25 15.956 1.25 C 11.466 1.25 7.448 3.276001 4.769 6.464001 L 4.751 6.486 L 4.751 1.716999 C 4.751 1.302999 4.415 0.966999 4.001 0.966999 C 3.587 0.966999 3.251 1.302999 3.251 1.716999 L 3.251 1.716999 L 3.251 8.788 C 3.255 8.818001 3.261 8.845001 3.268 8.869999 L 3.267 8.865 C 3.275 8.970001 3.307 9.067001 3.358 9.15 L 3.356 9.146999 C 3.381 9.193001 3.408 9.232 3.438 9.269001 L 3.437 9.268 C 3.471 9.306 3.508 9.34 3.548 9.369999 L 3.55 9.371 C 3.57 9.390999 3.59 9.41 3.612 9.428001 L 3.613 9.429001 C 3.628 9.438 3.645 9.438 3.661 9.445999 C 3.703 9.466999 3.751 9.485001 3.802 9.497 L 3.807 9.498001 C 3.847 9.511 3.894 9.521 3.942 9.526001 L 3.945 9.526001 C 3.964 9.527 3.981 9.536999 4.001 9.536999 L 11.072 9.536999 C 11.486 9.536999 11.822 9.201 11.822 8.786999 C 11.822 8.373001 11.486 8.036999 11.072 8.036999 L 11.072 8.036999 L 5.429 8.036999 C 7.848 4.813 11.662 2.749001 15.958 2.749001 C 15.973 2.749001 15.988 2.749001 16.003 2.749001 L 16.000999 2.749001 C 23.318001 2.750999 29.247999 8.681999 29.247999 15.999001 C 29.247999 23.316 23.316 29.249001 15.998 29.249001 C 10.743 29.249001 6.203 26.190001 4.061 21.756001 L 4.027 21.677 C 3.903 21.423 3.647 21.250999 3.35 21.250999 C 2.936 21.250999 2.6 21.587 2.6 22.000999 C 2.6 22.117001 2.626 22.226999 2.674 22.325001 L 2.672 22.32 C 5.095 27.344999 10.15 30.750999 16.000999 30.750999 C 24.148001 30.750999 30.752001 24.146999 30.752001 16 C 30.752001 7.853001 24.148001 1.249001 16.002001 1.249001 L 16.002001 1.249001 Z"/> </svg>';
-	weatherControls.type = "button";
-
-	weatherControls.addEventListener("click", function() {adjustMap("rotate", 5);});
-
-	return weatherControls;
+	return createMapControlButton({
+		id: "mapRotateLeftButton",
+		title: "Rotate Map Left",
+		size: "30px",
+		innerHTML: '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"> <path id="Path" fill="#000000" stroke="none" d="M 16 1.25 C 15.987 1.25 15.971 1.25 15.956 1.25 C 11.466 1.25 7.448 3.276001 4.769 6.464001 L 4.751 6.486 L 4.751 1.716999 C 4.751 1.302999 4.415 0.966999 4.001 0.966999 C 3.587 0.966999 3.251 1.302999 3.251 1.716999 L 3.251 1.716999 L 3.251 8.788 C 3.255 8.818001 3.261 8.845001 3.268 8.869999 L 3.267 8.865 C 3.275 8.970001 3.307 9.067001 3.358 9.15 L 3.356 9.146999 C 3.381 9.193001 3.408 9.232 3.438 9.269001 L 3.437 9.268 C 3.471 9.306 3.508 9.34 3.548 9.369999 L 3.55 9.371 C 3.57 9.390999 3.59 9.41 3.612 9.428001 L 3.613 9.429001 C 3.628 9.438 3.645 9.438 3.661 9.445999 C 3.703 9.466999 3.751 9.485001 3.802 9.497 L 3.807 9.498001 C 3.847 9.511 3.894 9.521 3.942 9.526001 L 3.945 9.526001 C 3.964 9.527 3.981 9.536999 4.001 9.536999 L 11.072 9.536999 C 11.486 9.536999 11.822 9.201 11.822 8.786999 C 11.822 8.373001 11.486 8.036999 11.072 8.036999 L 11.072 8.036999 L 5.429 8.036999 C 7.848 4.813 11.662 2.749001 15.958 2.749001 C 15.973 2.749001 15.988 2.749001 16.003 2.749001 L 16.000999 2.749001 C 23.318001 2.750999 29.247999 8.681999 29.247999 15.999001 C 29.247999 23.316 23.316 29.249001 15.998 29.249001 C 10.743 29.249001 6.203 26.190001 4.061 21.756001 L 4.027 21.677 C 3.903 21.423 3.647 21.250999 3.35 21.250999 C 2.936 21.250999 2.6 21.587 2.6 22.000999 C 2.6 22.117001 2.626 22.226999 2.674 22.325001 L 2.672 22.32 C 5.095 27.344999 10.15 30.750999 16.000999 30.750999 C 24.148001 30.750999 30.752001 24.146999 30.752001 16 C 30.752001 7.853001 24.148001 1.249001 16.002001 1.249001 L 16.002001 1.249001 Z"/> </svg>',
+		onClick: () => adjustMap("rotate", 5)
+	});
 }
 
 function createRotateForwardControl(map) {
@@ -1917,6 +1926,57 @@ function adjustMap(mode, amount) {
 		default:
 			break;
 	}
+}
+
+// Build LM API query params for a given property source and pagination offset.
+// propSource: "customProperties", "autoProperties", "systemProperties", or "inheritedProperties"
+function buildLocationQuery(offset, propSource, { fieldList, pathOperator, statusFilter, deviceFilter }) {
+	const isGroupMode = mapSourceType === "groups";
+
+	// Default: fullPath filter with field limiting (used for group queries, or non-group edge cases)
+	let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=${propSource}.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+
+	if (!isGroupMode) {
+		if (groupPathFilter !== "*") {
+			const tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
+			if (tmpPathFilter !== "") {
+				queryParams = `?v=3&size=1000&offset=${offset}&filter=${propSource}.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
+			}
+		} else {
+			queryParams = `?v=3&size=1000&offset=${offset}&filter=${propSource}.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
+		}
+	}
+
+	return queryParams;
+}
+
+// Paginated LM API fetch - handles the while loop, API calls, and progress display
+async function fetchPaginatedLMItems({ resourcePath, buildQueryParams, signal, label }) {
+	const items = [];
+	let offset = 0;
+	let total = 1000;
+
+	while (offset < total) {
+		const data = await LMClient({
+			resourcePath,
+			queryParams: buildQueryParams(offset),
+			httpVerb: "GET",
+			signal,
+		});
+
+		if (data.total === 0) {
+			if (offset === 0) return { items: [], total: 0 };
+			break;
+		}
+
+		if (data.total !== total) total = data.total;
+		items.push(...data.items);
+		offset = items.length;
+
+		_dom.refreshStatusArea.innerHTML = `${loadingSpinner}&nbsp;${label}: ${offset} of ${total} (${Math.round(offset / total * 100)}%)`;
+	}
+
+	return { items, total };
 }
 
 // Function to load our LogicMonitor data and add pins to the map...
@@ -2043,249 +2103,90 @@ async function refreshGroupData(timedRefresh = false) {
 		centerCalculated = false;
 	}
 
-	// Start fetching data from LM that have location in custom properties, paginating the data as necessary...
+	// Shared context for query builders
+	const queryCtx = { fieldList, pathOperator, statusFilter, deviceFilter };
+
+	// Determine the primary property source for this configuration
+	const useAutoSysProp = mapSourceType !== "groups" && (mapLocationProperty.match(/^auto\./) || mapLocationProperty.match(/^system\./));
+	const primaryPropSource = useAutoSysProp
+		? (mapLocationProperty.match(/^auto\./) ? "autoProperties" : "systemProperties")
+		: "customProperties";
+
+	// Fetch primary location data (custom, auto, or system properties) with pagination...
 	try {
-		while (offset < totalGroups) {
-			// Start fetching data from LM that have location in an auto property...
-		if (mapSourceType != "groups" && (mapLocationProperty.match(/^auto\./) || mapLocationProperty.match(/^system\./))) {
-			// If the map location property starts with "auto.", then we're looking for auto properties...
-			// console.debug('Fetching custom properties');
-			let queryParams;
-			if (mapLocationProperty.match(/^auto\./)) {
-				queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=autoProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
-				// console.debug('Fetching auto properties');
-			} else {
-				queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=systemProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
-				// console.debug('Fetching system properties');
-			}
+		const primaryResult = await fetchPaginatedLMItems({
+			resourcePath,
+			buildQueryParams: (off) => buildLocationQuery(off, primaryPropSource, queryCtx),
+			signal: refreshSignal,
+			label: "Updating",
+		});
 
-				if (groupPathFilter != "*") {
-					// Strip off leading or trailing asterisks since they're not needed in this case...
-					let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
-					if (tmpPathFilter != "") {
-						if (mapLocationProperty.match(/^auto\./)) {
-							queryParams = `?v=3&size=1000&offset=${offset}&filter=autoProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
-						} else {
-							queryParams = `?v=3&size=1000&offset=${offset}&filter=systemProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
-						}
-					}
-				} else {
-					if (mapLocationProperty.match(/^auto\./)) {
-						queryParams = `?v=3&size=1000&offset=${offset}&filter=autoProperties.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
-					} else {
-						queryParams = `?v=3&size=1000&offset=${offset}&filter=systemProperties.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
-					}
-				}
-
-				// Call the LogicMonitor API to get a list of groups...
-				const markerData = await LMClient({
-					resourcePath: resourcePath,
-					queryParams: queryParams,
-					httpVerb: httpVerb,
-					postBody: null,
-					apiVersion: '3',
-					signal: refreshSignal, // Allow cancellation of in-progress requests
-				});
-				// Process the group data we received...
-				// console.debug('Group request succeeded with JSON response', markerData);
-
-				if (markerData.total != 0) {
-					if (markerData.total != totalGroups) {
-						totalGroups = markerData.total;
-					}
-
-					groupData = groupData.concat(markerData.items);
-
-					offset = groupData.length;
-
-					// Display our progress to the user...
-					_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating: " + offset + " of " + totalGroups + " (" + Math.round(offset/totalGroups*100) + "%)";
-					// _dom.refreshStatusArea.innerHTML = "Updating: " + Math.round(offset/totalGroups*100) + "%";
-				} else {
-					// Indicate that no results were found...
-					if (offset == 0) {
-						console.debug('No results found');
-						_dom.refreshStatusArea.innerHTML = "<span class='noResultMessage'>No results</span>";
-						totalGroups = -1; // Stop the loop
-						// Re-enable the toolbar fields...
-						_dom.mapOptionsArea.classList.remove("disabled");
-						if (_dom.weatherRefreshButton) {
-							_dom.weatherRefreshButton.classList.remove("disabled");
-						}
-
-						// Clear any previous markers from the map...
-						clearAllMarkers();
-
-						// Reset the map zoom...
-						bounds = new google.maps.LatLngBounds();
-						resetZoom();
-						centerCalculated = false;
-					}
-				}
-				// console.debug("After custom properties: totalGroups: " + totalGroups + " / offset: " + offset);
-			} else {
-				// console.debug('Fetching custom properties');
-				let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=customProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
-
-				// The 'fullpath' attribute only exists for group queries - for devices & services we'll use 'system.groups' instead...
-				if (mapSourceType != "groups") {
-					if (groupPathFilter != "*") {
-						// Strip off leading or trailing asterisks since they're not needed in this case...
-						let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
-						if (tmpPathFilter != "") {
-							// queryParams = '?v=3&size=1000&offset=' + offset + '&filter=systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
-							queryParams = `?v=3&size=1000&offset=${offset}&filter=customProperties.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
-						}
-					} else {
-						queryParams = `?v=3&size=1000&offset=${offset}&filter=customProperties.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
-					}
-				}
-
-				// Call the LogicMonitor API to get a list of groups...
-				const markerData = await LMClient({
-					resourcePath: resourcePath,
-					queryParams: queryParams,
-					httpVerb: httpVerb,
-					postBody: null,
-					apiVersion: '3',
-					signal: refreshSignal, // Allow cancellation of in-progress requests
-				});
-				// Process the group data we received...
-				// console.debug('Group request succeeded with JSON response', markerData);
-
-				if (markerData.total != 0) {
-					if (markerData.total != totalGroups) {
-						totalGroups = markerData.total;
-					}
-
-					groupData = groupData.concat(markerData.items);
-
-					offset = groupData.length;
-
-					// Display our progress to the user...
-					_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating: " + offset + " of " + totalGroups + " (" + Math.round(offset/totalGroups*100) + "%)";
-					// _dom.refreshStatusArea.innerHTML = "Updating: " + Math.round(offset/totalGroups*100) + "%";
-				} else {
-					// Indicate that no results were found...
-					if (offset == 0) {
-						console.debug('No results found');
-						_dom.refreshStatusArea.innerHTML = "<span class='noResultMessage'>No results</span>";
-						totalGroups = -1; // Stop the loop
-						// Re-enable the toolbar fields...
-						_dom.mapOptionsArea.classList.remove("disabled");
-						if (_dom.weatherRefreshButton) {
-							_dom.weatherRefreshButton.classList.remove("disabled");
-						}
-
-						// Clear any previous markers from the map...
-						clearAllMarkers();
-
-						// Reset the map zoom...
-						bounds = new google.maps.LatLngBounds();
-						resetZoom();
-						centerCalculated = false;
-					}
-				}
-				// console.debug("After custom properties: totalGroups: " + totalGroups + " / offset: " + offset);
-			}
+		if (primaryResult.total === 0) {
+			console.debug('No results found');
+			_dom.refreshStatusArea.innerHTML = "<span class='noResultMessage'>No results</span>";
+			_dom.mapOptionsArea.classList.remove("disabled");
+			if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
+			clearAllMarkers();
+			bounds = new google.maps.LatLngBounds();
+			resetZoom();
+			centerCalculated = false;
+			totalGroups = -1;
+		} else {
+			groupData = primaryResult.items;
+			totalGroups = primaryResult.total;
+			offset = groupData.length;
 		}
 	} catch (error) {
-		// Silently handle aborted requests (user triggered a new refresh)
 		if (error.name === 'AbortError') {
 			console.debug('Refresh operation was cancelled.');
-			return; // Exit early, new refresh will take over
+			return;
 		}
 		console.error('Error fetching group data:', error);
 		_dom.refreshStatusArea.innerHTML = `<span class='noResultMessage'>Error loading data: ${error.message || 'Unknown error'}</span>`;
-		totalGroups = -1; // Stop the loop on error
-		// Re-enable the toolbar fields...
+		totalGroups = -1;
 		_dom.mapOptionsArea.classList.remove("disabled");
-		if (_dom.weatherRefreshButton) {
-			_dom.weatherRefreshButton.classList.remove("disabled");
-		}
+		if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
 	}
 
-	// Start fetching data from LM that have location in inherited properties, paginating the data as necessary...
-	// Inherited properties don't apply to groups, so skip this if not looking at resources and/or services...
-	// console.debug('totalGroups: ' + totalGroups);
-	if (mapSourceType != "groups" && pollInheritedLocations) {
-		console.debug('Fetching inherited locations');
-		offset = 0;
-		let tmpOffset = 0;
-		let tmpTotalGroups = 1000;
+	// Fetch inherited location properties (only applicable for resources/services)...
+	if (mapSourceType !== "groups" && pollInheritedLocations && totalGroups >= 0) {
 		try {
-			while (tmpOffset < tmpTotalGroups) {
-				// let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
-				let queryParams = `?v=3&size=1000&offset=${tmpOffset}&fields=${fieldList}&filter=inheritedProperties.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+			const inheritedResult = await fetchPaginatedLMItems({
+				resourcePath,
+				buildQueryParams: (off) => buildLocationQuery(off, "inheritedProperties", queryCtx),
+				signal: refreshSignal,
+				label: "Inherited locations",
+			});
 
-				// The 'fullpath' attribute only exists for group queries - for devices & services we'll use 'system.groups' instead...
-				if (groupPathFilter != "*") {
-					// Strip off leading or trailing asterisks since they're not needed in this case...
-					let tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
-					if (tmpPathFilter != "") {
-						// queryParams = '?v=3&size=1000&offset=' + offset + '&filter=systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
-						queryParams = '?v=3&size=1000&offset=' + tmpOffset + '&filter=inheritedProperties.name:"' + mapLocationProperty + '",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + tmpPathFilter + '*\\"}"' + statusFilter + deviceFilter;
+			if (inheritedResult.total > 0) {
+				// Deduplicate: items from primary (custom/auto/system) properties take priority
+				const seenIDs = new Set(groupData.map(item => item.id));
+				let added = 0;
+				for (const item of inheritedResult.items) {
+					if (!seenIDs.has(item.id)) {
+						groupData.push(item);
+						seenIDs.add(item.id);
+						added++;
 					}
-				} else {
-					queryParams = '?v=3&size=1000&offset=' + tmpOffset + '&filter=inheritedProperties.name:"' + mapLocationProperty + '"' + statusFilter + deviceFilter;
 				}
-				// console.debug("Query params for inherited locations: " + queryParams);
-
-				// Call the LogicMonitor API to get a list of groups...
-				const markerData = await LMClient({
-					resourcePath: resourcePath,
-					queryParams: queryParams,
-					httpVerb: httpVerb,
-					postBody: null,
-					apiVersion: '3',
-					signal: refreshSignal, // Allow cancellation of in-progress requests
-				});
-				// Process the group data we received...
-				console.debug('Inherited locations request succeeded with JSON response', markerData);
-
-				// console.debug("Inherited locations found: " + markerData.total);
-				if (markerData.total != 0) {
-					if (markerData.total != tmpTotalGroups) {
-						tmpTotalGroups = markerData.total;
-						if (totalGroups >= 0) {
-							totalGroups = totalGroups + markerData.total;
-						} else {
-							totalGroups = markerData.total;
-						}
-					}
-
-					groupData = groupData.concat(markerData.items);
-
-					offset = groupData.length;
-					tmpOffset = tmpOffset + markerData.items.length;
-
-					// Display our progress to the user...
-					_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating: " + tmpOffset + " of " + tmpTotalGroups + " (" + Math.round(tmpOffset/tmpTotalGroups*100) + "%)";
-					// _dom.refreshStatusArea.innerHTML = "Updating: " + Math.round(offset/totalGroups*100) + "%";
-				} else {
-					// We're done so stop the loop...
-					console.debug("We're done fetching inherited locations");
-					// tmpTotalGroups = 0;
-					tmpTotalGroups = offset;
-					offset = totalGroups;
-					break;
-				}
+				console.debug(`Inherited locations: ${inheritedResult.total} found, ${added} new (${inheritedResult.total - added} duplicates skipped)`);
+				totalGroups = groupData.length;
+				offset = totalGroups;
 			}
 		} catch (error) {
+			if (error.name === 'AbortError') {
+				console.debug('Refresh operation was cancelled.');
+				return;
+			}
 			console.error('Error fetching inherited locations:', error);
 			_dom.refreshStatusArea.innerHTML = `<span class='noResultMessage'>Error loading data: ${error.message || 'Unknown error'}</span>`;
-			// totalGroups = -1; // Stop the loop on error
-			// Re-enable the toolbar fields...
 			_dom.mapOptionsArea.classList.remove("disabled");
-			if (_dom.weatherRefreshButton) {
-				_dom.weatherRefreshButton.classList.remove("disabled");
-			}
+			if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
 		}
-		console.debug("After inherited locations: totalGroups: " + totalGroups + " / tmpTotalGroups: " + tmpTotalGroups + " / offset: " + offset);
 	}
 
 	// If we've finished fetching all the group/resource data...
-	if (offset == totalGroups) {
+	if (totalGroups > 0 && offset == totalGroups) {
 		// console.debug('Total groups processed: ' + totalGroups);
 		// Reset our progress indicator...
 		_dom.refreshStatusArea.innerHTML = "";
@@ -2308,63 +2209,10 @@ async function refreshGroupData(timedRefresh = false) {
 		// For use in zooming the map to encompass all our markers on initial draw...
 		bounds = new google.maps.LatLngBounds();
 
-		// Start looping through the groups...
-		groupData.forEach((thisItem) => {
+		// Process groups in batches to avoid UI jank with large datasets...
+		await buildMarkersInBatches(groupData, (thisItem) => {
 			let groupID = thisItem.id;
-			let highestSeverity = "";
-			let sdtStatus = "";
-
-			// Parse the alarm status...
-			let alertStatusArray = thisItem.alertStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
-			if (alertStatusArray) {
-				let alertStatus = alertStatusArray[1];
-				let alertSeverity = alertStatusArray[2];
-
-				if ((alertSeverity == "warn" && highestSeverity == "") || (alertSeverity == "error" && highestSeverity != "critical") || (alertSeverity == "critical")) {
-					highestSeverity = alertSeverity;
-				}
-			}
-			// Parse the SDT status...
-			let sdtStatusArray = thisItem.sdtStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
-			if (sdtStatusArray[1].toLowerCase() == "sdt" || sdtStatusArray[2].toLowerCase() == "sdt") {
-				sdtStatus = "sdt";
-			}
-
-			// Variables for each severity...
-			// The SVG icon for the group's severity...
-			let sevIcon = clearedIcon;
-			// We'll use the pin's z-index to reflect the group's severity for use with marker clustering...
-			let pinIndex = 0;
-			let pinBG, pinBorder;
-			if (highestSeverity != "") {
-				if (highestSeverity == "warn") {
-					sevIcon = warningIcon;
-					pinBG = "#f5ca1d";
-					pinBorder = "#967c14";
-					pinIndex = 1;
-				} else if (highestSeverity == "error") {
-					sevIcon = errorIcon;
-					pinBG = "#ff8c00";
-					pinBorder = "#ac5101";
-					pinIndex = 2;
-				} else if (highestSeverity == "critical") {
-					sevIcon = criticalIcon;
-					pinBG = "#e0351b";
-					pinBorder = "#9a2614";
-					pinIndex = 3;
-				}
-			} else {
-				highestSeverity = "clear";
-			}
-
-			// If in SDT...
-			if (sdtStatus == "sdt") {
-				highestSeverity = "sdt";
-				sevIcon = sdtIcon;
-				pinBG = "#00a1fe";
-				pinBorder = "#00a1fe";
-				pinIndex = 4;
-			}
+			const { severity: highestSeverity, sevIcon, pinBG, pinBorder, pinIndex } = parseSeverity(thisItem);
 
 			let address = "";
 			let latProp = null;
@@ -2619,16 +2467,11 @@ async function refreshGroupData(timedRefresh = false) {
 
 					// Plot any connecting lines between resources...
 					if (mapSourceType == "resources") {
-						// Clear any existing connecting lines before drawing new ones
 						clearAllPolylines();
-						Object.values(lineData).forEach(thisConnection => {
-							// Look to see if connecting point exists on the map...
-							if (cachedAddresses[thisConnection.deviceIDConnected]) {
-								// Plot the connection on the map...
-								plotConnection(thisConnection);
-							}
-						});
-						// After drawing, ensure endpoints point to current marker/cluster locations
+						const connectionPromises = Object.values(lineData)
+							.filter(c => cachedAddresses[c.deviceIDConnected])
+							.map(c => plotConnection(c));
+						await Promise.all(connectionPromises);
 						updatePolylineEndpoints();
 					}
 
@@ -2797,18 +2640,7 @@ function buildSidebarItems() {
 	const propList = displayProps ? displayProps.split(",").map(p => p.trim()).filter(Boolean) : [];
 
 	sidebarItems = groupData.map(item => {
-		let severity = "clear";
-		const m = item.alertStatus && item.alertStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
-		if (m) {
-			const sev = m[2];
-			if (sev === "critical") severity = "critical";
-			else if (sev === "error") severity = "error";
-			else if (sev === "warn") severity = "warn";
-		}
-		const sdtMatch = item.sdtStatus && item.sdtStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
-		if (sdtMatch && (sdtMatch[1].toLowerCase() === "sdt" || sdtMatch[2].toLowerCase() === "sdt")) {
-			severity = "sdt";
-		}
+		const { severity, pinIndex } = parseSeverity(item);
 		const cached = cachedAddresses[item.id];
 
 		const props = [];
@@ -3155,32 +2987,23 @@ const renderer = {
 
 // Function to enable the weather overlays when the appropriate checkbox is selected...
 function enableWeather() {
-	const weatherCheckbox = document.getElementById("weather");
-	const optionsElement = document.getElementById("weatherOptions");
-	const showClearedElement = document.getElementById("showCleared");
-
-	if (weatherCheckbox.checked) {
-		// Show the overlay options...
-		optionsElement.style.display = "inline-flex";
-		// Add the weather overlays...
+	if (_dom.weather.checked) {
+		_dom.weatherOptions.style.display = "inline-flex";
 		initWeather();
 	} else {
-		// Clear the timer that refreshes the weather...
 		clearInterval(weatherRefresher);
 		weatherRefresher = null;
-		// Remove any previous overlay to ensure we don't keep stacking layers...
 		map.overlayMapTypes.clear();
 		map.data.forEach(function(feature) {
 			map.data.remove(feature);
 		});
-		// Hide the overlay options...
-		optionsElement.style.display = "none";
+		_dom.weatherOptions.style.display = "none";
 	}
 }
 
 // Initialize weather data and start refresh interval...
 async function initWeather() {
-	const mapType = document.getElementById("weatherType").value;
+	const mapType = _dom.weatherType.value;
 
 	// Only fetch RainViewer data when using the global radar option...
 	if (mapType === "radar") {
@@ -3200,7 +3023,7 @@ async function initWeather() {
 	// Refresh the weather data at regular intervals (using the 'weatherRefreshMinutes' variable set near the top of this script)...
 	clearInterval(weatherRefresher);
 	weatherRefresher = setInterval(async function() {
-		const currentType = document.getElementById("weatherType").value;
+		const currentType = _dom.weatherType.value;
 		if (currentType === "radar") {
 			try {
 				const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
@@ -3227,12 +3050,9 @@ function initRainViewerData() {
 
 // Function to add weather & other optional overlays to the map...
 async function addWeatherLayer() {
-	const weatherCheckbox = document.getElementById("weather");
-	const optionsElement = document.getElementById("weatherOptions");
-
-	if (weatherCheckbox.checked) {
-		const mapType = document.getElementById("weatherType").value;
-		const optionalMapType = document.getElementById("otherWeatherOverlays").value;
+	if (_dom.weather.checked) {
+		const mapType = _dom.weatherType.value;
+		const optionalMapType = _dom.otherWeatherOverlays.value;
 
 		// Add RainViewer layer if appropriate...
 		try {
@@ -4158,19 +3978,14 @@ function groupkeyHandler(e) {
 }
 
 function toggleMiscOptions() {
-	let areaElement = document.getElementById("optionsToggleArea");
-	let gearIcon = document.getElementById("gearIcon");
-	let gearIconChevron = document.getElementById("gearIconChevron");
-
-	if (areaElement.style.display == "flex") {
-		areaElement.style.display = "none";
-		gearIcon.style.fill = "#aaa";
-		gearIconChevron.style.display = "none";
+	if (_dom.optionsToggleArea.style.display == "flex") {
+		_dom.optionsToggleArea.style.display = "none";
+		_dom.gearIcon.style.fill = "#aaa";
+		_dom.gearIconChevron.style.display = "none";
 	} else {
-		areaElement.style.display = "flex";
-		gearIcon.style.fill = "blue";
-		// gearIcon.style.fill = "#555";
-		gearIconChevron.style.display = "block";
+		_dom.optionsToggleArea.style.display = "flex";
+		_dom.gearIcon.style.fill = "blue";
+		_dom.gearIconChevron.style.display = "block";
 	}
 }
 
