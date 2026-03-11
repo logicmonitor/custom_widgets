@@ -44,8 +44,9 @@ There are two different versions of the widget's source code:
 ## Initial Configuration
 
 1. Create a new Text widget on your dashboard.
-2. On the Text widget's edit dialog, click the "Code View" button (looks like "< >"), paste in the HTML source code of either [Better_Map_Widget-CDN.html](src/Better_Map_Widget-CDN.html) (recommended) or [Better_Map_Widget-Full.html](src/Better_Map_Widget-Full.html), then save the widget.
-3. Add optional dashboard tokens to modify defaults for the widget as desired. A list of token options is provided below. These can also be hard-coded into the widget in a section at the top of the source code.
+2. Set the widget's Refresh Frequency to the maximum available (15 minutes). The widget's code automatically refreshes data via API calls, so we don't need to rely on LogicMonitor to refresh the widget itself.
+3. On the Text widget's edit dialog, click the "Code View" button (looks like "< >"), paste in the HTML source code of either [Better_Map_Widget-CDN.html](src/Better_Map_Widget-CDN.html) (recommended) or [Better_Map_Widget-Full.html](src/Better_Map_Widget-Full.html), then save the widget.
+4. Add optional dashboard tokens to modify defaults for the widget as desired. A list of token options is provided below. These can also be hard-coded into the widget in a section at the top of the source code.
 
 ... alternatively...
 1. [Download sample dashboard](Sample%20Dashboards/Better_Map_Widget.json) to your workstation.
