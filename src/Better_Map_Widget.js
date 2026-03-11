@@ -9,10 +9,14 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.44 CDN";
+const version = "3.45 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.45</h3>
+	<ul>
+		<li>Improved refresh speed when there are a large number of items on the map.</li>
+	</ul>
 	<h3>Version 3.44</h3>
 	<ul>
 		<li>A number of small fixes & improvements.</li>
@@ -739,7 +743,9 @@ async function LMClient({
 			throw error; // Throw the augmented error object
 		}
 	} catch (error) {
-		// Catch errors from authentication, fetch itself (network errors), or JSON parsing/stringifying
+		// Abort errors are intentional cancellations — rethrow silently
+		if (error.name === 'AbortError') throw error;
+
 		console.error('An error occurred in LMClient:', error.message || error);
 
 		// Re-throw the error to be handled by the caller.
@@ -870,6 +876,7 @@ let rvAPIData = {};
 let rvMapFrames = [];
 let rvLastPastFramePosition = -1;
 let weatherRefresher = null;
+let mapDataRefresher = null;
 
 // Number formatter for use in wildfire data...
 const numFormatOptions = {
@@ -1185,12 +1192,14 @@ let markerInfoWindow = null;
 
 // Track map initialization state...
 let mapInitialized = false;
+let _mapInitializing = false;
 let initAttempts = 0;
 const MAX_INIT_ATTEMPTS = 10;
 
 // Robust map initialization wrapper that handles timing issues in dashboard widgets...
 async function ensureMapInitialized() {
-	if (mapInitialized) return;
+	if (mapInitialized || _mapInitializing) return;
+	_mapInitializing = true;
 
 	initAttempts++;
 	console.log(`Map initialization attempt ${initAttempts}...`);
@@ -1221,6 +1230,7 @@ async function ensureMapInitialized() {
 		console.log('Map initialized successfully');
 
 	} catch (error) {
+		_mapInitializing = false;
 		console.warn(`Map init attempt ${initAttempts} failed:`, error.message);
 
 		if (initAttempts < MAX_INIT_ATTEMPTS) {
@@ -1696,6 +1706,7 @@ async function initMap() {
 
 	// Refresh the map data at regular intervals (using the 'statusUpdateIntervalMinutes' variable set near the top of this script)...
 	if (!developmentFlag) {
+		clearInterval(mapDataRefresher);
 		mapDataRefresher = setInterval(function() {
 			refreshGroupData(timedRefresh = true);
 			console.log("Map data refreshed.");
@@ -1983,8 +1994,10 @@ async function fetchPaginatedLMItems({ resourcePath, buildQueryParams, signal, l
 async function refreshGroupData(timedRefresh = false) {
 	// Cancel any in-progress refresh operation
 	if (_currentRefreshController) {
-		_currentRefreshController.abort();
-		console.debug('Previous refresh operation cancelled.');
+		if (!_currentRefreshController.signal.aborted) {
+			_currentRefreshController.abort();
+			console.debug('Previous refresh operation cancelled.');
+		}
 	}
 	_currentRefreshController = new AbortController();
 	const refreshSignal = _currentRefreshController.signal;
@@ -2139,6 +2152,7 @@ async function refreshGroupData(timedRefresh = false) {
 	} catch (error) {
 		if (error.name === 'AbortError') {
 			console.debug('Refresh operation was cancelled.');
+			_currentRefreshController = null;
 			return;
 		}
 		console.error('Error fetching group data:', error);
@@ -2176,6 +2190,7 @@ async function refreshGroupData(timedRefresh = false) {
 		} catch (error) {
 			if (error.name === 'AbortError') {
 				console.debug('Refresh operation was cancelled.');
+				_currentRefreshController = null;
 				return;
 			}
 			console.error('Error fetching inherited locations:', error);
@@ -2203,16 +2218,115 @@ async function refreshGroupData(timedRefresh = false) {
 
 		let itemsProcessed = 0;
 
-		// Clear any previous markers from the map...
-		clearAllMarkers();
+		// Determine if we can do a differential (in-place) update
+		const isDiffUpdate = timedRefresh && markersByDeviceID.size > 0;
+		let markersAddedOrRemoved = false;
+
+		if (isDiffUpdate) {
+			// Remove stale markers (items no longer in groupData)
+			const newItemIDs = new Set(groupData.map(item => item.id));
+			const staleMarkers = [];
+			for (const [id, marker] of markersByDeviceID) {
+				if (!newItemIDs.has(id)) {
+					marker.setMap(null);
+					staleMarkers.push(marker);
+					markersByDeviceID.delete(id);
+				}
+			}
+			if (staleMarkers.length > 0) {
+				markers = markers.filter(m => !staleMarkers.includes(m));
+				markersAddedOrRemoved = true;
+			}
+		} else {
+			clearAllMarkers();
+		}
 
 		// For use in zooming the map to encompass all our markers on initial draw...
 		bounds = new google.maps.LatLngBounds();
+
+		// Shared completion handler called when all items have been processed
+		async function onRefreshComplete() {
+			if (!centerCalculated || (timedRefresh && autoResetMapOnRefresh)) {
+				resetZoom();
+				centerCalculated = true;
+			}
+
+			if (!disableClustering) {
+				if (isDiffUpdate && !markersAddedOrRemoved && typeof clusterer == "object") {
+					// Severity-only changes: re-render clusters to update donut charts
+					clusterer.render();
+				} else {
+					if (typeof clusterer == "object") {
+						google.maps.event.clearInstanceListeners(clusterer);
+						clusterer.setMap(null);
+					}
+					const algorithm = new markerClusterer.SuperClusterAlgorithm({radius: 120});
+					clusterer = new markerClusterer.MarkerClusterer({
+						markers,
+						map,
+						renderer,
+						algorithm,
+						onClusterClick: () => {}
+					});
+					clusterer.addListener("clusteringend", () => {
+						updatePolylineEndpoints();
+					});
+				}
+			}
+
+			if (mapSourceType == "resources") {
+				clearAllPolylines();
+				const connectionPromises = Object.values(lineData)
+					.filter(c => cachedAddresses[c.deviceIDConnected])
+					.map(c => plotConnection(c));
+				await Promise.all(connectionPromises);
+				updatePolylineEndpoints();
+			}
+
+			populateSidebar();
+
+			let refreshEndTime = performance.now();
+			console.debug(`Total map refresh time: ${refreshEndTime - refreshStartTime} milliseconds`);
+			pollCount = pollCount + 1;
+			if (fullRefresh) {
+				fullRefresh = false;
+			}
+
+			map.setTilt(mapTilt);
+			map.setHeading(mapHeading);
+
+			_currentRefreshController = null;
+		}
 
 		// Process groups in batches to avoid UI jank with large datasets...
 		await buildMarkersInBatches(groupData, (thisItem) => {
 			let groupID = thisItem.id;
 			const { severity: highestSeverity, sevIcon, pinBG, pinBorder, pinIndex } = parseSeverity(thisItem);
+
+			// Differential update: update existing markers in-place instead of rebuilding
+			if (isDiffUpdate) {
+				const existingMarker = markersByDeviceID.get(thisItem.id);
+				if (existingMarker) {
+					bounds.extend(existingMarker.position);
+
+					// Update severity if changed
+					if (String(pinIndex) !== existingMarker.content?.dataset?.severity) {
+						existingMarker.content.dataset.severity = String(pinIndex);
+						existingMarker.zIndex = pinIndex;
+						const iconDiv = existingMarker.content.querySelector('.icon');
+						if (iconDiv) {
+							iconDiv.className = `icon ${highestSeverity}`;
+							iconDiv.innerHTML = sevIcon;
+						}
+					}
+
+					itemsProcessed++;
+					if (itemsProcessed == totalGroups) onRefreshComplete();
+					return;
+				}
+				// Item not found in existing markers — fall through to create a new one
+				markersAddedOrRemoved = true;
+			}
 
 			let address = "";
 			let latProp = null;
@@ -2435,60 +2549,8 @@ async function refreshGroupData(timedRefresh = false) {
 				}
 				// console.log("itemsProcessed: " + itemsProcessed + " / totalGroups: " + totalGroups);
 
-				// If all items have been processed, initialize the marker cluster...
 				if (itemsProcessed == totalGroups) {
-					// If this is the first time drawing the map, center the map based on our markers...
-					if (!centerCalculated || (timedRefresh && autoResetMapOnRefresh)) {
-						resetZoom();
-						centerCalculated = true;
-					}
-
-					if (!disableClustering) {
-						// Reset our marker clustering on refreshes...
-						if (typeof clusterer == "object") {
-							google.maps.event.clearInstanceListeners(clusterer);
-							clusterer.setMap(null);
-						}
-						// We'll use MarkerCluster's SuperClusterAlgorithm since it's more optimized (the radius is to prevent overlap of clusters & markers)...
-						const algorithm = new markerClusterer.SuperClusterAlgorithm({radius: 120});
-						// Initialize our marker clusters...
-						clusterer = new markerClusterer.MarkerClusterer({
-							markers,
-							map,
-							renderer,
-							algorithm,
-							onClusterClick: () => {} // Override default zoom behavior
-						});
-						// Redraw connecting lines when clusters change
-						clusterer.addListener("clusteringend", () => {
-							updatePolylineEndpoints();
-						});
-					}
-
-					// Plot any connecting lines between resources...
-					if (mapSourceType == "resources") {
-						clearAllPolylines();
-						const connectionPromises = Object.values(lineData)
-							.filter(c => cachedAddresses[c.deviceIDConnected])
-							.map(c => plotConnection(c));
-						await Promise.all(connectionPromises);
-						updatePolylineEndpoints();
-					}
-
-					// Refresh the sidebar listing
-					populateSidebar();
-
-					// Our refresh is now complete, so capture how long it took...
-					let refreshEndTime = performance.now();
-					console.debug(`Total map refresh time: ${refreshEndTime - refreshStartTime} milliseconds`);
-					pollCount = pollCount + 1;
-					if (fullRefresh) {
-						fullRefresh = false;
-					}
-
-					// Carry forward our tilt/heading between refreshes...
-					map.setTilt(mapTilt);
-					map.setHeading(mapHeading);
+					await onRefreshComplete();
 				}
 			}
 		});
