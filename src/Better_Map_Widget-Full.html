@@ -50,10 +50,16 @@
 -->
 
 <script>
-	const version = "3.45";
+	const version = "3.46";
 	const releaseNotes = `
 		<h2>Release Notes</h2>
 		<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+		<h3>Version 3.46</h3>
+		<ul>
+			<li>Optimizations to weather data refreshing.</li>
+			<li>Opacity of weather layers is now less jarring during zoom transitions.</li>
+			<li>Enabled support for OpenWeather Radar (requires free API key available from https://openweathermap.org/api).</li>
+		</ul>
 		<h3>Version 3.45</h3>
 		<ul>
 			<li>Improved refresh speed when there are a large number of items on the map.</li>
@@ -1006,7 +1012,7 @@
 								<option value="radar" selected>Global Radar</option>
 								<option value="nexrad-n0q-900913">US NEXRAD Radar</option>
 								<option value="xweather">Xweather Global Radar</option>
-								<!-- <option value="openweather">OpenWeather Radar</option> -->
+								<option value="openweather">OpenWeather Radar</option>
 							</select>
 
 							<span id="additionalOverlayOptions">
@@ -1475,8 +1481,7 @@
 
 	// Capture our overlay defaults if defined as tokens...
 	let dashboardShowWeatherToken = "##MapShowWeather##".toLowerCase();
-	// if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexrad" || dashboardShowWeatherToken == "openweather" || dashboardShowWeatherToken == "xweather") {
-	if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexrad" || dashboardShowWeatherToken == "xweather" || dashboardShowWeatherToken == "true" || dashboardShowWeatherToken == "yes") {
+	if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexrad" || dashboardShowWeatherToken == "xweather" || dashboardShowWeatherToken == "openweather" || dashboardShowWeatherToken == "true" || dashboardShowWeatherToken == "yes") {
 		// If the token value is "true" or "yes" then default to "global"...
 		if (dashboardShowWeatherToken == "true" || dashboardShowWeatherToken == "yes") {
 			dashboardShowWeatherToken = "global";
@@ -1574,10 +1579,17 @@
 		_dom.weatherType.value = "xweather";
 	}
 
+	// Disable the Xweather option if the XweatherAPIID or XweatherAPIKey is missing...
 	const xweatherOption = _dom.weatherType.querySelector('option[value="xweather"]');
 	if (xweatherOption && (!xweatherAPIID || !xweatherAPIKey)) {
 		xweatherOption.disabled = true;
 		xweatherOption.textContent += " (API key required)";
+	}
+	// Disable the OpenWeather option if the OpenWeatherAPIKey is missing...
+	const openweatherOption = _dom.weatherType.querySelector('option[value="openweather"]');
+	if (openweatherOption && !openWeatherAPIKey) {
+		openweatherOption.disabled = true;
+		openweatherOption.textContent += " (API key required)";
 	}
 
 	if (additionalOverlayOption == "wildfires") {
