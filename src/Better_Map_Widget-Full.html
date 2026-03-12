@@ -3800,43 +3800,32 @@
 			clearInterval(weatherRefresher);
 			weatherRefresher = null;
 			map.overlayMapTypes.clear();
-			map.data.forEach(function(feature) {
-				map.data.remove(feature);
-			});
+			clearOverlayState();
 			_dom.weatherOptions.style.display = "none";
 		}
 	}
 
+	// Fetch the latest weather map data from RainViewer's API
+	async function fetchRainViewerData() {
+		const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+		if (!response.ok) throw new Error(`RainViewer API error: ${response.status} ${response.statusText}`);
+		rvAPIData = await response.json();
+	}
+
 	// Initialize weather data and start refresh interval...
 	async function initWeather() {
-		const mapType = _dom.weatherType.value;
-
-		// Only fetch RainViewer data when using the global radar option...
-		if (mapType === "radar") {
-			try {
-				const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-				if (!response.ok) {
-					throw new Error(`RainViewer API error: ${response.status} ${response.statusText}`);
-				}
-				rvAPIData = await response.json();
-			} catch (error) {
+		if (_dom.weatherType.value === "radar") {
+			try { await fetchRainViewerData(); } catch (error) {
 				console.error("Failed to fetch RainViewer weather data:", error);
 			}
 		}
 
 		addWeatherLayer();
 
-		// Refresh the weather data at regular intervals (using the 'weatherRefreshMinutes' variable set near the top of this script)...
 		clearInterval(weatherRefresher);
 		weatherRefresher = setInterval(async function() {
-			const currentType = _dom.weatherType.value;
-			if (currentType === "radar") {
-				try {
-					const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-					if (response.ok) {
-						rvAPIData = await response.json();
-					}
-				} catch (error) {
+			if (_dom.weatherType.value === "radar") {
+				try { await fetchRainViewerData(); } catch (error) {
 					console.error("Failed to refresh weather data:", error);
 				}
 			}
@@ -3854,101 +3843,81 @@
 		}
 	}
 
+	// Custom MapType implementation for weather tile overlays.
+	// Uses a two-layer DOM structure: an outer container div (managed by
+	// Google Maps for zoom/fade transitions) wrapping an inner <img> with
+	// weatherOpacity applied directly. Because Google Maps only animates
+	// the outer container, tiles never flash at full opacity during zooms.
+	function createWeatherTileLayer(name, getTileUrl, opts = {}) {
+		const tileSize = new google.maps.Size(256, 256);
+		return {
+			tileSize,
+			maxZoom: opts.maxZoom,
+			name,
+			getTile(coord, zoom, ownerDocument) {
+				const div = ownerDocument.createElement('div');
+				div.style.width = tileSize.width + 'px';
+				div.style.height = tileSize.height + 'px';
+				if (opts.maxZoom && zoom > opts.maxZoom) return div;
+				const url = getTileUrl(coord, zoom);
+				if (!url) return div;
+				const img = ownerDocument.createElement('img');
+				img.src = url;
+				img.style.width = '100%';
+				img.style.height = '100%';
+				img.style.display = 'block';
+				img.style.opacity = weatherOpacity;
+				div.appendChild(img);
+				return div;
+			},
+			releaseTile(tile) {
+				const img = tile.querySelector('img');
+				if (img) { img.src = ''; img.remove(); }
+			},
+		};
+	}
+
 	// Function to add weather & other optional overlays to the map...
 	async function addWeatherLayer() {
 		if (_dom.weather.checked) {
 			const mapType = _dom.weatherType.value;
 			const optionalMapType = _dom.otherWeatherOverlays.value;
 
-			// Add RainViewer layer if appropriate...
 			try {
+				map.overlayMapTypes.clear();
+
 				if (mapType == "radar") {
-					// Get the latest radar frame from RainViewer...
 					initRainViewerData();
 
-					// The following three lines really only apply if we use RainViewer's satellite imagery, which I'm not currently but left it in here if needed...
 					let colorScheme = rvOptionKind == 'satellite' ? 0 : rvOptionColorScheme;
 					let smooth = rvOptionKind == 'satellite' ? 0 : rvOptionSmoothData;
 					let snow = rvOptionKind == 'satellite' ? 0 : rvOptionSnowColors;
 
-					// Remove any previous overlay to ensure we don't keep stacking layers...
-					map.overlayMapTypes.clear();
+					map.overlayMapTypes.insertAt(0, createWeatherTileLayer(mapType, (tile, zoom) => {
+						return [rvAPIData.host + rvMapFrames[rvLastPastFramePosition].path, 256, zoom, tile.x, tile.y, colorScheme, smooth + '_' + snow + '.png'].join('/');
+					}, { maxZoom: 9 }));
 
-					// Create the Google Maps layer...
-					let myMapType = new google.maps.ImageMapType({
-						getTileUrl: function(tile, zoom) {
-							return [rvAPIData.host + rvMapFrames[rvLastPastFramePosition].path, 256, zoom, tile.x, tile.y, colorScheme, smooth + '_' + snow + '.png'].join('/');
-						},
-						tileSize: new google.maps.Size(256, 256),
-						maxZoom: 9,
-						opacity: weatherOpacity,
-						name : mapType,
-						isPng: true
-					});
-
-					// Attach the weather layer to our maps widget...
-					map.overlayMapTypes.insertAt(0, myMapType);
-
-					// Update the timestamp...
-					// document.querySelector("#mapTimestampArea").style.display = "block"; // Unhides the timestamp area.
-					// document.getElementById("mapTimestamp").innerHTML = (new Date(rvMapFrames[rvLastPastFramePosition].time * 1000)).toString();
-
-				// Show NEXRAD layers if appropriate...
 				} else if (mapType.match(/(nexrad|q2)/g)) {
-					// Remove any previous overlay to ensure we don't keep stacking layers...
-					map.overlayMapTypes.clear();
+					map.overlayMapTypes.insertAt(0, createWeatherTileLayer(mapType, (tile, zoom) => {
+						return "http://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/" + mapType + "/" + zoom + "/" + tile.x + "/" + tile.y + ".png?" + (new Date()).getTime();
+					}));
 
-					// Create the Google Maps layer...
-					let myMapType = new google.maps.ImageMapType({
-						getTileUrl: function(tile, zoom) {
-							return "http://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/" + mapType + "/" + zoom + "/" + tile.x + "/" + tile.y +".png?"+ (new Date()).getTime();
-						},
-						tileSize: new google.maps.Size(256, 256),
-						opacity: weatherOpacity,
-						name: mapType,
-						isPng: true
-					});
-
-					// Attach the weather layer to our maps widget...
-					map.overlayMapTypes.insertAt(0, myMapType);
-
-				// Show OpenWeather radar if appropriate...
 				} else if (mapType === "openweather") {
-					map.overlayMapTypes.clear();
-
 					if (!openWeatherAPIKey) {
 						console.error("OpenWeather radar requires an API key. Set it via the 'OpenWeatherAPIKey' dashboard token or the 'openWeatherAPIKey' variable.");
 					} else {
-						let myMapType = new google.maps.ImageMapType({
-							getTileUrl: function(tile, zoom) {
-								return "https://tile.openweathermap.org/map/precipitation_new/" + zoom + "/" + tile.x + "/" + tile.y + ".png?appid=" + openWeatherAPIKey;
-							},
-							tileSize: new google.maps.Size(256, 256),
-							opacity: weatherOpacity,
-							name: "openweather",
-							isPng: true
-						});
-						map.overlayMapTypes.insertAt(0, myMapType);
+						map.overlayMapTypes.insertAt(0, createWeatherTileLayer("openweather", (tile, zoom) => {
+							return "https://tile.openweathermap.org/map/precipitation_new/" + zoom + "/" + tile.x + "/" + tile.y + ".png?appid=" + openWeatherAPIKey;
+						}));
 					}
 
-				// Show Xweather radar if appropriate...
 				} else if (mapType === "xweather") {
-					map.overlayMapTypes.clear();
-
 					if (!xweatherAPIID || !xweatherAPIKey) {
 						console.error("Xweather radar requires an API ID and secret. Set them via the 'XweatherAPIID' and 'XweatherAPIKey' dashboard tokens or the 'xweatherAPIID' and 'xweatherAPIKey' variables.");
 					} else {
-						let myMapType = new google.maps.ImageMapType({
-							getTileUrl: function(tile, zoom) {
-								// return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar,lightning-strikes-15m-icons/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
-								return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
-							},
-							tileSize: new google.maps.Size(256, 256),
-							opacity: weatherOpacity,
-							name: "xweather",
-							isPng: true
-						});
-						map.overlayMapTypes.insertAt(0, myMapType);
+						map.overlayMapTypes.insertAt(0, createWeatherTileLayer("xweather", (tile, zoom) => {
+							return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
+						}));
 					}
 				}
 			} catch (error) {
@@ -4332,6 +4301,7 @@
 			} else if (optionalMapType == "earthquakes") {
 				clearOverlayState();
 
+				try {
 				// Load the earthquake data for the past day from the USGS site...
 				// More info about this source of earthquake data can be found at: https://publicapis.io/usgs-earthquake-hazards-program-api
 				if (quakeMode == "time") {
@@ -4628,6 +4598,9 @@
 						}
 					}
 				});
+				} catch (error) {
+					console.error("Failed to load earthquake data:", error);
+				}
 			} else if (optionalMapType == "us-flooding") {
 				// const countiesGeoJsonURL = `https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json?v=${Date.now()}`;
 				// const countyIDsJsonURL = `https://api.waterdata.usgs.gov/rtfi-api/counties?page=1&limit=4000&v=${Date.now()}`;
