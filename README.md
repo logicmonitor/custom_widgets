@@ -103,7 +103,7 @@ While there are many sources of real-time weather available on the Internet, mos
 
 Below are details on the radar options available within the widget:
 
-- **Global Radar** (current default) - free global weather radar sourced from [RainViewer](https://www.rainviewer.com/). Automatically updates every 10-15 minutes. Note that with recent changes RainViewer has made, the radar data disappears on closer zoom levels, so you might see odd messages overlayed on the map or blank tiles.
+- **Global Radar** (current default) - free global weather radar sourced from [RainViewer](https://www.rainviewer.com/). Automatically updates every 10-15 minutes. **Note:** With recent changes that RainViewer has made, the radar data doesn't support lower zoom levels and will disappear fairly quickly as you zoom in.
 - **US NEXRAD Radar** (US-specific) - very detailed radar data provided for free by the government-run NOAA. Updates approx. every 5 minutes.
 - **Xweather Global Radar** - [Xweather](https://www.xweather.com/weather-api) provides a large variety of very detailed weather information such as radar, lightning, storm cells, and more. It does require an API key, however. If you have a personal weather station - such as one from Ecowitt, Aeris Weather, Ambient Weather, Davis Weather, etc. - Xweather provides a level of free API access when you feed your station's weather data to their platform.
 - **OpenWeather Global Radar** - [OpenWeather](https://openweathermap.org/) provides a similarly large list of weather information but also requires an API key. At time of this writing, they offer 1,000 API calls/day for free for their newer, more capable API. By default I use an older API method that doesn't provide as much radar detail but supports more calls/day.
