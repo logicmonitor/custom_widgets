@@ -9,15 +9,16 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.46 CDN";
+const version = "3.47 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-	<h3>Version 3.46</h3>
+	<h3>Version 3.47</h3>
 	<ul>
 		<li>Optimizations to weather data refreshing.</li>
 		<li>Opacity of weather layers is now less jarring during zoom transitions.</li>
 		<li>Enabled support for OpenWeather Radar (requires free API key available from https://openweathermap.org/api).</li>
+		<li>Added LRU tile cache to reduce redundant network requests when the user zooms back to a previously-viewed level.</li>
 	</ul>
 	<h3>Version 3.45</h3>
 	<ul>
@@ -3116,6 +3117,34 @@ function initRainViewerData() {
 // Google Maps for zoom/fade transitions) wrapping an inner <img> with
 // weatherOpacity applied directly. Because Google Maps only animates
 // the outer container, tiles never flash at full opacity during zooms.
+//
+// Includes an LRU tile cache keyed by URL to avoid redundant network
+// requests when the user zooms back to a previously-viewed level.
+const TILE_CACHE_MAX = 256;
+const _tileCache = new Map();
+
+function _cachedTileImg(url, ownerDocument) {
+	if (_tileCache.has(url)) {
+		const cached = _tileCache.get(url);
+		_tileCache.delete(url);
+		_tileCache.set(url, cached);
+		const img = ownerDocument.createElement('img');
+		img.src = cached;
+		return img;
+	}
+	const img = ownerDocument.createElement('img');
+	img.src = url;
+	img.addEventListener('load', () => {
+		if (_tileCache.size >= TILE_CACHE_MAX) {
+			_tileCache.delete(_tileCache.keys().next().value);
+		}
+		_tileCache.set(url, url);
+	}, { once: true });
+	return img;
+}
+
+function clearTileCache() { _tileCache.clear(); }
+
 function createWeatherTileLayer(name, getTileUrl, opts = {}) {
 	const tileSize = new google.maps.Size(256, 256);
 	return {
@@ -3129,8 +3158,7 @@ function createWeatherTileLayer(name, getTileUrl, opts = {}) {
 			if (opts.maxZoom && zoom > opts.maxZoom) return div;
 			const url = getTileUrl(coord, zoom);
 			if (!url) return div;
-			const img = ownerDocument.createElement('img');
-			img.src = url;
+			const img = _cachedTileImg(url, ownerDocument);
 			img.style.width = '100%';
 			img.style.height = '100%';
 			img.style.display = 'block';
@@ -3153,6 +3181,7 @@ async function addWeatherLayer() {
 
 		try {
 			map.overlayMapTypes.clear();
+			clearTileCache();
 
 			if (mapType == "radar") {
 				initRainViewerData();
@@ -3163,12 +3192,13 @@ async function addWeatherLayer() {
 
 				map.overlayMapTypes.insertAt(0, createWeatherTileLayer(mapType, (tile, zoom) => {
 					return [rvAPIData.host + rvMapFrames[rvLastPastFramePosition].path, 256, zoom, tile.x, tile.y, colorScheme, smooth + '_' + snow + '.png'].join('/');
-				}));
+				}, { maxZoom: 7 }));
 
 			} else if (mapType.match(/(nexrad|q2)/g)) {
+				const nexradCacheBuster = Math.floor(Date.now() / (weatherRefreshMinutes * 60000));
 				map.overlayMapTypes.insertAt(0, createWeatherTileLayer(mapType, (tile, zoom) => {
-					return "http://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/" + mapType + "/" + zoom + "/" + tile.x + "/" + tile.y + ".png?" + (new Date()).getTime();
-				}));
+					return "http://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/" + mapType + "/" + zoom + "/" + tile.x + "/" + tile.y + ".png?" + nexradCacheBuster;
+				}, { maxZoom: 12 }));
 
 			} else if (mapType === "openweather") {
 				if (!openWeatherAPIKey) {
@@ -3176,7 +3206,7 @@ async function addWeatherLayer() {
 				} else {
 					map.overlayMapTypes.insertAt(0, createWeatherTileLayer("openweather", (tile, zoom) => {
 						return "https://tile.openweathermap.org/map/precipitation_new/" + zoom + "/" + tile.x + "/" + tile.y + ".png?appid=" + openWeatherAPIKey;
-					}));
+					}, { maxZoom: 12 }));
 				}
 
 			} else if (mapType === "xweather") {
@@ -3185,7 +3215,7 @@ async function addWeatherLayer() {
 				} else {
 					map.overlayMapTypes.insertAt(0, createWeatherTileLayer("xweather", (tile, zoom) => {
 						return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
-					}));
+					}, { maxZoom: 12 }));
 				}
 			}
 		} catch (error) {
