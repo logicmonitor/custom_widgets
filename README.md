@@ -74,7 +74,7 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapSourceType**: Whether to map "groups", "resources", or "services". Default is "groups".
 - **MapLocationProperty**: The property to use for the location of the items on the map. Default is "location".
 - **MapGroupPathFilter**: Allows setting a default group path to start. Default is "\*".
-- **MapShowWeather**: If weather should be shown by default. Options are "global" or "nexrad". Default is "global".
+- **MapShowWeather**: If weather should be shown by default. Options are "global", "nexrad", "xweather" or "openweather". Default is "global". (see below for more info about weather options)
 - **MapOverlayOption**: Which optional overlay to default to when weather is shown. Options are:
 	- "**earthquakes**" _(the default)_: Displays significant earthquakes. By default it shows quakes from the past 7 days and the icons fade based on age. There's an option to instead show quakes from the past 24 hours, which case the icon's boldness indicates the earthquake's magnitude. Clicking an earthquake's icon display more details.
  	- "**wildfires**": Displays active wildfires in the US and Australia. Clicking a wildfire displays additional info.
@@ -94,6 +94,19 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapShowRoadLabels**: If "true" then road labels will be shown on the map. Default is "false".
 - **apiBearerToken**, or **apiID** + **apiKey**: Optional LogicMonitor API bearer token or API ID & key to use for the widget (primarily useful if embedding the widget outside of an LM dashboard). If not specified then the widget will use integrated portal authentication.
 - **XweatherAPIID** & **XweatherAPIKey**: Optional Xweather API ID & key to enable showing Xweather weather data (requires API ID & key available from [https://www.xweather.com/weather-api](https://www.xweather.com/weather-api). Xweather is offers a great deal of optional details such as lightning strikes, hail, wind gusts, etc. Many personal weather stations such as Ecowitt provide free Xweather API access if you feed them your weather data.
+
+## Weather Options
+
+The widget has the ability to overlay real-time weather from various sources on the map. Weather can have significant impact on your operations - not just to infrastructure but to employees, customers, partners, and more!
+
+While there are many sources of real-time weather available on the Internet, most _free_ sources are country-specific - such as NEXRAD radar made available by the US National Oceanic & Atmospheric Administration (NOAA). Let me know if there's a specific country's radar source you'd like added. The default global option I've been using is from [RainViewer](https://www.rainviewer.com/), but they've [recently announced](https://www.rainviewer.com/blog/weather-radar-apis-2025-overview.html) that they're significantly scaling back their API. As such I've started making more options available.
+
+Below are details on the radar options available within the widget:
+
+- **Global Radar** (current default) - free global weather radar sourced from [RainViewer](https://www.rainviewer.com/). Automatically updates every 10-15 minutes. Note that with recent changes RainViewer has made, the radar data disappears on closer zoom levels, so you might see odd messages overlayed on the map or blank tiles.
+- **US NEXRAD Radar** (US-specific) - very detailed radar data provided for free by the government-run NOAA. Updates approx. every 5 minutes.
+- **Xweather Global Radar** - [Xweather](https://www.xweather.com/weather-api) provides a large variety of very detailed weather information such as radar, lightning, storm cells, and more. It does require an API key, however. If you have a personal weather station - such as one from Ecowitt, Aeris Weather, Ambient Weather, Davis Weather, etc. - Xweather provides a level of free API access when you feed your station's weather data to their platform.
+- **OpenWeather Global Radar** - [OpenWeather](https://openweathermap.org/) provides a similarly large list of weather information but also requires an API key. At time of this writing, they offer 1,000 API calls/day for free for their newer, more capable API. By default I use an older API method that doesn't provide as much radar detail but supports more calls/day.
 
 ## Showing Connections between Locations
 
