@@ -19,6 +19,7 @@ const releaseNotes = `
 		<li>Opacity of weather layers is now less jarring during zoom transitions.</li>
 		<li>Enabled support for OpenWeather Radar (requires free API key available from https://openweathermap.org/api).</li>
 		<li>Added LRU tile cache to reduce redundant network requests when the user zooms back to a previously-viewed level.</li>
+		<li>Fixed issue with connecting lines not being clickable to drill down to the instance details.</li>
 	</ul>
 	<h3>Version 3.45</h3>
 	<ul>
@@ -1310,6 +1311,7 @@ async function initMap() {
 			this.content = options.content || '';
 			this.anchor = options.anchor || 'right'; // 'top', 'bottom', 'left', 'right'
 			this.offset = options.offset || 20; // pixels from the point
+			this.clickThrough = options.clickThrough || false;
 			this.div = null;
 			this.isOpen = false;
 		}
@@ -1331,11 +1333,14 @@ async function initMap() {
 				line-height: 1.4;
 			`;
 
-			// Prevent clicks on the info window from propagating to the map/data layers beneath
-			this.div.addEventListener('click', (e) => e.stopPropagation());
-			this.div.addEventListener('mousedown', (e) => e.stopPropagation());
-			this.div.addEventListener('mouseup', (e) => e.stopPropagation());
-			this.div.addEventListener('dblclick', (e) => e.stopPropagation());
+			if (this.clickThrough) {
+				this.div.style.pointerEvents = 'none';
+			} else {
+				this.div.addEventListener('click', (e) => e.stopPropagation());
+				this.div.addEventListener('mousedown', (e) => e.stopPropagation());
+				this.div.addEventListener('mouseup', (e) => e.stopPropagation());
+				this.div.addEventListener('dblclick', (e) => e.stopPropagation());
+			}
 
 			// Add close button
 			const closeBtn = document.createElement('div');
@@ -2649,7 +2654,8 @@ async function plotConnection(connection) {
 		let lineInfoWindow = new CustomInfoWindow({
 			content: "",
 			anchor: 'top',
-			offset: 15
+			offset: 15,
+			clickThrough: true
 		});
 
 		google.maps.event.addListener(thisPath, "mouseover", function(e) {
