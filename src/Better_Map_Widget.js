@@ -9,10 +9,14 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.47 CDN";
+const version = "3.48 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.48</h3>
+	<ul>
+		<li>Added the ability to use dot-style markers instead of the default pin-style markers.</li>
+	</ul>
 	<h3>Version 3.47</h3>
 	<ul>
 		<li>Optimizations to weather data refreshing.</li>
@@ -219,6 +223,9 @@ if (typeof statusUpdateIntervalMinutes === 'undefined') { let statusUpdateInterv
 
 // Flag to disable marker clustering if needed...
 if (typeof disableClustering === 'undefined') { let disableClustering = false; };
+
+// Marker style. Options: "default" (pin with icon) or "dot" (color-coded circle)...
+if (typeof markerStyle === 'undefined') { var markerStyle = "default"; };
 
 // Whether to show weather by default. Options are: "no", "global", "nexrad", "openweather", "xweather"...
 // You can set it here or in a dashboard token named "MapShowWeather"...
@@ -445,6 +452,12 @@ let showRoadLabelsToken = document.getElementById("showRoadLabelsToken").innerTe
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (isTruthyToken(showRoadLabelsToken)) {
 	showRoadLabels = "yes";
+}
+// Capture from token for which marker style to use (default or dot)...
+let markerStyleToken = document.getElementById("markerStyleToken").innerText;
+// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
+if (markerStyleToken.toLowerCase() == "default" || markerStyleToken.toLowerCase() == "dot") {
+	markerStyle = markerStyleToken.toLowerCase();
 }
 
 // Capture from token whether to use a LogicMonitor API bearer token or API ID & key...
@@ -2475,8 +2488,9 @@ async function refreshGroupData(timedRefresh = false) {
 						}
 					}
 
-					content.classList.add("group");
-					// The pin's z-index gets overwritten when clicked to show details, so capture the original severity in the pin's metadata...
+				content.classList.add("group");
+				if (markerStyle === "dot") content.classList.add("dot-style");
+				// The pin's z-index gets overwritten when clicked to show details, so capture the original severity in the pin's metadata...
 					content.dataset.severity = pinIndex;
 					// Create the content shown when the pin is clicked...
 					if (mapSourceType == "groups") {
@@ -2705,7 +2719,7 @@ function toggleHighlight(markerView, group) {
 		position: markerView.position,
 		content: contentClone.outerHTML,
 		anchor: 'top',
-		offset: 40
+		offset: markerStyle === "dot" ? 12 : 40
 	});
 	markerInfoWindow.markerId = markerView.deviceID; // Track which marker this is for
 	markerInfoWindow.open(map);

@@ -421,9 +421,7 @@ body {
 	font-size: 14px;
 	gap: 15px;
 	height: 27px;
-	/* height: 30px; */
 	width: 27px;
-	/* width: 30px; */
 	justify-content: center;
 	padding: 0px;
 	position: relative;
@@ -436,15 +434,12 @@ body {
 	border: 13px solid rgba(0, 0, 0, 0.7);
 	border-radius: 50%;
 	transform: scale(0.55, -0.4) translate(0px, -50px);
-	/* transform: scale(0.55, -0.3) translate(0px, -70px); */
 	position: absolute;
 	z-index: -1;
 }
 .group::after {
 	border-left: 9px solid transparent;
 	border-right: 10px solid transparent;
-	/* border-left: 11px solid transparent;
-	border-right: 11px solid transparent; */
 	border-top: 9px solid #FFFFFF;
 	content: "";
 	height: 0;
@@ -454,14 +449,12 @@ body {
 	transform: translate(-50%, 0);
 	transition: all 0.3s ease-out;
 	width: 0;
-	/* filter: drop-shadow(0px 5px 3px rgba(0, 0, 0, 0.7)); */
 }
 .group .icon {
 	align-items: center;
 	display: flex;
 	justify-content: center;
 	color: #FFFFFF;
-	/* padding-top: 5px; */
 }
 .group .icon svg {
 	height: 20px;
@@ -547,11 +540,7 @@ body {
 */
 .group.highlight {
 	background-color: #FFFFFF;
-	/* border-radius: 8px;
-	padding: 8px 15px;
-	box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5); */
 	height: fit-content;
-	/* height: 80px; */
 	width: auto;
 	z-index: 10;
 	max-width: 400px;
@@ -559,11 +548,6 @@ body {
 .group.highlight::before {
 	display: none;
 }
-/* .group.highlight::after {
-	border-top: 9px solid #FFFFFF;
-	top: 99%;
-	filter: drop-shadow(0px 1px 1px rgba(0, 0, 0, 0.4));
-} */
 .group.highlight .details {
 	display: flex;
 	z-index: 10;
@@ -649,6 +633,79 @@ body {
 .group:not(.highlight):has(.sdt)::after {
 	border-top: 9px solid var(--sdt-color);
 	top: 85%;
+}
+
+/*
+* Dot-style marker overrides (enabled via markerStyle = "dot").
+*/
+.group.dot-style {
+	height: 20px;
+	width: 20px;
+	border: 2px solid rgba(255, 255, 255, 0.9);
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+	box-sizing: border-box;
+	transform: translateY(50%);
+}
+.group.dot-style::before {
+	display: none;
+}
+.group.dot-style::after {
+	border: none;
+	border-radius: 50%;
+	height: auto;
+	width: auto;
+	left: auto;
+	top: auto;
+	transform: none;
+	inset: -2px;
+	opacity: 0;
+	z-index: -1;
+}
+.group.dot-style:not(.highlight) {
+	background-image: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 70%);
+}
+.group.dot-style:not(.highlight):hover {
+	transform: translateY(50%) scale(1.25);
+	box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+	cursor: pointer;
+}
+.group.dot-style:not(.highlight) .icon {
+	display: none;
+}
+.group.dot-style.highlight {
+	background-image: none;
+	border: none;
+	border-radius: 8px;
+	box-shadow: none;
+	height: fit-content;
+	width: auto;
+	transform: none;
+}
+.group.dot-style.highlight::after {
+	display: none;
+}
+.group.dot-style:not(.highlight):has(.clear)::after,
+.group.dot-style:not(.highlight):has(.warn)::after,
+.group.dot-style:not(.highlight):has(.sdt)::after {
+	border: none;
+}
+@keyframes pulse-ring {
+	0% { transform: scale(1); opacity: 0.5; }
+	100% { transform: scale(2.2); opacity: 0; }
+}
+.group.dot-style:not(.highlight):has(.error)::after {
+	background-color: var(--error-color);
+	border: none;
+	inset: -2px;
+	opacity: 1;
+	animation: pulse-ring 2s ease-out infinite;
+}
+.group.dot-style:not(.highlight):has(.critical)::after {
+	background-color: var(--critical-color);
+	border: none;
+	inset: -2px;
+	opacity: 1;
+	animation: pulse-ring 1.5s ease-out infinite;
 }
 
 /* Something about the Froala editor causes the default Gmap buttons to be shifted. This appears to fix that... */
