@@ -39,7 +39,8 @@ There are two different versions of the widget's source code:
 
 - Groups, resources, or services with valid addresses set in the usual 'location' property
 - The 'Allow Scripts in Dashboard Text Widget' setting under **Settings / Security** must be enabled.
-- If you want to show connections between locations and their status, load the [Set Better Map Widget Connections](LogicModules/Set_Better_Map_Widget_Connections.json) PropertySource into your portal
+- If you want to show connections between locations and their status, load the [Set Better Map Widget Connections](LogicModules/Set_Better_Map_Widget_Connections.json) PropertySource into your portal.
+- As a best practice, it is recommended to create a LogicMonitor API credential (either LMv1 or bearer token) with only read-only permissions. Those credentials can be passed to the widget either via dashboard tokens (see below) or hard-coded into the appropriate placeholders near the top of the script.
 
 ## Initial Configuration
 
