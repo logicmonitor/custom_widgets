@@ -455,6 +455,9 @@ if (isTruthyToken(showRoadLabelsToken)) {
 }
 // Capture from token for which marker style to use (default or dot)...
 let markerStyleToken = document.getElementById("markerStyleToken").innerText;
+if (markerStyleToken.toLowerCase() == "dots") {
+	markerStyle = "dot";
+}
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (markerStyleToken.toLowerCase() == "default" || markerStyleToken.toLowerCase() == "dot") {
 	markerStyle = markerStyleToken.toLowerCase();
@@ -2898,7 +2901,7 @@ const renderer = {
 		const svg = window.btoa(`
 			<svg fill="#0000ff" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 42 42" class="donut">
 				<filter id="gaussian-blur" x="-20%" y="-20%" width="140%" height="140%">
-					<feDropShadow dx="0" dy="${mapTilt/100+0.4}" stdDeviation="1.3" flood-opacity="0.7" />
+					<feDropShadow dx="0" dy="${mapTilt/100+0.7}" stdDeviation="1.3" flood-opacity="0.9" />
 				</filter>
 				<g filter="url(#gaussian-blur)">
 					<!-- Defines the center of the donut... -->
