@@ -16,6 +16,7 @@ const releaseNotes = `
 	<h3>Version 3.48</h3>
 	<ul>
 		<li>Added the ability to use dot-style markers instead of the default pin-style markers.</li>
+		<li>Fixed issue with mouse wheel scrolling not working correctly within the map info popup window.</li>
 	</ul>
 	<h3>Version 3.47</h3>
 	<ul>
@@ -1356,6 +1357,16 @@ async function initMap() {
 				this.div.addEventListener('mousedown', (e) => e.stopPropagation());
 				this.div.addEventListener('mouseup', (e) => e.stopPropagation());
 				this.div.addEventListener('dblclick', (e) => e.stopPropagation());
+				this.div.addEventListener('wheel', (e) => {
+					let el = e.target;
+					while (el && el !== this.div) {
+						if (el.scrollHeight > el.clientHeight) {
+							e.stopPropagation();
+							return;
+						}
+						el = el.parentElement;
+					}
+				});
 			}
 
 			// Add close button
@@ -2989,7 +3000,7 @@ const renderer = {
 						<button onclick="if(clusterInfoWindow){clusterInfoWindow.close()};if(markerInfoWindow){markerInfoWindow.close();markerInfoWindow=null};if(parent.overlayInfoWindow){parent.overlayInfoWindow.close()};map.fitBounds(new google.maps.LatLngBounds(
 							new google.maps.LatLng(${clusterBounds.getSouthWest().lat()}, ${clusterBounds.getSouthWest().lng()}),
 							new google.maps.LatLng(${clusterBounds.getNorthEast().lat()}, ${clusterBounds.getNorthEast().lng()})
-						))" style="
+						), {top:70,right:70,bottom:70,left:70})" style="
 							padding: 6px 12px;
 							background: #1a73e8;
 							color: white;
