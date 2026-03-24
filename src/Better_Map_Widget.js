@@ -2912,7 +2912,7 @@ const renderer = {
 		const svg = window.btoa(`
 			<svg fill="#0000ff" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 42 42" class="donut">
 				<filter id="gaussian-blur" x="-20%" y="-20%" width="140%" height="140%">
-					<feDropShadow dx="0" dy="${mapTilt/100+0.7}" stdDeviation="1.3" flood-opacity="0.9" />
+					<feDropShadow dx="0" dy="${mapTilt/100+0.7}" stdDeviation="1.3" flood-opacity="0.7" />
 				</filter>
 				<g filter="url(#gaussian-blur)">
 					<!-- Defines the center of the donut... -->
