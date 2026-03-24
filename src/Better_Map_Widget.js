@@ -9,11 +9,11 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.48 CDN";
+const version = "3.49 CDN";
 const releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-	<h3>Version 3.48</h3>
+	<h3>Version 3.49</h3>
 	<ul>
 		<li>Added the ability to use dot-style markers instead of the default pin-style markers.</li>
 		<li>Fixed issue with mouse wheel scrolling not working correctly within the map info popup window.</li>
