@@ -455,7 +455,11 @@ if (isTruthyToken(showRoadLabelsToken)) {
 	showRoadLabels = "yes";
 }
 // Capture from token for which marker style to use (default or dot)...
-let markerStyleToken = document.getElementById("markerStyleToken").innerText;
+try {
+	markerStyleToken = document.getElementById("markerStyleToken").innerText;
+} catch (error) {
+	markerStyleToken = "default";
+}
 if (markerStyleToken.toLowerCase() == "dots") {
 	markerStyle = "dot";
 }
