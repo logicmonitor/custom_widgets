@@ -19,7 +19,7 @@ A fully custom-made widget to overcome some limitations of LogicMonitor's core M
 - Support for 1,000+ pins on the map to accommodate larger environments
 - Marker clustering to group adjacent pins together until zoomed in (along with a button to easily reset the zoom)
 - Donut charts to represent the severities of clustered markers
-- Quick & easy filtering by past and severities
+- Quick & easy filtering by path and severities
 - Layers for weather, earthquakes, wildfires (US & Australia), power outages (US), and flooding (US)
 - More informative tips when clicking a marker, with the ability to include custom properties
 - The ability to show colored lines representing status of connections between locations
