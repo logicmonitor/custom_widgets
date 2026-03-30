@@ -484,6 +484,7 @@
 		display: none;
 		flex-wrap: wrap;
 		align-items: center;
+		gap: 6px;
 	}
 	#weatherOptionsArea, #autoZoomOptions {
 		display: inline-flex;
@@ -503,11 +504,11 @@
 	}
 	#weatherOptions {
 		display: inline-flex;
-		/* gap: 6px; */
-		margin: 3px 10px 3px 5px;
+		gap: 6px;
+		margin: 3px 0 3px 5px;
 		align-items: center;
 	}
-	#weatherOptions select, #additionalOverlayOptions select {
+	#optionsToggleArea select {
 		height: 28px;
 		border: 1px solid #ddd;
 		border-radius: 5px;
@@ -522,11 +523,13 @@
 		padding: 0 3px;
 	}
 	#additionalOverlayOptions {
-		padding: 0 5px;
-		/* margin-left: 5px;
-		border-left: 2px solid lightsteelblue; */
 		display: inline-flex;
 		align-items: center;
+	}
+	#markerStyleOptions {
+		display: inline-flex;
+		align-items: center;
+		margin: 3px 0;
 	}
 	#customGroupFilterOptions {
 		padding-right: 10px;
@@ -1085,21 +1088,33 @@
 						</span>
 
 						<span id="weatherOptions">
-							<select id="weatherType" onchange="enableWeather();">
-								<option value="radar" selected>Global Radar</option>
-								<option value="nexrad-n0q-900913">US NEXRAD Radar</option>
-								<option value="xweather">Xweather Global Radar</option>
-								<option value="openweather">OpenWeather Radar</option>
-							</select>
-
-							<span id="additionalOverlayOptions">
-								<select id="otherWeatherOverlays" onchange="enableWeather();">
-									<option value="wildfires" selected>Wildfires</option>
-									<option value="us-poweroutages">US Power Outages</option>
-									<option value="earthquakes">Earthquakes (mag 6+, 7d)</option>
-									<option value="us-flooding">US Flooding</option>
+							<span data-title="Which source to use for weather information">
+								<select id="weatherType" onchange="enableWeather();">
+									<option value="radar" selected>Global Radar</option>
+									<option value="nexrad-n0q-900913">US NEXRAD Radar</option>
+									<option value="xweather">Xweather Global Radar</option>
+									<option value="openweather">OpenWeather Radar</option>
 								</select>
 							</span>
+
+							<span id="additionalOverlayOptions">
+								<span data-title="Additional layer options to show on the map when weather is enabled">
+									<select id="otherWeatherOverlays" onchange="enableWeather();">
+										<option value="wildfires" selected>Wildfires</option>
+										<option value="us-poweroutages">US Power Outages</option>
+										<option value="earthquakes">Earthquakes (mag 6+, 7d)</option>
+										<option value="us-flooding">US Flooding</option>
+									</select>
+								</span>
+							</span>
+						</span>
+					</span>
+					<span id="markerStyleOptions">
+						<span data-title="Shape of map markers for monitored items">
+							<select id="markerStyleSelect">
+								<option value="default">Pins</option>
+								<option value="dot">Circles</option>
+							</select>
 						</span>
 					</span>
 					<button id="releaseNotesButton" type="button" data-title="View release notes" onclick="showReleaseNotes();">
@@ -1627,6 +1642,7 @@
 		weather: document.getElementById("weather"),
 		weatherType: document.getElementById("weatherType"),
 		otherWeatherOverlays: document.getElementById("otherWeatherOverlays"),
+		markerStyleSelect: document.getElementById("markerStyleSelect"),
 		customGroupFilterField: document.getElementById("customGroupFilterField"),
 		mapOptionsArea: document.getElementById("mapOptionsArea"),
 		refreshStatusArea: null, // Set later after map init
@@ -1688,6 +1704,9 @@
 	} else if (additionalOverlayOption == "us-flooding") {
 		_dom.otherWeatherOverlays.value = "us-flooding";
 	}
+
+	_dom.markerStyleSelect.value = markerStyle === "dot" ? "dot" : "default";
+	_dom.markerStyleSelect.addEventListener("change", applyMarkerStyleFromSelect);
 
 	// Capture information about the current dashboard for use in subsequent REST calls...
 	const hostName = parent.window.location.host;
@@ -2033,6 +2052,23 @@
 	// Placeholder for marker cluster info...
 	let clusterInfoWindow = null;
 	let markerInfoWindow = null;
+
+	function applyMarkerStyleFromSelect() {
+		const v = _dom.markerStyleSelect.value;
+		markerStyle = v === "dot" ? "dot" : "default";
+		for (const m of markers) {
+			if (m.content && m.content.classList) {
+				m.content.classList.toggle("dot-style", markerStyle === "dot");
+			}
+		}
+		if (clusterer && typeof clusterer === "object") {
+			clusterer.render();
+		}
+		if (markerInfoWindow) {
+			markerInfoWindow.close();
+			markerInfoWindow = null;
+		}
+	}
 
 	// Track map initialization state...
 	let mapInitialized = false;

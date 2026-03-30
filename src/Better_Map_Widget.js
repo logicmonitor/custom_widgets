@@ -145,21 +145,33 @@ document.querySelector(".customMapBody").innerHTML = `<!-- Create our options ba
 					</span>
 
 					<span id="weatherOptions">
-						<select id="weatherType" onchange="enableWeather();">
-							<option value="radar" selected>Global Radar</option>
-							<option value="nexrad-n0q-900913">US NEXRAD Radar</option>
-							<option value="xweather">Xweather Global Radar</option>
-							<option value="openweather">OpenWeather Radar</option>
-						</select>
-
-						<span id="additionalOverlayOptions">
-							<select id="otherWeatherOverlays" onchange="enableWeather();">
-								<option value="wildfires" selected>Wildfires</option>
-								<option value="us-poweroutages">US Power Outages</option>
-								<option value="earthquakes">Earthquakes (mag 6+, 7d)</option>
-								<option value="us-flooding">US Flooding</option>
+						<span data-title="Which source to use for weather information">
+							<select id="weatherType" onchange="enableWeather();">
+								<option value="radar" selected>Global Radar</option>
+								<option value="nexrad-n0q-900913">US NEXRAD Radar</option>
+								<option value="xweather">Xweather Global Radar</option>
+								<option value="openweather">OpenWeather Radar</option>
 							</select>
 						</span>
+
+						<span id="additionalOverlayOptions">
+							<span data-title="Additional layer options to show on the map when weather is enabled">
+								<select id="otherWeatherOverlays" onchange="enableWeather();">
+									<option value="wildfires" selected>Wildfires</option>
+									<option value="us-poweroutages">US Power Outages</option>
+									<option value="earthquakes">Earthquakes (mag 6+, 7d)</option>
+									<option value="us-flooding">US Flooding</option>
+								</select>
+							</span>
+						</span>
+					</span>
+				</span>
+				<span id="markerStyleOptions">
+					<span data-title="Shape of map markers for monitored items">
+						<select id="markerStyleSelect">
+							<option value="default">Pins</option>
+							<option value="dot">Circles</option>
+						</select>
 					</span>
 				</span>
 				<button id="releaseNotesButton" type="button" data-title="View release notes" onclick="showReleaseNotes();">
@@ -807,6 +819,7 @@ const _dom = {
 	weather: document.getElementById("weather"),
 	weatherType: document.getElementById("weatherType"),
 	otherWeatherOverlays: document.getElementById("otherWeatherOverlays"),
+	markerStyleSelect: document.getElementById("markerStyleSelect"),
 	customGroupFilterField: document.getElementById("customGroupFilterField"),
 	mapOptionsArea: document.getElementById("mapOptionsArea"),
 	refreshStatusArea: null, // Set later after map init
@@ -868,6 +881,9 @@ if (additionalOverlayOption == "wildfires") {
 } else if (additionalOverlayOption == "us-flooding") {
 	_dom.otherWeatherOverlays.value = "us-flooding";
 }
+
+_dom.markerStyleSelect.value = markerStyle === "dot" ? "dot" : "default";
+_dom.markerStyleSelect.addEventListener("change", applyMarkerStyleFromSelect);
 
 // Capture information about the current dashboard for use in subsequent REST calls...
 const hostName = parent.window.location.host;
@@ -3095,6 +3111,23 @@ const renderer = {
 		});
 
 		return marker;
+	}
+}
+
+function applyMarkerStyleFromSelect() {
+	const v = _dom.markerStyleSelect.value;
+	markerStyle = v === "dot" ? "dot" : "default";
+	for (const m of markers) {
+		if (m.content && m.content.classList) {
+			m.content.classList.toggle("dot-style", markerStyle === "dot");
+		}
+	}
+	if (clusterer && typeof clusterer === "object") {
+		clusterer.render();
+	}
+	if (markerInfoWindow) {
+		markerInfoWindow.close();
+		markerInfoWindow = null;
 	}
 }
 

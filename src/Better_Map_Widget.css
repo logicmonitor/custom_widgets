@@ -224,6 +224,7 @@ body {
 	display: none;
 	flex-wrap: wrap;
 	align-items: center;
+	gap: 6px;
 }
 #weatherOptionsArea, #autoZoomOptions {
 	display: inline-flex;
@@ -243,11 +244,11 @@ body {
 }
 #weatherOptions {
 	display: inline-flex;
-	/* gap: 6px; */
-	margin: 3px 10px 3px 5px;
+	gap: 6px;
+	margin: 3px 0 3px 5px;
 	align-items: center;
 }
-#weatherOptions select, #additionalOverlayOptions select {
+#optionsToggleArea select {
 	height: 28px;
 	border: 1px solid #ddd;
 	border-radius: 5px;
@@ -262,11 +263,13 @@ body {
 	padding: 0 3px;
 }
 #additionalOverlayOptions {
-	padding: 0 5px;
-	/* margin-left: 5px;
-	border-left: 2px solid lightsteelblue; */
 	display: inline-flex;
 	align-items: center;
+}
+#markerStyleOptions {
+	display: inline-flex;
+	align-items: center;
+	margin: 3px 0;
 }
 #customGroupFilterOptions {
 	padding-right: 10px;
