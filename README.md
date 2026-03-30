@@ -19,7 +19,7 @@ A fully custom-made widget to overcome some limitations of LogicMonitor's core M
 - Support for 1,000+ pins on the map to accommodate larger environments
 - Marker clustering to group adjacent pins together until zoomed in (along with a button to easily reset the zoom)
 - Donut charts to represent the severities of clustered markers
-- Quick & easy filtering by past and severities
+- Quick & easy filtering by path and severities
 - Layers for weather, earthquakes, wildfires (US & Australia), power outages (US), and flooding (US)
 - More informative tips when clicking a marker, with the ability to include custom properties
 - The ability to show colored lines representing status of connections between locations
@@ -37,7 +37,7 @@ There are two different versions of the widget's source code:
 
 ## Prerequisites
 
-- Groups, resources, or services with valid addresses set in the usual 'location' property
+- Groups, resources, or services with valid addresses set in the usual 'location' property (alternatively you can specify a custom location property via the 'MapLocationProperty' dashboard token).
 - The 'Allow Scripts in Dashboard Text Widget' setting under **Settings / Security** must be enabled.
 - If you want to show connections between locations and their status, load the [Set Better Map Widget Connections](LogicModules/Set_Better_Map_Widget_Connections.json) PropertySource into your portal.
 - As a best practice, it is recommended to create a LogicMonitor API credential (either LMv1 or bearer token) with only read-only permissions. Those credentials can be passed to the widget either via dashboard tokens (see below) or hard-coded into the appropriate placeholders near the top of the script.
@@ -49,7 +49,7 @@ There are two different versions of the widget's source code:
 3. On the Text widget's edit dialog, click the "Code View" button (looks like "< >"), paste in the HTML source code of either [Better_Map_Widget-CDN.html](src/Better_Map_Widget-CDN.html) (recommended) or [Better_Map_Widget-Full.html](src/Better_Map_Widget-Full.html), then save the widget.
 4. Add optional dashboard tokens to modify defaults for the widget as desired. A list of token options is provided below. These can also be hard-coded into the widget in a section at the top of the source code.
 
-... alternatively...
+*... alternatively...*
 1. [Download sample dashboard](Sample%20Dashboards/Better_Map_Widget.json) to your workstation.
 2. In LogicMonitor go to the Dashboards section.
 3. Click the "+" button then choose "Import from file".
