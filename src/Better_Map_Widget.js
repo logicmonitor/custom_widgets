@@ -17,6 +17,7 @@ const releaseNotes = `
 	<ul>
 		<li>Drop-down menu to select which type of map marker to use (pins or circles).</li>
 		<li>Renamed the &quot;	dot&quot; option to &quot;circles&quot; for consistency. Legacy &quot;default&quot;, &quot;pin&quot;, &quot;dot&quot;, &quot;dots&quot;, and &quot;circle&quot; values are still accepted for the &quot;MapMarkerStyle&quot; dashboard token.</li>
+		<li>When a user changes a toolbar option then the changes are saved to a cookie so that they persist across refreshes. Use the new &quot;Clear cache&quot; button to clear the cookie and reset the map to its default state.</li>
 	</ul>
 	<h3>Version 3.49</h3>
 	<ul>
@@ -182,7 +183,7 @@ document.querySelector(".customMapBody").innerHTML = `<!-- Create our options ba
 				<button id="releaseNotesButton" type="button" data-title="View release notes" onclick="showReleaseNotes();">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" height="22" width="22"><!--!Font Awesome Free v7.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2026 Fonticons, Inc.--><path d="M320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM288 224C288 206.3 302.3 192 320 192C337.7 192 352 206.3 352 224C352 241.7 337.7 256 320 256C302.3 256 288 241.7 288 224zM280 288L328 288C341.3 288 352 298.7 352 312L352 400L360 400C373.3 400 384 410.7 384 424C384 437.3 373.3 448 360 448L280 448C266.7 448 256 437.3 256 424C256 410.7 266.7 400 280 400L304 400L304 336L280 336C266.7 336 256 325.3 256 312C256 298.7 266.7 288 280 288z"/></svg>
 				</button>
-				<button id="clearCacheButton" type="button" data-title="Reset addresses cached locally on your browser (should rarely be needed, only use if you're having issues with the map)" onclick="clearCache();">
+				<button id="clearCacheButton" type="button" data-title="Clear geocode cache and saved toolbar options in this browser (use if the map misbehaves)" onclick="clearCache();">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" height="20" width="20" style="vertical-align: middle;"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path id="recycleIcon" d="M216.3 124C262.5 44 378 44 424.2 124L461.5 188.6L489.2 172.6C497.6 167.7 508.1 168.4 515.8 174.3C523.5 180.2 526.9 190.2 524.4 199.6L500.9 287C497.5 299.8 484.3 307.4 471.5 304L384.1 280.6C374.7 278.1 367.8 270.2 366.5 260.6C365.2 251 369.9 241.5 378.3 236.7L406 220.7L368.7 156.1C347.1 118.8 293.3 118.8 271.7 156.1L266.4 165.2C257.6 180.5 238 185.7 222.7 176.9C207.4 168.1 202.2 148.5 211 133.1L216.3 124zM513.7 343.1C529 334.3 548.6 339.5 557.4 354.8L562.7 363.9C608.9 443.9 551.2 543.9 458.8 543.9L384.2 543.9L384.2 575.9C384.2 585.6 378.4 594.4 369.4 598.1C360.4 601.8 350.1 599.8 343.2 592.9L279.2 528.9C269.8 519.5 269.8 504.3 279.2 495L343.2 431C350.1 424.1 360.4 422.1 369.4 425.8C378.4 429.5 384.2 438.3 384.2 448L384.2 480L458.8 480C501.9 480 528.9 433.3 507.3 396L502 386.9C493.2 371.6 498.4 352 513.7 343.2zM115 299.4L87.3 283.4C78.9 278.5 74.2 269.1 75.5 259.5C76.8 249.9 83.7 242 93.1 239.5L180.5 216C193.3 212.6 206.5 220.2 209.9 233L233.3 320.4C235.8 329.8 232.4 339.7 224.7 345.7C217 351.7 206.5 352.3 198.1 347.4L170.4 331.4L133.1 396C111.5 433.3 138.5 480 181.6 480L192.2 480C209.9 480 224.2 494.3 224.2 512C224.2 529.7 209.9 544 192.2 544L181.6 544C89.3 544 31.6 444 77.8 364L115 299.4z"/></svg>
 				</button>
 			</div>
@@ -412,7 +413,7 @@ if (groupPathFilter == "") {
 	groupPathFilter = "*";
 }
 // Capture the current path filter to reset the form field if the user completely clears it out...
-const initialGroupPathFilter = groupPathFilter;
+let initialGroupPathFilter = groupPathFilter;
 // Capture our overlay defaults if defined as tokens...
 let dashboardShowWeatherToken = document.getElementById("dashboardShowWeatherToken").innerText.toLowerCase();
 if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexrad" || dashboardShowWeatherToken == "xweather" || dashboardShowWeatherToken == "openweather" || dashboardShowWeatherToken == "true" || dashboardShowWeatherToken == "yes") {
@@ -533,6 +534,119 @@ function debounce(fn, delay = 300) {
 		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => fn(...args), delay);
 	}
+}
+
+const __LMBMW_MAPOPTS_COOKIE = "lm_bmw_mapOpts_v1";
+const __LMBMW_MAPOPTS_MAX_AGE = 60 * 60 * 24 * 400;
+const __LMBMW_ALLOWED_OVERLAY_VALUES = ["wildfires", "us-poweroutages", "earthquakes", "us-flooding"];
+const __LMBMW_ALLOWED_WEATHER_TYPES = ["radar", "nexrad-n0q-900913", "xweather", "openweather"];
+
+function readMapOptionsCookieObject() {
+	try {
+		const name = __LMBMW_MAPOPTS_COOKIE + "=";
+		const parts = document.cookie.split(";");
+		for (let i = 0; i < parts.length; i++) {
+			const s = parts[i].trim();
+			if (s.startsWith(name)) {
+				const raw = decodeURIComponent(s.slice(name.length));
+				const o = JSON.parse(raw);
+				return o && typeof o === "object" ? o : null;
+			}
+		}
+	} catch (e) {}
+	return null;
+}
+function writeMapOptionsCookieObject(o) {
+	try {
+		document.cookie = `${__LMBMW_MAPOPTS_COOKIE}=${encodeURIComponent(JSON.stringify(o))};path=/;max-age=${__LMBMW_MAPOPTS_MAX_AGE};SameSite=Lax`;
+	} catch (e) {}
+}
+function clearMapOptionsCookie() {
+	try {
+		document.cookie = `${__LMBMW_MAPOPTS_COOKIE}=;path=/;max-age=0`;
+	} catch (e) {}
+}
+
+function ensureMapOptsWeatherTypeValid() {
+	const sel = _dom.weatherType;
+	const opt = sel.options[sel.selectedIndex];
+	if (opt && opt.disabled) {
+		for (let i = 0; i < sel.options.length; i++) {
+			if (!sel.options[i].disabled) {
+				sel.selectedIndex = i;
+				break;
+			}
+		}
+	}
+}
+
+function syncAdditionalOverlayVarFromSelect() {
+	const v = _dom.otherWeatherOverlays.value;
+	if (v === "wildfires") additionalOverlayOption = "wildfires";
+	else if (v === "us-poweroutages") additionalOverlayOption = "us-poweroutages";
+	else if (v === "earthquakes") additionalOverlayOption = "earthquakes";
+	else if (v === "us-flooding") additionalOverlayOption = "us-flooding";
+}
+
+function applyPersistedMapOptionsFromCookie() {
+	const o = readMapOptionsCookieObject();
+	if (!o) return;
+
+	if (typeof o.groupPathFilter === "string" && o.groupPathFilter.trim() !== "") {
+		groupPathFilter = o.groupPathFilter.trim();
+		initialGroupPathFilter = groupPathFilter;
+	}
+	if (typeof o.showCleared === "boolean") showCleared = o.showCleared;
+	if (typeof o.showWarnings === "boolean") showWarnings = o.showWarnings;
+	if (typeof o.showErrors === "boolean") showErrors = o.showErrors;
+	if (typeof o.showCriticals === "boolean") showCriticals = o.showCriticals;
+	if (typeof o.showSDT === "boolean") showSDT = o.showSDT;
+	if (typeof o.autoResetMapOnRefresh === "boolean") autoResetMapOnRefresh = o.autoResetMapOnRefresh;
+
+	if (o.markerStyle === "circles" || o.markerStyle === "pins") {
+		markerStyle = o.markerStyle;
+	}
+
+	if (typeof o.otherWeatherOverlays === "string" && __LMBMW_ALLOWED_OVERLAY_VALUES.indexOf(o.otherWeatherOverlays) >= 0) {
+		_dom.otherWeatherOverlays.value = o.otherWeatherOverlays;
+		if (o.otherWeatherOverlays === "us-poweroutages") additionalOverlayOption = "us-poweroutages";
+		else additionalOverlayOption = o.otherWeatherOverlays;
+	}
+	if (typeof o.weather === "boolean") {
+		_dom.weather.checked = o.weather;
+	}
+	if (typeof o.weatherType === "string" && __LMBMW_ALLOWED_WEATHER_TYPES.indexOf(o.weatherType) >= 0) {
+		_dom.weatherType.value = o.weatherType;
+	}
+	ensureMapOptsWeatherTypeValid();
+
+	_dom.showCleared.checked = showCleared;
+	_dom.showWarnings.checked = showWarnings;
+	_dom.showErrors.checked = showErrors;
+	_dom.showCriticals.checked = showCriticals;
+	_dom.showSDT.checked = showSDT;
+	_dom.autoZoom.checked = autoResetMapOnRefresh;
+	_dom.markerStyleSelect.value = markerStyle === "circles" ? "circles" : "pins";
+	_dom.customGroupFilterField.value = groupPathFilter;
+}
+
+function saveMapOptionsToCookie() {
+	syncAdditionalOverlayVarFromSelect();
+	const gp = (_dom.customGroupFilterField.value || "").trim();
+	writeMapOptionsCookieObject({
+		v: 1,
+		groupPathFilter: gp || groupPathFilter,
+		showCleared: _dom.showCleared.checked,
+		showWarnings: _dom.showWarnings.checked,
+		showErrors: _dom.showErrors.checked,
+		showCriticals: _dom.showCriticals.checked,
+		showSDT: _dom.showSDT.checked,
+		autoResetMapOnRefresh: _dom.autoZoom.checked,
+		weather: _dom.weather.checked,
+		weatherType: _dom.weatherType.value,
+		otherWeatherOverlays: _dom.otherWeatherOverlays.value,
+		markerStyle: _dom.markerStyleSelect.value === "circles" ? "circles" : "pins",
+	});
 }
 
 // Helper: Check if a token value represents a truthy boolean
@@ -1204,12 +1318,13 @@ const debouncedSaveCache = debounce(saveCache, 1000);
 function clearCache() {
 	try {
 		localStorage.removeItem(__LMBMW_CACHE_KEY);
+		clearMapOptionsCookie();
 		// Display our progress to the user (if status area is available)...
 		if (!_dom.refreshStatusArea) {
 			_dom.refreshStatusArea = document.getElementById("refreshStatusArea");
 		}
 		if (_dom.refreshStatusArea) {
-			_dom.refreshStatusArea.innerHTML = "Cache has been reset";
+			_dom.refreshStatusArea.innerHTML = "Local cache and saved map options were cleared";
 			_dom.refreshStatusArea.style.display = "flex";
 			// Add timer to remove message after 2 seconds...
 			setTimeout(() => {
@@ -1234,6 +1349,12 @@ let lineData = {};
 
 // Pre-populate the group path filter field...
 _dom.customGroupFilterField.value = groupPathFilter;
+
+applyPersistedMapOptionsFromCookie();
+const debouncedSaveMapOptionsCookie = debounce(saveMapOptionsToCookie, 300);
+_dom.mapOptionsArea.addEventListener("change", debouncedSaveMapOptionsCookie);
+_dom.customGroupFilterField.addEventListener("blur", saveMapOptionsToCookie);
+_dom.customGroupFilterField.addEventListener("change", saveMapOptionsToCookie);
 
 // Set toolbar icons...
 _dom.showClearedLabel.innerHTML = clearedIcon;
@@ -3134,6 +3255,7 @@ function applyMarkerStyleFromSelect() {
 		markerInfoWindow.close();
 		markerInfoWindow = null;
 	}
+	debouncedSaveMapOptionsCookie();
 }
 
 // Function to enable the weather overlays when the appropriate checkbox is selected...
@@ -3148,6 +3270,7 @@ function enableWeather() {
 		clearOverlayState();
 		_dom.weatherOptions.style.display = "none";
 	}
+	debouncedSaveMapOptionsCookie();
 }
 
 // Fetch the latest weather map data from RainViewer's API
@@ -4128,6 +4251,7 @@ function groupkeyHandler(e) {
 		e.preventDefault();
 		// Refresh the group data...
 		refreshGroupData();
+		saveMapOptionsToCookie();
 	}
 }
 
