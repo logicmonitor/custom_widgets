@@ -25,7 +25,7 @@
 	OPTIONAL DASHBOARD TOKENS:
 	* 'MapGroupPathFilter': Allows setting a default group path to start. Default is "*".
 	* 'MapLocationProperty': The property to use for the location of the items on the map. Default is "location".
-	* 'MapMarkerStyle': The style of marker to use for the items on the map. Options are "default" (pin with icon) or "dot" (color-coded circle). Default is "default".
+	* 'MapMarkerStyle': The style of marker to use for the items on the map. Use "pins" (default pin markers) or "circles" (color-coded circles). Legacy values "default", "pin", "dot", "dots", and "circle" are also accepted. Default is "pins".
 	* 'MapShowWeather': If weather should be shown by default. Options are "global", "nexrad", or "xweather". Default is "global".
 	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding" or "earthquakes". Default is "earthquakes".
 	* 'HideMapOptions': If "true" then will hide the options bar by default. Default is "false".
@@ -51,10 +51,15 @@
 -->
 
 <script>
-	const version = "3.49";
+	const version = "3.50";
 	const releaseNotes = `
 		<h2>Release Notes</h2>
 		<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+		<h3>Version 3.50</h3>
+		<ul>
+			<li>Drop-down menu to select which type of map marker to use (pins or circles).</li>
+			<li>Renamed the &quot;	dot&quot; option to &quot;circles&quot; for consistency. Legacy &quot;default&quot;, &quot;pin&quot;, &quot;dot&quot;, &quot;dots&quot;, and &quot;circle&quot; values are still accepted for the &quot;MapMarkerStyle&quot; dashboard token.</li>
+		</ul>
 		<h3>Version 3.49</h3>
 		<ul>
 			<li>Added the ability to use dot-style markers instead of the default pin-style markers.</li>
@@ -170,8 +175,8 @@
 	// Flag to disable marker clustering if needed...
 	let disableClustering = false;
 
-	// Marker style. Options: "default" (pin with icon) or "dot" (color-coded circle)...
-	let markerStyle = "default";
+	// Marker style. Options: "pins" (pin with icon) or "circles" (color-coded circle)...
+	let markerStyle = "pins";
 
 	// Whether to show weather by default. Options are: "no", "global", "nexrad", "openweather", "xweather"...
 	// You can set it here or in a dashboard token named "MapShowWeather"...
@@ -907,7 +912,7 @@
 	}
 
 	/*
-	* Dot-style marker overrides (enabled via markerStyle = "dot").
+	* Dot-style marker overrides (enabled via markerStyle = "circles").
 	*/
 	.group.dot-style {
 		border-radius: 50%;
@@ -1112,8 +1117,8 @@
 					<span id="markerStyleOptions">
 						<span data-title="Shape of map markers for monitored items">
 							<select id="markerStyleSelect">
-								<option value="default">Pins</option>
-								<option value="dot">Circles</option>
+								<option value="pins">Pins</option>
+								<option value="circles">Circles</option>
 							</select>
 						</span>
 					</span>
@@ -1623,12 +1628,11 @@
 
 	// Check to see if user has specified a marker style via dashboard token...
 	let markerStyleToken = "##MapMarkerStyle##";
-	if (markerStyleToken.toLowerCase() == "dots") {
-		markerStyle = "dot";
-	}
-	// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
-	if (markerStyleToken.toLowerCase() == "default" || markerStyleToken.toLowerCase() == "dot") {
-		markerStyle = markerStyleToken.toLowerCase();
+	const markerStyleTokenNorm = String(markerStyleToken).trim().toLowerCase();
+	if (markerStyleTokenNorm === "dot" || markerStyleTokenNorm === "dots" || markerStyleTokenNorm === "circle" || markerStyleTokenNorm === "circles") {
+		markerStyle = "circles";
+	} else if (markerStyleTokenNorm === "pins" || markerStyleTokenNorm === "default" || markerStyleTokenNorm === "pin") {
+		markerStyle = "pins";
 	}
 
 	// Cache frequently accessed DOM elements for performance
@@ -1705,7 +1709,7 @@
 		_dom.otherWeatherOverlays.value = "us-flooding";
 	}
 
-	_dom.markerStyleSelect.value = markerStyle === "dot" ? "dot" : "default";
+	_dom.markerStyleSelect.value = markerStyle === "circles" ? "circles" : "pins";
 	_dom.markerStyleSelect.addEventListener("change", applyMarkerStyleFromSelect);
 
 	// Capture information about the current dashboard for use in subsequent REST calls...
@@ -2055,10 +2059,10 @@
 
 	function applyMarkerStyleFromSelect() {
 		const v = _dom.markerStyleSelect.value;
-		markerStyle = v === "dot" ? "dot" : "default";
+		markerStyle = v === "circles" ? "circles" : "pins";
 		for (const m of markers) {
 			if (m.content && m.content.classList) {
-				m.content.classList.toggle("dot-style", markerStyle === "dot");
+				m.content.classList.toggle("dot-style", markerStyle === "circles");
 			}
 		}
 		if (clusterer && typeof clusterer === "object") {
@@ -3352,7 +3356,7 @@
 						}
 
 						content.classList.add("group");
-						if (markerStyle === "dot") content.classList.add("dot-style");
+						if (markerStyle === "circles") content.classList.add("dot-style");
 						// The pin's z-index gets overwritten when clicked to show details, so capture the original severity in the pin's metadata...
 						content.dataset.severity = pinIndex;
 						// Create the content shown when the pin is clicked...
@@ -3582,7 +3586,7 @@
 			position: markerView.position,
 			content: contentClone.outerHTML,
 			anchor: 'top',
-			offset: markerStyle === "dot" ? 12 : 40
+			offset: markerStyle === "circles" ? 12 : 40
 		});
 		markerInfoWindow.markerId = markerView.deviceID; // Track which marker this is for
 		markerInfoWindow.open(map);

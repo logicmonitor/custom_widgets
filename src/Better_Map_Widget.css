@@ -647,7 +647,7 @@ body {
 }
 
 /*
-* Dot-style marker overrides (enabled via markerStyle = "dot").
+* Dot-style marker overrides (enabled via markerStyle = "circles").
 */
 .group.dot-style {
 	border-radius: 50%;
