@@ -51,10 +51,14 @@
 -->
 
 <script>
-	const version = "3.50";
+	const version = "3.51";
 	const releaseNotes = `
 		<h2>Release Notes</h2>
 		<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+		<h3>Version 3.51</h3>
+		<ul>
+			<li>Cookies are now specific to each dashboard.</li>
+		</ul>
 		<h3>Version 3.50</h3>
 		<ul>
 			<li>Drop-down menu to select which type of map marker to use (pins or circles).</li>
@@ -1183,14 +1187,23 @@
 		}
 	}
 
-	const __LMBMW_MAPOPTS_COOKIE = "lm_bmw_mapOpts_v1";
+	const __LMBMW_MAPOPTS_COOKIE_BASE = "lm_bmw_mapOpts_v1";
 	const __LMBMW_MAPOPTS_MAX_AGE = 60 * 60 * 24 * 400;
 	const __LMBMW_ALLOWED_OVERLAY_VALUES = ["wildfires", "us-poweroutages", "earthquakes", "us-flooding"];
 	const __LMBMW_ALLOWED_WEATHER_TYPES = ["radar", "nexrad-n0q-900913", "xweather", "openweather"];
 
+	// Build a per-dashboard cookie name so each LM dashboard has its own saved
+	// map options. dashboardID is derived later from the parent URL pathname
+	// (e.g. ".../dashboards/dashboards-2338" -> "2338"); fall back to "default"
+	// if no dashboard ID is found (e.g. when the widget is previewed standalone).
+	function getMapOptionsCookieName() {
+		const id = dashboardID || "default";
+		return `${__LMBMW_MAPOPTS_COOKIE_BASE}_${id}`;
+	}
+
 	function readMapOptionsCookieObject() {
 		try {
-			const name = __LMBMW_MAPOPTS_COOKIE + "=";
+			const name = getMapOptionsCookieName() + "=";
 			const parts = document.cookie.split(";");
 			for (let i = 0; i < parts.length; i++) {
 				const s = parts[i].trim();
@@ -1205,12 +1218,12 @@
 	}
 	function writeMapOptionsCookieObject(o) {
 		try {
-			document.cookie = `${__LMBMW_MAPOPTS_COOKIE}=${encodeURIComponent(JSON.stringify(o))};path=/;max-age=${__LMBMW_MAPOPTS_MAX_AGE};SameSite=Lax`;
+			document.cookie = `${getMapOptionsCookieName()}=${encodeURIComponent(JSON.stringify(o))};path=/;max-age=${__LMBMW_MAPOPTS_MAX_AGE};SameSite=Lax`;
 		} catch (e) {}
 	}
 	function clearMapOptionsCookie() {
 		try {
-			document.cookie = `${__LMBMW_MAPOPTS_COOKIE}=;path=/;max-age=0`;
+			document.cookie = `${getMapOptionsCookieName()}=;path=/;max-age=0`;
 		} catch (e) {}
 	}
 
@@ -1828,9 +1841,11 @@
 
 	// Capture information about the current dashboard for use in subsequent REST calls...
 	const hostName = parent.window.location.host;
-	const locationHash = parent.window.location.hash; // example result: "#dashboard=21"
-	const dashboardID = locationHash.replace("#dashboard=", "");
-	const pathName = parent.window.location.pathname;
+	const locationHash = parent.window.location.hash;
+	const pathName = parent.window.location.pathname; // example: "/santaba/uiv4/dashboards/dashboards-2338"
+	// Extract the numeric dashboard ID from the path (e.g. "dashboards-2338" -> "2338").
+	const __LMBMW_DASHBOARD_ID_MATCH = pathName.match(/\/dashboards-(\d+)/i);
+	const dashboardID = __LMBMW_DASHBOARD_ID_MATCH ? __LMBMW_DASHBOARD_ID_MATCH[1] : "";
 
 	// Note our original tilt & heading values...
 	const defaultMapTilt = mapTilt;
