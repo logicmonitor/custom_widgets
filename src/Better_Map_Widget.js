@@ -9,14 +9,15 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-var version = "3.52 CDN";
+var version = "3.53 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-	<h3>Version 3.52</h3>
+	<h3>Version 3.53</h3>
 	<ul>
 		<li>Added a button to reset the group filter if different from the default value.</li>
 		<li>Fixed issue with variable scoping when multiple instances of the widget are used on the same page.</li>
+		<li>Added some missing comments to the code.</li>
 	</ul>
 	<h3>Version 3.51</h3>
 	<ul>
