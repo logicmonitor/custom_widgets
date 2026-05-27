@@ -128,6 +128,7 @@ if (betterMapRoot && betterMapInstanceId) {
 	betterMapInstance.root = betterMapRoot;
 }
 
+// Function to route inline actions to the correct widget instance...
 if (!window.betterMapWidgetCall) {
 	window.betterMapWidgetCall = function(instanceId, methodName) {
 		var args = Array.prototype.slice.call(arguments, 2);
@@ -142,6 +143,7 @@ if (!window.betterMapWidgetCall) {
 	};
 }
 
+// Function to retrieve a widget default without relying on global variables...
 function getBetterMapGlobal(name, fallback) {
 	if (Object.prototype.hasOwnProperty.call(betterMapDefaults, name)) {
 		return betterMapDefaults[name];
@@ -149,6 +151,7 @@ function getBetterMapGlobal(name, fallback) {
 	return typeof window[name] === "undefined" ? fallback : window[name];
 }
 
+// Function to find or create the map container for this widget instance...
 function ensureBetterMapRoot(root) {
 	if (root) {
 		return root;
@@ -164,6 +167,7 @@ function ensureBetterMapRoot(root) {
 	return root;
 }
 
+// Function to find an element inside this widget instance first...
 function getBetterMapElementById(id) {
 	var selector = "#" + id;
 	var element = null;
@@ -176,6 +180,7 @@ function getBetterMapElementById(id) {
 	return element || document.getElementById(id);
 }
 
+// Function to find a selector inside this widget instance first...
 function getBetterMapScopedQuery(selector) {
 	if (betterMapRoot && typeof betterMapRoot.querySelector === "function") {
 		var element = betterMapRoot.querySelector(selector);
@@ -4345,6 +4350,7 @@ function waitForElm(selector) {
 	});
 }
 
+// Function to expose selected widget state for legacy integrations...
 function exposeBetterMapState(name, getValue, setValue) {
 	Object.defineProperty(window, name, {
 		configurable: true,
@@ -4353,6 +4359,7 @@ function exposeBetterMapState(name, getValue, setValue) {
 	});
 }
 
+// Function to clean up timers, markers, and event listeners before the widget is reloaded...
 function cleanupBetterMapInstance() {
 	clearInterval(weatherRefresher);
 	clearInterval(mapDataRefresher);

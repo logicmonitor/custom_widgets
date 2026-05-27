@@ -1076,6 +1076,7 @@
 			registry.instances = Object.create(null);
 		}
 
+		// Function to find a previous sibling element matching the supplied test...
 		function previousElementMatching(start, predicate) {
 			if (!start) {
 				return null;
@@ -1090,13 +1091,14 @@
 			return null;
 		}
 
-			function ensureBetterMapRoot(referenceNode) {
-				var root = previousElementMatching(referenceNode, function(element) {
-					return element.classList && element.classList.contains("customMapBody");
-				}) || document.querySelector(".customMapBody:not([data-better-map-instance-id])") || document.querySelector(".customMapBody");
-				if (root) {
-					return root;
-				}
+		// Function to find or create the map container for this widget instance...
+		function ensureBetterMapRoot(referenceNode) {
+			var root = previousElementMatching(referenceNode, function(element) {
+				return element.classList && element.classList.contains("customMapBody");
+			}) || document.querySelector(".customMapBody:not([data-better-map-instance-id])") || document.querySelector(".customMapBody");
+			if (root) {
+				return root;
+			}
 			root = document.createElement("div");
 			root.className = "customMapBody";
 			root.innerHTML = "&nbsp;";
@@ -1108,6 +1110,7 @@
 			return root;
 		}
 
+		// Function to create a unique ID for this widget instance...
 		function makeInstanceId() {
 			if (window.crypto && typeof window.crypto.randomUUID === "function") {
 				return window.crypto.randomUUID();
@@ -1279,22 +1282,24 @@
 
 <script>
 	(function() {
-	var betterMapScript = document.currentScript;
+		var betterMapScript = document.currentScript;
 
-	function previousElementMatching(start, predicate) {
-		if (!start) {
+		// Function to find a previous sibling element matching the supplied test...
+		function previousElementMatching(start, predicate) {
+			if (!start) {
+				return null;
+			}
+			var element = start.previousElementSibling;
+			while (element) {
+				if (predicate(element)) {
+					return element;
+				}
+				element = element.previousElementSibling;
+			}
 			return null;
 		}
-		var element = start.previousElementSibling;
-		while (element) {
-			if (predicate(element)) {
-				return element;
-			}
-			element = element.previousElementSibling;
-		}
-		return null;
-	}
 
+		// Function to find the map container for this widget instance...
 		function findBetterMapRoot() {
 			var root = previousElementMatching(betterMapScript, function(element) {
 				return element.classList && element.classList.contains("customMapBody");
@@ -1304,62 +1309,66 @@
 			}
 			var registry = window.__betterMapWidgetRegistry;
 			if (registry && registry.instances) {
-			var ids = Object.keys(registry.instances);
-			for (var i = ids.length - 1; i >= 0; i--) {
-				var instanceRoot = registry.instances[ids[i]] && registry.instances[ids[i]].root;
-				if (instanceRoot && instanceRoot.isConnected) {
-					return instanceRoot;
+				var ids = Object.keys(registry.instances);
+				for (var i = ids.length - 1; i >= 0; i--) {
+					var instanceRoot = registry.instances[ids[i]] && registry.instances[ids[i]].root;
+					if (instanceRoot && instanceRoot.isConnected) {
+						return instanceRoot;
 					}
 				}
 			}
 			return document.querySelector(".customMapBody");
 		}
 
-	var betterMapRoot = findBetterMapRoot();
-	var betterMapInstanceId = (betterMapRoot && betterMapRoot.getAttribute("data-better-map-instance-id")) || "";
-	var betterMapRegistry = window.__betterMapWidgetRegistry || { instances: Object.create(null) };
-	var betterMapInstance = (betterMapRegistry.instances && betterMapRegistry.instances[betterMapInstanceId]) || {};
-	var betterMapDefaults = betterMapInstance.defaults || {};
+		var betterMapRoot = findBetterMapRoot();
+		var betterMapInstanceId = (betterMapRoot && betterMapRoot.getAttribute("data-better-map-instance-id")) || "";
+		var betterMapRegistry = window.__betterMapWidgetRegistry || { instances: Object.create(null) };
+		var betterMapInstance = (betterMapRegistry.instances && betterMapRegistry.instances[betterMapInstanceId]) || {};
+		var betterMapDefaults = betterMapInstance.defaults || {};
 
-	if (!window.betterMapWidgetCall) {
-		window.betterMapWidgetCall = function(instanceId, methodName) {
-			var args = Array.prototype.slice.call(arguments, 2);
-			var registry = window.__betterMapWidgetRegistry;
-			var instance = registry && registry.instances && registry.instances[instanceId];
-			if (instance && instance.api && typeof instance.api[methodName] === "function") {
-				return instance.api[methodName].apply(null, args);
-			}
-			if (typeof window[methodName] === "function") {
-				return window[methodName].apply(null, args);
-			}
-		};
-	}
-
-	function getBetterMapGlobal(name, fallback) {
-		if (Object.prototype.hasOwnProperty.call(betterMapDefaults, name)) {
-			return betterMapDefaults[name];
+		// Function to route inline actions to the correct widget instance...
+		if (!window.betterMapWidgetCall) {
+			window.betterMapWidgetCall = function(instanceId, methodName) {
+				var args = Array.prototype.slice.call(arguments, 2);
+				var registry = window.__betterMapWidgetRegistry;
+				var instance = registry && registry.instances && registry.instances[instanceId];
+				if (instance && instance.api && typeof instance.api[methodName] === "function") {
+					return instance.api[methodName].apply(null, args);
+				}
+				if (typeof window[methodName] === "function") {
+					return window[methodName].apply(null, args);
+				}
+			};
 		}
-		return typeof window[name] === "undefined" ? fallback : window[name];
-	}
 
-	function getBetterMapElementById(id) {
-		var selector = "#" + id;
-		var element = null;
-		if (betterMapRoot && typeof betterMapRoot.querySelector === "function") {
-			element = betterMapRoot.querySelector(selector);
-		}
-		return element || document.getElementById(id);
-	}
-
-	function getBetterMapScopedQuery(selector) {
-		if (betterMapRoot && typeof betterMapRoot.querySelector === "function") {
-			var element = betterMapRoot.querySelector(selector);
-			if (element) {
-				return element;
+		// Function to retrieve a widget default without relying on global variables...
+		function getBetterMapGlobal(name, fallback) {
+			if (Object.prototype.hasOwnProperty.call(betterMapDefaults, name)) {
+				return betterMapDefaults[name];
 			}
+			return typeof window[name] === "undefined" ? fallback : window[name];
 		}
-		return document.querySelector(selector);
-	}
+
+		// Function to find an element inside this widget instance first...
+		function getBetterMapElementById(id) {
+			var selector = "#" + id;
+			var element = null;
+			if (betterMapRoot && typeof betterMapRoot.querySelector === "function") {
+				element = betterMapRoot.querySelector(selector);
+			}
+			return element || document.getElementById(id);
+		}
+
+		// Function to find a selector inside this widget instance first...
+		function getBetterMapScopedQuery(selector) {
+			if (betterMapRoot && typeof betterMapRoot.querySelector === "function") {
+				var element = betterMapRoot.querySelector(selector);
+				if (element) {
+					return element;
+				}
+			}
+			return document.querySelector(selector);
+		}
 
 	var apiBearerToken = getBetterMapGlobal("apiBearerToken", "");
 	var lmAPIID = getBetterMapGlobal("lmAPIID", "");
@@ -5381,6 +5390,7 @@
 		});
 	}
 
+	// Function to expose selected widget state for legacy integrations...
 	function exposeBetterMapState(name, getValue, setValue) {
 		Object.defineProperty(window, name, {
 			configurable: true,
@@ -5389,6 +5399,7 @@
 		});
 	}
 
+	// Function to clean up timers, markers, and event listeners before the widget is reloaded...
 	function cleanupBetterMapInstance() {
 		clearInterval(weatherRefresher);
 		clearInterval(mapDataRefresher);

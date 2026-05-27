@@ -231,6 +231,7 @@
 			registry.instances = Object.create(null);
 		}
 
+		// Function to find a previous sibling element matching the supplied test...
 		function previousElementMatching(start, predicate) {
 			if (!start) {
 				return null;
@@ -245,10 +246,12 @@
 			return null;
 		}
 
+		// Function to append dynamically-loaded files to the document head...
 		function appendToHead(node) {
 			(document.head || document.body || document.documentElement).appendChild(node);
 		}
 
+		// Function to create a unique ID for this widget instance...
 		function makeInstanceId() {
 			if (window.crypto && typeof window.crypto.randomUUID === "function") {
 				return window.crypto.randomUUID();
@@ -256,6 +259,7 @@
 			return "better-map-" + Date.now() + "-" + Math.random().toString(36).slice(2);
 		}
 
+		// Function to find or create the map container for this widget instance...
 		function ensureBetterMapRoot(referenceNode) {
 			var root = previousElementMatching(referenceNode, function(element) {
 				return element.classList && element.classList.contains("customMapBody");
@@ -274,6 +278,7 @@
 			return root;
 		}
 
+		// Function to load an external script and tag it with this widget instance...
 		function loadScript(url, options) {
 			options = options || {};
 			return new Promise(function(resolve, reject) {
@@ -295,6 +300,7 @@
 			});
 		}
 
+		// Function to load an external stylesheet for the widget...
 		function loadStylesheet(url) {
 			return new Promise(function(resolve, reject) {
 				var link = document.createElement("link");
@@ -335,12 +341,12 @@
 			tokenArea.setAttribute("data-better-map-instance-id", instanceId);
 		}
 
-			registry.instances[instanceId] = {
-				createdAt: Date.now(),
-				defaults: (defaultsScript && defaultsScript.__betterMapDefaults) || (registry.pendingDefaults && registry.pendingDefaults.shift()) || {},
-				root: mapBody,
-				tokenRoot: tokenArea
-			};
+		registry.instances[instanceId] = {
+			createdAt: Date.now(),
+			defaults: (defaultsScript && defaultsScript.__betterMapDefaults) || (registry.pendingDefaults && registry.pendingDefaults.shift()) || {},
+			root: mapBody,
+			tokenRoot: tokenArea
+		};
 
 		Object.keys(registry.instances).forEach(function(id) {
 			var instance = registry.instances[id];
