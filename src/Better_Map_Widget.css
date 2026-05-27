@@ -274,12 +274,18 @@ body {
 #customGroupFilterOptions {
 	padding-right: 10px;
 	font-weight: bold;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
 }
 #customGroupFilterField {
 	background-color: #eee;
 	border: 1px solid silver;
 	font-family: Tahoma, Verdana, Roboto, monospace;
 	max-width: 150px;
+}
+#resetGroupFilterButton {
+	display: none;
 }
 #refreshStatusArea {
 	/* font-weight: bold; */
