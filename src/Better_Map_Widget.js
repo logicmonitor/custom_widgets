@@ -549,7 +549,7 @@ var CSRF_TOKEN_TTL = 5 * 60 * 1000; // Cache token for 5 minutes
 // AbortController for canceling in-progress refresh operations
 var _currentRefreshController = null;
 
-// Utility: Debounce function for rate-limiting user input handlers
+// Function to debounce handlers when user input changes quickly...
 function debounce(fn, delay = 300) {
 	let timeoutId;
 	return (...args) => {
@@ -563,15 +563,13 @@ var __LMBMW_MAPOPTS_MAX_AGE = 60 * 60 * 24 * 400;
 var __LMBMW_ALLOWED_OVERLAY_VALUES = ["wildfires", "us-poweroutages", "earthquakes", "us-flooding"];
 var __LMBMW_ALLOWED_WEATHER_TYPES = ["radar", "nexrad-n0q-900913", "xweather", "openweather"];
 
-// Build a per-dashboard cookie name so each LM dashboard has its own saved
-// map options. dashboardID is derived later from the parent URL pathname
-// (e.g. ".../dashboards/dashboards-2338" -> "2338"); fall back to "default"
-// if no dashboard ID is found (e.g. when the widget is previewed standalone).
+// Function to build a per-dashboard cookie name for saved map options...
 function getMapOptionsCookieName() {
 	const id = dashboardID || "default";
 	return `${__LMBMW_MAPOPTS_COOKIE_BASE}_${id}`;
 }
 
+// Function to read saved map options from the dashboard-specific cookie...
 function readMapOptionsCookieObject() {
 	try {
 		const name = getMapOptionsCookieName() + "=";
@@ -587,17 +585,22 @@ function readMapOptionsCookieObject() {
 	} catch (e) {}
 	return null;
 }
+
+// Function to write saved map options to the dashboard-specific cookie...
 function writeMapOptionsCookieObject(o) {
 	try {
 		document.cookie = `${getMapOptionsCookieName()}=${encodeURIComponent(JSON.stringify(o))};path=/;max-age=${__LMBMW_MAPOPTS_MAX_AGE};SameSite=Lax`;
 	} catch (e) {}
 }
+
+// Function to clear saved map options for the current dashboard...
 function clearMapOptionsCookie() {
 	try {
 		document.cookie = `${getMapOptionsCookieName()}=;path=/;max-age=0`;
 	} catch (e) {}
 }
 
+// Function to make sure the selected weather type is still valid...
 function ensureMapOptsWeatherTypeValid() {
 	const sel = _dom.weatherType;
 	const opt = sel.options[sel.selectedIndex];
@@ -611,6 +614,7 @@ function ensureMapOptsWeatherTypeValid() {
 	}
 }
 
+// Function to sync the selected overlay back to the overlay variable...
 function syncAdditionalOverlayVarFromSelect() {
 	const v = _dom.otherWeatherOverlays.value;
 	if (v === "wildfires") additionalOverlayOption = "wildfires";
@@ -619,6 +623,7 @@ function syncAdditionalOverlayVarFromSelect() {
 	else if (v === "us-flooding") additionalOverlayOption = "us-flooding";
 }
 
+// Function to apply saved toolbar options from the dashboard cookie...
 function applyPersistedMapOptionsFromCookie() {
 	const o = readMapOptionsCookieObject();
 	if (!o) return;
@@ -662,6 +667,7 @@ function applyPersistedMapOptionsFromCookie() {
 	updateResetGroupFilterButtonVisibility();
 }
 
+// Function to show or hide the group filter reset button...
 function updateResetGroupFilterButtonVisibility() {
 	if (!_dom.resetGroupFilterButton) return;
 	const fieldValue = (_dom.customGroupFilterField.value || "").trim();
@@ -669,6 +675,7 @@ function updateResetGroupFilterButtonVisibility() {
 	_dom.resetGroupFilterButton.style.display = fieldValue !== initialValue ? "inline-flex" : "none";
 }
 
+// Function to save the current toolbar options to the dashboard cookie...
 function saveMapOptionsToCookie() {
 	syncAdditionalOverlayVarFromSelect();
 	const gp = (_dom.customGroupFilterField.value || "").trim();
@@ -688,13 +695,13 @@ function saveMapOptionsToCookie() {
 	});
 }
 
-// Helper: Check if a token value represents a truthy boolean
+// Function to check if a token value represents a truthy boolean...
 function isTruthyToken(tokenValue) {
 	const lower = tokenValue.toLowerCase();
 	return lower === "true" || lower === "yes" || lower === "1";
 }
 
-// Helper: Parse alert/SDT status into a normalized severity object
+// Severity metadata used when parsing alert/SDT status...
 var _severityMeta = {
 	warn:     { icon: () => warningIcon,  pinBG: "#f5ca1d", pinBorder: "#967c14", pinIndex: 1 },
 	error:    { icon: () => errorIcon,    pinBG: "#ff8c00", pinBorder: "#ac5101", pinIndex: 2 },
@@ -702,6 +709,8 @@ var _severityMeta = {
 	sdt:      { icon: () => sdtIcon,      pinBG: "#00a1fe", pinBorder: "#00a1fe", pinIndex: 4 },
 	clear:    { icon: () => clearedIcon,  pinBG: undefined, pinBorder: undefined, pinIndex: 0 },
 };
+
+// Function to parse alert/SDT status into a normalized severity object...
 function parseSeverity(item) {
 	let severity = "clear";
 	const alertMatch = item.alertStatus && item.alertStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
@@ -725,6 +734,7 @@ function parseSeverity(item) {
 	};
 }
 
+// Function to reset the group filter to its initial value...
 function resetGroupFilter() {
 	groupPathFilter = initialGroupPathFilter;
 	_dom.customGroupFilterField.value = groupPathFilter;
@@ -1145,15 +1155,17 @@ var centerCalculated = false;
 // For storing polyline references and their marker associations...
 var polylines = [];
 
+// Function to show the release notes overlay...
 function showReleaseNotes() {
 	getBetterMapElementById('releaseNotesOverlay').classList.add('visible');
 }
 
+// Function to close the release notes overlay...
 function closeReleaseNotes() {
 	getBetterMapElementById('releaseNotesOverlay').classList.remove('visible');
 }
 
-// Utility function to clear all markers from the map (consolidates repeated code)
+// Function to clear all markers from the map...
 function clearAllMarkers() {
 	markers.forEach(m => m.setMap(null));
 	markers = [];
@@ -1164,7 +1176,7 @@ function clearAllMarkers() {
 	}
 }
 
-// Clear all connecting polylines and their listeners
+// Function to clear all connecting polylines and their listeners...
 function clearAllPolylines() {
 	if (polylines.length === 0) return;
 	// console.debug("Clearing " + polylines.length + " polylines");
@@ -1177,7 +1189,7 @@ function clearAllPolylines() {
 	polylines = [];
 }
 
-// Clear all overlay data, listeners, and InfoWindows before loading a new overlay
+// Function to clear all overlay data, listeners, and InfoWindows before loading a new overlay...
 function clearOverlayState() {
 	map.data.forEach(function(feature) {
 		map.data.remove(feature);
@@ -1196,7 +1208,7 @@ function clearOverlayState() {
 	}
 }
 
-// Close all open InfoWindows (cluster, marker, and overlay). Pass { skipMarker: true } to leave marker open.
+// Function to close all open InfoWindows...
 function closeAllInfoWindows(opts) {
 	if (clusterInfoWindow) {
 		clusterInfoWindow.close();
@@ -1210,7 +1222,7 @@ function closeAllInfoWindows(opts) {
 	}
 }
 
-// Find a named property from an item's property arrays in priority order
+// Function to find a named property from an item's property arrays in priority order...
 function findItemProperty(item, propName, sources) {
 	if (!sources) sources = ['customProperties', 'inheritedProperties', 'autoProperties'];
 	for (const source of sources) {
@@ -1222,7 +1234,7 @@ function findItemProperty(item, propName, sources) {
 	return null;
 }
 
-// Find the location address and optional lat/lng from an item's properties
+// Function to find the location address and optional lat/lng from an item's properties...
 function findLocationFromItem(item, locationProp) {
 	const propSources = locationProp.match(/^auto\./)
 		? ['autoProperties']
@@ -1259,7 +1271,7 @@ function findLocationFromItem(item, locationProp) {
 	return { address, alreadyGeocoded, latProp, lngProp };
 }
 
-// Helper to create a styled map control button
+// Function to create a styled map control button...
 function createMapControlButton({ id, title, innerHTML, size = "40px", bgColor = "rgb(255 255 255 / 0%)", margin = "", onClick }) {
 	const btn = document.createElement("button");
 	btn.id = id;
@@ -1280,12 +1292,12 @@ function createMapControlButton({ id, title, innerHTML, size = "40px", bgColor =
 	return btn;
 }
 
-// Generate earthquake marker icon SVG URL with given opacity and color
+// Function to generate an earthquake marker icon SVG URL with the given opacity and color...
 function buildEarthquakeIconUrl(iconOpacity, alertColor) {
 	return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' data-tooltip='Earthquake' viewBox='0 0 302.836 302.836'%3E%3Cpath d='M271 256a15 15 0 0 1-15 15 15 15 0 0 1-15-15 15 15 0 0 1 15-15 15 15 0 0 1 15 15z' style='opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};stroke:none;stroke-width:8;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 139.29c-64.44 0-116.71 52.27-116.71 116.71S191.56 372.71 256 372.71 372.71 320.44 372.71 256 320.44 139.29 256 139.29zm0 3c62.818 0 113.71 50.892 113.71 113.71 0 62.818-50.892 113.71-113.71 113.71-62.818 0-113.71-50.892-113.71-113.71 0-62.818 50.892-113.71 113.71-113.71z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:.55474453;fill-rule:nonzero;stroke:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 214.266c-22.996 0-41.734 18.738-41.734 41.734 0 22.996 18.738 41.734 41.734 41.734 22.996 0 41.734-18.738 41.734-41.734 0-22.996-18.738-41.734-41.734-41.734zm0 9c18.132 0 32.734 14.602 32.734 32.734S274.132 288.734 256 288.734 223.266 274.132 223.266 256s14.602-32.734 32.734-32.734z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:${alertColor};stroke-width:3;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 189.678c-36.594 0-66.322 29.728-66.322 66.322s29.728 66.322 66.322 66.322 66.322-29.728 66.322-66.322-29.728-66.322-66.322-66.322zm0 6c33.35 0 60.322 26.971 60.322 60.322 0 33.35-26.971 60.322-60.322 60.322-33.35 0-60.322-26.971-60.322-60.322 0-33.35 26.971-60.322 60.322-60.322z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:none;stroke-width:6;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 166.164c-49.591 0-89.836 40.245-89.836 89.836S206.41 345.836 256 345.836 345.836 305.59 345.836 256 305.59 166.164 256 166.164zm0 4c47.43 0 85.836 38.406 85.836 85.836S303.43 341.836 256 341.836 170.164 303.43 170.164 256 208.57 170.164 256 170.164z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 109.582c-80.853 0-146.418 65.565-146.418 146.418 0 80.853 65.565 146.418 146.418 146.418 80.853 0 146.418-65.565 146.418-146.418 0-80.853-65.565-146.418-146.418-146.418zm0 2c79.772 0 144.418 64.646 144.418 144.418S335.772 400.418 256 400.418 111.582 335.772 111.582 256 176.228 111.582 256 111.582z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:.35766422;fill-rule:nonzero;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3C/svg%3E`;
 }
 
-// Update polyline endpoints to follow clusters/markers
+// Function to update polyline endpoints to follow clusters and markers...
 function updatePolylineEndpoints() {
 	if (!polylines.length) return;
 	// console.debug("Updating " + polylines.length + " polyline endpoints");
@@ -1299,7 +1311,7 @@ function updatePolylineEndpoints() {
 	});
 }
 
-// Resolve a device's current visible position (cluster center or marker)
+// Function to resolve a device's current visible position...
 function getMarkerOrClusterPosition(deviceID) {
 	if (!deviceID) return null;
 	// Use Map for O(1) lookup instead of array find
@@ -1354,17 +1366,23 @@ function getMarkerOrClusterPosition(deviceID) {
 
 // For caching marker latitude/longitude information between refreshes...
 var __LMBMW_CACHE_KEY = "lm_bmw.cachedAddresses.v1";
+
+// Function to load the cached marker latitude/longitude information...
 function loadCache() {
 	try {
 		const obj = JSON.parse(localStorage.getItem(__LMBMW_CACHE_KEY));
 		return (obj && typeof obj === "object") ? obj : {};
 	} catch (e) { return {}; }
 }
+
+// Function to save the cached marker latitude/longitude information...
 function saveCache() {
 	try { localStorage.setItem(__LMBMW_CACHE_KEY, JSON.stringify(cachedAddresses)); } catch (e) {}
 }
 // Debounced version to avoid excessive localStorage writes during batch operations
 var debouncedSaveCache = debounce(saveCache, 1000);
+
+// Function to clear cached marker locations and saved map options...
 function clearCache() {
 	try {
 		localStorage.removeItem(__LMBMW_CACHE_KEY);
@@ -1424,7 +1442,7 @@ var _mapInitializing = false;
 var initAttempts = 0;
 var MAX_INIT_ATTEMPTS = 10;
 
-// Robust map initialization wrapper that handles timing issues in dashboard widgets...
+// Function to initialize the map once Google Maps is available...
 async function ensureMapInitialized() {
 	if (mapInitialized || _mapInitializing) return;
 	_mapInitializing = true;
@@ -1998,6 +2016,7 @@ function createWeatherToggleControl(map) {
 	return weatherToggle;
 }
 
+// Function to create the refresh button control...
 function createWeatherRefreshControl(map) {
 	return createMapControlButton({
 		id: "weatherRefreshButton",
@@ -2007,6 +2026,7 @@ function createWeatherRefreshControl(map) {
 	});
 }
 
+// Function to create the reset zoom button control...
 function createZoomResetControl(map) {
 	return createMapControlButton({
 		id: "weatherZoomResetButton",
@@ -2016,6 +2036,7 @@ function createZoomResetControl(map) {
 	});
 }
 
+// Function to create the sidebar toggle button control...
 function createSidebarToggleControl(map) {
 	const btn = document.createElement("button");
 	btn.id = "sidebarToggleButton";
@@ -2069,7 +2090,7 @@ function createSidebarToggleControl(map) {
 	return btn;
 }
 
-// Sidebar resize drag logic
+// Function to initialize sidebar resize drag handling...
 function initSidebarResize() {
 	const handle = _dom.sidebarResizeHandle;
 	const sidebar = _dom.sidebarArea;
@@ -2089,12 +2110,14 @@ function initSidebarResize() {
 		document.addEventListener("mouseup", onMouseUp);
 	});
 
+	// Function to resize the sidebar while dragging...
 	function onMouseMove(e) {
 		const delta = startX - e.clientX;
 		const newWidth = Math.max(220, Math.min(startWidth + delta, container.getBoundingClientRect().width * 0.4));
 		sidebar.style.width = newWidth + "px";
 	}
 
+	// Function to stop sidebar resizing after dragging...
 	function onMouseUp() {
 		handle.classList.remove("dragging");
 		document.body.style.cursor = "";
@@ -2105,6 +2128,7 @@ function initSidebarResize() {
 	}
 }
 
+// Function to create the rotate-right control...
 function createRotateRightControl(map) {
 	return createMapControlButton({
 		id: "mapRotateRightButton",
@@ -2115,6 +2139,7 @@ function createRotateRightControl(map) {
 	});
 }
 
+// Function to create the rotate-left control...
 function createRotateLeftControl(map) {
 	return createMapControlButton({
 		id: "mapRotateLeftButton",
@@ -2125,6 +2150,7 @@ function createRotateLeftControl(map) {
 	});
 }
 
+// Function to create the tilt-forward control...
 function createRotateForwardControl(map) {
 	return createMapControlButton({
 		id: "mapRotateForwardButton",
@@ -2135,6 +2161,7 @@ function createRotateForwardControl(map) {
 	});
 }
 
+// Function to create the tilt-back control...
 function createRotateBackControl(map) {
 	return createMapControlButton({
 		id: "mapRotateBackButton",
@@ -2145,6 +2172,7 @@ function createRotateBackControl(map) {
 	});
 }
 
+// Function to create the map update status area...
 function createUpdateArea(map) {
 	const updateAreaDiv = document.createElement("div");
 	updateAreaDiv.id = "refreshStatusArea";
@@ -2166,6 +2194,7 @@ function createUpdateArea(map) {
 	return updateAreaDiv;
 }
 
+// Function to adjust the map tilt or heading...
 function adjustMap(mode, amount) {
 	switch (mode) {
 		case "tilt":
@@ -2181,8 +2210,7 @@ function adjustMap(mode, amount) {
 	}
 }
 
-// Build LM API query params for a given property source and pagination offset.
-// propSource: "customProperties", "autoProperties", "systemProperties", or "inheritedProperties"
+// Function to build LM API query params for a given property source and pagination offset...
 function buildLocationQuery(offset, propSource, { fieldList, pathOperator, statusFilter, deviceFilter }) {
 	const isGroupMode = mapSourceType === "groups";
 
@@ -2203,7 +2231,7 @@ function buildLocationQuery(offset, propSource, { fieldList, pathOperator, statu
 	return queryParams;
 }
 
-// Paginated LM API fetch - handles the while loop, API calls, and progress display
+// Function to fetch paginated LogicMonitor API results...
 async function fetchPaginatedLMItems({ resourcePath, buildQueryParams, signal, label }) {
 	const items = [];
 	let offset = 0;
@@ -2487,7 +2515,7 @@ async function refreshGroupData(timedRefresh = false) {
 		// For use in zooming the map to encompass all our markers on initial draw...
 		bounds = new google.maps.LatLngBounds();
 
-		// Shared completion handler called when all items have been processed
+		// Function called when all items have been processed...
 		async function onRefreshComplete() {
 			if (!centerCalculated || (timedRefresh && autoResetMapOnRefresh)) {
 				resetZoom();
@@ -2589,7 +2617,7 @@ async function refreshGroupData(timedRefresh = false) {
 
 			resolveAddress(thisItem, address);
 
-			// Resolve locations to latitude/longitude...
+			// Function to resolve locations to latitude/longitude...
 			async function resolveAddress(thisItem, address) {
 				// console.debug('Resolving address for ' + thisItem.name + ': ' + address);
 				// Check to see if we've already geocoded this group's address and that the address hasn't changed...
@@ -2598,46 +2626,46 @@ async function refreshGroupData(timedRefresh = false) {
 					// Call the subfunction to add the group to the map...
 					plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, cachedAddresses[thisItem.id].address);
 				} else {
-				if (alreadyGeocoded) {
-					// console.debug('Address already geocoded as custom properties for ' + thisItem.name + ': ' + address);
-					// Cache the address for reuse...
-					cachedAddresses[thisItem.id] = {lat: Number(latProp.value), lng: Number(lngProp.value), address: address};
-					debouncedSaveCache();
-					// Call the subfunction to add the group to the map...
-					plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, cachedAddresses[thisItem.id].address);
-				} else {
-					// See if the location is a latitude/longitude...
-					const coodinateRE = /^([\-]*[\d]+[\.\d]+)[ ,]+([\-]*[\d]+[\.\d]+)$/;
-					let match = coodinateRE.exec(address);
-					let latVal = null;
-					let lngVal = null;
-					if (match && match.length == 3) {
-						try {
-							latVal = Number(match[1]);
-							lngVal = Number(match[2]);
-						} catch(e) {};
-						// It appears we have a latitude & longitude. Cache them for reuse...
-						latVal = Number(match[1]);
-						lngVal = Number(match[2]);
-					}
-					// Ensure the latitude and longitude are valid...
-					if (latVal && lngVal && latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180 && latVal != 0 && lngVal != 0) {
-						// console.debug('Latitude & longitude found for ' + thisItem.name + ': ' + match[1] + ', ' + match[2]);
-						cachedAddresses[thisItem.id] = {lat: Number(match[1]), lng: Number(match[2]), address: address};
+					if (alreadyGeocoded) {
+						// console.debug('Address already geocoded as custom properties for ' + thisItem.name + ': ' + address);
+						// Cache the address for reuse...
+						cachedAddresses[thisItem.id] = {lat: Number(latProp.value), lng: Number(lngProp.value), address: address};
 						debouncedSaveCache();
 						// Call the subfunction to add the group to the map...
-						plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, address);
+						plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, cachedAddresses[thisItem.id].address);
 					} else {
-						// Attempt to geocode the address...
-						geocoder.geocode( {'address': address}, function(results, status) {
-							if (status == 'OK') {
-								// Grab the longitude/latitude from the results...
-								let geocodedLocation = results[0].geometry.location;
+						// See if the location is a latitude/longitude...
+						const coodinateRE = /^([\-]*[\d]+[\.\d]+)[ ,]+([\-]*[\d]+[\.\d]+)$/;
+						let match = coodinateRE.exec(address);
+						let latVal = null;
+						let lngVal = null;
+						if (match && match.length == 3) {
+							try {
+								latVal = Number(match[1]);
+								lngVal = Number(match[2]);
+							} catch(e) {};
+							// It appears we have a latitude & longitude. Cache them for reuse...
+							latVal = Number(match[1]);
+							lngVal = Number(match[2]);
+						}
+						// Ensure the latitude and longitude are valid...
+						if (latVal && lngVal && latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180 && latVal != 0 && lngVal != 0) {
+							// console.debug('Latitude & longitude found for ' + thisItem.name + ': ' + match[1] + ', ' + match[2]);
+							cachedAddresses[thisItem.id] = {lat: Number(match[1]), lng: Number(match[2]), address: address};
+							debouncedSaveCache();
+							// Call the subfunction to add the group to the map...
+							plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, address);
+						} else {
+							// Attempt to geocode the address...
+							geocoder.geocode( {'address': address}, function(results, status) {
+								if (status == 'OK') {
+									// Grab the longitude/latitude from the results...
+									let geocodedLocation = results[0].geometry.location;
 
-								// Cache these coordinates for reuse later...
-								cachedAddresses[thisItem.id] = {lat: Number(geocodedLocation.lat()), lng: Number(geocodedLocation.lng()), address: address};
-								debouncedSaveCache();
-								// Call the subfunction to add the group to the map...
+									// Cache these coordinates for reuse later...
+									cachedAddresses[thisItem.id] = {lat: Number(geocodedLocation.lat()), lng: Number(geocodedLocation.lng()), address: address};
+									debouncedSaveCache();
+									// Call the subfunction to add the group to the map...
 									plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, address);
 								} else {
 									// We weren't provided a resolvable address, so deduct this item from our overall count...
@@ -2651,7 +2679,7 @@ async function refreshGroupData(timedRefresh = false) {
 				}
 			}
 
-			// Subfunction to add markers to the map...
+			// Function to add markers to the map...
 			async function plotMarker(thisItem, lat, lng, address) {
 				if (address != null) {
 					// Start creating content for the group's map pin...
@@ -2700,9 +2728,9 @@ async function refreshGroupData(timedRefresh = false) {
 						}
 					}
 
-				content.classList.add("group");
-				if (markerStyle === "circles") content.classList.add("dot-style");
-				// The pin's z-index gets overwritten when clicked to show details, so capture the original severity in the pin's metadata...
+					content.classList.add("group");
+					if (markerStyle === "circles") content.classList.add("dot-style");
+					// The pin's z-index gets overwritten when clicked to show details, so capture the original severity in the pin's metadata...
 					content.dataset.severity = pinIndex;
 					// Create the content shown when the pin is clicked...
 					if (mapSourceType == "groups") {
@@ -2781,12 +2809,12 @@ async function refreshGroupData(timedRefresh = false) {
 						toggleHighlight(marker, thisItem)
 					});
 
-				// Add reference to this pin for use by the clustering algorithm or if we need to modify them later...
-				markers.push(marker);
-				// Also add to Map for O(1) lookups by device ID
-				markersByDeviceID.set(thisItem.id, marker);
+					// Add reference to this pin for use by the clustering algorithm or if we need to modify them later...
+					markers.push(marker);
+					// Also add to Map for O(1) lookups by device ID
+					markersByDeviceID.set(thisItem.id, marker);
 
-				// Add this marker to map's bounding box (for initial zooming)...
+					// Add this marker to map's bounding box (for initial zooming)...
 					bounds.extend(marker.position);
 
 					itemsProcessed = itemsProcessed + 1;
@@ -2941,7 +2969,7 @@ if (typeof sidebarDefaultWidth === 'undefined') { sidebarDefaultWidth = 300; }
 var sidebarSortMode = "severity";
 var sidebarItems = [];
 
-// Build the sidebar item list from current groupData
+// Function to build the sidebar item list from current groupData...
 function buildSidebarItems() {
 	const severityOrder = { critical: 0, error: 1, warn: 2, sdt: 3, clear: 4 };
 	const propList = displayProps ? displayProps.split(",").map(p => p.trim()).filter(Boolean) : [];
@@ -2971,7 +2999,7 @@ function buildSidebarItems() {
 	});
 }
 
-// Render the sidebar list based on the current sort mode
+// Function to render the sidebar list based on the current sort mode...
 function renderSidebarList() {
 	const sidebar = _dom.sidebarArea;
 	if (!sidebar) return;
@@ -3022,7 +3050,7 @@ function renderSidebarList() {
 	sidebar.innerHTML = html;
 }
 
-// Populate the sidebar with all plotted items
+// Function to populate the sidebar with all plotted items...
 function populateSidebar() {
 	const sidebar = _dom.sidebarArea;
 	if (!sidebar) return;
@@ -3289,6 +3317,7 @@ var renderer = {
 	}
 }
 
+// Function to apply the selected marker style to existing markers...
 function applyMarkerStyleFromSelect() {
 	const v = _dom.markerStyleSelect.value;
 	markerStyle = v === "circles" ? "circles" : "pins";
@@ -3322,14 +3351,14 @@ function enableWeather() {
 	debouncedSaveMapOptionsCookie();
 }
 
-// Fetch the latest weather map data from RainViewer's API
+// Function to fetch the latest weather map data from RainViewer's API...
 async function fetchRainViewerData() {
 	const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
 	if (!response.ok) throw new Error(`RainViewer API error: ${response.status} ${response.statusText}`);
 	rvAPIData = await response.json();
 }
 
-// Initialize weather data and start refresh interval...
+// Function to initialize weather data and start the refresh interval...
 async function initWeather() {
 	if (_dom.weatherType.value === "radar") {
 		try { await fetchRainViewerData(); } catch (error) {
@@ -3351,7 +3380,7 @@ async function initWeather() {
 	}, weatherRefreshMinutes*1000*60);
 }
 
-// Get the latest radar frame from RainViewer...
+// Function to get the latest radar frame from RainViewer...
 function initRainViewerData() {
 	rvMapFrames = rvAPIData.radar.past;
 	if (rvAPIData.radar.nowcast) {
@@ -3371,6 +3400,7 @@ function initRainViewerData() {
 var TILE_CACHE_MAX = 256;
 var _tileCache = new Map();
 
+// Function to create a weather tile image with LRU caching...
 function _cachedTileImg(url, ownerDocument) {
 	if (_tileCache.has(url)) {
 		const cached = _tileCache.get(url);
@@ -3391,8 +3421,10 @@ function _cachedTileImg(url, ownerDocument) {
 	return img;
 }
 
+// Function to clear the cached weather tiles...
 function clearTileCache() { _tileCache.clear(); }
 
+// Function to create a weather tile overlay layer...
 function createWeatherTileLayer(name, getTileUrl, opts = {}) {
 	const tileSize = new google.maps.Size(256, 256);
 	return {
@@ -3484,7 +3516,7 @@ async function addWeatherLayer() {
 			// More info: https://www.arcgis.com/home/item.html?id=8b28109ce26b43b8968a3c9baa608f43
 			const auWildfireUrl = `https://services-ap1.arcgis.com/ypkPEy1AmwPKGNNv/arcgis/rest/services/Near_Real_Time_Bushfire_Boundaries_view/FeatureServer/3/query?where=0%3D0&geometryType=esriGeometryPolyline&units=esriSRUnit_Meter&outFields=*&returnGeometry=true&f=pgeojson&ts=${Date.now()}`;
 
-			// Merge multiple GeoJSON FeatureCollections into a single FeatureCollection...
+			// Function to merge multiple GeoJSON FeatureCollections into a single FeatureCollection...
 			function mergeGeoJson(...datasets) {
 				const merged = { type: "FeatureCollection", features: [] };
 				datasets.forEach(data => {
@@ -3647,7 +3679,7 @@ async function addWeatherLayer() {
 			// Cache key for county GeoJSON - stored in localStorage since boundaries are static
 			const COUNTIES_CACHE_KEY = 'lm_bmw.countiesGeoJson.v1';
 
-			// Helper function to get cached county GeoJSON or fetch fresh...
+			// Function to get cached county GeoJSON or fetch fresh...
 			async function getCountiesGeoJson() {
 				// Try localStorage cache first (county boundaries are static, persist across sessions)
 				try {
@@ -3679,7 +3711,7 @@ async function addWeatherLayer() {
 				return data;
 			}
 
-			// Helper function to try fetching with fallback proxies...
+			// Function to try fetching with fallback proxies...
 			async function fetchWithCorsProxy(targetUrl) {
 				const urlWithCacheBust = targetUrl + `?v=${Date.now()}`;
 				for (let i = 0; i < corsProxies.length; i++) {
@@ -3699,7 +3731,7 @@ async function addWeatherLayer() {
 				throw new Error(`All CORS proxies failed to fetch power outage data`);
 			}
 
-			// Helper to parse outage data in single pass (optimized from two-pass approach)
+			// Function to parse outage data in a single pass...
 			function parseOutageData(outageText) {
 				const allEntries = [];
 				let maxTimeIndex = 0;
@@ -4271,6 +4303,7 @@ async function addWeatherLayer() {
 	}
 }
 
+// Function to fit the map around a cluster's bounds...
 function fitClusterBounds(south, west, north, east) {
 	closeAllInfoWindows();
 	map.fitBounds(new google.maps.LatLngBounds(
@@ -4318,6 +4351,7 @@ function groupkeyHandler(e) {
 	}
 }
 
+// Function to show or hide the extra options row...
 function toggleMiscOptions() {
 	if (_dom.optionsToggleArea.style.display == "flex") {
 		_dom.optionsToggleArea.style.display = "none";
@@ -4330,6 +4364,7 @@ function toggleMiscOptions() {
 	}
 }
 
+// Function to wait until an element exists in this widget instance...
 function waitForElm(selector) {
 	return new Promise(resolve => {
 		if (getBetterMapScopedQuery(selector)) {
