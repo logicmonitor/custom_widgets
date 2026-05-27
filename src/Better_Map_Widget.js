@@ -9,10 +9,15 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-const version = "3.51 CDN";
-const releaseNotes = `
+var version = "3.52 CDN";
+var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.52</h3>
+	<ul>
+		<li>Added a button to reset the group filter if different from the default value.</li>
+		<li>Fixed issue with variable scoping when multiple instances of the widget are used on the same page.</li>
+	</ul>
 	<h3>Version 3.51</h3>
 	<ul>
 		<li>Cookies are now specific to each dashboard.</li>
@@ -104,60 +109,181 @@ const releaseNotes = `
 		<li>Added display of Australia bushfires.</li>
 	</ul>`;
 
+(function() {
+var betterMapScript = document.currentScript;
+var betterMapInstanceId = (betterMapScript && betterMapScript.getAttribute("data-better-map-instance-id")) || "";
+var betterMapRegistry = window.__betterMapWidgetRegistry = window.__betterMapWidgetRegistry || { instances: Object.create(null) };
+if (!betterMapRegistry.instances) {
+	betterMapRegistry.instances = Object.create(null);
+}
+var betterMapInstance = (betterMapRegistry.instances && betterMapRegistry.instances[betterMapInstanceId]) || {};
+if (betterMapInstanceId && !betterMapRegistry.instances[betterMapInstanceId]) {
+	betterMapRegistry.instances[betterMapInstanceId] = betterMapInstance;
+}
+var betterMapDefaults = betterMapInstance.defaults || {};
+var betterMapRoot = ensureBetterMapRoot(betterMapInstance.root);
+var betterMapTokenRoot = betterMapInstance.tokenRoot || document;
+if (betterMapRoot && betterMapInstanceId) {
+	betterMapRoot.setAttribute("data-better-map-instance-id", betterMapInstanceId);
+	betterMapInstance.root = betterMapRoot;
+}
+
+if (!window.betterMapWidgetCall) {
+	window.betterMapWidgetCall = function(instanceId, methodName) {
+		var args = Array.prototype.slice.call(arguments, 2);
+		var registry = window.__betterMapWidgetRegistry;
+		var instance = registry && registry.instances && registry.instances[instanceId];
+		if (instance && instance.api && typeof instance.api[methodName] === "function") {
+			return instance.api[methodName].apply(null, args);
+		}
+		if (typeof window[methodName] === "function") {
+			return window[methodName].apply(null, args);
+		}
+	};
+}
+
+function getBetterMapGlobal(name, fallback) {
+	if (Object.prototype.hasOwnProperty.call(betterMapDefaults, name)) {
+		return betterMapDefaults[name];
+	}
+	return typeof window[name] === "undefined" ? fallback : window[name];
+}
+
+function ensureBetterMapRoot(root) {
+	if (root) {
+		return root;
+	}
+	root = document.querySelector(".customMapBody:not([data-better-map-instance-id])") || document.querySelector(".customMapBody");
+	if (root) {
+		return root;
+	}
+	root = document.createElement("div");
+	root.className = "customMapBody";
+	root.innerHTML = "&nbsp;";
+	(document.body || document.documentElement).appendChild(root);
+	return root;
+}
+
+function getBetterMapElementById(id) {
+	var selector = "#" + id;
+	var element = null;
+	if (betterMapRoot && typeof betterMapRoot.querySelector === "function") {
+		element = betterMapRoot.querySelector(selector);
+	}
+	if (!element && betterMapTokenRoot && betterMapTokenRoot !== betterMapRoot && typeof betterMapTokenRoot.querySelector === "function") {
+		element = betterMapTokenRoot.querySelector(selector);
+	}
+	return element || document.getElementById(id);
+}
+
+function getBetterMapScopedQuery(selector) {
+	if (betterMapRoot && typeof betterMapRoot.querySelector === "function") {
+		var element = betterMapRoot.querySelector(selector);
+		if (element) {
+			return element;
+		}
+	}
+	return document.querySelector(selector);
+}
+
+var apiBearerToken = getBetterMapGlobal("apiBearerToken", "");
+var lmAPIID = getBetterMapGlobal("lmAPIID", "");
+var lmAPIKey = getBetterMapGlobal("lmAPIKey", "");
+var mapSourceType = getBetterMapGlobal("mapSourceType", "groups");
+var mapLocationProperty = getBetterMapGlobal("mapLocationProperty", "location");
+var mapStyle = getBetterMapGlobal("mapStyle", "silverblue");
+var showCleared = getBetterMapGlobal("showCleared", true);
+var showWarnings = getBetterMapGlobal("showWarnings", true);
+var showErrors = getBetterMapGlobal("showErrors", true);
+var showCriticals = getBetterMapGlobal("showCriticals", true);
+var showSDT = getBetterMapGlobal("showSDT", true);
+var groupPathFilter = getBetterMapGlobal("groupPathFilter", "*");
+var statusUpdateIntervalMinutes = getBetterMapGlobal("statusUpdateIntervalMinutes", 2);
+var disableClustering = getBetterMapGlobal("disableClustering", false);
+var markerStyle = getBetterMapGlobal("markerStyle", "pins");
+var showWeatherDefault = getBetterMapGlobal("showWeatherDefault", "no");
+var additionalOverlayOption = getBetterMapGlobal("additionalOverlayOption", "earthquakes");
+var hideMapOptionsByDefault = getBetterMapGlobal("hideMapOptionsByDefault", false);
+var showMapSidebarByDefault = getBetterMapGlobal("showMapSidebarByDefault", false);
+var sidebarDefaultWidth = getBetterMapGlobal("sidebarDefaultWidth", 300);
+var autoResetMapOnRefresh = getBetterMapGlobal("autoResetMapOnRefresh", false);
+var developmentFlag = getBetterMapGlobal("developmentFlag", false);
+var fullRefreshInterval = getBetterMapGlobal("fullRefreshInterval", 0);
+var showMapTiltControls = getBetterMapGlobal("showMapTiltControls", false);
+var mapTilt = getBetterMapGlobal("mapTilt", 0);
+var mapHeading = getBetterMapGlobal("mapHeading", 0);
+var pollInheritedLocations = getBetterMapGlobal("pollInheritedLocations", true);
+var ignoreLatLongProps = getBetterMapGlobal("ignoreLatLongProps", false);
+var mapGestureHandling = getBetterMapGlobal("mapGestureHandling", "cooperative");
+var showRoadLabels = getBetterMapGlobal("showRoadLabels", "off");
+var displayProps = getBetterMapGlobal("displayProps", "");
+var connectionInfoProp = getBetterMapGlobal("connectionInfoProp", "auto.custom_map_connection_data");
+var connectingLineWeight = getBetterMapGlobal("connectingLineWeight", 3);
+var useGeodesicLines = getBetterMapGlobal("useGeodesicLines", false);
+var openWeatherAPIKey = getBetterMapGlobal("openWeatherAPIKey", "");
+var xweatherAPIID = getBetterMapGlobal("xweatherAPIID", "");
+var xweatherAPIKey = getBetterMapGlobal("xweatherAPIKey", "");
+var weatherOpacity = getBetterMapGlobal("weatherOpacity", 0.35);
+var satelliteWeatherOpacity = getBetterMapGlobal("satelliteWeatherOpacity", 0.6);
+var rvOptionColorScheme = getBetterMapGlobal("rvOptionColorScheme", 8);
+var weatherRefreshMinutes = getBetterMapGlobal("weatherRefreshMinutes", 5);
+var showWildfireInfoEvent = getBetterMapGlobal("showWildfireInfoEvent", "click");
+var quakeMode = getBetterMapGlobal("quakeMode", "time");
+
 // ------------------------------------------------------------
 // Populate the widget body...
-document.querySelector(".customMapBody").innerHTML = `<!-- Create our options bar above the map... -->
+betterMapRoot.innerHTML = `<!-- Create our options bar above the map... -->
 	<div id="optionsBar" class="optionsVisible">
 		<div id="mapOptionsArea">
 			<span id="customGroupFilterOptions" data-title="Path to the items you'd like on the map. Examples:&quot;*&quot;, &quot;Locations/*&quot;">
 				<label for="customGroupFilterField">Group filter:</label>
-				<input type="text" id="customGroupFilterField" name="customGroupFilterField" value="*" onkeypress="groupkeyHandler(event);" />
-				<button id="resetGroupFilterButton" type="button" data-title="Reset the group filter to the default value" onclick="resetGroupFilter();"><svg width="15" height="15" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path id="Path" fill="#000000" stroke="none" d="M 16 1.25 C 15.987 1.25 15.971 1.25 15.956 1.25 C 11.466 1.25 7.448 3.276001 4.769 6.464001 L 4.751 6.486 L 4.751 1.716999 C 4.751 1.302999 4.415 0.966999 4.001 0.966999 C 3.587 0.966999 3.251 1.302999 3.251 1.716999 L 3.251 1.716999 L 3.251 8.788 C 3.255 8.818001 3.261 8.845001 3.268 8.869999 L 3.267 8.865 C 3.275 8.970001 3.307 9.067001 3.358 9.15 L 3.356 9.146999 C 3.381 9.193001 3.408 9.232 3.438 9.269001 L 3.437 9.268 C 3.471 9.306 3.508 9.34 3.548 9.369999 L 3.55 9.371 C 3.57 9.390999 3.59 9.41 3.612 9.428001 L 3.613 9.429001 C 3.628 9.438 3.645 9.438 3.661 9.445999 C 3.703 9.466999 3.751 9.485001 3.802 9.497 L 3.807 9.498001 C 3.847 9.511 3.894 9.521 3.942 9.526001 L 3.945 9.526001 C 3.964 9.527 3.981 9.536999 4.001 9.536999 L 11.072 9.536999 C 11.486 9.536999 11.822 9.201 11.822 8.786999 C 11.822 8.373001 11.486 8.036999 11.072 8.036999 L 11.072 8.036999 L 5.429 8.036999 C 7.848 4.813 11.662 2.749001 15.958 2.749001 C 15.973 2.749001 15.988 2.749001 16.003 2.749001 L 16.000999 2.749001 C 23.318001 2.750999 29.247999 8.681999 29.247999 15.999001 C 29.247999 23.316 23.316 29.249001 15.998 29.249001 C 10.743 29.249001 6.203 26.190001 4.061 21.756001 L 4.027 21.677 C 3.903 21.423 3.647 21.250999 3.35 21.250999 C 2.936 21.250999 2.6 21.587 2.6 22.000999 C 2.6 22.117001 2.626 22.226999 2.674 22.325001 L 2.672 22.32 C 5.095 27.344999 10.15 30.750999 16.000999 30.750999 C 24.148001 30.750999 30.752001 24.146999 30.752001 16 C 30.752001 7.853001 24.148001 1.249001 16.002001 1.249001 L 16.002001 1.249001 Z"/> </svg></button>
+				<input type="text" id="customGroupFilterField" name="customGroupFilterField" value="*" onkeypress="betterMapWidgetCall('${betterMapInstanceId}', 'groupkeyHandler', event);" />
+				<button id="resetGroupFilterButton" type="button" data-title="Reset the group filter to the default value" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'resetGroupFilter');"><svg width="15" height="15" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path id="Path" fill="#000000" stroke="none" d="M 16 1.25 C 15.987 1.25 15.971 1.25 15.956 1.25 C 11.466 1.25 7.448 3.276001 4.769 6.464001 L 4.751 6.486 L 4.751 1.716999 C 4.751 1.302999 4.415 0.966999 4.001 0.966999 C 3.587 0.966999 3.251 1.302999 3.251 1.716999 L 3.251 1.716999 L 3.251 8.788 C 3.255 8.818001 3.261 8.845001 3.268 8.869999 L 3.267 8.865 C 3.275 8.970001 3.307 9.067001 3.358 9.15 L 3.356 9.146999 C 3.381 9.193001 3.408 9.232 3.438 9.269001 L 3.437 9.268 C 3.471 9.306 3.508 9.34 3.548 9.369999 L 3.55 9.371 C 3.57 9.390999 3.59 9.41 3.612 9.428001 L 3.613 9.429001 C 3.628 9.438 3.645 9.438 3.661 9.445999 C 3.703 9.466999 3.751 9.485001 3.802 9.497 L 3.807 9.498001 C 3.847 9.511 3.894 9.521 3.942 9.526001 L 3.945 9.526001 C 3.964 9.527 3.981 9.536999 4.001 9.536999 L 11.072 9.536999 C 11.486 9.536999 11.822 9.201 11.822 8.786999 C 11.822 8.373001 11.486 8.036999 11.072 8.036999 L 11.072 8.036999 L 5.429 8.036999 C 7.848 4.813 11.662 2.749001 15.958 2.749001 C 15.973 2.749001 15.988 2.749001 16.003 2.749001 L 16.000999 2.749001 C 23.318001 2.750999 29.247999 8.681999 29.247999 15.999001 C 29.247999 23.316 23.316 29.249001 15.998 29.249001 C 10.743 29.249001 6.203 26.190001 4.061 21.756001 L 4.027 21.677 C 3.903 21.423 3.647 21.250999 3.35 21.250999 C 2.936 21.250999 2.6 21.587 2.6 22.000999 C 2.6 22.117001 2.626 22.226999 2.674 22.325001 L 2.672 22.32 C 5.095 27.344999 10.15 30.750999 16.000999 30.750999 C 24.148001 30.750999 30.752001 24.146999 30.752001 16 C 30.752001 7.853001 24.148001 1.249001 16.002001 1.249001 L 16.002001 1.249001 Z"/> </svg></button>
 			</span>
 
 			<span id="sevFilterOptions">
 				<span class="sevFilterOption">
-					<input type="checkbox" id="showCleared" name="showCleared" value="showCleared" onclick="refreshGroupData();" data-title="Show/hide items with no active alerts" />
+					<input type="checkbox" id="showCleared" name="showCleared" value="showCleared" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide items with no active alerts" />
 					<label for="showCleared"><div id="showClearedLabel" class="toolbarSevIcon">Cleared</div></label>
 				</span>
 				<span class="sevFilterOption">
-					<input type="checkbox" id="showWarnings" name="showWarnings" value="showWarnings" onclick="refreshGroupData();" data-title="Show/hide items with active Warning alerts" />
+					<input type="checkbox" id="showWarnings" name="showWarnings" value="showWarnings" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide items with active Warning alerts" />
 					<label for="showWarnings"><div id="showWarningsLabel" class="toolbarSevIcon">Warnings</div></label>
 				</span>
 				<span class="sevFilterOption">
-					<input type="checkbox" id="showErrors" name="showErrors" value="showErrors" onclick="refreshGroupData();" data-title="Show/hide items with active Error alerts" />
+					<input type="checkbox" id="showErrors" name="showErrors" value="showErrors" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide items with active Error alerts" />
 					<label for="showErrors"><div id="showErrorsLabel" class="toolbarSevIcon">Errors</div></label>
 				</span>
 				<span class="sevFilterOption">
-					<input type="checkbox" id="showCriticals" name="showCriticals" value="showCriticals" onclick="refreshGroupData();" data-title="Show/hide items with active Critical alerts" />
+					<input type="checkbox" id="showCriticals" name="showCriticals" value="showCriticals" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide items with active Critical alerts" />
 					<label for="showCriticals"><div id="showCriticalsLabel" class="toolbarSevIcon">Criticals</div></label>
 				</span>
 				<span class="sevFilterOption">
-					<input type="checkbox" id="showSDT" name="showSDT" value="showSDT" onclick="refreshGroupData();" data-title="Show/hide items in Scheduled Down Time (SDT)" />
+					<input type="checkbox" id="showSDT" name="showSDT" value="showSDT" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide items in Scheduled Down Time (SDT)" />
 					<label for="showSDT"><div id="showSDTLabel" class="toolbarSevIcon">SDT</div></label>
 				</span>
 			</span>
 
 			<span data-title="Toggle visibility of additional options">
-				<svg id="optionsToggleButton" onclick="toggleMiscOptions()" width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" style="vertical-align: middle;"><path id="gearIcon" d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6c-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2c-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8c-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8c-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3c-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6c4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2c5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8c8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336a80 80 0 1 0 0-160 80 80 0 1 0 0 160z" fill="#aaa"/></svg>
+				<svg id="optionsToggleButton" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'toggleMiscOptions')" width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" style="vertical-align: middle;"><path id="gearIcon" d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6c-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2c-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8c-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8c-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3c-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6c4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2c5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8c8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336a80 80 0 1 0 0-160 80 80 0 1 0 0 160z" fill="#aaa"/></svg>
 			</span>
 			<svg id="gearIconChevron" style="display: none; margin-left: -3px;" width="10" height="15" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 512"><path d="M246.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-9.2-9.2-22.9-11.9-34.9-6.9s-19.8 16.6-19.8 29.6l0 256c0 12.9 7.8 24.6 19.8 29.6s25.7 2.2 34.9-6.9l128-128z" fill="#999"/></svg>
 
 			<div id="optionsToggleArea">
 				<span id="autoZoomOptions" data-title="Automatically reset the map's zoom to encompass all items after timed refreshes. You can also manually do so at any time using the 'Reset map zoom' button on the left of the map.">
-					<input type="checkbox" id="autoZoom" name="autoZoom" value="autoZoom" onclick="enableWeather();" checked="true" />
+					<input type="checkbox" id="autoZoom" name="autoZoom" value="autoZoom" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'enableWeather');" checked="true" />
 					<label for="autoZoom">Auto-zoom</label>
 				</span>
 
 				<span id="weatherOptionsArea">
 					<span data-title="Enables overlay of current weather radar and more">
-						<input type="checkbox" id="weather" name="weather" value="weather" onclick="enableWeather();" />
+						<input type="checkbox" id="weather" name="weather" value="weather" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'enableWeather');" />
 						<label for="weather">Weather</label>
 					</span>
 
 					<span id="weatherOptions">
 						<span data-title="Which source to use for weather information">
-							<select id="weatherType" onchange="enableWeather();">
+							<select id="weatherType" onchange="betterMapWidgetCall('${betterMapInstanceId}', 'enableWeather');">
 								<option value="radar" selected>Global Radar</option>
 								<option value="nexrad-n0q-900913">US NEXRAD Radar</option>
 								<option value="xweather">Xweather Global Radar</option>
@@ -167,7 +293,7 @@ document.querySelector(".customMapBody").innerHTML = `<!-- Create our options ba
 
 						<span id="additionalOverlayOptions">
 							<span data-title="Additional layer options to show on the map when weather is enabled">
-								<select id="otherWeatherOverlays" onchange="enableWeather();">
+								<select id="otherWeatherOverlays" onchange="betterMapWidgetCall('${betterMapInstanceId}', 'enableWeather');">
 									<option value="wildfires" selected>Wildfires</option>
 									<option value="us-poweroutages">US Power Outages</option>
 									<option value="earthquakes">Earthquakes (mag 6+, 7d)</option>
@@ -185,10 +311,10 @@ document.querySelector(".customMapBody").innerHTML = `<!-- Create our options ba
 								</select>
 					</span>
 				</span>
-				<button id="releaseNotesButton" type="button" data-title="View release notes" onclick="showReleaseNotes();">
+				<button id="releaseNotesButton" type="button" data-title="View release notes" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'showReleaseNotes');">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" height="22" width="22"><!--!Font Awesome Free v7.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2026 Fonticons, Inc.--><path d="M320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM288 224C288 206.3 302.3 192 320 192C337.7 192 352 206.3 352 224C352 241.7 337.7 256 320 256C302.3 256 288 241.7 288 224zM280 288L328 288C341.3 288 352 298.7 352 312L352 400L360 400C373.3 400 384 410.7 384 424C384 437.3 373.3 448 360 448L280 448C266.7 448 256 437.3 256 424C256 410.7 266.7 400 280 400L304 400L304 336L280 336C266.7 336 256 325.3 256 312C256 298.7 266.7 288 280 288z"/></svg>
 				</button>
-				<button id="clearCacheButton" type="button" data-title="Clear geocode cache and saved toolbar options in this browser (use if the map misbehaves)" onclick="clearCache();">
+				<button id="clearCacheButton" type="button" data-title="Clear geocode cache and saved toolbar options in this browser (use if the map misbehaves)" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'clearCache');">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" height="20" width="20" style="vertical-align: middle;"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path id="recycleIcon" d="M216.3 124C262.5 44 378 44 424.2 124L461.5 188.6L489.2 172.6C497.6 167.7 508.1 168.4 515.8 174.3C523.5 180.2 526.9 190.2 524.4 199.6L500.9 287C497.5 299.8 484.3 307.4 471.5 304L384.1 280.6C374.7 278.1 367.8 270.2 366.5 260.6C365.2 251 369.9 241.5 378.3 236.7L406 220.7L368.7 156.1C347.1 118.8 293.3 118.8 271.7 156.1L266.4 165.2C257.6 180.5 238 185.7 222.7 176.9C207.4 168.1 202.2 148.5 211 133.1L216.3 124zM513.7 343.1C529 334.3 548.6 339.5 557.4 354.8L562.7 363.9C608.9 443.9 551.2 543.9 458.8 543.9L384.2 543.9L384.2 575.9C384.2 585.6 378.4 594.4 369.4 598.1C360.4 601.8 350.1 599.8 343.2 592.9L279.2 528.9C269.8 519.5 269.8 504.3 279.2 495L343.2 431C350.1 424.1 360.4 422.1 369.4 425.8C378.4 429.5 384.2 438.3 384.2 448L384.2 480L458.8 480C501.9 480 528.9 433.3 507.3 396L502 386.9C493.2 371.6 498.4 352 513.7 343.2zM115 299.4L87.3 283.4C78.9 278.5 74.2 269.1 75.5 259.5C76.8 249.9 83.7 242 93.1 239.5L180.5 216C193.3 212.6 206.5 220.2 209.9 233L233.3 320.4C235.8 329.8 232.4 339.7 224.7 345.7C217 351.7 206.5 352.3 198.1 347.4L170.4 331.4L133.1 396C111.5 433.3 138.5 480 181.6 480L192.2 480C209.9 480 224.2 494.3 224.2 512C224.2 529.7 209.9 544 192.2 544L181.6 544C89.3 544 31.6 444 77.8 364L115 299.4z"/></svg>
 				</button>
 			</div>
@@ -204,127 +330,12 @@ document.querySelector(".customMapBody").innerHTML = `<!-- Create our options ba
 		<div id="sidebarArea">&nbsp;</div>
 	</div>
 
-	<div id="releaseNotesOverlay" onclick="if(event.target===this)closeReleaseNotes();">
+	<div id="releaseNotesOverlay" onclick="if(event.target===this)betterMapWidgetCall('${betterMapInstanceId}', 'closeReleaseNotes');">
 		<div id="releaseNotesPopup">
-			<button id="releaseNotesCloseBtn" onclick="closeReleaseNotes();">&times;</button>
+			<button id="releaseNotesCloseBtn" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'closeReleaseNotes');">&times;</button>
 			<div id="releaseNotesContent">${releaseNotes}</div>
 		</div>
 	</div>`;
-
-// ------------------------------------------------------------
-// Default values for the widget if not already set by the calling HTML...
-
-// Optional: You can specify a LogicMonitor API bearer token or API ID & key to use for the widget...
-if (typeof apiBearerToken === 'undefined') { let apiBearerToken = ""; };
-if (typeof lmAPIID === 'undefined') { let lmAPIID = ""; };
-if (typeof lmAPIKey === 'undefined') { let lmAPIKey = ""; };
-
-// Whether we're plotting "groups" or "resources" or "services" (strongly recommend staying with groups or services)...
-// You can either set it here or in a dashboard token named 'MapSourceType'...
-if (typeof mapSourceType === 'undefined') { let mapSourceType = "groups"; };
-
-// The property to use for the location of the items on the map. Default is "location"...
-// You can either set it here or in a dashboard token named 'MapLocationProperty'...
-if (typeof mapLocationProperty === 'undefined') { let mapLocationProperty = "location"; };
-
-// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", "silverblue", "satellite", or "satellite-light"...
-if (typeof mapStyle === 'undefined') { let mapStyle = "silverblue"; };
-
-// Whether to ignore items with no active alerts (useful for maps with thousands of markers)...
-// You can either set it here or in a dashboard token named 'MapIgnoreCleared'...
-if (typeof showCleared === 'undefined') { let showCleared = true; };
-if (typeof showWarnings === 'undefined') { let showWarnings = true; };
-if (typeof showErrors === 'undefined') { let showErrors = true; };
-if (typeof showCriticals === 'undefined') { let showCriticals = true; };
-if (typeof showSDT === 'undefined') { let showSDT = true; };
-
-// Capture if a group filter...
-// You can set it here or in a dashboard token named "MapGroupPathFilter"...
-if (typeof groupPathFilter === 'undefined') { let groupPathFilter = "*"; };
-
-// Interval for updating group status data (in minutes)...
-if (typeof statusUpdateIntervalMinutes === 'undefined') { let statusUpdateIntervalMinutes = 2; };
-
-// Flag to disable marker clustering if needed...
-if (typeof disableClustering === 'undefined') { let disableClustering = false; };
-
-// Marker style. Options: "pins" (pin with icon) or "circles" (color-coded circle)...
-if (typeof markerStyle === 'undefined') { var markerStyle = "pins"; };
-
-// Whether to show weather by default. Options are: "no", "global", "nexrad", "openweather", "xweather"...
-// You can set it here or in a dashboard token named "MapShowWeather"...
-if (typeof showWeatherDefault === 'undefined') { let showWeatherDefault = "no"; };
-
-	// If weather is shown, whether to show "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
-// You can set it here or in a dashboard token named "MapOverlayOption"...
-if (typeof additionalOverlayOption === 'undefined') { let additionalOverlayOption = "earthquakes"; };
-
-// Whether to show or hide the map options along the top of the widget by default...
-// You can set it here or in a dashboard token named "HideMapOptions"...
-if (typeof hideMapOptionsByDefault === 'undefined') { let hideMapOptionsByDefault = false; };
-
-// Whether to show the sidebar by default...
-// You can set it here or in a dashboard token named "ShowMapSidebar"...
-if (typeof showMapSidebarByDefault === 'undefined') { showMapSidebarByDefault = false; };
-
-// Whether to automatically center the map to encompass all items during timed refreshes...
-// You can set it here or in a dashboard token named "AutoResetMapOnRefresh"...
-if (typeof autoResetMapOnRefresh === 'undefined') { let autoResetMapOnRefresh = false; };
-
-// When true will not refresh the data on a timed interval (useful ONLY during development)...
-if (typeof developmentFlag === 'undefined') { let developmentFlag = false; };
-
-// Since we generally don't need to poll all properties every time, we can just grab them initially then occasionally every x number of polls based on the following variable (set to 0 to perform a full refresh every time)...
-if (typeof fullRefreshInterval === 'undefined') { const fullRefreshInterval = 0; };
-
-// Optional angle & heading for the Google Map...
-if (typeof showMapTiltControls === 'undefined') { let showMapTiltControls = false; };
-if (typeof mapTilt === 'undefined') { let mapTilt = 0; };
-if (typeof mapHeading === 'undefined') { let mapHeading = 0; };
-
-// Whether to include inherited locations in addition to those directly set on resources and/or services (disabling this can greatly increase refresh speed)...
-if (typeof pollInheritedLocations === 'undefined') { const pollInheritedLocations = true; };
-
-// Typically if both a 'latitude' & 'longitude' property are set, then we can assume the address is already geocoded. Set this to "true" to force geocoding the address instead...
-if (typeof ignoreLatLongProps === 'undefined') { const ignoreLatLongProps = false; };
-
-// Whether the Google Maps uses the "cooperative" gesture handling, or "greedy" that allows mouse-wheel zooming without having to hold a modifier key (Google's default is "cooperative")...
-if (typeof mapGestureHandling === 'undefined') { const mapGestureHandling = "cooperative"; };
-// Whether to show road labels...
-if (typeof showRoadLabels === 'undefined') { let showRoadLabels = "off"; };
-
-// An optional comma-delimited list of custom properties to show when viewing a group's/resource's details...
-// You can set it here or in a dashboard token named "MapDisplayProperties"...
-if (typeof displayProps === 'undefined') { let displayProps = ""; };
-
-// Property to look for connecting information in...
-if (typeof connectionInfoProp === 'undefined') { const connectionInfoProp = "auto.custom_map_connection_data"; };
-// Stroke weight of connecting lines...
-if (typeof connectingLineWeight === 'undefined') { const connectingLineWeight = 3; };
-// Whether to use geodesic lines when connecting two locations (I recommend not so it just plots a straight line vs curve of the Earth)...
-if (typeof useGeodesicLines === 'undefined') { const useGeodesicLines = false; };
-
-// OpenWeather API key (required for OpenWeather radar)...
-// You can set it here or in a dashboard token named "OpenWeatherAPIKey"...
-if (typeof openWeatherAPIKey === 'undefined') { openWeatherAPIKey = ""; };
-
-// Xweather API credentials (required for Xweather radar)...
-// You can set them here or in dashboard tokens named "XweatherAPIID" and "XweatherAPIKey"...
-if (typeof xweatherAPIID === 'undefined') { xweatherAPIID = ""; };
-if (typeof xweatherAPIKey === 'undefined') { xweatherAPIKey = ""; };
-
-// Default opacity for weather layers...
-if (typeof weatherOpacity === 'undefined') { const weatherOpacity = 0.35; };
-if (typeof satelliteWeatherOpacity === 'undefined') { const satelliteWeatherOpacity = 0.6; };
-// Color scheme for the "global" weather option...
-// See https://rainviewer.com/api/color-schemes.html for color scheme options (values are 0-8)...
-if (typeof rvOptionColorScheme === 'undefined') { const rvOptionColorScheme = 8; };
-// Weather refresh interval in minutes...
-if (typeof weatherRefreshMinutes === 'undefined') { const weatherRefreshMinutes = 5; };
-// Whether to display details about a wildfire on "click" or "mouseover"...
-if (typeof showWildfireInfoEvent === 'undefined') { const showWildfireInfoEvent = "click"; };
-// Whether the opacity of an earthquake's icon reflects "time" since the event, or "magnitude"...
-if (typeof quakeMode === 'undefined') { let quakeMode = "time"; };
 
 // ------------------------------------------------------------
 
@@ -332,7 +343,7 @@ if (typeof quakeMode === 'undefined') { let quakeMode = "time"; };
 // (Like any token inserted into the Text widget, LogicMonitor automatically inserts these token values as the page is being rendered so Javascript is able to pick them as if the values were there originally. If a token isn't set then the variable's value will be literally what's shown below, including the double-hashtags.)
 
 // Capture from token whether to plot "groups" or "resources" or "services"...
-let mapSourceTypeToken = document.getElementById("mapSourceTypeToken").innerText;
+var mapSourceTypeToken = getBetterMapElementById("mapSourceTypeToken").innerText;
 // If the token value wasn't set then use the values hard-coded above at the beginning of this script...
 // if (mapSourceTypeToken != "\#\#MapSourceType\#\#") {
 if (mapSourceTypeToken != "##MapSourceType##") {
@@ -341,7 +352,7 @@ if (mapSourceTypeToken != "##MapSourceType##") {
 // console.debug("mapSourceTypeToken", mapSourceTypeToken);
 
 // Capture from token whether to override the map location property...
-let mapLocationPropertyToken = document.getElementById("mapLocationPropertyToken").innerText;
+var mapLocationPropertyToken = getBetterMapElementById("mapLocationPropertyToken").innerText;
 // If the token value wasn't set then use the values hard-coded above at the beginning of this script...
 if (mapLocationPropertyToken != "##MapLocationProperty##") {
 	mapLocationProperty = mapLocationPropertyToken;
@@ -349,7 +360,7 @@ if (mapLocationPropertyToken != "##MapLocationProperty##") {
 // console.debug("mapLocationPropertyToken", mapLocationPropertyToken);
 
 // Capture from token whether override the map theme...
-let mapStyleToken = document.getElementById("mapStyleToken").innerText;
+var mapStyleToken = getBetterMapElementById("mapStyleToken").innerText;
 // If the token value wasn't set then use the values hard-coded above at the beginning of this script...
 if (mapStyleToken != "##MapStyle##") {
 	mapStyle = mapStyleToken.toLowerCase();
@@ -357,7 +368,7 @@ if (mapStyleToken != "##MapStyle##") {
 // console.debug("mapStyleToken", mapStyleToken);
 
 // Capture from token whether to hide the map options...
-let hideMapOptionsByDefaultToken = document.getElementById("hideMapOptionsByDefaultToken").innerText;
+var hideMapOptionsByDefaultToken = getBetterMapElementById("hideMapOptionsByDefaultToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (isTruthyToken(hideMapOptionsByDefaultToken)) {
 	hideMapOptionsByDefault = true;
@@ -365,51 +376,51 @@ if (isTruthyToken(hideMapOptionsByDefaultToken)) {
 // console.debug("hideMapOptionsByDefaultToken", hideMapOptionsByDefaultToken);
 
 // Capture from token whether to hide items that don't have active alerts...
-let ignoreClearedToken = document.getElementById("ignoreClearedToken").innerText;
+var ignoreClearedToken = getBetterMapElementById("ignoreClearedToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (isTruthyToken(ignoreClearedToken)) {
 	showCleared = false;
 }
 // Capture from token whether to hide items that have "Warning" alerts...
-let ignoreWarningsToken = document.getElementById("ignoreWarningsToken").innerText;
+var ignoreWarningsToken = getBetterMapElementById("ignoreWarningsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (isTruthyToken(ignoreWarningsToken)) {
 	showWarnings = false;
 }
 // Capture from token whether to hide items that have "Error" alerts...
-let ignoreErrorsToken = document.getElementById("ignoreErrorsToken").innerText;
+var ignoreErrorsToken = getBetterMapElementById("ignoreErrorsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (isTruthyToken(ignoreErrorsToken)) {
 	showErrors = false;
 }
 // Capture from token whether to hide items that have "Critical" alerts...
-let ignoreCriticalsToken = document.getElementById("ignoreCriticalsToken").innerText;
+var ignoreCriticalsToken = getBetterMapElementById("ignoreCriticalsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (isTruthyToken(ignoreCriticalsToken)) {
 	showCriticals = false;
 }
 // Capture from token whether to hide items that are in SDT...
-let ignoreSDTToken = document.getElementById("ignoreSDTToken").innerText;
+var ignoreSDTToken = getBetterMapElementById("ignoreSDTToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (isTruthyToken(ignoreSDTToken)) {
 	showSDT = false;
 }
 // Capture from token whether to show the map tilt/rotation controls...
-let showMapTiltControlsToken = document.getElementById("showMapTiltControlsToken").innerText;
+var showMapTiltControlsToken = getBetterMapElementById("showMapTiltControlsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (isTruthyToken(showMapTiltControlsToken)) {
 	showMapTiltControls = true;
 }
 // console.debug("showMapTiltControlsToken", showMapTiltControlsToken);
 // Capture from token whether to automatically reset the map's zoom to encompass all items on timed refreshes...
-let autoResetMapOnRefreshToken = document.getElementById("autoResetMapOnRefreshToken").innerText;
+var autoResetMapOnRefreshToken = getBetterMapElementById("autoResetMapOnRefreshToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (isTruthyToken(autoResetMapOnRefreshToken)) {
 	autoResetMapOnRefresh = true;
 }
 // console.debug("autoResetMapOnRefreshToken", autoResetMapOnRefreshToken);
 // Capture our group filter if defined as a token...
-let dashboardGroupPathToken = document.getElementById("dashboardGroupPathToken").innerText;
+var dashboardGroupPathToken = getBetterMapElementById("dashboardGroupPathToken").innerText;
 if (dashboardGroupPathToken != "##MapGroupPathFilter##") {
 	groupPathFilter = dashboardGroupPathToken;
 }
@@ -418,9 +429,9 @@ if (groupPathFilter == "") {
 	groupPathFilter = "*";
 }
 // Capture the current path filter to reset the form field if the user completely clears it out...
-let initialGroupPathFilter = groupPathFilter;
+var initialGroupPathFilter = groupPathFilter;
 // Capture our overlay defaults if defined as tokens...
-let dashboardShowWeatherToken = document.getElementById("dashboardShowWeatherToken").innerText.toLowerCase();
+var dashboardShowWeatherToken = getBetterMapElementById("dashboardShowWeatherToken").innerText.toLowerCase();
 if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexrad" || dashboardShowWeatherToken == "xweather" || dashboardShowWeatherToken == "openweather" || dashboardShowWeatherToken == "true" || dashboardShowWeatherToken == "yes") {
 	// If the token value is "true" or "yes" then default to "global"...
 	if (dashboardShowWeatherToken == "true" || dashboardShowWeatherToken == "yes") {
@@ -428,28 +439,28 @@ if (dashboardShowWeatherToken == "global" || dashboardShowWeatherToken == "nexra
 	}
 	showWeatherDefault = dashboardShowWeatherToken;
 }
-let openWeatherAPIKeyTokenEl = document.getElementById("openWeatherAPIKeyToken");
+var openWeatherAPIKeyTokenEl = getBetterMapElementById("openWeatherAPIKeyToken");
 if (openWeatherAPIKeyTokenEl) {
 	let owKeyVal = openWeatherAPIKeyTokenEl.innerText;
 	if (owKeyVal !== "##OpenWeatherAPIKey##" && owKeyVal.trim() !== "") {
 		openWeatherAPIKey = owKeyVal.trim();
 	}
 }
-let xweatherAPIIDTokenEl = document.getElementById("xweatherAPIIDToken");
+var xweatherAPIIDTokenEl = getBetterMapElementById("xweatherAPIIDToken");
 if (xweatherAPIIDTokenEl) {
 	let xwIDVal = xweatherAPIIDTokenEl.innerText;
 	if (xwIDVal !== "##XweatherAPIID##" && xwIDVal.trim() !== "") {
 		xweatherAPIID = xwIDVal.trim();
 	}
 }
-let xweatherAPIKeyTokenEl = document.getElementById("xweatherAPIKeyToken");
+var xweatherAPIKeyTokenEl = getBetterMapElementById("xweatherAPIKeyToken");
 if (xweatherAPIKeyTokenEl) {
 	let xwKeyVal = xweatherAPIKeyTokenEl.innerText;
 	if (xwKeyVal !== "##XweatherAPIKey##" && xwKeyVal.trim() !== "") {
 		xweatherAPIKey = xwKeyVal.trim();
 	}
 }
-let dashboardAddlOverlayToken = document.getElementById("dashboardAddlOverlayToken").innerText.toLowerCase();
+var dashboardAddlOverlayToken = getBetterMapElementById("dashboardAddlOverlayToken").innerText.toLowerCase();
 if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
 	additionalOverlayOption = dashboardAddlOverlayToken;
 	if (additionalOverlayOption == "us-wildfires") {
@@ -458,33 +469,33 @@ if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us
 }
 // console.debug("dashboardAddlOverlayToken", dashboardAddlOverlayToken);
 // Capture from token any custom properties to display when viewing an item's details...
-let displayPropsToken = document.getElementById("displayPropsToken").innerText;
+var displayPropsToken = getBetterMapElementById("displayPropsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (displayPropsToken != "##MapDisplayProperties##") {
 	displayProps = displayPropsToken;
 }
 // console.debug("displayPropsToken", displayPropsToken);
 // Capture from token whether to disable marker clustering...
-let disableClusteringToken = document.getElementById("disableClusteringToken").innerText;
+var disableClusteringToken = getBetterMapElementById("disableClusteringToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (isTruthyToken(disableClusteringToken)) {
 	disableClustering = true;
 }
 // console.debug("disableClusteringToken", disableClusteringToken);
 // Capture from token whether to show road labels...
-let showRoadLabelsToken = document.getElementById("showRoadLabelsToken").innerText;
+var showRoadLabelsToken = getBetterMapElementById("showRoadLabelsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (isTruthyToken(showRoadLabelsToken)) {
 	showRoadLabels = "yes";
 }
 // Capture from token for which marker style to use (pins vs circles; legacy tokens still accepted)...
-let markerStyleToken = "";
+var markerStyleToken = "";
 try {
-	markerStyleToken = document.getElementById("markerStyleToken").innerText;
+	markerStyleToken = getBetterMapElementById("markerStyleToken").innerText;
 } catch (error) {
 	markerStyleToken = "";
 }
-const markerStyleTokenNorm = String(markerStyleToken).trim().toLowerCase();
+var markerStyleTokenNorm = String(markerStyleToken).trim().toLowerCase();
 if (markerStyleTokenNorm === "dot" || markerStyleTokenNorm === "dots" || markerStyleTokenNorm === "circle" || markerStyleTokenNorm === "circles") {
 	markerStyle = "circles";
 } else if (markerStyleTokenNorm === "pins" || markerStyleTokenNorm === "default" || markerStyleTokenNorm === "pin") {
@@ -492,9 +503,9 @@ if (markerStyleTokenNorm === "dot" || markerStyleTokenNorm === "dots" || markerS
 }
 
 // Capture from token whether to use a LogicMonitor API bearer token or API ID & key...
-let apiBearerTokenToken = document.getElementById("apiBearerTokenToken").innerText;
-let apiIDToken = document.getElementById("apiIDToken").innerText;
-let apiKeyToken = document.getElementById("apiKeyToken").innerText;
+var apiBearerTokenToken = getBetterMapElementById("apiBearerTokenToken").innerText;
+var apiIDToken = getBetterMapElementById("apiIDToken").innerText;
+var apiKeyToken = getBetterMapElementById("apiKeyToken").innerText;
 if (apiBearerTokenToken != "##apiBearerToken##") {
 	apiBearerToken = apiBearerTokenToken;
 }
@@ -509,7 +520,7 @@ if (apiKeyToken != "##apiKey##") {
 // Initialize Google Maps...
 
 // Fetch our map API key to use...
-let googleMapApiKey = parent.LMGlobalData.googleMapInfo.key.toString();
+var googleMapApiKey = parent.LMGlobalData.googleMapInfo.key.toString();
 
 (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
 ({key: googleMapApiKey, v: "weekly"});
@@ -525,12 +536,12 @@ let googleMapApiKey = parent.LMGlobalData.googleMapInfo.key.toString();
 
 // ------------------------------------------------------------
 // CSRF Token caching for performance optimization
-let _cachedCsrfToken = null;
-let _csrfTokenExpiry = 0;
-const CSRF_TOKEN_TTL = 5 * 60 * 1000; // Cache token for 5 minutes
+var _cachedCsrfToken = null;
+var _csrfTokenExpiry = 0;
+var CSRF_TOKEN_TTL = 5 * 60 * 1000; // Cache token for 5 minutes
 
 // AbortController for canceling in-progress refresh operations
-let _currentRefreshController = null;
+var _currentRefreshController = null;
 
 // Utility: Debounce function for rate-limiting user input handlers
 function debounce(fn, delay = 300) {
@@ -541,10 +552,10 @@ function debounce(fn, delay = 300) {
 	}
 }
 
-const __LMBMW_MAPOPTS_COOKIE_BASE = "lm_bmw_mapOpts_v1";
-const __LMBMW_MAPOPTS_MAX_AGE = 60 * 60 * 24 * 400;
-const __LMBMW_ALLOWED_OVERLAY_VALUES = ["wildfires", "us-poweroutages", "earthquakes", "us-flooding"];
-const __LMBMW_ALLOWED_WEATHER_TYPES = ["radar", "nexrad-n0q-900913", "xweather", "openweather"];
+var __LMBMW_MAPOPTS_COOKIE_BASE = "lm_bmw_mapOpts_v1";
+var __LMBMW_MAPOPTS_MAX_AGE = 60 * 60 * 24 * 400;
+var __LMBMW_ALLOWED_OVERLAY_VALUES = ["wildfires", "us-poweroutages", "earthquakes", "us-flooding"];
+var __LMBMW_ALLOWED_WEATHER_TYPES = ["radar", "nexrad-n0q-900913", "xweather", "openweather"];
 
 // Build a per-dashboard cookie name so each LM dashboard has its own saved
 // map options. dashboardID is derived later from the parent URL pathname
@@ -678,7 +689,7 @@ function isTruthyToken(tokenValue) {
 }
 
 // Helper: Parse alert/SDT status into a normalized severity object
-const _severityMeta = {
+var _severityMeta = {
 	warn:     { icon: () => warningIcon,  pinBG: "#f5ca1d", pinBorder: "#967c14", pinIndex: 1 },
 	error:    { icon: () => errorIcon,    pinBG: "#ff8c00", pinBorder: "#ac5101", pinIndex: 2 },
 	critical: { icon: () => criticalIcon, pinBG: "#e0351b", pinBorder: "#9a2614", pinIndex: 3 },
@@ -958,33 +969,33 @@ async function LMClient({
 // ------------------------------------------------------------
 
 // Cache frequently accessed DOM elements for performance
-const _dom = {
-	showCleared: document.getElementById("showCleared"),
-	showWarnings: document.getElementById("showWarnings"),
-	showErrors: document.getElementById("showErrors"),
-	showCriticals: document.getElementById("showCriticals"),
-	showSDT: document.getElementById("showSDT"),
-	autoZoom: document.getElementById("autoZoom"),
-	weather: document.getElementById("weather"),
-	weatherType: document.getElementById("weatherType"),
-	otherWeatherOverlays: document.getElementById("otherWeatherOverlays"),
-	markerStyleSelect: document.getElementById("markerStyleSelect"),
-	customGroupFilterField: document.getElementById("customGroupFilterField"),
-	resetGroupFilterButton: document.getElementById("resetGroupFilterButton"),
-	mapOptionsArea: document.getElementById("mapOptionsArea"),
+var _dom = {
+	showCleared: getBetterMapElementById("showCleared"),
+	showWarnings: getBetterMapElementById("showWarnings"),
+	showErrors: getBetterMapElementById("showErrors"),
+	showCriticals: getBetterMapElementById("showCriticals"),
+	showSDT: getBetterMapElementById("showSDT"),
+	autoZoom: getBetterMapElementById("autoZoom"),
+	weather: getBetterMapElementById("weather"),
+	weatherType: getBetterMapElementById("weatherType"),
+	otherWeatherOverlays: getBetterMapElementById("otherWeatherOverlays"),
+	markerStyleSelect: getBetterMapElementById("markerStyleSelect"),
+	customGroupFilterField: getBetterMapElementById("customGroupFilterField"),
+	resetGroupFilterButton: getBetterMapElementById("resetGroupFilterButton"),
+	mapOptionsArea: getBetterMapElementById("mapOptionsArea"),
 	refreshStatusArea: null, // Set later after map init
 	weatherRefreshButton: null, // Set later after map init
-	showClearedLabel: document.getElementById("showClearedLabel"),
-	showWarningsLabel: document.getElementById("showWarningsLabel"),
-	showErrorsLabel: document.getElementById("showErrorsLabel"),
-	showCriticalsLabel: document.getElementById("showCriticalsLabel"),
-	showSDTLabel: document.getElementById("showSDTLabel"),
-	sidebarArea: document.getElementById("sidebarArea"),
-	sidebarResizeHandle: document.getElementById("sidebarResizeHandle"),
-	weatherOptions: document.getElementById("weatherOptions"),
-	optionsToggleArea: document.getElementById("optionsToggleArea"),
-	gearIcon: document.getElementById("gearIcon"),
-	gearIconChevron: document.getElementById("gearIconChevron"),
+	showClearedLabel: getBetterMapElementById("showClearedLabel"),
+	showWarningsLabel: getBetterMapElementById("showWarningsLabel"),
+	showErrorsLabel: getBetterMapElementById("showErrorsLabel"),
+	showCriticalsLabel: getBetterMapElementById("showCriticalsLabel"),
+	showSDTLabel: getBetterMapElementById("showSDTLabel"),
+	sidebarArea: getBetterMapElementById("sidebarArea"),
+	sidebarResizeHandle: getBetterMapElementById("sidebarResizeHandle"),
+	weatherOptions: getBetterMapElementById("weatherOptions"),
+	optionsToggleArea: getBetterMapElementById("optionsToggleArea"),
+	gearIcon: getBetterMapElementById("gearIcon"),
+	gearIconChevron: getBetterMapElementById("gearIconChevron"),
 }
 
 // Set the form fields as appropriate...
@@ -1010,13 +1021,13 @@ if (showWeatherDefault == "global") {
 }
 
 // Disable the Xweather option if the XweatherAPIID or XweatherAPIKey is missing...
-const xweatherOption = _dom.weatherType.querySelector('option[value="xweather"]');
+var xweatherOption = _dom.weatherType.querySelector('option[value="xweather"]');
 if (xweatherOption && (!xweatherAPIID || !xweatherAPIKey)) {
 	xweatherOption.disabled = true;
 	xweatherOption.textContent += " (API key required)";
 }
 // Disable the OpenWeather option if the OpenWeatherAPIKey is missing...
-const openweatherOption = _dom.weatherType.querySelector('option[value="openweather"]');
+var openweatherOption = _dom.weatherType.querySelector('option[value="openweather"]');
 if (openweatherOption && !openWeatherAPIKey) {
 	openweatherOption.disabled = true;
 	openweatherOption.textContent += " (API key required)";
@@ -1036,33 +1047,33 @@ _dom.markerStyleSelect.value = markerStyle === "circles" ? "circles" : "pins";
 _dom.markerStyleSelect.addEventListener("change", applyMarkerStyleFromSelect);
 
 // Capture information about the current dashboard for use in subsequent REST calls...
-const hostName = parent.window.location.host;
-const locationHash = parent.window.location.hash;
-const pathName = parent.window.location.pathname; // example: "/santaba/uiv4/dashboards/dashboards-2338"
+var hostName = parent.window.location.host;
+var locationHash = parent.window.location.hash;
+var pathName = parent.window.location.pathname; // example: "/santaba/uiv4/dashboards/dashboards-2338"
 // Extract the numeric dashboard ID from the path (e.g. "dashboards-2338" -> "2338").
-const __LMBMW_DASHBOARD_ID_MATCH = pathName.match(/\/dashboards-(\d+)/i);
-const dashboardID = __LMBMW_DASHBOARD_ID_MATCH ? __LMBMW_DASHBOARD_ID_MATCH[1] : "";
+var __LMBMW_DASHBOARD_ID_MATCH = pathName.match(/\/dashboards-(\d+)/i);
+var dashboardID = __LMBMW_DASHBOARD_ID_MATCH ? __LMBMW_DASHBOARD_ID_MATCH[1] : "";
 
 // Note our original tilt & heading values...
-const defaultMapTilt = mapTilt;
-const defaultMapHeading = mapHeading;
+var defaultMapTilt = mapTilt;
+var defaultMapHeading = mapHeading;
 
 // SVG icon definitions for our different alert severities...
-const warningIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024" data-tooltip="Warning"><path fill="#f5ca1d" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M866.462 669.538l-275.692-433.231c-43.323-70.892-114.215-70.892-157.538 0l-275.692 433.231c-43.323 70.892-3.938 157.538 78.769 157.538h551.385c82.708 0 122.092-86.646 78.769-157.538v0 0z"></path> <path fill="#f5ca1d" d="M551.385 748.308h-78.769v-78.769h78.769v78.769zM551.385 630.154h-78.769v-275.692h78.769v275.692z"></path> </svg>';
-const errorIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024" data-tooltip="Error"><path fill="#ff8c00" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M866.462 669.538l-275.692-433.231c-43.323-70.892-114.215-70.892-157.538 0l-275.692 433.231c-43.323 70.892-3.938 157.538 78.769 157.538h551.385c82.708 0 122.092-86.646 78.769-157.538v0 0z"></path> <path fill="#ff8c00" d="M551.385 748.308h-78.769v-78.769h78.769v78.769zM551.385 630.154h-78.769v-275.692h78.769v275.692z"></path> </svg>';
-const criticalIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024" data-tooltip="Critical"><path fill="#e0351b" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M827.077 590.769c-133.908-232.369-39.385-354.462-39.385-354.462s-173.292 43.323-157.538 157.538c-35.446-31.508-216.615-86.646-114.215-271.754v-3.938h-3.938c-3.938 0-55.138 23.631-94.523 74.831-39.385 47.262-110.277 106.338-63.015 240.246 31.508 74.831 39.385 94.523-39.385 157.538 3.938-15.754 11.815-51.2 0-78.769-27.569-63.015-78.769-78.769-78.769-78.769s43.323 66.954 0 118.154c-39.385 43.323-55.138 129.969-35.446 200.862 15.754 59.077 70.892 106.338 157.538 137.846-7.877-3.938 110.277 43.323 244.185 3.938 59.077-19.692 137.846-43.323 185.108-106.338 39.385-51.2 74.831-129.969 39.385-196.923v0 0z"></path> <path fill="#e0351b" d="M551.385 827.077h-78.769v-78.769h78.769v78.769zM551.385 708.923h-78.769v-275.692h78.769v275.692z"></path> </svg>';
-const clearedIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="No alerts"><path id="Shape" fill="#ffffff" fill-rule="evenodd" stroke="none" d="M 43 25 C 43 15.61116 35.164986 8 25.5 8 C 15.835016 8 8 15.61116 8 25 C 8 34.38884 15.835016 42 25.5 42 C 35.164986 42 43 34.38884 43 25 Z"/><path id="Path" fill="#85c25d" stroke="none" d="M 25.5 4 C 37.374119 4 47 13.625877 47 25.5 C 47 37.374123 37.374119 47 25.5 47 C 13.625877 47 4 37.374123 4 25.5 C 4 13.625877 13.625877 4 25.5 4 Z M 17.975 17.974998 C 15.881312 17.974998 14.103745 18.670809 12.642242 20.062449 C 11.18074 21.45409 10.45 23.269981 10.45 25.510181 C 10.45 27.736805 11.18074 29.545912 12.642242 30.937551 C 14.103745 32.329193 15.881312 33.025002 17.975 33.025002 C 20.068687 33.025002 21.842855 32.329193 23.297562 30.937551 C 24.752264 29.545912 25.479607 27.736805 25.479607 25.510181 C 25.479607 23.283558 24.752264 21.471062 23.297562 20.072632 C 21.842855 18.674204 20.068687 17.974998 17.975 17.974998 Z M 31.006098 18.280481 L 27.784012 18.280481 L 27.784012 32.719521 L 31.006098 32.719521 L 31.006098 28.850101 L 32.637535 27.037582 L 36.532589 32.719521 L 40.549999 32.719521 L 34.901154 24.532646 L 40.529606 18.280481 L 36.287876 18.280481 L 31.006098 24.34936 L 31.006098 18.280481 Z M 17.975 21.111265 C 19.089819 21.111265 20.061874 21.48802 20.891193 22.241541 C 21.72051 22.995064 22.135162 24.07781 22.135162 25.489815 C 22.135162 26.901821 21.72051 27.981174 20.891193 28.727909 C 20.061874 29.474642 19.089819 29.848003 17.975 29.848003 C 16.86018 29.848003 15.884727 29.474642 15.048611 28.727909 C 14.212496 27.981174 13.794444 26.901821 13.794444 25.489815 C 13.794444 24.07781 14.209096 22.998459 15.038414 22.251724 C 15.881327 21.491413 16.86018 21.111265 17.975 21.111265 Z"/></svg>';
-const sdtIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="SDT"><path id="Oval" fill="#00A1FE" fill-rule="evenodd" stroke="none" d="M 46 25 C 46 13.40202 36.59798 4 25 4 C 13.40202 4 4 13.40202 4 25 C 4 36.59798 13.40202 46 25 46 C 36.59798 46 46 36.59798 46 25 Z"/><g id="Group"><path id="Path" fill="#000000" fill-opacity="0.01" stroke="none" d="M 5 5 L 45 5 L 45 45 L 5 45 Z"/><path id="path1" fill="#ffffff" stroke="none" d="M 25 9.0625 C 16.19795 9.0625 9.0625 16.197948 9.0625 25 C 9.0625 33.801994 16.19795 40.9375 25 40.9375 C 33.801998 40.9375 40.9375 33.801994 40.9375 25 L 36.25 25 C 36.25 31.213245 31.213249 36.25 25 36.25 C 18.7868 36.25 13.75 31.213245 13.75 25 C 13.75 18.786802 18.7868 13.75 25 13.75 L 25 9.0625 Z"/><path id="path2" fill="#ffffff" stroke="none" d="M 33.75 12.5 C 33.75 13.880699 32.630753 15 31.25 15 C 29.869299 15 28.75 13.880699 28.75 12.5 C 28.75 11.119301 29.869299 10 31.25 10 C 32.630753 10 33.75 11.119301 33.75 12.5 Z"/><path id="path3" fill="#ffffff" stroke="none" d="M 40 18.75 C 40 20.130701 38.880753 21.25 37.5 21.25 C 36.119247 21.25 35 20.130701 35 18.75 C 35 17.369301 36.119247 16.25 37.5 16.25 C 38.880753 16.25 40 17.369301 40 18.75 Z"/><path id="path4" fill="#ffffff" fill-rule="evenodd" stroke="none" d="M 23.125 16.000004 L 26.880026 16.000004 L 26.880026 24.899998 L 33.125 28.647003 L 30.725 31.83075 L 23.125 27.066555 L 23.125 16.000004 Z"/></g></svg>';
+var warningIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024" data-tooltip="Warning"><path fill="#f5ca1d" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M866.462 669.538l-275.692-433.231c-43.323-70.892-114.215-70.892-157.538 0l-275.692 433.231c-43.323 70.892-3.938 157.538 78.769 157.538h551.385c82.708 0 122.092-86.646 78.769-157.538v0 0z"></path> <path fill="#f5ca1d" d="M551.385 748.308h-78.769v-78.769h78.769v78.769zM551.385 630.154h-78.769v-275.692h78.769v275.692z"></path> </svg>';
+var errorIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024" data-tooltip="Error"><path fill="#ff8c00" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M866.462 669.538l-275.692-433.231c-43.323-70.892-114.215-70.892-157.538 0l-275.692 433.231c-43.323 70.892-3.938 157.538 78.769 157.538h551.385c82.708 0 122.092-86.646 78.769-157.538v0 0z"></path> <path fill="#ff8c00" d="M551.385 748.308h-78.769v-78.769h78.769v78.769zM551.385 630.154h-78.769v-275.692h78.769v275.692z"></path> </svg>';
+var criticalIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024" data-tooltip="Critical"><path fill="#e0351b" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M827.077 590.769c-133.908-232.369-39.385-354.462-39.385-354.462s-173.292 43.323-157.538 157.538c-35.446-31.508-216.615-86.646-114.215-271.754v-3.938h-3.938c-3.938 0-55.138 23.631-94.523 74.831-39.385 47.262-110.277 106.338-63.015 240.246 31.508 74.831 39.385 94.523-39.385 157.538 3.938-15.754 11.815-51.2 0-78.769-27.569-63.015-78.769-78.769-78.769-78.769s43.323 66.954 0 118.154c-39.385 43.323-55.138 129.969-35.446 200.862 15.754 59.077 70.892 106.338 157.538 137.846-7.877-3.938 110.277 43.323 244.185 3.938 59.077-19.692 137.846-43.323 185.108-106.338 39.385-51.2 74.831-129.969 39.385-196.923v0 0z"></path> <path fill="#e0351b" d="M551.385 827.077h-78.769v-78.769h78.769v78.769zM551.385 708.923h-78.769v-275.692h78.769v275.692z"></path> </svg>';
+var clearedIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="No alerts"><path id="Shape" fill="#ffffff" fill-rule="evenodd" stroke="none" d="M 43 25 C 43 15.61116 35.164986 8 25.5 8 C 15.835016 8 8 15.61116 8 25 C 8 34.38884 15.835016 42 25.5 42 C 35.164986 42 43 34.38884 43 25 Z"/><path id="Path" fill="#85c25d" stroke="none" d="M 25.5 4 C 37.374119 4 47 13.625877 47 25.5 C 47 37.374123 37.374119 47 25.5 47 C 13.625877 47 4 37.374123 4 25.5 C 4 13.625877 13.625877 4 25.5 4 Z M 17.975 17.974998 C 15.881312 17.974998 14.103745 18.670809 12.642242 20.062449 C 11.18074 21.45409 10.45 23.269981 10.45 25.510181 C 10.45 27.736805 11.18074 29.545912 12.642242 30.937551 C 14.103745 32.329193 15.881312 33.025002 17.975 33.025002 C 20.068687 33.025002 21.842855 32.329193 23.297562 30.937551 C 24.752264 29.545912 25.479607 27.736805 25.479607 25.510181 C 25.479607 23.283558 24.752264 21.471062 23.297562 20.072632 C 21.842855 18.674204 20.068687 17.974998 17.975 17.974998 Z M 31.006098 18.280481 L 27.784012 18.280481 L 27.784012 32.719521 L 31.006098 32.719521 L 31.006098 28.850101 L 32.637535 27.037582 L 36.532589 32.719521 L 40.549999 32.719521 L 34.901154 24.532646 L 40.529606 18.280481 L 36.287876 18.280481 L 31.006098 24.34936 L 31.006098 18.280481 Z M 17.975 21.111265 C 19.089819 21.111265 20.061874 21.48802 20.891193 22.241541 C 21.72051 22.995064 22.135162 24.07781 22.135162 25.489815 C 22.135162 26.901821 21.72051 27.981174 20.891193 28.727909 C 20.061874 29.474642 19.089819 29.848003 17.975 29.848003 C 16.86018 29.848003 15.884727 29.474642 15.048611 28.727909 C 14.212496 27.981174 13.794444 26.901821 13.794444 25.489815 C 13.794444 24.07781 14.209096 22.998459 15.038414 22.251724 C 15.881327 21.491413 16.86018 21.111265 17.975 21.111265 Z"/></svg>';
+var sdtIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="SDT"><path id="Oval" fill="#00A1FE" fill-rule="evenodd" stroke="none" d="M 46 25 C 46 13.40202 36.59798 4 25 4 C 13.40202 4 4 13.40202 4 25 C 4 36.59798 13.40202 46 25 46 C 36.59798 46 46 36.59798 46 25 Z"/><g id="Group"><path id="Path" fill="#000000" fill-opacity="0.01" stroke="none" d="M 5 5 L 45 5 L 45 45 L 5 45 Z"/><path id="path1" fill="#ffffff" stroke="none" d="M 25 9.0625 C 16.19795 9.0625 9.0625 16.197948 9.0625 25 C 9.0625 33.801994 16.19795 40.9375 25 40.9375 C 33.801998 40.9375 40.9375 33.801994 40.9375 25 L 36.25 25 C 36.25 31.213245 31.213249 36.25 25 36.25 C 18.7868 36.25 13.75 31.213245 13.75 25 C 13.75 18.786802 18.7868 13.75 25 13.75 L 25 9.0625 Z"/><path id="path2" fill="#ffffff" stroke="none" d="M 33.75 12.5 C 33.75 13.880699 32.630753 15 31.25 15 C 29.869299 15 28.75 13.880699 28.75 12.5 C 28.75 11.119301 29.869299 10 31.25 10 C 32.630753 10 33.75 11.119301 33.75 12.5 Z"/><path id="path3" fill="#ffffff" stroke="none" d="M 40 18.75 C 40 20.130701 38.880753 21.25 37.5 21.25 C 36.119247 21.25 35 20.130701 35 18.75 C 35 17.369301 36.119247 16.25 37.5 16.25 C 38.880753 16.25 40 17.369301 40 18.75 Z"/><path id="path4" fill="#ffffff" fill-rule="evenodd" stroke="none" d="M 23.125 16.000004 L 26.880026 16.000004 L 26.880026 24.899998 L 33.125 28.647003 L 30.725 31.83075 L 23.125 27.066555 L 23.125 16.000004 Z"/></g></svg>';
 // Animated throbber for when we're updating data...
-const loadingSpinner = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_VpEe{animation:spinner_vXu6 1.2s cubic-bezier(0.52,.6,.25,.99) infinite}.spinner_eahp{animation-delay:.4s}.spinner_f7Y2{animation-delay:.8s}@keyframes spinner_vXu6{0%{r:0;opacity:1}100%{r:11px;opacity:0}}</style><circle class="spinner_VpEe" cx="12" cy="12" r="0" fill="red"/><circle class="spinner_VpEe spinner_eahp" cx="12" cy="12" r="0" fill="red"/><circle class="spinner_VpEe spinner_f7Y2" cx="12" cy="12" r="0" fill="red"/></svg>';
+var loadingSpinner = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_VpEe{animation:spinner_vXu6 1.2s cubic-bezier(0.52,.6,.25,.99) infinite}.spinner_eahp{animation-delay:.4s}.spinner_f7Y2{animation-delay:.8s}@keyframes spinner_vXu6{0%{r:0;opacity:1}100%{r:11px;opacity:0}}</style><circle class="spinner_VpEe" cx="12" cy="12" r="0" fill="red"/><circle class="spinner_VpEe spinner_eahp" cx="12" cy="12" r="0" fill="red"/><circle class="spinner_VpEe spinner_f7Y2" cx="12" cy="12" r="0" fill="red"/></svg>';
 // Icons for toggling visiiblity of the top toolbar...
-const optionsToggleVisibleIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px;"><rect x="10" y="42" width="428" height="428" rx="54" ry="54" fill="none" stroke="#000000" stroke-width="20"/><path fill="#000000" d="M241.6 175.7C237.1 170.8 230.7 168 224 168S210.9 170.8 206.4 175.7l-96 104c-6.469 7-8.188 17.19-4.375 25.91C109.8 314.3 118.5 320 127.1 320h192c9.531 0 18.16-5.656 22-14.38c3.813-8.719 2.094-18.91-4.375-25.91L241.6 175.7z"/></svg>';
-const optionsToggleHiddenIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px;"><rect x="10" y="42" width="428" height="428" rx="54" ry="54" fill="none" stroke="#000000" stroke-width="20"/><path fill="#000000" d="M320 192H128C118.5 192 109.8 197.7 105.1 206.4C102.2 215.1 103.9 225.3 110.4 232.3l96 104C210.9 341.2 217.3 344 224 344s13.09-2.812 17.62-7.719l96-104c6.469-7 8.188-17.19 4.375-25.91C338.2 197.7 329.5 192 320 192z"/></svg>';
+var optionsToggleVisibleIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px;"><rect x="10" y="42" width="428" height="428" rx="54" ry="54" fill="none" stroke="#000000" stroke-width="20"/><path fill="#000000" d="M241.6 175.7C237.1 170.8 230.7 168 224 168S210.9 170.8 206.4 175.7l-96 104c-6.469 7-8.188 17.19-4.375 25.91C109.8 314.3 118.5 320 127.1 320h192c9.531 0 18.16-5.656 22-14.38c3.813-8.719 2.094-18.91-4.375-25.91L241.6 175.7z"/></svg>';
+var optionsToggleHiddenIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px;"><rect x="10" y="42" width="428" height="428" rx="54" ry="54" fill="none" stroke="#000000" stroke-width="20"/><path fill="#000000" d="M320 192H128C118.5 192 109.8 197.7 105.1 206.4C102.2 215.1 103.9 225.3 110.4 232.3l96 104C210.9 341.2 217.3 344 224 344s13.09-2.812 17.62-7.719l96-104c6.469-7 8.188-17.19 4.375-25.91C338.2 197.7 329.5 192 320 192z"/></svg>';
 
 
 // Map color schemes created using Google's style editor (https://mapstyle.withgoogle.com/).
 // Wrapped in getters so only the selected style is allocated, and showRoadLabels is captured at call time.
-const mapStyles = {
+var mapStyles = {
 	get standard() { return [ { "stylers": [ { "lightness": 60 } ] }, { "elementType": "labels", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi.business", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "transit", "stylers": [ { "visibility": "off" } ] } ]; },
 	get silver() { return [ { "elementType": "geometry", "stylers": [ { "color": "#f5f5f5" } ] }, { "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "elementType": "labels.text.fill", "stylers": [ { "color": "#616161" }, { "lightness": 70 } ] }, { "elementType": "labels.text.stroke", "stylers": [ { "color": "#f5f5f5" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [ { "color": "#000000" }, { "lightness": 85 } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [ { "color": "#bdbdbd" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [ { "color": "#000000" }, { "lightness": 80 } ] }, { "featureType": "poi", "elementType": "geometry", "stylers": [ { "color": "#eeeeee" } ] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [ { "color": "#e5e5e5" } ] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] }, { "featureType": "road", "stylers": [ { "lightness": 45 } ] }, { "featureType": "road", "elementType": "geometry", "stylers": [ { "color": "#ffffff" }, { "lightness": 55 } ] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [ { "lightness": 55 } ] }, { "featureType": "road", "elementType": "geometry.stroke", "stylers": [ { "lightness": 55 } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "lightness": -15 }, { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.text.stroke", "stylers": [ { "color": "#ffffff" } ] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [ { "color": "#dadada" }, { "lightness": 50 }, { "weight": 0.5 } ] }, { "featureType": "transit.line", "elementType": "geometry", "stylers": [ { "color": "#e5e5e5" } ] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [ { "color": "#eeeeee" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#c9c9c9" }, { "lightness": 20 } ] }, { "featureType": "water", "elementType": "geometry.fill", "stylers": [ { "lightness": 35 } ] }, { "featureType": "water", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] } ]; },
 	get silverblue() { return [ { "elementType": "geometry", "stylers": [{ "color": "#f5f5f5" }] }, { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] }, { "elementType": "labels.text.fill", "stylers": [{ "color": "#616161" }, { "lightness": 70 }] }, { "elementType": "labels.text.stroke", "stylers": [{ "color": "#f5f5f5" }] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [{ "color": "#000000" }, { "lightness": 85 }] }, { "featureType": "administrative.land_parcel", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [{ "color": "#bdbdbd" }] }, { "featureType": "administrative.neighborhood", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [{ "color": "#000000" }, { "lightness": 80 }] }, { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#eeeeee" }] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [{ "visibility": "off" }] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#e5e5e5" }] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] }, { "featureType": "road", "stylers": [{ "lightness": 45 }] }, { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#ffffff" }, { "lightness": 55 }] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [{ "lightness": 55 }] }, { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "lightness": 55 }] }, { "featureType": "road", "elementType": "labels", "stylers": [{ "visibility": showRoadLabels, "lightness": -15 }] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#dadada" }, { "lightness": 50 }, { "weight": 0.5 }] }, { "featureType": "transit.line", "elementType": "geometry", "stylers": [{ "color": "#e5e5e5" }] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [{ "color": "#eeeeee" }] }, { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#c9c9c9" }, { "lightness": 20 }] }, { "featureType": "water", "elementType": "geometry.fill", "stylers": [{ "color": "#cad0d8" }, { "lightness": 35 }] }, { "featureType": "water", "elementType": "labels.text", "stylers": [{ "visibility": "off" }] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] } ]; },
@@ -1071,27 +1082,27 @@ const mapStyles = {
 };
 
 // RainViewer map options (feel free to change these to suit your taste)...
-const rvOptionKind = 'radar'; // can be 'radar' or 'satellite'
-const rvOptionSmoothData = 1; // 0 - not smooth, 1 - smooth
-const rvOptionSnowColors = 1; // 0 - do not show snow colors, 1 - show snow colors
+var rvOptionKind = 'radar'; // can be 'radar' or 'satellite'
+var rvOptionSmoothData = 1; // 0 - not smooth, 1 - smooth
+var rvOptionSnowColors = 1; // 0 - do not show snow colors, 1 - show snow colors
 // Variables for holding RainViewer API data...
-let rvAPIData = {};
-let rvMapFrames = [];
-let rvLastPastFramePosition = -1;
-let weatherRefresher = null;
-let mapDataRefresher = null;
+var rvAPIData = {};
+var rvMapFrames = [];
+var rvLastPastFramePosition = -1;
+var weatherRefresher = null;
+var mapDataRefresher = null;
 
 // Number formatter for use in wildfire data...
-const numFormatOptions = {
+var numFormatOptions = {
 	style: 'decimal',  // Other options: 'currency', 'percent', etc.
 	minimumFractionDigits: 0,
 	maximumFractionDigits: 0,
 }
 
 // Adding a top-level placeholder for our Google Map objects...
-let map = "";
-let clusterer = "";
-let bounds = "";
+var map = "";
+var clusterer = "";
+var bounds = "";
 
 // Fetch helper with timeout & AbortController...
 if (!window.fetchJson) {
@@ -1120,20 +1131,20 @@ if (!window.buildMarkersInBatches) {
 }
 
 // Variable for holding our map markers...
-let markers = [];
+var markers = [];
 // Map for O(1) marker lookups by device ID (performance optimization)
-let markersByDeviceID = new Map();
+var markersByDeviceID = new Map();
 // For tracking if we've already established an initial center for our map based on markers...
-let centerCalculated = false;
+var centerCalculated = false;
 // For storing polyline references and their marker associations...
-let polylines = [];
+var polylines = [];
 
 function showReleaseNotes() {
-	document.getElementById('releaseNotesOverlay').classList.add('visible');
+	getBetterMapElementById('releaseNotesOverlay').classList.add('visible');
 }
 
 function closeReleaseNotes() {
-	document.getElementById('releaseNotesOverlay').classList.remove('visible');
+	getBetterMapElementById('releaseNotesOverlay').classList.remove('visible');
 }
 
 // Utility function to clear all markers from the map (consolidates repeated code)
@@ -1336,7 +1347,7 @@ function getMarkerOrClusterPosition(deviceID) {
 }
 
 // For caching marker latitude/longitude information between refreshes...
-const __LMBMW_CACHE_KEY = "lm_bmw.cachedAddresses.v1";
+var __LMBMW_CACHE_KEY = "lm_bmw.cachedAddresses.v1";
 function loadCache() {
 	try {
 		const obj = JSON.parse(localStorage.getItem(__LMBMW_CACHE_KEY));
@@ -1347,14 +1358,14 @@ function saveCache() {
 	try { localStorage.setItem(__LMBMW_CACHE_KEY, JSON.stringify(cachedAddresses)); } catch (e) {}
 }
 // Debounced version to avoid excessive localStorage writes during batch operations
-const debouncedSaveCache = debounce(saveCache, 1000);
+var debouncedSaveCache = debounce(saveCache, 1000);
 function clearCache() {
 	try {
 		localStorage.removeItem(__LMBMW_CACHE_KEY);
 		clearMapOptionsCookie();
 		// Display our progress to the user (if status area is available)...
 		if (!_dom.refreshStatusArea) {
-			_dom.refreshStatusArea = document.getElementById("refreshStatusArea");
+			_dom.refreshStatusArea = getBetterMapElementById("refreshStatusArea");
 		}
 		if (_dom.refreshStatusArea) {
 			_dom.refreshStatusArea.innerHTML = "Local cache and saved map options were cleared";
@@ -1367,25 +1378,25 @@ function clearCache() {
 		}
 	} catch (e) {}
 }
-let cachedAddresses = loadCache();
+var cachedAddresses = loadCache();
 
 // For holding our LM group data...
-let groupData = [];
+var groupData = [];
 // For timing our refreshes...
-let refreshStartTime = new Date();
+var refreshStartTime = new Date();
 // For tracking when to do a full refresh...
-let pollCount = 0;
-let fullRefresh = true;
+var pollCount = 0;
+var fullRefresh = true;
 
 // For holding our connection status data...
-let lineData = {};
+var lineData = {};
 
 // Pre-populate the group path filter field...
 _dom.customGroupFilterField.value = groupPathFilter;
 
 applyPersistedMapOptionsFromCookie();
 updateResetGroupFilterButtonVisibility();
-const debouncedSaveMapOptionsCookie = debounce(saveMapOptionsToCookie, 300);
+var debouncedSaveMapOptionsCookie = debounce(saveMapOptionsToCookie, 300);
 _dom.mapOptionsArea.addEventListener("change", debouncedSaveMapOptionsCookie);
 _dom.customGroupFilterField.addEventListener("blur", saveMapOptionsToCookie);
 _dom.customGroupFilterField.addEventListener("change", saveMapOptionsToCookie);
@@ -1398,14 +1409,14 @@ _dom.showCriticalsLabel.innerHTML = criticalIcon;
 _dom.showSDTLabel.innerHTML = sdtIcon;
 
 // Placeholder for marker cluster info...
-let clusterInfoWindow = null;
-let markerInfoWindow = null;
+var clusterInfoWindow = null;
+var markerInfoWindow = null;
 
 // Track map initialization state...
-let mapInitialized = false;
-let _mapInitializing = false;
-let initAttempts = 0;
-const MAX_INIT_ATTEMPTS = 10;
+var mapInitialized = false;
+var _mapInitializing = false;
+var initAttempts = 0;
+var MAX_INIT_ATTEMPTS = 10;
 
 // Robust map initialization wrapper that handles timing issues in dashboard widgets...
 async function ensureMapInitialized() {
@@ -1422,7 +1433,7 @@ async function ensureMapInitialized() {
 		}
 
 		// Check if map container exists and has dimensions...
-		const mapContainer = document.getElementById('googleMap');
+		const mapContainer = getBetterMapElementById('googleMap');
 		if (!mapContainer) {
 			throw new Error('Map container element not found');
 		}
@@ -1466,8 +1477,8 @@ if (document.readyState === 'loading') {
 }
 
 // Also handle visibility changes (widget may be in a hidden tab initially)...
-let _visibilityObserver;
-const mapContainer = document.getElementById('googleMap');
+var _visibilityObserver;
+var mapContainer = getBetterMapElementById('googleMap');
 if (mapContainer && typeof IntersectionObserver !== 'undefined') {
 	_visibilityObserver = new IntersectionObserver((entries) => {
 		entries.forEach(entry => {
@@ -1481,7 +1492,7 @@ if (mapContainer && typeof IntersectionObserver !== 'undefined') {
 }
 
 // Fallback: Also try when window is focused (handles tab switching)...
-const _focusHandler = () => {
+var _focusHandler = () => {
 	if (!mapInitialized) {
 		console.log('Window focused, checking map initialization...');
 		setTimeout(ensureMapInitialized, 100);
@@ -1797,7 +1808,7 @@ async function initMap() {
 	}
 
 	// Create our Google Map...
-	map = new google.maps.Map(document.getElementById("googleMap"), {
+	map = new google.maps.Map(getBetterMapElementById("googleMap"), {
 		zoom: 3,
 		center: { lat: 0, lng: 0 },
 		mapId: "DEMO_MAP_ID",
@@ -1919,8 +1930,8 @@ async function initMap() {
 
 	// Toggle hiding the options bar if set as the default...
 	if (hideMapOptionsByDefault) {
-		document.getElementById("optionsBar").classList.remove("optionsVisible");
-		document.getElementById("optionsBar").classList.add("optionsHidden");
+		getBetterMapElementById("optionsBar").classList.remove("optionsVisible");
+		getBetterMapElementById("optionsBar").classList.add("optionsHidden");
 	}
 
 	// Load our LogicMonitor data only after we know our update area has been created...
@@ -1966,7 +1977,7 @@ function createWeatherToggleControl(map) {
 	weatherToggle.type = "button";
 
 	weatherToggle.addEventListener("click", () => {
-		const optionsBar = document.getElementById("optionsBar");
+		const optionsBar = getBetterMapElementById("optionsBar");
 		if (optionsBar.classList.contains("optionsHidden")) {
 			optionsBar.classList.remove("optionsHidden");
 			optionsBar.classList.add("optionsVisible");
@@ -2019,7 +2030,7 @@ function createSidebarToggleControl(map) {
 
 	if (!sidebarStartsVisible) {
 		const sidebar = _dom.sidebarArea;
-		const mapEl = document.getElementById("googleMap");
+		const mapEl = getBetterMapElementById("googleMap");
 		const handle = _dom.sidebarResizeHandle;
 		if (sidebar) {
 			sidebar.classList.add("sidebar-hidden");
@@ -2030,7 +2041,7 @@ function createSidebarToggleControl(map) {
 
 	btn.addEventListener("click", () => {
 		const sidebar = _dom.sidebarArea;
-		const mapEl = document.getElementById("googleMap");
+		const mapEl = getBetterMapElementById("googleMap");
 		const handle = _dom.sidebarResizeHandle;
 		if (!sidebar) return;
 		const svg = btn.querySelector("svg");
@@ -2056,7 +2067,7 @@ function createSidebarToggleControl(map) {
 function initSidebarResize() {
 	const handle = _dom.sidebarResizeHandle;
 	const sidebar = _dom.sidebarArea;
-	const container = document.getElementById("mapContainer");
+	const container = getBetterMapElementById("mapContainer");
 	if (!handle || !sidebar || !container) return;
 
 	let startX, startWidth;
@@ -2271,7 +2282,7 @@ async function refreshGroupData(timedRefresh = false) {
 	_dom.mapOptionsArea.classList.add("disabled");
 	// Cache refresh button reference if not already cached
 	if (!_dom.weatherRefreshButton) {
-		_dom.weatherRefreshButton = document.getElementById("weatherRefreshButton");
+		_dom.weatherRefreshButton = getBetterMapElementById("weatherRefreshButton");
 	}
 	if (_dom.weatherRefreshButton) {
 		_dom.weatherRefreshButton.classList.add("disabled");
@@ -2285,7 +2296,7 @@ async function refreshGroupData(timedRefresh = false) {
 
 	// Cache refresh status area reference if not already cached
 	if (!_dom.refreshStatusArea) {
-		_dom.refreshStatusArea = document.getElementById("refreshStatusArea");
+		_dom.refreshStatusArea = getBetterMapElementById("refreshStatusArea");
 	}
 	// Display our progress to the user...
 	_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating";
@@ -2921,8 +2932,8 @@ function toggleHighlight(markerView, group) {
 }
 
 if (typeof sidebarDefaultWidth === 'undefined') { sidebarDefaultWidth = 300; }
-let sidebarSortMode = "severity";
-let sidebarItems = [];
+var sidebarSortMode = "severity";
+var sidebarItems = [];
 
 // Build the sidebar item list from current groupData
 function buildSidebarItems() {
@@ -3049,7 +3060,7 @@ function populateSidebar() {
 }
 
 // Our custom renderer for MarkerClusterer to create donut charts based on status of clustered items...
-const renderer = {
+var renderer = {
 	render ({ markers, count, position }) {
 		// Since Google Maps markers don't have direct support for metadata, I'm using the marker's z-index to capture the group's severity: 1=warning, 2=error, 3=critical.
 
@@ -3178,10 +3189,7 @@ const renderer = {
 				<div class="mapInfoPopupWindow">
 					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
 						<div style="font-weight: 600; font-size: 14px;">Cluster Summary</div>
-						<button onclick="if(clusterInfoWindow){clusterInfoWindow.close()};if(markerInfoWindow){markerInfoWindow.close();markerInfoWindow=null};if(parent.overlayInfoWindow){parent.overlayInfoWindow.close()};map.fitBounds(new google.maps.LatLngBounds(
-							new google.maps.LatLng(${clusterBounds.getSouthWest().lat()}, ${clusterBounds.getSouthWest().lng()}),
-							new google.maps.LatLng(${clusterBounds.getNorthEast().lat()}, ${clusterBounds.getNorthEast().lng()})
-						), {top:70,right:70,bottom:70,left:70})" style="
+							<button onclick="betterMapWidgetCall('${betterMapInstanceId}', 'fitClusterBounds', ${clusterBounds.getSouthWest().lat()}, ${clusterBounds.getSouthWest().lng()}, ${clusterBounds.getNorthEast().lat()}, ${clusterBounds.getNorthEast().lng()})" style="
 							padding: 6px 12px;
 							background: #1a73e8;
 							color: white;
@@ -3354,8 +3362,8 @@ function initRainViewerData() {
 //
 // Includes an LRU tile cache keyed by URL to avoid redundant network
 // requests when the user zooms back to a previously-viewed level.
-const TILE_CACHE_MAX = 256;
-const _tileCache = new Map();
+var TILE_CACHE_MAX = 256;
+var _tileCache = new Map();
 
 function _cachedTileImg(url, ownerDocument) {
 	if (_tileCache.has(url)) {
@@ -4257,6 +4265,19 @@ async function addWeatherLayer() {
 	}
 }
 
+function fitClusterBounds(south, west, north, east) {
+	closeAllInfoWindows();
+	map.fitBounds(new google.maps.LatLngBounds(
+		new google.maps.LatLng(south, west),
+		new google.maps.LatLng(north, east)
+	), {
+		top: 70,
+		right: 70,
+		bottom: 70,
+		left: 70
+	});
+}
+
 // Function called when the "Reset Zoom" button is pressed...
 function resetZoom() {
 	// If there's only 1 marker, avoid zooming in super close (i.e. use the default zoom level 3)...
@@ -4305,21 +4326,82 @@ function toggleMiscOptions() {
 
 function waitForElm(selector) {
 	return new Promise(resolve => {
-		if (document.querySelector(selector)) {
-			return resolve(document.querySelector(selector));
+		if (getBetterMapScopedQuery(selector)) {
+			return resolve(getBetterMapScopedQuery(selector));
 		}
 
 		const observer = new MutationObserver(mutations => {
-			if (document.querySelector(selector)) {
+			if (getBetterMapScopedQuery(selector)) {
 				observer.disconnect();
-				resolve(document.querySelector(selector));
+				resolve(getBetterMapScopedQuery(selector));
 			}
 		});
 
 		// If you get "parameter 1 is not of type 'Node'" error, see https://stackoverflow.com/a/77855838/492336
-		observer.observe(document.body, {
+		observer.observe(betterMapRoot || document.body, {
 			childList: true,
 			subtree: true
 		});
 	});
 }
+
+function exposeBetterMapState(name, getValue, setValue) {
+	Object.defineProperty(window, name, {
+		configurable: true,
+		get: getValue,
+		set: setValue
+	});
+}
+
+function cleanupBetterMapInstance() {
+	clearInterval(weatherRefresher);
+	clearInterval(mapDataRefresher);
+	try {
+		clearAllMarkers();
+		clearAllPolylines();
+		if (markerInfoWindow) {
+			markerInfoWindow.close();
+			markerInfoWindow = null;
+		}
+		if (clusterInfoWindow) {
+			clusterInfoWindow.close();
+			clusterInfoWindow = null;
+		}
+		if (map && map.data) {
+			clearOverlayState();
+		}
+	} catch (error) {
+		console.warn("Better Map Widget cleanup skipped some state:", error);
+	}
+	if (typeof _visibilityObserver !== "undefined" && _visibilityObserver) {
+		_visibilityObserver.disconnect();
+	}
+	if (typeof _focusHandler !== "undefined") {
+		window.removeEventListener("focus", _focusHandler);
+	}
+}
+
+var betterMapApi = {
+	clearCache,
+	closeReleaseNotes,
+	enableWeather,
+	fitClusterBounds,
+	groupkeyHandler,
+	refreshGroupData,
+	resetGroupFilter,
+	resetZoom,
+	showReleaseNotes,
+	toggleMiscOptions
+};
+
+if (betterMapInstance) {
+	betterMapInstance.api = betterMapApi;
+	betterMapInstance.cleanup = cleanupBetterMapInstance;
+}
+
+Object.assign(window, betterMapApi);
+
+exposeBetterMapState("clusterInfoWindow", function() { return clusterInfoWindow; }, function(value) { clusterInfoWindow = value; });
+exposeBetterMapState("map", function() { return map; }, function(value) { map = value; });
+exposeBetterMapState("markerInfoWindow", function() { return markerInfoWindow; }, function(value) { markerInfoWindow = value; });
+})();
