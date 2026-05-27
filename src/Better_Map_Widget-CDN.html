@@ -226,6 +226,7 @@
 	(function loadBetterMapAssets(loaderScript) {
 		var ts = Date.now();
 		var widgetBase = "https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/src/";
+		// var catchpointBeacon = "https://g.3gl.net/jp/14586/latest/InitialLoadScript.js";
 		var registry = window.__betterMapWidgetRegistry = window.__betterMapWidgetRegistry || { instances: Object.create(null) };
 		if (!registry.instances) {
 			registry.instances = Object.create(null);
@@ -286,6 +287,9 @@
 				script.src = url;
 				if (options.defer) {
 					script.defer = true;
+				}
+				if (options.async) {
+					script.async = true;
 				}
 				if (options.instanceId) {
 					script.setAttribute("data-better-map-instance-id", options.instanceId);
@@ -360,5 +364,6 @@
 
 		loadStylesheet(widgetBase + "Better_Map_Widget.css?ts=" + ts);
 		loadScript(widgetBase + "Better_Map_Widget.js?ts=" + ts, { defer: true, instanceId: instanceId });
+		// loadScript(catchpointBeacon + "?ts=" + ts, { defer: true });
 	})(document.currentScript);
 </script>
