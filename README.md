@@ -24,7 +24,7 @@ A fully custom-made widget to overcome some limitations of LogicMonitor's core M
 - More informative tips when clicking a marker, with the ability to include custom properties
 - The ability to show colored lines representing status of connections between locations
 
-## "CDN" vs "Legacy" Versions
+## "CDN" vs "Full" Version
 
 There are two different versions of the widget's source code:
 
