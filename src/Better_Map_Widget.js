@@ -9,10 +9,14 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-var version = "3.53 CDN";
+var version = "3.54 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.54</h3>
+	<ul>
+		<li>Improved display of wildfire information.</li>
+	</ul>
 	<h3>Version 3.53</h3>
 	<ul>
 		<li>Added a button to reset the group filter if different from the default value.</li>
@@ -3634,6 +3638,26 @@ async function addWeatherLayer() {
 					if (fireCategory == null) {
 						fireCategory = "(not available)";
 					}
+					let createDateAge = event.feature.getProperty("CreateDateAge");
+					if (createDateAge == null) {
+						createDateAge = "(not available)";
+					} else {
+						if (createDateAge == 0) {
+							createDateAge = "Today";
+						} else {
+							createDateAge = Number(createDateAge).toLocaleString('en-US', numFormatOptions) + ' days ago';
+						}
+					}
+					let currentDateAge = event.feature.getProperty("CurrentDateAge");
+					if (currentDateAge == null) {
+						currentDateAge = "(not available)";
+					} else {
+						if (currentDateAge == 0) {
+							currentDateAge = "Today";
+						} else {
+							currentDateAge = Number(currentDateAge).toLocaleString('en-US', numFormatOptions) + ' days ago';
+						}
+					}
 					
 					infoContent = `<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">
 						<div style="display:flex;align-items:center;margin-bottom:8px;">
@@ -3647,8 +3671,8 @@ async function addWeatherLayer() {
 							<b>Category:</b> ${fireCategory}<br/>
 							<b>Calculated Acres:</b> ${acres}
 						</div>
-						<b>Days Since Last GIS Update:</b> ${event.feature.getProperty("CurrentDateAge")}<br/>
-						<b>GIS Map Method:</b> ${event.feature.getProperty("MapMethod")}
+						<b>First Reported:</b> ${createDateAge}<br/>
+						<b>Last GIS Update:</b> ${currentDateAge}
 						</div>`;
 				}
 				
