@@ -3567,115 +3567,176 @@ async function addWeatherLayer() {
 			// Color the wildfire areas as red...
 			map.data.setStyle({ fillColor: 'red', strokeWeight: 1.0, strokeColor: 'salmon' });
 
+			// Wildfire info popup helpers...
+			const WILDFIRE_FLAME_SVG = `<svg width="36" height="40" viewBox="0 0 36 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;" role="img" aria-label="Wildfire with smoke">
+				<defs>
+					<linearGradient id="smokeGrad" x1="18" y1="1" x2="18" y2="23" gradientUnits="userSpaceOnUse">
+						<stop offset="0" stop-color="#8A8F92" stop-opacity="0.18"/>
+						<stop offset="0.45" stop-color="#62686D" stop-opacity="0.36"/>
+						<stop offset="1" stop-color="#2F363B" stop-opacity="0.62"/>
+					</linearGradient>
+					<radialGradient id="emberGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(18 29) rotate(90) scale(11 10)">
+						<stop offset="0" stop-color="#FFD166"/>
+						<stop offset="0.55" stop-color="#FF8C1A"/>
+						<stop offset="1" stop-color="#B92C17"/>
+					</radialGradient>
+				</defs>
+				<path d="M14.7 22.4C10.7 21 8.5 18.5 8.8 15.6C9 13.1 10.9 11.5 13.6 11.1C10.8 9.7 9.5 7.8 10.1 6C10.8 3.9 13.2 2.9 15.6 3.5C17.1 3.9 18.2 4.8 18.9 6C20 3.9 22.6 3.1 24.9 3.9C27.4 4.8 28.4 7.1 27.3 9.2C30 9.6 31.8 11.4 31.8 13.7C31.7 16.4 29.4 18.3 25.7 19C25.2 22 20.8 24.2 14.7 22.4Z" fill="url(#smokeGrad)"/>
+				<path d="M12.8 19.1C10.7 18 9.8 16.5 10.3 14.9C10.9 13.1 13 12.4 15.2 13.1C14.1 11.4 14.2 9.8 15.5 8.7C16.8 7.6 19 8 20.2 9.5C21.1 7.9 23.1 7.4 24.8 8.3C26.5 9.2 27 10.9 26 12.4C28.1 12.7 29.4 13.9 29.2 15.5C29 17.6 26.5 18.8 23.4 18.8C21.7 20.9 16.8 21.2 12.8 19.1Z" fill="#252B2F" opacity="0.28"/>
+				<path d="M18 37C10.8 37 6 32.2 6 25.8C6 20.3 9.8 16.7 12.6 12.9C14.9 9.7 15.4 6.4 14.8 3C20.7 6.4 24.7 11.8 24.2 17C26.4 15.5 27.5 13.1 27.9 10.8C31.2 14.3 33 19.5 33 24.9C33 32 27.2 37 18 37Z" fill="#B92C17"/>
+				<path d="M18.2 36.8C13.4 36.8 10.5 33.7 10.5 29.6C10.5 26 13.2 23.5 15.1 20.8C16.6 18.7 16.9 16.7 16.5 14.4C20.4 16.6 22.6 20.1 22.1 23.4C23.6 22.5 24.6 21 25.1 19.3C27.1 21.8 28.2 25 28.2 28.1C28.2 33.2 24.1 36.8 18.2 36.8Z" fill="url(#emberGlow)"/>
+				<path d="M18.1 36.7C15.4 36.7 13.7 35 13.7 32.7C13.7 30.6 15.4 29.1 16.5 27.5C17.4 26.1 17.6 24.9 17.3 23.4C20 25 21.4 27.1 21.1 29.2C22 28.7 22.7 27.8 23.1 26.8C24.2 28.2 24.8 30 24.8 31.7C24.8 34.8 22.2 36.7 18.1 36.7Z" fill="#FFE08A"/>
+			</svg>`;
+			function escapeWildfireHtml(str) {
+				if (str == null) return '';
+				return String(str)
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/"/g, '&quot;');
+			}
+
+			function formatWildfireAgeDays(ageDays, locale) {
+				if (ageDays == null) {
+					return { display: '(not available)', badge: null };
+				}
+				if (ageDays === 0) {
+					return { display: 'Today', badge: 0 };
+				}
+				const days = Number(ageDays);
+				return {
+					display: days.toLocaleString(locale, numFormatOptions) + ' days ago',
+					badge: days
+				};
+			}
+
+			function wildfireAgeBadgeHtml(displayText, ageDays) {
+				if (displayText == null || displayText === '(not available)') {
+					return `<span style="font-size:13px;font-weight:600;color:rgb(20,29,48);">${escapeWildfireHtml(displayText)}</span>`;
+				}
+				let bg = '#f0f0f0';
+				let color = '#555';
+				if (ageDays === 0 || displayText === 'Today') {
+					bg = '#e8f5e9';
+					color = '#2e7d32';
+				} else if (typeof ageDays === 'number' && ageDays <= 3) {
+					bg = '#fff8e1';
+					color = '#f57c00';
+				}
+				return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;background:${bg};color:${color};">${escapeWildfireHtml(displayText)}</span>`;
+			}
+
+			function buildWildfireInfoHtml(options) {
+				const {
+					title,
+					category,
+					comments,
+					highlightValue,
+					highlightUnit,
+					stats
+				} = options;
+
+				const categoryChip = category
+					? `<span style="display:inline-block;margin-top:4px;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#fff3f3;color:#b91c1c;">${escapeWildfireHtml(category)}</span>`
+					: '';
+
+				const commentsBlock = comments
+					? `<p style="margin:10px 0 0 0;padding:8px 10px;border-left:3px solid #e0351b;background:#fafafa;border-radius:0 4px 4px 0;font-size:12px;color:#555;line-height:1.4;white-space:normal;word-break:break-word;">${escapeWildfireHtml(comments)}</p>`
+					: '';
+
+				const highlightBlock = highlightValue
+					? `<div style="text-align:center;margin:12px 0;padding:12px 8px;background:#fff5f5;border-radius:6px;">
+						<div style="font-size:22px;font-weight:700;color:#b91c1c;line-height:1.2;">${escapeWildfireHtml(highlightValue)}</div>
+						${highlightUnit ? `<div style="font-size:12px;color:#666;margin-top:2px;">${escapeWildfireHtml(highlightUnit)}</div>` : ''}
+					</div>`
+					: '';
+
+				const statRows = (stats || []).map(stat => {
+					const valueHtml = stat.badge != null
+						? wildfireAgeBadgeHtml(stat.value, stat.badge)
+						: `<span style="font-size:13px;font-weight:600;color:rgb(20,29,48);text-align:right;max-width:60%;word-break:break-word;">${escapeWildfireHtml(stat.value)}</span>`;
+					return `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 8px;background:#f5f5f5;border-radius:4px;">
+						<span style="font-size:12px;color:#666;flex-shrink:0;">${escapeWildfireHtml(stat.label)}</span>
+						${valueHtml}
+					</div>`;
+				}).join('');
+
+				return `<div class="mapInfoPopupWindow" style="line-height:1.4;color:rgb(20,29,48);max-width:320px;white-space:normal;word-break:break-word;">
+					<div style="display:flex;align-items:flex-start;gap:10px;">
+						${WILDFIRE_FLAME_SVG}
+						<div style="min-width:0;flex:1;">
+						<div style="font-weight:600;font-size:16px;line-height:1.3;">${escapeWildfireHtml(title || 'Unknown')}</div>
+						${categoryChip}
+						</div>
+					</div>
+					${commentsBlock}
+					${highlightBlock}
+					<div style="display:grid;gap:6px;margin-top:${highlightBlock ? '0' : '12px'};">
+						${statRows}
+					</div>
+				</div>`;
+			}
+
 			// Show wildfire info on either "click" or "mouseover" (refer to the 'showWildfireInfoEvent' variable set at the top of this script)...
 			parent.overlayInfoWindowListenerHandle = map.data.addListener(showWildfireInfoEvent, function(event) {
-				// Determine if this is a US or Australian fire based on the source property...
 				const fireSource = event.feature.getProperty("_fireSource");
 				let infoContent = '';
-				
+
 				if (fireSource === 'AU') {
-					// Australian bushfire info display...
-					let fireName = event.feature.getProperty("fire_name");
-					if (fireName == null) {
-						fireName = "(unknown)";
-					}
-					let fireType = event.feature.getProperty("fire_type");
-					if (fireType == null) {
-						fireType = "(not available)";
-					}
+					const fireName = event.feature.getProperty("fire_name");
+					const fireType = event.feature.getProperty("fire_type");
 					let ignitionDate = event.feature.getProperty("ignition_date");
-					if (ignitionDate == null) {
-						ignitionDate = "(not available)";
-					} else {
-						// Convert epoch timestamp to readable date if it's a number...
-						if (typeof ignitionDate === 'number') {
-							ignitionDate = new Date(ignitionDate).toLocaleDateString('en-AU');
-						}
+					if (ignitionDate != null && typeof ignitionDate === 'number') {
+						ignitionDate = new Date(ignitionDate).toLocaleDateString('en-AU');
+					} else if (ignitionDate == null) {
+						ignitionDate = '(not available)';
 					}
-					let perimKm = event.feature.getProperty("perim_km");
-					if (perimKm == null) {
-						perimKm = "(not available)";
-					} else {
-						perimKm = Number(perimKm).toLocaleString('en-AU', numFormatOptions) + ' km';
-					}
-					let state = event.feature.getProperty("state");
-					if (state == null) {
-						state = "(not available)";
-					}
-					let agency = event.feature.getProperty("agency");
-					if (agency == null) {
-						agency = "(not available)";
-					}
-					
-					infoContent = `<div style="line-height:1.35;overflow:hidden;color:black;">
-						<div style="display:flex;align-items:center;margin-bottom:4px;">
-							<span style="color:#cc0000;font-size:28px;margin-right:8px;line-height:1;">&#128293;</span>
-							<div>
-								<span style="font-weight:700;font-size:1.2em;">Bushfire &quot;${fireName}&quot;</span>
-							</div>
-						</div>
-						<br/><b>Fire Type:</b> ${fireType}
-						<br/><b>Ignition Date:</b> ${ignitionDate}
-						<br/><b>Perimeter:</b> ${perimKm}
-						<div style="padding-top:8px;">
-							<b>State:</b> ${state}
-							<br/><b>Agency:</b> ${agency}
-						</div>
-						</div>`;
+					const areaHaRaw = event.feature.getProperty("area_ha");
+					const perimRaw = event.feature.getProperty("perim_km");
+					const state = event.feature.getProperty("state") || '(not available)';
+					const agency = event.feature.getProperty("agency") || '(not available)';
+
+					infoContent = buildWildfireInfoHtml({
+						title: fireName || 'Unknown',
+						category: fireType,
+						highlightValue: areaHaRaw != null
+							? Number(areaHaRaw).toLocaleString('en-AU', numFormatOptions)
+							: null,
+						highlightUnit: areaHaRaw != null ? 'hectares' : null,
+						stats: [
+							{ label: 'Ignition date', value: ignitionDate },
+							{ label: 'Perimeter', value: perimRaw != null ? Number(perimRaw).toLocaleString('en-AU', numFormatOptions) + ' km' : '(not available)' },
+							{ label: 'State', value: state },
+							{ label: 'Agency', value: agency }
+						]
+					});
 				} else {
-					// US wildfire info display (original logic)...
-					let comments = `<br/>${event.feature.getProperty("Comments")}`;
-					if (event.feature.getProperty("Comments") == null) {
-						comments = "";
+					const incidentName = event.feature.getProperty("IncidentName");
+					let comments = event.feature.getProperty("Comments");
+					if (comments != null) {
+						comments = String(comments).trim();
+						if (!comments) comments = null;
 					}
-					let acres = event.feature.getProperty("GISAcres");
-					if (acres == null) {
-						acres = "(not available)";
-					} else {
-						acres = Number(acres).toLocaleString('en-US', numFormatOptions);
-					}
-					let fireCategory = event.feature.getProperty("FeatureCategory");
-					if (fireCategory == null) {
-						fireCategory = "(not available)";
-					}
-					let createDateAge = event.feature.getProperty("CreateDateAge");
-					if (createDateAge == null) {
-						createDateAge = "(not available)";
-					} else {
-						if (createDateAge == 0) {
-							createDateAge = "Today";
-						} else {
-							createDateAge = Number(createDateAge).toLocaleString('en-US', numFormatOptions) + ' days ago';
-						}
-					}
-					let currentDateAge = event.feature.getProperty("CurrentDateAge");
-					if (currentDateAge == null) {
-						currentDateAge = "(not available)";
-					} else {
-						if (currentDateAge == 0) {
-							currentDateAge = "Today";
-						} else {
-							currentDateAge = Number(currentDateAge).toLocaleString('en-US', numFormatOptions) + ' days ago';
-						}
-					}
-					
-					infoContent = `<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;">
-						<div style="display:flex;align-items:center;margin-bottom:8px;">
-							<span style="color:#cc0000;font-size:28px;margin-right:8px;line-height:1;">&#128293;</span>
-							<div>
-								<span style="font-weight:700;font-size:1.2em;">Wildfire &quot;${event.feature.getProperty("IncidentName")}&quot;</span>
-								${comments}
-							</div>
-						</div>
-						<div style="padding-bottom:8px;">
-							<b>Category:</b> ${fireCategory}<br/>
-							<b>Calculated Acres:</b> ${acres}
-						</div>
-						<b>First Reported:</b> ${createDateAge}<br/>
-						<b>Last GIS Update:</b> ${currentDateAge}
-						</div>`;
+					const acresRaw = event.feature.getProperty("GISAcres");
+					const fireCategory = event.feature.getProperty("FeatureCategory");
+					const createAge = formatWildfireAgeDays(event.feature.getProperty("CreateDateAge"), 'en-US');
+					const currentAge = formatWildfireAgeDays(event.feature.getProperty("CurrentDateAge"), 'en-US');
+
+					infoContent = buildWildfireInfoHtml({
+						title: incidentName || 'Unknown',
+						category: fireCategory,
+						comments: comments,
+						highlightValue: acresRaw != null
+							? Number(acresRaw).toLocaleString('en-US', numFormatOptions)
+							: null,
+						highlightUnit: acresRaw != null ? 'calculated acres' : null,
+						stats: [
+							{ label: 'First reported', value: createAge.display, badge: createAge.badge },
+							{ label: 'Last GIS update', value: currentAge.display, badge: currentAge.badge }
+						]
+					});
 				}
-				
+
 				closeAllInfoWindows();
 				parent.overlayInfoWindow.setContent(infoContent);
 				parent.overlayInfoWindow.setPosition(event.latLng);
