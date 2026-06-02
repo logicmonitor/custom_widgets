@@ -16,6 +16,7 @@ var releaseNotes = `
 	<h3>Version 3.54</h3>
 	<ul>
 		<li>Improved display of wildfire information.</li>
+		<li>Fixed Google Maps' confusing default behavior of showing popups when clicking state/territory names.</li>
 	</ul>
 	<h3>Version 3.53</h3>
 	<ul>
@@ -1855,6 +1856,7 @@ async function initMap() {
 		renderingType: RenderingType.VECTOR,
 		isFractionalZoomEnabled: true,
 		minZoom: 2,
+		clickableIcons: false,
 	});
 
 	// Redraw polylines after zoom/pan/drag completes...
