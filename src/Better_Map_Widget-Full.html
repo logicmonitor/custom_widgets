@@ -63,6 +63,7 @@
 		<h3>Version 3.54</h3>
 		<ul>
 			<li>Improved display of wildfire information.</li>
+			<li>Fixed issue with variable scoping when multiple instances of the widget are used on the same page.</li>
 		</ul>
 		<h3>Version 3.53</h3>
 		<ul>
@@ -275,10 +276,11 @@
 	defaults.showWildfireInfoEvent = "click";
 	// Whether the opacity of an earthquake's icon reflects "time" since the event, or "magnitude"...
 	defaults.quakeMode = "time";
+	// Always queue defaults so bootstrap can pair via shift() even when
+	// document.currentScript is not the same node found by sibling walk.
+	registry.pendingDefaults.push(defaults);
 	if (script) {
 		script.__betterMapDefaults = defaults;
-	} else {
-		registry.pendingDefaults.push(defaults);
 	}
 	})(document.currentScript);
 </script>
@@ -1125,7 +1127,7 @@
 
 		var defaultsScript = previousElementMatching(widgetScript, function(element) {
 			return element.tagName === "SCRIPT" && element.hasAttribute("data-better-map-defaults");
-		});
+		}) || document.querySelector("script[data-better-map-defaults]");
 		var betterMapRoot = ensureBetterMapRoot(widgetScript);
 
 		var previousInstanceId = betterMapRoot.getAttribute("data-better-map-instance-id");
@@ -1138,7 +1140,9 @@
 		}
 
 		var betterMapInstanceId = makeInstanceId();
-		var betterMapDefaults = (defaultsScript && defaultsScript.__betterMapDefaults) || (registry.pendingDefaults && registry.pendingDefaults.shift()) || {};
+		var betterMapDefaults = (registry.pendingDefaults && registry.pendingDefaults.length && registry.pendingDefaults.shift())
+			|| (defaultsScript && defaultsScript.__betterMapDefaults)
+			|| {};
 		betterMapRoot.setAttribute("data-better-map-instance-id", betterMapInstanceId);
 		registry.instances[betterMapInstanceId] = {
 			createdAt: Date.now(),
@@ -1156,7 +1160,7 @@
 			}
 		});
 
-		var version = betterMapDefaults.version || "3.52";
+		var version = betterMapDefaults.version || "";
 		var releaseNotes = betterMapDefaults.releaseNotes || "";
 
 	// Populate the widget body...
@@ -2920,6 +2924,7 @@ if (window.RProfiler) {
 			renderingType: RenderingType.VECTOR,
 			isFractionalZoomEnabled: true,
 			minZoom: 2,
+			clickableIcons: false,
 		});
 
 		// Redraw polylines after zoom/pan/drag completes...
