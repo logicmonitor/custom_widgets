@@ -388,7 +388,12 @@ var hideMapOptionsByDefaultToken = getBetterMapElementById("hideMapOptionsByDefa
 if (isTruthyToken(hideMapOptionsByDefaultToken)) {
 	hideMapOptionsByDefault = true;
 }
-// console.debug("hideMapOptionsByDefaultToken", hideMapOptionsByDefaultToken);
+
+// Capture from token whether to show the map sidebar by default...
+var showMapSidebarByDefaultTokenEl = getBetterMapElementById("showMapSidebarByDefaultToken");
+if (showMapSidebarByDefaultTokenEl && isTruthyToken(showMapSidebarByDefaultTokenEl.innerText)) {
+	showMapSidebarByDefault = true;
+}
 
 // Capture from token whether to hide items that don't have active alerts...
 var ignoreClearedToken = getBetterMapElementById("ignoreClearedToken").innerText;

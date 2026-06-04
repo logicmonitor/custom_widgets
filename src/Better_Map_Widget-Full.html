@@ -1935,11 +1935,11 @@ if (window.RProfiler) {
 		hideMapOptionsByDefault = true;
 	}
 
-	// Capture from token whether to hide the map sidebar...
-	let hideMapSidebarByDefaultToken = "##HideMapSidebar##";
+	// Capture from token whether to show the map sidebar by default...
+	let showMapSidebarByDefaultToken = "##ShowMapSidebar##";
 	// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
-	if (!isTruthyToken(hideMapSidebarByDefaultToken)) {
-		hideMapSidebarByDefault = false;
+	if (isTruthyToken(showMapSidebarByDefaultToken)) {
+		showMapSidebarByDefault = true;
 	}
 
 	// Capture from token whether to hide items that don't have active alerts...
