@@ -9,10 +9,14 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-var version = "3.54 CDN";
+var version = "3.55 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.55</h3>
+	<ul>
+		<li>Migrated the lingering reference to Google's legacy Marker class to the newer AdvancedMarkerElement.</li>
+	</ul>
 	<h3>Version 3.54</h3>
 	<ul>
 		<li>Improved display of wildfire information.</li>
@@ -3164,19 +3168,22 @@ var renderer = {
 			</svg>`);
 
 		// Add the chart to the map...
-		const marker = new google.maps.Marker({
+		const clusterContent = document.createElement("div");
+		clusterContent.style.cssText = "position:relative;width:45px;height:45px;cursor:pointer;";
+		const chartImg = document.createElement("img");
+		chartImg.src = `data:image/svg+xml;base64,${svg}`;
+		chartImg.width = 45;
+		chartImg.height = 45;
+		chartImg.alt = `${count} items`;
+		clusterContent.appendChild(chartImg);
+		const countLabel = document.createElement("div");
+		countLabel.textContent = String(count);
+		countLabel.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(0,0,0,0.9);font-size:12px;font-weight:500;pointer-events:none;";
+		clusterContent.appendChild(countLabel);
+
+		const marker = new google.maps.marker.AdvancedMarkerElement({
 			position,
-			icon: {
-				url: `data:image/svg+xml;base64,${svg}`,
-				scaledSize: new google.maps.Size(45, 45),
-			},
-			label: {
-				text: String(count),
-				color: "rgba(0,0,0,0.9)",
-				// color: "rgba(255,255,255,0.9)",
-				fontSize: "12px",
-			},
-			// adjust zIndex to be above other markers
+			content: clusterContent,
 			zIndex: 1000 + count,
 		});
 
@@ -3307,8 +3314,8 @@ var renderer = {
 			`;
 		}
 
-		// Add hover listener
-		marker.addListener('click', () => {
+		// Add click listener
+		marker.addListener('gmp-click', () => {
 			closeAllInfoWindows();
 			clusterInfoWindow = new CustomInfoWindow({
 				position: marker.position,
