@@ -9,10 +9,14 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-var version = "3.56 CDN";
+var version = "3.57 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.57</h3>
+	<ul>
+		<li>Map toolbar option cookies are now scoped per widget instance (dashboard ID + widget ID). Existing dashboard-only cookies are still read and are migrated to the new format on the next save.</li>
+	</ul>
 	<h3>Version 3.56</h3>
 	<ul>
 		<li>Fixed all toolbar options being saved to cookie whenever any toolbar option was changed.</li>
@@ -595,16 +599,42 @@ var __LMBMW_MAPOPTS_ELEMENT_TO_KEY = {
 	markerStyleSelect: "markerStyle",
 };
 
-// Function to build a per-dashboard cookie name for saved map options...
-function getMapOptionsCookieName() {
+// Function to return the ID of the LogicMonitor widget containing this iframe...
+function getContainingWidgetId() {
+	try {
+		const parentDoc = window.parent.document;
+		const iframe = Array.from(parentDoc.querySelectorAll("iframe"))
+			.find(frame => frame.contentWindow === window);
+		return iframe?.closest("[id]")?.id || null;
+	} catch (e) {
+		return null;
+	}
+}
+
+// Function to sanitize a widget ID for use in a cookie name...
+function sanitizeWidgetIdForCookie(id) {
+	return String(id).replace(/[^A-Za-z0-9_-]/g, "_");
+}
+
+// Function to build the legacy per-dashboard cookie name for saved map options...
+function getLegacyMapOptionsCookieName() {
 	const id = dashboardID || "default";
 	return `${__LMBMW_MAPOPTS_COOKIE_BASE}_${id}`;
 }
 
-// Function to read saved map options from the dashboard-specific cookie...
-function readMapOptionsCookieObject() {
+// Function to build a per-widget cookie name for saved map options...
+function getMapOptionsCookieName() {
+	const id = dashboardID || "default";
+	if (widgetID) {
+		return `${__LMBMW_MAPOPTS_COOKIE_BASE}_${id}_${sanitizeWidgetIdForCookie(widgetID)}`;
+	}
+	return getLegacyMapOptionsCookieName();
+}
+
+// Function to read a JSON object from a named cookie...
+function readCookieObjectByName(cookieName) {
 	try {
-		const name = getMapOptionsCookieName() + "=";
+		const name = cookieName + "=";
 		const parts = document.cookie.split(";");
 		for (let i = 0; i < parts.length; i++) {
 			const s = parts[i].trim();
@@ -618,17 +648,37 @@ function readMapOptionsCookieObject() {
 	return null;
 }
 
-// Function to write saved map options to the dashboard-specific cookie...
+// Function to expire a named cookie...
+function clearCookieByName(cookieName) {
+	try {
+		document.cookie = `${cookieName}=;path=/;max-age=0`;
+	} catch (e) {}
+}
+
+// Function to read saved map options from the widget- or dashboard-specific cookie...
+function readMapOptionsCookieObject() {
+	const widgetScoped = readCookieObjectByName(getMapOptionsCookieName());
+	if (widgetScoped) return widgetScoped;
+	if (widgetID) {
+		return readCookieObjectByName(getLegacyMapOptionsCookieName());
+	}
+	return null;
+}
+
+// Function to write saved map options to the widget-specific cookie...
 function writeMapOptionsCookieObject(o) {
 	try {
 		document.cookie = `${getMapOptionsCookieName()}=${encodeURIComponent(JSON.stringify(o))};path=/;max-age=${__LMBMW_MAPOPTS_MAX_AGE};SameSite=Lax`;
 	} catch (e) {}
 }
 
-// Function to clear saved map options for the current dashboard...
+// Function to clear saved map options for the current widget and legacy dashboard cookie...
 function clearMapOptionsCookie() {
 	try {
-		document.cookie = `${getMapOptionsCookieName()}=;path=/;max-age=0`;
+		clearCookieByName(getLegacyMapOptionsCookieName());
+		if (widgetID) {
+			clearCookieByName(getMapOptionsCookieName());
+		}
 	} catch (e) {}
 }
 
@@ -1127,6 +1177,7 @@ var pathName = parent.window.location.pathname; // example: "/santaba/uiv4/dashb
 // Extract the numeric dashboard ID from the path (e.g. "dashboards-2338" -> "2338").
 var __LMBMW_DASHBOARD_ID_MATCH = pathName.match(/\/dashboards-(\d+)/i);
 var dashboardID = __LMBMW_DASHBOARD_ID_MATCH ? __LMBMW_DASHBOARD_ID_MATCH[1] : "";
+var widgetID = getContainingWidgetId();
 
 // Note our original tilt & heading values...
 var defaultMapTilt = mapTilt;
