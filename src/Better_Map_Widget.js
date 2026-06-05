@@ -9,10 +9,15 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-var version = "3.55 CDN";
+var version = "3.56 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.56</h3>
+	<ul>
+		<li>Fixed all toolbar options being saved to cookie whenever any toolbar option was changed.</li>
+		<li>Fixed path reset button not appearing on initial load when the value saved to cookie was different from the default value.</li>
+	</ul>
 	<h3>Version 3.55</h3>
 	<ul>
 		<li>Migrated the lingering reference to Google's legacy Marker class to the newer AdvancedMarkerElement.</li>
@@ -576,6 +581,19 @@ var __LMBMW_MAPOPTS_COOKIE_BASE = "lm_bmw_mapOpts_v1";
 var __LMBMW_MAPOPTS_MAX_AGE = 60 * 60 * 24 * 400;
 var __LMBMW_ALLOWED_OVERLAY_VALUES = ["wildfires", "us-poweroutages", "earthquakes", "us-flooding"];
 var __LMBMW_ALLOWED_WEATHER_TYPES = ["radar", "nexrad-n0q-900913", "xweather", "openweather"];
+var __LMBMW_MAPOPTS_ELEMENT_TO_KEY = {
+	customGroupFilterField: "groupPathFilter",
+	showCleared: "showCleared",
+	showWarnings: "showWarnings",
+	showErrors: "showErrors",
+	showCriticals: "showCriticals",
+	showSDT: "showSDT",
+	autoZoom: "autoResetMapOnRefresh",
+	weather: "weather",
+	weatherType: "weatherType",
+	otherWeatherOverlays: "otherWeatherOverlays",
+	markerStyleSelect: "markerStyle",
+};
 
 // Function to build a per-dashboard cookie name for saved map options...
 function getMapOptionsCookieName() {
@@ -644,7 +662,6 @@ function applyPersistedMapOptionsFromCookie() {
 
 	if (typeof o.groupPathFilter === "string" && o.groupPathFilter.trim() !== "") {
 		groupPathFilter = o.groupPathFilter.trim();
-		initialGroupPathFilter = groupPathFilter;
 	}
 	if (typeof o.showCleared === "boolean") showCleared = o.showCleared;
 	if (typeof o.showWarnings === "boolean") showWarnings = o.showWarnings;
@@ -689,24 +706,51 @@ function updateResetGroupFilterButtonVisibility() {
 	_dom.resetGroupFilterButton.style.display = fieldValue !== initialValue ? "inline-flex" : "none";
 }
 
-// Function to save the current toolbar options to the dashboard cookie...
-function saveMapOptionsToCookie() {
-	syncAdditionalOverlayVarFromSelect();
+// Function to read the cookie value for a single toolbar control...
+function getMapOptionValueForElement(el) {
+	if (!el || !el.id) return undefined;
+	if (el.id === "customGroupFilterField") {
+		const gp = (el.value || "").trim();
+		return gp || groupPathFilter;
+	}
+	if (el.id === "markerStyleSelect") {
+		return el.value === "circles" ? "circles" : "pins";
+	}
+	if (el.id === "otherWeatherOverlays") {
+		syncAdditionalOverlayVarFromSelect();
+		return el.value;
+	}
+	if (el.type === "checkbox") return el.checked;
+	if (el.tagName === "SELECT") return el.value;
+	return undefined;
+}
+
+// Function to build a partial cookie update from a toolbar control...
+function buildMapOptionPartialFromElement(el) {
+	const key = el && el.id && __LMBMW_MAPOPTS_ELEMENT_TO_KEY[el.id];
+	if (!key) return null;
+	const value = getMapOptionValueForElement(el);
+	if (value === undefined) return null;
+	return { [key]: value };
+}
+
+// Function to save one or more toolbar options to the dashboard cookie...
+function saveMapOptionsToCookie(partial) {
+	if (!partial || typeof partial !== "object") return;
+	const existing = readMapOptionsCookieObject() || {};
+	writeMapOptionsCookieObject(Object.assign({}, existing, { v: 1 }, partial));
+}
+
+// Function to persist a toolbar change event to the dashboard cookie...
+function handleMapOptionsAreaChange(e) {
+	const partial = buildMapOptionPartialFromElement(e && e.target);
+	if (partial) saveMapOptionsToCookie(partial);
+}
+
+// Function to persist the group filter field to the dashboard cookie...
+function saveGroupFilterToCookie() {
 	const gp = (_dom.customGroupFilterField.value || "").trim();
-	writeMapOptionsCookieObject({
-		v: 1,
-		groupPathFilter: gp || groupPathFilter,
-		showCleared: _dom.showCleared.checked,
-		showWarnings: _dom.showWarnings.checked,
-		showErrors: _dom.showErrors.checked,
-		showCriticals: _dom.showCriticals.checked,
-		showSDT: _dom.showSDT.checked,
-		autoResetMapOnRefresh: _dom.autoZoom.checked,
-		weather: _dom.weather.checked,
-		weatherType: _dom.weatherType.value,
-		otherWeatherOverlays: _dom.otherWeatherOverlays.value,
-		markerStyle: _dom.markerStyleSelect.value === "circles" ? "circles" : "pins",
-	});
+	saveMapOptionsToCookie({ groupPathFilter: gp || groupPathFilter });
 }
 
 // Function to check if a token value represents a truthy boolean...
@@ -754,7 +798,7 @@ function resetGroupFilter() {
 	_dom.customGroupFilterField.value = groupPathFilter;
 	updateResetGroupFilterButtonVisibility();
 	refreshGroupData();
-	saveMapOptionsToCookie();
+	saveMapOptionsToCookie({ groupPathFilter: groupPathFilter });
 }
 
 /**
@@ -1434,10 +1478,10 @@ _dom.customGroupFilterField.value = groupPathFilter;
 
 applyPersistedMapOptionsFromCookie();
 updateResetGroupFilterButtonVisibility();
-var debouncedSaveMapOptionsCookie = debounce(saveMapOptionsToCookie, 300);
-_dom.mapOptionsArea.addEventListener("change", debouncedSaveMapOptionsCookie);
-_dom.customGroupFilterField.addEventListener("blur", saveMapOptionsToCookie);
-_dom.customGroupFilterField.addEventListener("change", saveMapOptionsToCookie);
+var debouncedHandleMapOptionsAreaChange = debounce(handleMapOptionsAreaChange, 300);
+_dom.mapOptionsArea.addEventListener("change", debouncedHandleMapOptionsAreaChange);
+_dom.customGroupFilterField.addEventListener("blur", saveGroupFilterToCookie);
+_dom.customGroupFilterField.addEventListener("change", saveGroupFilterToCookie);
 
 // Set toolbar icons...
 _dom.showClearedLabel.innerHTML = clearedIcon;
@@ -3351,7 +3395,6 @@ function applyMarkerStyleFromSelect() {
 		markerInfoWindow.close();
 		markerInfoWindow = null;
 	}
-	debouncedSaveMapOptionsCookie();
 }
 
 // Function to enable the weather overlays when the appropriate checkbox is selected...
@@ -3366,7 +3409,6 @@ function enableWeather() {
 		clearOverlayState();
 		_dom.weatherOptions.style.display = "none";
 	}
-	debouncedSaveMapOptionsCookie();
 }
 
 // Function to fetch the latest weather map data from RainViewer's API...
@@ -4446,7 +4488,7 @@ function groupkeyHandler(e) {
 		e.preventDefault();
 		// Refresh the group data...
 		refreshGroupData();
-		saveMapOptionsToCookie();
+		saveGroupFilterToCookie();
 	}
 }
 
