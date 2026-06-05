@@ -17,6 +17,7 @@ var releaseNotes = `
 	<ul>
 		<li>Map toolbar option cookies are now scoped per widget instance (dashboard ID + widget ID). Existing dashboard-only cookies are still read and are migrated to the new format on the next save.</li>
 		<li>Fix for Google Maps trying to reinitialize when commiting code changes to an existing widget instance.</li>
+		<li>Updated to use MarkerClusterer v2.6.2.</li>
 	</ul>
 	<h3>Version 3.56</h3>
 	<ul>
