@@ -16,6 +16,7 @@ var releaseNotes = `
 	<h3>Version 3.57</h3>
 	<ul>
 		<li>Map toolbar option cookies are now scoped per widget instance (dashboard ID + widget ID). Existing dashboard-only cookies are still read and are migrated to the new format on the next save.</li>
+		<li>Fix for Google Maps trying to reinitialize when commiting code changes to an existing widget instance.</li>
 	</ul>
 	<h3>Version 3.56</h3>
 	<ul>
@@ -551,8 +552,11 @@ if (apiKeyToken != "##apiKey##") {
 // Fetch our map API key to use...
 var googleMapApiKey = parent.LMGlobalData.googleMapInfo.key.toString();
 
-(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
-({key: googleMapApiKey, v: "weekly"});
+// Skip bootstrap when Maps is already on the page (e.g. CDN widget reload during dev).
+if (typeof google === 'undefined' || !google.maps || typeof google.maps.importLibrary !== 'function') {
+	(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
+	({key: googleMapApiKey, v: "weekly"});
+}
 
 // ------------------------------------------------------------
 // Catchpoint beacon for performance monitoring (no confidential data is collected!)...
