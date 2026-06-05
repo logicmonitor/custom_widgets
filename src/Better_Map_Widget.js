@@ -2651,7 +2651,7 @@ async function refreshGroupData(timedRefresh = false) {
 						map,
 						renderer,
 						algorithm,
-						onClusterClick: () => {}
+						onClusterClick: null
 					});
 					clusterer.addListener("clusteringend", () => {
 						updatePolylineEndpoints();
