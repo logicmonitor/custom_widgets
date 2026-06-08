@@ -245,7 +245,6 @@ var showRoadLabels = getBetterMapGlobal("showRoadLabels", "off");
 var displayProps = getBetterMapGlobal("displayProps", "");
 var connectionInfoProp = getBetterMapGlobal("connectionInfoProp", "auto.custom_map_connection_data");
 var connectingLineWeight = getBetterMapGlobal("connectingLineWeight", 3);
-var useGeodesicLines = getBetterMapGlobal("useGeodesicLines", false);
 var parallelConnectionCurvature = getBetterMapGlobal("parallelConnectionCurvature", 18);
 var openWeatherAPIKey = getBetterMapGlobal("openWeatherAPIKey", "");
 var xweatherAPIID = getBetterMapGlobal("xweatherAPIID", "");
@@ -538,7 +537,7 @@ if (markerStyleTokenNorm === "dot" || markerStyleTokenNorm === "dots" || markerS
 var connectionCurvatureTokenEl = getBetterMapElementById("connectionCurvatureToken");
 var connectionCurvatureToken = connectionCurvatureTokenEl ? connectionCurvatureTokenEl.innerText : "";
 if (connectionCurvatureToken != "##MapConnectionCurvature##" && connectionCurvatureToken.trim() !== "") {
-	parallelConnectionCurvature = normalizeConnectionCurvature(connectionCurvatureToken);
+	parallelConnectionCurvature = connectionCurvatureToken;
 }
 
 // Capture from token whether to use a LogicMonitor API bearer token or API ID & key...
@@ -1312,14 +1311,6 @@ function clearAllMarkers() {
 	}
 }
 
-// Function to clamp connection-line curvature to a valid screen-pixel offset (0–120, default 18)...
-function normalizeConnectionCurvature(value) {
-	const parsed = Number(value);
-	if (!Number.isFinite(parsed)) return 18;
-	return Math.max(0, Math.min(parsed, 120));
-}
-parallelConnectionCurvature = normalizeConnectionCurvature(parallelConnectionCurvature);
-
 // Function to clear all connecting polylines and their listeners...
 function clearAllPolylines() {
 	if (polylines.length === 0) return;
@@ -1332,6 +1323,14 @@ function clearAllPolylines() {
 	});
 	polylines = [];
 }
+
+// Function to clamp connection-line curvature to a valid screen-pixel offset (0–120, default 18)...
+function normalizeConnectionCurvature(value) {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed)) return 18;
+	return Math.max(0, Math.min(parsed, 120));
+}
+parallelConnectionCurvature = normalizeConnectionCurvature(parallelConnectionCurvature);
 
 // Function to build an unordered endpoint-pair key so A→B and B→A links group together...
 function getConnectionEndpointPairKey(sourceID, targetID) {
@@ -1350,7 +1349,6 @@ function assignParallelConnectionOffsets() {
 	const groupedConnections = new Map();
 	Object.values(lineData).forEach(connection => {
 		const pairKey = getConnectionEndpointPairKey(connection.deviceIDSource, connection.deviceIDConnected);
-		connection.endpointPairKey = pairKey;
 		if (!groupedConnections.has(pairKey)) groupedConnections.set(pairKey, []);
 		groupedConnections.get(pairKey).push(connection);
 	});
@@ -1414,7 +1412,6 @@ function buildConnectionPath(sourcePos, targetPos, connection) {
 	return path;
 }
 
-// Function to check whether both endpoints of a connection are currently visible on the map...
 function isConnectionInCurrentFilter(connection) {
 	return Boolean(
 		getMarkerByDeviceID(connection.deviceIDSource) &&
@@ -1556,8 +1553,7 @@ function updatePolylineEndpoints() {
 // Function to resolve a device's current visible position...
 function getMarkerOrClusterPosition(deviceID) {
 	if (!deviceID) return null;
-	// Use Map for O(1) lookup instead of array find
-	const marker = markersByDeviceID.get(deviceID) || markersByDeviceID.get(String(deviceID));
+	const marker = getMarkerByDeviceID(deviceID);
 	if (!marker) return null;
 
 	// Check if clustering is enabled and marker is in a cluster
@@ -3062,7 +3058,7 @@ async function refreshGroupData(timedRefresh = false) {
 						title: thisItem.name,
 						zIndex: pinIndex,
 					});
-					// Store deviceID on marker for polyline lookups...
+					// Store deviceID on marker for info-window tracking...
 					marker.deviceID = thisItem.id;
 
 					// Open info window when marker is clicked...
@@ -3175,7 +3171,6 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 	// Plot the line on the map...
 	const thisPath = new google.maps.Polyline({
 		path: tmpCoords,
-		geodesic: useGeodesicLines,
 		strokeColor: connectionColor,
 		strokeOpacity: 1.0,
 		strokeWeight: connectingLineWeight,
@@ -3188,7 +3183,6 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 		sourceDeviceID: connection.deviceIDSource,
 		targetDeviceID: connection.deviceIDConnected,
 		connection: connection,
-		originalCoords: [sourcePos, targetPos]
 	});
 
 	// Show connection info on hover...
@@ -3210,8 +3204,6 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 	google.maps.event.addListener(thisPath, "click", function(e) {
 		window.open("/santaba/uiv4/resources/treeNodes/t-i,id-" + connection.instanceID + "?source=details&tab=alert");
 	});
-	// Ensure new polylines handle clusters properly...
-	updatePolylineEndpoints();
 	return true;
 }
 
