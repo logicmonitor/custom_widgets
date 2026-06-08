@@ -9,10 +9,14 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-var version = "3.57 CDN";
+var version = "3.58 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.58</h3>
+	<ul>
+		<li>Overlapping connection lines are now displayed as parallel lines with a specified curvature.</li>
+	</ul>
 	<h3>Version 3.57</h3>
 	<ul>
 		<li>Map toolbar option cookies are now scoped per widget instance (dashboard ID + widget ID). Existing dashboard-only cookies are still read and are migrated to the new format on the next save.</li>
