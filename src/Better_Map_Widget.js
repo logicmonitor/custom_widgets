@@ -246,6 +246,7 @@ var displayProps = getBetterMapGlobal("displayProps", "");
 var connectionInfoProp = getBetterMapGlobal("connectionInfoProp", "auto.custom_map_connection_data");
 var connectingLineWeight = getBetterMapGlobal("connectingLineWeight", 3);
 var useGeodesicLines = getBetterMapGlobal("useGeodesicLines", false);
+var parallelConnectionCurvature = getBetterMapGlobal("parallelConnectionCurvature", 18);
 var openWeatherAPIKey = getBetterMapGlobal("openWeatherAPIKey", "");
 var xweatherAPIID = getBetterMapGlobal("xweatherAPIID", "");
 var xweatherAPIKey = getBetterMapGlobal("xweatherAPIKey", "");
@@ -531,6 +532,13 @@ if (markerStyleTokenNorm === "dot" || markerStyleTokenNorm === "dots" || markerS
 	markerStyle = "circles";
 } else if (markerStyleTokenNorm === "pins" || markerStyleTokenNorm === "default" || markerStyleTokenNorm === "pin") {
 	markerStyle = "pins";
+}
+
+// Capture from token how much curvature to use for parallel connection lines...
+var connectionCurvatureTokenEl = getBetterMapElementById("connectionCurvatureToken");
+var connectionCurvatureToken = connectionCurvatureTokenEl ? connectionCurvatureTokenEl.innerText : "";
+if (connectionCurvatureToken != "##MapConnectionCurvature##" && connectionCurvatureToken.trim() !== "") {
+	parallelConnectionCurvature = normalizeConnectionCurvature(connectionCurvatureToken);
 }
 
 // Capture from token whether to use a LogicMonitor API bearer token or API ID & key...
@@ -1264,10 +1272,24 @@ if (!window.buildMarkersInBatches) {
 var markers = [];
 // Map for O(1) marker lookups by device ID (performance optimization)
 var markersByDeviceID = new Map();
+// Function to look up a marker by device ID, tolerating string/number ID mismatches...
+function getMarkerByDeviceID(deviceID) {
+	if (markersByDeviceID.has(deviceID)) return markersByDeviceID.get(deviceID);
+	const stringID = String(deviceID);
+	if (markersByDeviceID.has(stringID)) return markersByDeviceID.get(stringID);
+	const numberID = Number(deviceID);
+	if (!Number.isNaN(numberID) && markersByDeviceID.has(numberID)) return markersByDeviceID.get(numberID);
+	return null;
+}
 // For tracking if we've already established an initial center for our map based on markers...
 var centerCalculated = false;
 // For storing polyline references and their marker associations...
 var polylines = [];
+// Incremented for each refresh so old async connection draws cannot redraw stale lines.
+let refreshGeneration = 0;
+// Curvature is measured in screen pixels per parallel-link offset.
+// This keeps redundant interface links visible without changing marker placement.
+const parallelConnectionCurveSteps = 8;
 
 // Function to show the release notes overlay...
 function showReleaseNotes() {
@@ -1290,6 +1312,14 @@ function clearAllMarkers() {
 	}
 }
 
+// Function to clamp connection-line curvature to a valid screen-pixel offset (0–120, default 18)...
+function normalizeConnectionCurvature(value) {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed)) return 18;
+	return Math.max(0, Math.min(parsed, 120));
+}
+parallelConnectionCurvature = normalizeConnectionCurvature(parallelConnectionCurvature);
+
 // Function to clear all connecting polylines and their listeners...
 function clearAllPolylines() {
 	if (polylines.length === 0) return;
@@ -1301,6 +1331,95 @@ function clearAllPolylines() {
 		}
 	});
 	polylines = [];
+}
+
+// Function to build an unordered endpoint-pair key so A→B and B→A links group together...
+function getConnectionEndpointPairKey(sourceID, targetID) {
+	const a = String(sourceID);
+	const b = String(targetID);
+	return a.localeCompare(b) <= 0 ? `${a}:${b}` : `${b}:${a}`;
+}
+
+// Function to pick a consistent curve side (+1 or -1) based on endpoint ID ordering...
+function getConnectionDirectionSign(sourceID, targetID) {
+	return String(sourceID).localeCompare(String(targetID)) <= 0 ? 1 : -1;
+}
+
+// Function to assign symmetric parallelOffsetIndex values to links sharing the same endpoints...
+function assignParallelConnectionOffsets() {
+	const groupedConnections = new Map();
+	Object.values(lineData).forEach(connection => {
+		const pairKey = getConnectionEndpointPairKey(connection.deviceIDSource, connection.deviceIDConnected);
+		connection.endpointPairKey = pairKey;
+		if (!groupedConnections.has(pairKey)) groupedConnections.set(pairKey, []);
+		groupedConnections.get(pairKey).push(connection);
+	});
+
+	groupedConnections.forEach(connections => {
+		// Stable ordering prevents the same links from swapping sides between refreshes.
+		connections.sort((a, b) =>
+			String(a.instanceID).localeCompare(String(b.instanceID)) ||
+			String(a.datasourceID).localeCompare(String(b.datasourceID)) ||
+			String(a.connectionName).localeCompare(String(b.connectionName))
+		);
+		const midpointIndex = (connections.length - 1) / 2;
+		connections.forEach((connection, index) => {
+			connection.parallelOffsetIndex = index - midpointIndex;
+			connection.parallelConnectionCount = connections.length;
+		});
+	});
+}
+
+// Function to build a curved LatLng path for a connection, offset in screen pixels for parallel links...
+function buildConnectionPath(sourcePos, targetPos, connection) {
+	let offsetIndex = Number(connection?.parallelOffsetIndex || 0);
+	if (!offsetIndex && Number(connection?.parallelConnectionCount || 0) <= 1 && parallelConnectionCurvature > 0) {
+		offsetIndex = 1;
+	}
+	if (!offsetIndex) return [sourcePos, targetPos];
+
+	const projection = map?.getProjection?.();
+	const zoom = map?.getZoom?.();
+	if (!projection || typeof zoom !== "number") return [sourcePos, targetPos];
+
+	const sourcePoint = projection.fromLatLngToPoint(sourcePos);
+	const targetPoint = projection.fromLatLngToPoint(targetPos);
+	const scale = Math.pow(2, zoom);
+	const dxPixels = (targetPoint.x - sourcePoint.x) * scale;
+	const dyPixels = (targetPoint.y - sourcePoint.y) * scale;
+	const lengthPixels = Math.hypot(dxPixels, dyPixels);
+	if (!lengthPixels) return [sourcePos, targetPos];
+
+	// Offset in screen-pixel space, then convert back to LatLng. This keeps the
+	// visual separation consistent across zoom levels and latitude.
+	const directionSign = getConnectionDirectionSign(connection.deviceIDSource, connection.deviceIDConnected);
+	const offsetPixels = offsetIndex * parallelConnectionCurvature * directionSign;
+	const perpendicularX = -dyPixels / lengthPixels;
+	const perpendicularY = dxPixels / lengthPixels;
+	const midpointX = (sourcePoint.x + targetPoint.x) / 2;
+	const midpointY = (sourcePoint.y + targetPoint.y) / 2;
+	const controlPoint = new google.maps.Point(
+		midpointX + (perpendicularX * offsetPixels) / scale,
+		midpointY + (perpendicularY * offsetPixels) / scale
+	);
+
+	const path = [];
+	for (let i = 0; i <= parallelConnectionCurveSteps; i++) {
+		const t = i / parallelConnectionCurveSteps;
+		const inv = 1 - t;
+		const x = (inv * inv * sourcePoint.x) + (2 * inv * t * controlPoint.x) + (t * t * targetPoint.x);
+		const y = (inv * inv * sourcePoint.y) + (2 * inv * t * controlPoint.y) + (t * t * targetPoint.y);
+		path.push(projection.fromPointToLatLng(new google.maps.Point(x, y)));
+	}
+	return path;
+}
+
+// Function to check whether both endpoints of a connection are currently visible on the map...
+function isConnectionInCurrentFilter(connection) {
+	return Boolean(
+		getMarkerByDeviceID(connection.deviceIDSource) &&
+		getMarkerByDeviceID(connection.deviceIDConnected)
+	);
 }
 
 // Function to clear all overlay data, listeners, and InfoWindows before loading a new overlay...
@@ -1411,16 +1530,25 @@ function buildEarthquakeIconUrl(iconOpacity, alertColor) {
 	return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' data-tooltip='Earthquake' viewBox='0 0 302.836 302.836'%3E%3Cpath d='M271 256a15 15 0 0 1-15 15 15 15 0 0 1-15-15 15 15 0 0 1 15-15 15 15 0 0 1 15 15z' style='opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};stroke:none;stroke-width:8;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 139.29c-64.44 0-116.71 52.27-116.71 116.71S191.56 372.71 256 372.71 372.71 320.44 372.71 256 320.44 139.29 256 139.29zm0 3c62.818 0 113.71 50.892 113.71 113.71 0 62.818-50.892 113.71-113.71 113.71-62.818 0-113.71-50.892-113.71-113.71 0-62.818 50.892-113.71 113.71-113.71z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:.55474453;fill-rule:nonzero;stroke:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 214.266c-22.996 0-41.734 18.738-41.734 41.734 0 22.996 18.738 41.734 41.734 41.734 22.996 0 41.734-18.738 41.734-41.734 0-22.996-18.738-41.734-41.734-41.734zm0 9c18.132 0 32.734 14.602 32.734 32.734S274.132 288.734 256 288.734 223.266 274.132 223.266 256s14.602-32.734 32.734-32.734z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:${alertColor};stroke-width:3;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 189.678c-36.594 0-66.322 29.728-66.322 66.322s29.728 66.322 66.322 66.322 66.322-29.728 66.322-66.322-29.728-66.322-66.322-66.322zm0 6c33.35 0 60.322 26.971 60.322 60.322 0 33.35-26.971 60.322-60.322 60.322-33.35 0-60.322-26.971-60.322-60.322 0-33.35 26.971-60.322 60.322-60.322z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:none;stroke-width:6;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 166.164c-49.591 0-89.836 40.245-89.836 89.836S206.41 345.836 256 345.836 345.836 305.59 345.836 256 305.59 166.164 256 166.164zm0 4c47.43 0 85.836 38.406 85.836 85.836S303.43 341.836 256 341.836 170.164 303.43 170.164 256 208.57 170.164 256 170.164z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 109.582c-80.853 0-146.418 65.565-146.418 146.418 0 80.853 65.565 146.418 146.418 146.418 80.853 0 146.418-65.565 146.418-146.418 0-80.853-65.565-146.418-146.418-146.418zm0 2c79.772 0 144.418 64.646 144.418 144.418S335.772 400.418 256 400.418 111.582 335.772 111.582 256 176.228 111.582 256 111.582z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:.35766422;fill-rule:nonzero;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3C/svg%3E`;
 }
 
-// Function to update polyline endpoints to follow clusters and markers...
+// Function to update polyline endpoints to follow clusters and markers, rebuilding curved paths...
 function updatePolylineEndpoints() {
 	if (!polylines.length) return;
 	// console.debug("Updating " + polylines.length + " polyline endpoints");
 	polylines.forEach(p => {
 		if (!p || !p.polyline) return;
+		if (!isConnectionInCurrentFilter(p.connection)) {
+			p.polyline.setMap(null);
+			return;
+		}
 		const sourcePos = getMarkerOrClusterPosition(p.sourceDeviceID);
 		const targetPos = getMarkerOrClusterPosition(p.targetDeviceID);
 		if (sourcePos && targetPos) {
-			p.polyline.setPath([sourcePos, targetPos]);
+			if (!p.polyline.getMap()) {
+				p.polyline.setMap(map);
+			}
+			p.polyline.setPath(buildConnectionPath(sourcePos, targetPos, p.connection));
+		} else {
+			p.polyline.setMap(null);
 		}
 	});
 }
@@ -1528,6 +1656,41 @@ var fullRefresh = true;
 
 // For holding our connection status data...
 var lineData = {};
+
+// Function to parse connection metadata from a resource item into lineData...
+function addConnectionsFromItem(thisItem) {
+	if (mapSourceType !== "resources" || !thisItem.autoProperties) return;
+
+	const propArray = thisItem.autoProperties.filter(item => item.name == connectionInfoProp);
+	if (propArray.length !== 1 || !propArray[0].value) return;
+
+	// Multiple connections to an endpoint can be specified by separating them with a semicolon.
+	const connectionItems = String(propArray[0].value).split(";");
+	connectionItems.forEach(thisConnection => {
+		const params = thisConnection.split(",").map(param => param.trim());
+		if (params.length < 4 || !params[1] || !params[2] || !params[3]) {
+			if (thisConnection.trim() !== "") {
+				console.debug("Skipping malformed map connection data", {
+					deviceID: thisItem.id,
+					connectionData: thisConnection,
+				});
+			}
+			return;
+		}
+
+		const connection = {
+			connectionName: params[0] || "Connection",
+			datasourceID: params[1],
+			instanceID: params[2],
+			deviceIDSource: thisItem.id,
+			deviceIDConnected: params[3],
+		};
+
+		// Include datasource and instance IDs so parallel links between
+		// the same two resources do not overwrite each other.
+		lineData[`${connection.deviceIDSource}:${connection.deviceIDConnected}:${connection.datasourceID}:${connection.instanceID}`] = connection;
+	});
+}
 
 // Pre-populate the group path filter field...
 _dom.customGroupFilterField.value = groupPathFilter;
@@ -2386,6 +2549,7 @@ async function refreshGroupData(timedRefresh = false) {
 	}
 	_currentRefreshController = new AbortController();
 	const refreshSignal = _currentRefreshController.signal;
+	const thisRefreshGeneration = ++refreshGeneration;
 
 	// Capture current time for tracking how long the total refresh takes...
 	refreshStartTime = performance.now();
@@ -2397,6 +2561,7 @@ async function refreshGroupData(timedRefresh = false) {
 
 		// The filter changed so clear any previous markers from the map...
 		clearAllMarkers();
+		clearAllPolylines();
 	} else if (groupPathFilterFieldValue == "") {
 		// The user cleared the field, so reset it back to the initial value...
 		groupPathFilter = initialGroupPathFilter;
@@ -2629,6 +2794,7 @@ async function refreshGroupData(timedRefresh = false) {
 
 		// For use in zooming the map to encompass all our markers on initial draw...
 		bounds = new google.maps.LatLngBounds();
+		lineData = {};
 
 		// Function called when all items have been processed...
 		async function onRefreshComplete() {
@@ -2662,11 +2828,18 @@ async function refreshGroupData(timedRefresh = false) {
 
 			if (mapSourceType == "resources") {
 				clearAllPolylines();
+				assignParallelConnectionOffsets();
 				const connectionPromises = Object.values(lineData)
-					.filter(c => cachedAddresses[c.deviceIDConnected])
-					.map(c => plotConnection(c));
-				await Promise.all(connectionPromises);
+					.filter(c => isConnectionInCurrentFilter(c))
+					.map(c => plotConnection(c, thisRefreshGeneration));
+				const connectionResults = await Promise.allSettled(connectionPromises);
+				const failedConnections = connectionResults.filter(result => result.status === "rejected");
+				if (failedConnections.length > 0) {
+					console.warn(`Failed to draw ${failedConnections.length} map connection line(s).`, failedConnections);
+				}
 				updatePolylineEndpoints();
+			} else {
+				clearAllPolylines();
 			}
 
 			populateSidebar();
@@ -2688,6 +2861,7 @@ async function refreshGroupData(timedRefresh = false) {
 		await buildMarkersInBatches(groupData, (thisItem) => {
 			let groupID = thisItem.id;
 			const { severity: highestSeverity, sevIcon, pinBG, pinBorder, pinIndex } = parseSeverity(thisItem);
+			addConnectionsFromItem(thisItem);
 
 			// Differential update: update existing markers in-place instead of rebuilding
 			if (isDiffUpdate) {
@@ -2815,34 +2989,6 @@ async function refreshGroupData(timedRefresh = false) {
 					}
 
 
-					// Look to see if connecting line info has been provided...
-					if (thisItem.autoProperties) {
-						let propArray = thisItem.autoProperties.filter(item => item.name == connectionInfoProp);
-						if (propArray.length == 1) {
-							// Multiple connections to an endpoint can be specifed by separating them with a semicolon...
-							const connectionItems = propArray[0].value.split(";");
-
-							// Loop through the connections...
-							connectionItems.forEach(thisConnection => {
-								// Split the comma-separated parameters...
-								let params = thisConnection.split(",");
-
-								if (params.length > 0) {
-									let tmp = {};
-									tmp.connectionName = params[0].trim();
-									tmp.datasourceID = params[1].trim();
-									tmp.instanceID = params[2].trim();
-									tmp.deviceIDSource = thisItem.id;
-									tmp.deviceIDConnected = params[3].trim();
-									// TODO: Maybe add support for another parameter for the source device ID to support group connections.
-
-									lineData[`${tmp.deviceIDSource}${tmp.deviceIDConnected}`] = tmp;
-									// lineData[tmp.deviceIDSource + ":" + tmp.deviceIDConnected] = tmp;
-								}
-							});
-						}
-					}
-
 					content.classList.add("group");
 					if (markerStyle === "circles") content.classList.add("dot-style");
 					// The pin's z-index gets overwritten when clicked to show details, so capture the original severity in the pin's metadata...
@@ -2945,33 +3091,57 @@ async function refreshGroupData(timedRefresh = false) {
 }
 
 // Function to fetch connection status & plot connecting lines on the map...
-async function plotConnection(connection) {
-	// Establish coordinates of the line start and end...
-	const tmpCoords = [
-		{ lat: cachedAddresses[connection.deviceIDSource].lat, lng: cachedAddresses[connection.deviceIDSource].lng},
-		{ lat: cachedAddresses[connection.deviceIDConnected].lat, lng: cachedAddresses[connection.deviceIDConnected].lng}
-	];
+async function plotConnection(connection, requestedRefreshGeneration = refreshGeneration) {
+	if (requestedRefreshGeneration !== refreshGeneration || !isConnectionInCurrentFilter(connection)) {
+		console.debug("Skipping map connection outside the current filter", connection);
+		return false;
+	}
 
 	// Fetch the current alert status of the defined instance...
 	let resourcePath = `/device/devices/${connection.deviceIDSource}/devicedatasources/${connection.datasourceID}/instances/${connection.instanceID}`;
 	let httpVerb = "GET";
-	const instanceData = await LMClient({
-		resourcePath: resourcePath,
-		queryParams: "",
-		httpVerb: httpVerb,
-		postBody: null,
-		apiVersion: '3',
-	});
-	// console.debug('Instance status succeeded with JSON response', instanceData);
+	let instanceData = null;
+	let alertStatus = "OK";
+	let alertSeverity = "clear";
+	let sdtStatus = "";
+	let connectionColor = "#85c25d";
+
+	try {
+		instanceData = await LMClient({
+			resourcePath: resourcePath,
+			queryParams: "",
+			httpVerb: httpVerb,
+			postBody: null,
+			apiVersion: '3',
+		});
+		// console.debug('Instance status succeeded with JSON response', instanceData);
+	} catch (error) {
+		alertStatus = "Unknown";
+		connectionColor = "#999999";
+		console.warn("Unable to fetch map connection status; drawing line with unknown status.", {
+			connection,
+			error,
+		});
+	}
+
+	if (requestedRefreshGeneration !== refreshGeneration || !isConnectionInCurrentFilter(connection)) {
+		console.debug("Skipping stale map connection after status lookup", connection);
+		return false;
+	}
+
+	// Establish coordinates of the line start and end from the currently visible marker/cluster set.
+	const sourcePos = getMarkerOrClusterPosition(connection.deviceIDSource);
+	const targetPos = getMarkerOrClusterPosition(connection.deviceIDConnected);
+	if (!sourcePos || !targetPos) {
+		console.debug("Skipping map connection with endpoint outside the current marker set", connection);
+		return false;
+	}
+	const tmpCoords = buildConnectionPath(sourcePos, targetPos, connection);
 
 	// Process the data we received...
 	if (instanceData) {
-		let alertStatus = "OK";
-		let alertSeverity = "clear";
-		let sdtStatus = "";
-		let connectionColor = "#85c25d";
 		// Parse the alarm status...
-		let alertStatusArray = instanceData.alertStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
+		let alertStatusArray = String(instanceData.alertStatus || "").match(/([\w]+)-([\w]+)-([\w]+)/);
 		if (alertStatusArray) {
 			alertStatus = alertStatusArray[1];
 			alertSeverity = alertStatusArray[2];
@@ -2992,55 +3162,57 @@ async function plotConnection(connection) {
 		}
 
 		// Parse the SDT status...
-		let sdtStatusArray = instanceData.sdtStatus.match(/([\w]+)-([\w]+)-([\w]+)/);
-		if (sdtStatusArray[1].toLowerCase() == "sdt" || sdtStatusArray[2].toLowerCase() == "sdt") {
+		let sdtStatusArray = String(instanceData.sdtStatus || "").match(/([\w]+)-([\w]+)-([\w]+)/);
+		if (sdtStatusArray && (sdtStatusArray[1].toLowerCase() == "sdt" || sdtStatusArray[2].toLowerCase() == "sdt")) {
 			sdtStatus = "sdt";
 		}
 		// If in SDT...
 		if (sdtStatus == "sdt") {
 			connectionColor = "#00a1fe";
 		}
-
-		// Plot the line on the map...
-		const thisPath = new google.maps.Polyline({
-			path: tmpCoords,
-			geodesic: useGeodesicLines,
-			strokeColor: connectionColor,
-			strokeOpacity: 1.0,
-			strokeWeight: connectingLineWeight,
-		});
-		thisPath.setMap(map);
-
-		// Track polyline with source/target IDs so we can redraw to clusters
-		polylines.push({
-			polyline: thisPath,
-			sourceDeviceID: connection.deviceIDSource,
-			targetDeviceID: connection.deviceIDConnected,
-			originalCoords: tmpCoords
-		});
-
-		// Show connection info on hover...
-		let lineInfoWindow = new CustomInfoWindow({
-			content: "",
-			anchor: 'top',
-			offset: 15,
-			clickThrough: true
-		});
-
-		google.maps.event.addListener(thisPath, "mouseover", function(e) {
-			lineInfoWindow.setPosition(e.latLng);
-			lineInfoWindow.setContent(`<strong>${connection.connectionName}</strong><br/>Connection alert status: <a href="/santaba/uiv4/resources/treeNodes/t-i,id-${connection.instanceID}?source=details&tab=alert" target="_blank" title="Click to view alerts" style="border: 0;">${alertStatus}</a>`);
-			lineInfoWindow.open(map);
-		});
-		google.maps.event.addListener(thisPath, "mouseout", function(e) {
-			lineInfoWindow.close();
-		});
-		google.maps.event.addListener(thisPath, "click", function(e) {
-			window.open("/santaba/uiv4/resources/treeNodes/t-i,id-" + connection.instanceID + "?source=details&tab=alert");
-		});
-		// Ensure new polylines handle clusters properly...
-		updatePolylineEndpoints();
 	}
+
+	// Plot the line on the map...
+	const thisPath = new google.maps.Polyline({
+		path: tmpCoords,
+		geodesic: useGeodesicLines,
+		strokeColor: connectionColor,
+		strokeOpacity: 1.0,
+		strokeWeight: connectingLineWeight,
+	});
+	thisPath.setMap(map);
+
+	// Track polyline with source/target IDs so we can redraw to clusters
+	polylines.push({
+		polyline: thisPath,
+		sourceDeviceID: connection.deviceIDSource,
+		targetDeviceID: connection.deviceIDConnected,
+		connection: connection,
+		originalCoords: [sourcePos, targetPos]
+	});
+
+	// Show connection info on hover...
+	let lineInfoWindow = new CustomInfoWindow({
+		content: "",
+		anchor: 'top',
+		offset: 15,
+		clickThrough: true
+	});
+
+	google.maps.event.addListener(thisPath, "mouseover", function(e) {
+		lineInfoWindow.setPosition(e.latLng);
+		lineInfoWindow.setContent(`<strong>${connection.connectionName}</strong><br/>Connection alert status: <a href="/santaba/uiv4/resources/treeNodes/t-i,id-${connection.instanceID}?source=details&tab=alert" target="_blank" title="Click to view alerts" style="border: 0;">${alertStatus}</a>`);
+		lineInfoWindow.open(map);
+	});
+	google.maps.event.addListener(thisPath, "mouseout", function(e) {
+		lineInfoWindow.close();
+	});
+	google.maps.event.addListener(thisPath, "click", function(e) {
+		window.open("/santaba/uiv4/resources/treeNodes/t-i,id-" + connection.instanceID + "?source=details&tab=alert");
+	});
+	// Ensure new polylines handle clusters properly...
+	updatePolylineEndpoints();
+	return true;
 }
 
 // Function for showing/hiding a group's detail when clicked...
