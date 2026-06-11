@@ -24,6 +24,7 @@ var releaseNotes = `
 		<li>Replaced use of some non-ASCII characters with their ASCII equivalents.</li>
 		<li>Changed some portions of code that LogicMonitor's HTML sanitizer kept breaking.</li>
 		<li>Added the ability to only show items with active connections. Changeable via a new dashboard token named &quot;MapOnlyShowConnectedItems&quot; set to either true or false (default is false).</li>
+		<li>Added ability to show/hide status lines between items on the map. Changeable via a new dashboard token named &quot;MapShowConnections&quot; set to either true or false (default is true).</li>
 	</ul>
 	<h3>Version 3.58</h3>
 	<ul>
@@ -255,6 +256,7 @@ var showErrors = getBetterMapGlobal("showErrors", true);
 var showCriticals = getBetterMapGlobal("showCriticals", true);
 var showSDT = getBetterMapGlobal("showSDT", true);
 var showOnlyConnected = getBetterMapGlobal("showOnlyConnected", false);
+var showConnections = getBetterMapGlobal("showConnections", true);
 var groupPathFilter = getBetterMapGlobal("groupPathFilter", "*");
 var statusUpdateIntervalMinutes = getBetterMapGlobal("statusUpdateIntervalMinutes", 2);
 var disableClustering = getBetterMapGlobal("disableClustering", false);
@@ -322,7 +324,11 @@ betterMapRoot.innerHTML = `<!-- Create our options bar above the map... -->
 					<label for="showSDT"><div id="showSDTLabel" class="toolbarSevIcon">SDT</div></label>
 				</span>
 				<span class="sevFilterOption">
-					<input type="checkbox" id="showConnected" name="showConnected" value="showConnected" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="When checked, show only items with active connections">
+					<input type="checkbox" id="showConnections" name="showConnections" value="showConnections" checked="true" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide status lines">
+					<label for="showConnections"><div id="showConnectionsLabel" class="toolbarSevIcon">Connections</div></label>
+				</span>
+				<span class="sevFilterOption">
+					<input type="checkbox" id="showConnected" name="showConnected" value="showConnected" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="When checked, show only items with status lines">
 					<label for="showConnected"><div id="showConnectedLabel" class="toolbarSevIcon">Connected</div></label>
 				</span>
 			</span>
@@ -477,6 +483,14 @@ if (isTruthyToken(ignoreSDTToken)) {
 var onlyShowConnectedTokenEl = getBetterMapElementById("onlyShowConnectedToken");
 if (onlyShowConnectedTokenEl && isTruthyToken(onlyShowConnectedTokenEl.innerText)) {
 	showOnlyConnected = true;
+}
+// Capture from token whether to show connecting lines between endpoints...
+var showConnectingLinesTokenEl = getBetterMapElementById("showConnectingLinesToken");
+if (showConnectingLinesTokenEl) {
+	var showConnectingLinesToken = showConnectingLinesTokenEl.innerText;
+	if (showConnectingLinesToken != "##MapShowConnectingLines##") {
+		showConnections = isTruthyToken(showConnectingLinesToken);
+	}
 }
 // Capture from token whether to show the map tilt/rotation controls...
 var showMapTiltControlsToken = getBetterMapElementById("showMapTiltControlsToken").innerText;
@@ -653,6 +667,7 @@ var __LMBMW_MAPOPTS_ELEMENT_TO_KEY = {
 	showErrors: "showErrors",
 	showCriticals: "showCriticals",
 	showSDT: "showSDT",
+	showConnections: "showConnections",
 	showConnected: "showOnlyConnected",
 	autoZoom: "autoResetMapOnRefresh",
 	weather: "weather",
@@ -781,6 +796,7 @@ function applyPersistedMapOptionsFromCookie() {
 	if (typeof o.showCriticals === "boolean") showCriticals = o.showCriticals;
 	if (typeof o.showSDT === "boolean") showSDT = o.showSDT;
 	if (typeof o.showOnlyConnected === "boolean") showOnlyConnected = o.showOnlyConnected;
+	if (typeof o.showConnections === "boolean") showConnections = o.showConnections;
 	if (typeof o.autoResetMapOnRefresh === "boolean") autoResetMapOnRefresh = o.autoResetMapOnRefresh;
 
 	if (o.markerStyle === "circles" || o.markerStyle === "pins") {
@@ -805,6 +821,7 @@ function applyPersistedMapOptionsFromCookie() {
 	_dom.showErrors.checked = showErrors;
 	_dom.showCriticals.checked = showCriticals;
 	_dom.showSDT.checked = showSDT;
+	_dom.showConnections.checked = showConnections;
 	_dom.showOnlyConnected.checked = showOnlyConnected;
 	_dom.autoZoom.checked = autoResetMapOnRefresh;
 	_dom.markerStyleSelect.value = markerStyle === "circles" ? "circles" : "pins";
@@ -1163,6 +1180,7 @@ var _dom = {
 	showErrors: getBetterMapElementById("showErrors"),
 	showCriticals: getBetterMapElementById("showCriticals"),
 	showSDT: getBetterMapElementById("showSDT"),
+	showConnections: getBetterMapElementById("showConnections"),
 	showOnlyConnected: getBetterMapElementById("showConnected"),
 	autoZoom: getBetterMapElementById("autoZoom"),
 	weather: getBetterMapElementById("weather"),
@@ -1179,6 +1197,7 @@ var _dom = {
 	showErrorsLabel: getBetterMapElementById("showErrorsLabel"),
 	showCriticalsLabel: getBetterMapElementById("showCriticalsLabel"),
 	showSDTLabel: getBetterMapElementById("showSDTLabel"),
+	showConnectionsLabel: getBetterMapElementById("showConnectionsLabel"),
 	showConnectedLabel: getBetterMapElementById("showConnectedLabel"),
 	sidebarArea: getBetterMapElementById("sidebarArea"),
 	sidebarResizeHandle: getBetterMapElementById("sidebarResizeHandle"),
@@ -1194,6 +1213,7 @@ _dom.showWarnings.checked = showWarnings;
 _dom.showErrors.checked = showErrors;
 _dom.showCriticals.checked = showCriticals;
 _dom.showSDT.checked = showSDT;
+_dom.showConnections.checked = showConnections;
 _dom.showOnlyConnected.checked = showOnlyConnected;
 _dom.autoZoom.checked = autoResetMapOnRefresh;
 
@@ -1256,7 +1276,8 @@ var errorIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" 
 var criticalIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024" data-tooltip="Critical"><path fill="#e0351b" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M827.077 590.769c-133.908-232.369-39.385-354.462-39.385-354.462s-173.292 43.323-157.538 157.538c-35.446-31.508-216.615-86.646-114.215-271.754v-3.938h-3.938c-3.938 0-55.138 23.631-94.523 74.831-39.385 47.262-110.277 106.338-63.015 240.246 31.508 74.831 39.385 94.523-39.385 157.538 3.938-15.754 11.815-51.2 0-78.769-27.569-63.015-78.769-78.769-78.769-78.769s43.323 66.954 0 118.154c-39.385 43.323-55.138 129.969-35.446 200.862 15.754 59.077 70.892 106.338 157.538 137.846-7.877-3.938 110.277 43.323 244.185 3.938 59.077-19.692 137.846-43.323 185.108-106.338 39.385-51.2 74.831-129.969 39.385-196.923v0 0z"></path> <path fill="#e0351b" d="M551.385 827.077h-78.769v-78.769h78.769v78.769zM551.385 708.923h-78.769v-275.692h78.769v275.692z"></path> </svg>';
 var clearedIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="No alerts"><path id="Shape" fill="#ffffff" fill-rule="evenodd" stroke="none" d="M 43 25 C 43 15.61116 35.164986 8 25.5 8 C 15.835016 8 8 15.61116 8 25 C 8 34.38884 15.835016 42 25.5 42 C 35.164986 42 43 34.38884 43 25 Z"/><path id="Path" fill="#85c25d" stroke="none" d="M 25.5 4 C 37.374119 4 47 13.625877 47 25.5 C 47 37.374123 37.374119 47 25.5 47 C 13.625877 47 4 37.374123 4 25.5 C 4 13.625877 13.625877 4 25.5 4 Z M 17.975 17.974998 C 15.881312 17.974998 14.103745 18.670809 12.642242 20.062449 C 11.18074 21.45409 10.45 23.269981 10.45 25.510181 C 10.45 27.736805 11.18074 29.545912 12.642242 30.937551 C 14.103745 32.329193 15.881312 33.025002 17.975 33.025002 C 20.068687 33.025002 21.842855 32.329193 23.297562 30.937551 C 24.752264 29.545912 25.479607 27.736805 25.479607 25.510181 C 25.479607 23.283558 24.752264 21.471062 23.297562 20.072632 C 21.842855 18.674204 20.068687 17.974998 17.975 17.974998 Z M 31.006098 18.280481 L 27.784012 18.280481 L 27.784012 32.719521 L 31.006098 32.719521 L 31.006098 28.850101 L 32.637535 27.037582 L 36.532589 32.719521 L 40.549999 32.719521 L 34.901154 24.532646 L 40.529606 18.280481 L 36.287876 18.280481 L 31.006098 24.34936 L 31.006098 18.280481 Z M 17.975 21.111265 C 19.089819 21.111265 20.061874 21.48802 20.891193 22.241541 C 21.72051 22.995064 22.135162 24.07781 22.135162 25.489815 C 22.135162 26.901821 21.72051 27.981174 20.891193 28.727909 C 20.061874 29.474642 19.089819 29.848003 17.975 29.848003 C 16.86018 29.848003 15.884727 29.474642 15.048611 28.727909 C 14.212496 27.981174 13.794444 26.901821 13.794444 25.489815 C 13.794444 24.07781 14.209096 22.998459 15.038414 22.251724 C 15.881327 21.491413 16.86018 21.111265 17.975 21.111265 Z"/></svg>';
 var sdtIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="SDT"><path id="Oval" fill="#00A1FE" fill-rule="evenodd" stroke="none" d="M 46 25 C 46 13.40202 36.59798 4 25 4 C 13.40202 4 4 13.40202 4 25 C 4 36.59798 13.40202 46 25 46 C 36.59798 46 46 36.59798 46 25 Z"/><g id="Group"><path id="Path" fill="#000000" fill-opacity="0.01" stroke="none" d="M 5 5 L 45 5 L 45 45 L 5 45 Z"/><path id="path1" fill="#ffffff" stroke="none" d="M 25 9.0625 C 16.19795 9.0625 9.0625 16.197948 9.0625 25 C 9.0625 33.801994 16.19795 40.9375 25 40.9375 C 33.801998 40.9375 40.9375 33.801994 40.9375 25 L 36.25 25 C 36.25 31.213245 31.213249 36.25 25 36.25 C 18.7868 36.25 13.75 31.213245 13.75 25 C 13.75 18.786802 18.7868 13.75 25 13.75 L 25 9.0625 Z"/><path id="path2" fill="#ffffff" stroke="none" d="M 33.75 12.5 C 33.75 13.880699 32.630753 15 31.25 15 C 29.869299 15 28.75 13.880699 28.75 12.5 C 28.75 11.119301 29.869299 10 31.25 10 C 32.630753 10 33.75 11.119301 33.75 12.5 Z"/><path id="path3" fill="#ffffff" stroke="none" d="M 40 18.75 C 40 20.130701 38.880753 21.25 37.5 21.25 C 36.119247 21.25 35 20.130701 35 18.75 C 35 17.369301 36.119247 16.25 37.5 16.25 C 38.880753 16.25 40 17.369301 40 18.75 Z"/><path id="path4" fill="#ffffff" fill-rule="evenodd" stroke="none" d="M 23.125 16.000004 L 26.880026 16.000004 L 26.880026 24.899998 L 33.125 28.647003 L 30.725 31.83075 L 23.125 27.066555 L 23.125 16.000004 Z"/></g></svg>';
-var connectedIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="Connected"><path d="M 12 28 Q 25 17 38 13" fill="none" stroke="#e0351b" stroke-width="3" stroke-linecap="round"/><path d="M 12 28 L 38 40" fill="none" stroke="#85c25d" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="28" r="5" fill="#85c25d"/><circle cx="38" cy="13" r="5" fill="#85c25d"/><circle cx="38" cy="40" r="5" fill="#85c25d"/></svg>';
+var connectedIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="Connected"><path d="M 12 28 Q 25 17 38 13" fill="none" stroke="#e0351b" stroke-width="3" stroke-linecap="round"/><path d="M 12 28 L 38 40" fill="none" stroke="#85c25d" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="28" r="6" fill="#85c25d"/><circle cx="38" cy="13" r="6" fill="#85c25d"/><circle cx="38" cy="40" r="6" fill="#85c25d"/></svg>';
+var showConnectionsIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="Show connections"><path d="M 12 28 Q 25 17 38 13" fill="none" stroke="#e0351b" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 4"/><path d="M 12 28 L 38 40" fill="none" stroke="#85c25d" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 4"/><circle cx="12" cy="28" r="5" fill="#85c25d" fill-opacity="0.4"/><circle cx="38" cy="13" r="5" fill="#85c25d" fill-opacity="0.4"/><circle cx="38" cy="40" r="5" fill="#85c25d" fill-opacity="0.4"/></svg>';
 // Animated throbber for when we're updating data...
 var loadingSpinner = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_VpEe{animation:spinner_vXu6 1.2s cubic-bezier(0.52,.6,.25,.99) infinite}.spinner_eahp{animation-delay:.4s}.spinner_f7Y2{animation-delay:.8s}@keyframes spinner_vXu6{0%{r:0;opacity:1}100%{r:11px;opacity:0}}</style><circle class="spinner_VpEe" cx="12" cy="12" r="0" fill="red"/><circle class="spinner_VpEe spinner_eahp" cx="12" cy="12" r="0" fill="red"/><circle class="spinner_VpEe spinner_f7Y2" cx="12" cy="12" r="0" fill="red"/></svg>';
 // Icons for toggling visiiblity of the top toolbar...
@@ -1850,6 +1871,7 @@ _dom.showWarningsLabel.innerHTML = warningIcon;
 _dom.showErrorsLabel.innerHTML = errorIcon;
 _dom.showCriticalsLabel.innerHTML = criticalIcon;
 _dom.showSDTLabel.innerHTML = sdtIcon;
+_dom.showConnectionsLabel.innerHTML = showConnectionsIcon;
 _dom.showConnectedLabel.innerHTML = connectedIcon;
 
 // Placeholder for marker cluster info...
@@ -2777,6 +2799,7 @@ async function refreshGroupData(timedRefresh = false) {
 	showErrors = _dom.showErrors.checked;
 	showCriticals = _dom.showCriticals.checked;
 	showSDT = _dom.showSDT.checked;
+	showConnections = _dom.showConnections.checked;
 	showOnlyConnected = _dom.showOnlyConnected.checked;
 	// If the user unchecked all the severities it'd essentially query all severities, so re-check all the checkboxes if that happens...
 	if (!showCleared && !showWarnings && !showErrors && !showCriticals && !showSDT) {
@@ -3035,16 +3058,18 @@ async function refreshGroupData(timedRefresh = false) {
 
 			if (mapSourceType == "resources") {
 				clearAllPolylines();
-				assignParallelConnectionOffsets();
-				const connectionPromises = Object.values(lineData)
-					.filter(c => isConnectionInCurrentFilter(c))
-					.map(c => plotConnection(c, thisRefreshGeneration));
-				const connectionResults = await Promise.allSettled(connectionPromises);
-				const failedConnections = connectionResults.filter(result => result.status === "rejected");
-				if (failedConnections.length > 0) {
-					console.warn(`Failed to draw ${failedConnections.length} map connection line(s).`, failedConnections);
+				if (showConnections) {
+					assignParallelConnectionOffsets();
+					const connectionPromises = Object.values(lineData)
+						.filter(c => isConnectionInCurrentFilter(c))
+						.map(c => plotConnection(c, thisRefreshGeneration));
+					const connectionResults = await Promise.allSettled(connectionPromises);
+					const failedConnections = connectionResults.filter(result => result.status === "rejected");
+					if (failedConnections.length > 0) {
+						console.warn(`Failed to draw ${failedConnections.length} map connection line(s).`, failedConnections);
+					}
+					updatePolylineEndpoints();
 				}
-				updatePolylineEndpoints();
 			} else {
 				clearAllPolylines();
 			}
