@@ -1879,7 +1879,10 @@ var MAX_INIT_ATTEMPTS = 10;
 function isBetterMapInstanceActive() {
 	if (!betterMapInstanceId) return true;
 	var inst = betterMapRegistry.instances && betterMapRegistry.instances[betterMapInstanceId];
-	return Boolean(inst && inst.reloadGeneration === betterMapReloadGeneration);
+	if (!inst) return false;
+	// Older CDN loaders register instances without reloadGeneration; treat them as active.
+	if (typeof inst.reloadGeneration !== "number") return true;
+	return inst.reloadGeneration === betterMapReloadGeneration;
 }
 
 // Function to check whether map operations are safe in the current SPA lifecycle...
