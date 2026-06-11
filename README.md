@@ -125,7 +125,7 @@ Below are details on the radar options available within the widget:
 Better Map Widget allows a way to represent connectivity between locations. Currently this only supports alert status of instances of the "SNMP_Network_Interfaces" datasource, any datasource with "VPN" in the name, and LM Uptime instances.
 
 To configure:
-1. Be sure you've loaded the required PropertySource mentioned in the Prerequisites section above.
+1. Be sure you've loaded the required PropertySource mentioned in the [Prerequisites](#prerequisites) section above.
 2. Go to the specific instance of one of either the 'SNMP_Network_Interfaces' datasource, a datasource with "VPN" in its name, or an LM Uptime ping/web check and add an instance-level property called 'custom_map_connection'. The value should be in the following format: `{Connection Title} > {Hostname/IP or display name of the connected resource}`
 
 For example: `London WAN > 192.168.1.10` would show a line titled "London WAN" representing alert status of this specific interface connected from that resource's location to the resource monitored as 192.168.1.10. A PropertySource - [Set Better Map Widget Connections](https://github.com/logicmonitor/custom_widgets/blob/main/LogicModules/Set_Better_Map_Widget_Connections.json) - automatically configures those instance-level properties as resource-level properties along with other necessary data for the widget to use.
