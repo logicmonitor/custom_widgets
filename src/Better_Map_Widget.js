@@ -28,7 +28,7 @@ var releaseNotes = `
 	</ul>
 	<h3>Version 3.58</h3>
 	<ul>
-		<li>Overlapping connection lines are now displayed as parallel lines with a specified curvature.</li>
+		<li>Overlapping connection lines are now displayed as parallel lines with a specified curvature. (Thank you ES & CH for your feedback!)</li>
 	</ul>
 	<h3>Version 3.57</h3>
 	<ul>
