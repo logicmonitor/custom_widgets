@@ -24,7 +24,7 @@ var releaseNotes = `
 		<li>Replaced use of some non-ASCII characters with their ASCII equivalents.</li>
 		<li>Changed some portions of code that LogicMonitor's HTML sanitizer kept breaking.</li>
 		<li>Added the ability to only show items with active connections. Changeable via a new dashboard token named &quot;MapOnlyShowConnectedItems&quot; set to either true or false (default is false).</li>
-		<li>Added ability to show/hide status lines between items on the map. Changeable via a new dashboard token named &quot;MapShowConnections&quot; set to either true or false (default is true).</li>
+		<li>Added ability to show/hide status lines between items on the map. Changeable via a new dashboard token named &quot;MapShowConnectingLines&quot; set to either true or false (default is true).</li>
 	</ul>
 	<h3>Version 3.58</h3>
 	<ul>
@@ -796,6 +796,7 @@ function applyPersistedMapOptionsFromCookie() {
 	if (typeof o.showCriticals === "boolean") showCriticals = o.showCriticals;
 	if (typeof o.showSDT === "boolean") showSDT = o.showSDT;
 	if (typeof o.showOnlyConnected === "boolean") showOnlyConnected = o.showOnlyConnected;
+	else if (typeof o.showConnected === "boolean") showOnlyConnected = o.showConnected;
 	if (typeof o.showConnections === "boolean") showConnections = o.showConnections;
 	if (typeof o.autoResetMapOnRefresh === "boolean") autoResetMapOnRefresh = o.autoResetMapOnRefresh;
 
@@ -1561,10 +1562,13 @@ function isConnectionInCurrentFilter(connection) {
 	);
 }
 
-// Function to collect device IDs that participate in at least one map connection...
-function buildConnectedDeviceIDs(items) {
-	const ids = new Set();
-	if (mapSourceType !== "resources") return ids;
+// Function to parse connection metadata from resource items into lineData and connectedDeviceIDs...
+function buildConnectionDataFromItems(items) {
+	const connectedDeviceIDs = new Set();
+	const newLineData = {};
+	if (mapSourceType !== "resources" || (!showOnlyConnected && !showConnections)) {
+		return { connectedDeviceIDs, lineData: newLineData };
+	}
 	items.forEach(thisItem => {
 		if (!thisItem.autoProperties) return;
 		const propArray = thisItem.autoProperties.filter(item => item.name == connectionInfoProp);
@@ -1572,12 +1576,32 @@ function buildConnectedDeviceIDs(items) {
 		const connectionItems = String(propArray[0].value).split(";");
 		connectionItems.forEach(thisConnection => {
 			const params = thisConnection.split(",").map(param => param.trim());
-			if (params.length < 4 || !params[3]) return;
-			ids.add(String(thisItem.id));
-			ids.add(String(params[3]));
+			if (params.length < 4 || !params[1] || !params[2] || !params[3]) {
+				if (thisConnection.trim() !== "") {
+					console.debug("Skipping malformed map connection data", {
+						deviceID: thisItem.id,
+						connectionData: thisConnection,
+					});
+				}
+				return;
+			}
+			if (showOnlyConnected) {
+				connectedDeviceIDs.add(String(thisItem.id));
+				connectedDeviceIDs.add(String(params[3]));
+			}
+			if (showConnections) {
+				const connection = {
+					connectionName: params[0] || "Connection",
+					datasourceID: params[1],
+					instanceID: params[2],
+					deviceIDSource: thisItem.id,
+					deviceIDConnected: params[3],
+				};
+				newLineData[`${connection.deviceIDSource}:${connection.deviceIDConnected}:${connection.datasourceID}:${connection.instanceID}`] = connection;
+			}
 		});
 	});
-	return ids;
+	return { connectedDeviceIDs, lineData: newLineData };
 }
 
 // Function to determine whether an item should be shown based on the connected filter...
@@ -1819,41 +1843,6 @@ var fullRefresh = true;
 
 // For holding our connection status data...
 var lineData = {};
-
-// Function to parse connection metadata from a resource item into lineData...
-function addConnectionsFromItem(thisItem) {
-	if (mapSourceType !== "resources" || !thisItem.autoProperties) return;
-
-	const propArray = thisItem.autoProperties.filter(item => item.name == connectionInfoProp);
-	if (propArray.length !== 1 || !propArray[0].value) return;
-
-	// Multiple connections to an endpoint can be specified by separating them with a semicolon.
-	const connectionItems = String(propArray[0].value).split(";");
-	connectionItems.forEach(thisConnection => {
-		const params = thisConnection.split(",").map(param => param.trim());
-		if (params.length < 4 || !params[1] || !params[2] || !params[3]) {
-			if (thisConnection.trim() !== "") {
-				console.debug("Skipping malformed map connection data", {
-					deviceID: thisItem.id,
-					connectionData: thisConnection,
-				});
-			}
-			return;
-		}
-
-		const connection = {
-			connectionName: params[0] || "Connection",
-			datasourceID: params[1],
-			instanceID: params[2],
-			deviceIDSource: thisItem.id,
-			deviceIDConnected: params[3],
-		};
-
-		// Include datasource and instance IDs so parallel links between
-		// the same two resources do not overwrite each other.
-		lineData[`${connection.deviceIDSource}:${connection.deviceIDConnected}:${connection.datasourceID}:${connection.instanceID}`] = connection;
-	});
-}
 
 // Pre-populate the group path filter field...
 _dom.customGroupFilterField.value = groupPathFilter;
@@ -3022,8 +3011,9 @@ async function refreshGroupData(timedRefresh = false) {
 
 		// For use in zooming the map to encompass all our markers on initial draw...
 		bounds = new google.maps.LatLngBounds();
-		lineData = {};
-		const connectedDeviceIDs = buildConnectedDeviceIDs(groupData);
+		const connectionData = buildConnectionDataFromItems(groupData);
+		lineData = connectionData.lineData;
+		const connectedDeviceIDs = connectionData.connectedDeviceIDs;
 
 		// Function called when all items have been processed...
 		async function onRefreshComplete() {
@@ -3056,22 +3046,18 @@ async function refreshGroupData(timedRefresh = false) {
 				}
 			}
 
-			if (mapSourceType == "resources") {
-				clearAllPolylines();
-				if (showConnections) {
-					assignParallelConnectionOffsets();
-					const connectionPromises = Object.values(lineData)
-						.filter(c => isConnectionInCurrentFilter(c))
-						.map(c => plotConnection(c, thisRefreshGeneration));
-					const connectionResults = await Promise.allSettled(connectionPromises);
-					const failedConnections = connectionResults.filter(result => result.status === "rejected");
-					if (failedConnections.length > 0) {
-						console.warn(`Failed to draw ${failedConnections.length} map connection line(s).`, failedConnections);
-					}
-					updatePolylineEndpoints();
+			clearAllPolylines();
+			if (mapSourceType == "resources" && showConnections) {
+				assignParallelConnectionOffsets();
+				const connectionPromises = Object.values(lineData)
+					.filter(c => isConnectionInCurrentFilter(c))
+					.map(c => plotConnection(c, thisRefreshGeneration));
+				const connectionResults = await Promise.allSettled(connectionPromises);
+				const failedConnections = connectionResults.filter(result => result.status === "rejected");
+				if (failedConnections.length > 0) {
+					console.warn(`Failed to draw ${failedConnections.length} map connection line(s).`, failedConnections);
 				}
-			} else {
-				clearAllPolylines();
+				updatePolylineEndpoints();
 			}
 
 			populateSidebar();
@@ -3108,8 +3094,6 @@ async function refreshGroupData(timedRefresh = false) {
 				if (itemsProcessed == totalGroups) onRefreshComplete();
 				return;
 			}
-
-			addConnectionsFromItem(thisItem);
 
 			// Differential update: update existing markers in-place instead of rebuilding
 			if (isDiffUpdate) {
