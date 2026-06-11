@@ -18,6 +18,7 @@ var releaseNotes = `
 		<li>Added the ability to use geodesic (great circle) connection lines instead of Mercator lines. This is useful for long-distance connections where the Mercator lines might take non-optimal paths. Changeable via a new dashboard token named "MapUseGeodesicLines" set to either true or false (default is true).</li>
 		<li>Replaced use of some non-ASCII characters with their ASCII equivalents.</li>
 		<li>Changed some portions of code that LogicMonitor's HTML sanitizer kept breaking.</li>
+		<li>Added the ability to only show items with active connections. Changeable via a new dashboard token named &quot;MapOnlyShowConnectedItems&quot; set to either true or false (default is false).</li>
 	</ul>
 	<h3>Version 3.58</h3>
 	<ul>
@@ -248,6 +249,7 @@ var showWarnings = getBetterMapGlobal("showWarnings", true);
 var showErrors = getBetterMapGlobal("showErrors", true);
 var showCriticals = getBetterMapGlobal("showCriticals", true);
 var showSDT = getBetterMapGlobal("showSDT", true);
+var showConnected = getBetterMapGlobal("showConnected", false);
 var groupPathFilter = getBetterMapGlobal("groupPathFilter", "*");
 var statusUpdateIntervalMinutes = getBetterMapGlobal("statusUpdateIntervalMinutes", 2);
 var disableClustering = getBetterMapGlobal("disableClustering", false);
@@ -313,6 +315,10 @@ betterMapRoot.innerHTML = `<!-- Create our options bar above the map... -->
 				<span class="sevFilterOption">
 					<input type="checkbox" id="showSDT" name="showSDT" value="showSDT" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide items in Scheduled Down Time (SDT)" />
 					<label for="showSDT"><div id="showSDTLabel" class="toolbarSevIcon">SDT</div></label>
+				</span>
+				<span class="sevFilterOption">
+					<input type="checkbox" id="showConnected" name="showConnected" value="showConnected" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="When checked, show only items with active connections">
+					<label for="showConnected"><div id="showConnectedLabel" class="toolbarSevIcon"><svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="Connected"><path d="M 12 28 Q 25 17 38 13" fill="none" stroke="#e0351b" stroke-width="3" stroke-linecap="round"/><path d="M 12 28 L 38 40" fill="none" stroke="#85c25d" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="28" r="5" fill="#85c25d"/><circle cx="38" cy="13" r="5" fill="#85c25d"/><circle cx="38" cy="40" r="5" fill="#85c25d"/></svg></div></label>
 				</span>
 			</span>
 
@@ -461,6 +467,11 @@ var ignoreSDTToken = getBetterMapElementById("ignoreSDTToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (isTruthyToken(ignoreSDTToken)) {
 	showSDT = false;
+}
+// Capture from token whether to only show items with active connections...
+var onlyShowConnectedTokenEl = getBetterMapElementById("onlyShowConnectedToken");
+if (onlyShowConnectedTokenEl && isTruthyToken(onlyShowConnectedTokenEl.innerText)) {
+	showConnected = true;
 }
 // Capture from token whether to show the map tilt/rotation controls...
 var showMapTiltControlsToken = getBetterMapElementById("showMapTiltControlsToken").innerText;
@@ -637,6 +648,7 @@ var __LMBMW_MAPOPTS_ELEMENT_TO_KEY = {
 	showErrors: "showErrors",
 	showCriticals: "showCriticals",
 	showSDT: "showSDT",
+	showConnected: "showConnected",
 	autoZoom: "autoResetMapOnRefresh",
 	weather: "weather",
 	weatherType: "weatherType",
@@ -763,6 +775,7 @@ function applyPersistedMapOptionsFromCookie() {
 	if (typeof o.showErrors === "boolean") showErrors = o.showErrors;
 	if (typeof o.showCriticals === "boolean") showCriticals = o.showCriticals;
 	if (typeof o.showSDT === "boolean") showSDT = o.showSDT;
+	if (typeof o.showConnected === "boolean") showConnected = o.showConnected;
 	if (typeof o.autoResetMapOnRefresh === "boolean") autoResetMapOnRefresh = o.autoResetMapOnRefresh;
 
 	if (o.markerStyle === "circles" || o.markerStyle === "pins") {
@@ -787,6 +800,7 @@ function applyPersistedMapOptionsFromCookie() {
 	_dom.showErrors.checked = showErrors;
 	_dom.showCriticals.checked = showCriticals;
 	_dom.showSDT.checked = showSDT;
+	_dom.showConnected.checked = showConnected;
 	_dom.autoZoom.checked = autoResetMapOnRefresh;
 	_dom.markerStyleSelect.value = markerStyle === "circles" ? "circles" : "pins";
 	_dom.customGroupFilterField.value = groupPathFilter;
@@ -1144,6 +1158,7 @@ var _dom = {
 	showErrors: getBetterMapElementById("showErrors"),
 	showCriticals: getBetterMapElementById("showCriticals"),
 	showSDT: getBetterMapElementById("showSDT"),
+	showConnected: getBetterMapElementById("showConnected"),
 	autoZoom: getBetterMapElementById("autoZoom"),
 	weather: getBetterMapElementById("weather"),
 	weatherType: getBetterMapElementById("weatherType"),
@@ -1159,6 +1174,7 @@ var _dom = {
 	showErrorsLabel: getBetterMapElementById("showErrorsLabel"),
 	showCriticalsLabel: getBetterMapElementById("showCriticalsLabel"),
 	showSDTLabel: getBetterMapElementById("showSDTLabel"),
+	showConnectedLabel: getBetterMapElementById("showConnectedLabel"),
 	sidebarArea: getBetterMapElementById("sidebarArea"),
 	sidebarResizeHandle: getBetterMapElementById("sidebarResizeHandle"),
 	weatherOptions: getBetterMapElementById("weatherOptions"),
@@ -1173,6 +1189,7 @@ _dom.showWarnings.checked = showWarnings;
 _dom.showErrors.checked = showErrors;
 _dom.showCriticals.checked = showCriticals;
 _dom.showSDT.checked = showSDT;
+_dom.showConnected.checked = showConnected;
 _dom.autoZoom.checked = autoResetMapOnRefresh;
 
 if (showWeatherDefault == "global") {
@@ -1515,6 +1532,31 @@ function isConnectionInCurrentFilter(connection) {
 		getMarkerByDeviceID(connection.deviceIDSource) &&
 		getMarkerByDeviceID(connection.deviceIDConnected)
 	);
+}
+
+// Function to collect device IDs that participate in at least one map connection...
+function buildConnectedDeviceIDs(items) {
+	const ids = new Set();
+	if (mapSourceType !== "resources") return ids;
+	items.forEach(thisItem => {
+		if (!thisItem.autoProperties) return;
+		const propArray = thisItem.autoProperties.filter(item => item.name == connectionInfoProp);
+		if (propArray.length !== 1 || !propArray[0].value) return;
+		const connectionItems = String(propArray[0].value).split(";");
+		connectionItems.forEach(thisConnection => {
+			const params = thisConnection.split(",").map(param => param.trim());
+			if (params.length < 4 || !params[3]) return;
+			ids.add(String(thisItem.id));
+			ids.add(String(params[3]));
+		});
+	});
+	return ids;
+}
+
+// Function to determine whether an item should be shown based on the connected filter...
+function passesConnectionFilter(itemId, connectedDeviceIDs) {
+	if (!showConnected) return true;
+	return connectedDeviceIDs.has(String(itemId));
 }
 
 // Function to clear all overlay data, listeners, and InfoWindows before loading a new overlay...
@@ -2728,6 +2770,7 @@ async function refreshGroupData(timedRefresh = false) {
 	showErrors = _dom.showErrors.checked;
 	showCriticals = _dom.showCriticals.checked;
 	showSDT = _dom.showSDT.checked;
+	showConnected = _dom.showConnected.checked;
 	// If the user unchecked all the severities it'd essentially query all severities, so re-check all the checkboxes if that happens...
 	if (!showCleared && !showWarnings && !showErrors && !showCriticals && !showSDT) {
 		_dom.showCleared.checked = true;
@@ -2950,6 +2993,7 @@ async function refreshGroupData(timedRefresh = false) {
 		// For use in zooming the map to encompass all our markers on initial draw...
 		bounds = new google.maps.LatLngBounds();
 		lineData = {};
+		const connectedDeviceIDs = buildConnectedDeviceIDs(groupData);
 
 		// Function called when all items have been processed...
 		async function onRefreshComplete() {
@@ -3017,6 +3061,22 @@ async function refreshGroupData(timedRefresh = false) {
 		await buildMarkersInBatches(groupData, (thisItem) => {
 			let groupID = thisItem.id;
 			const { severity: highestSeverity, sevIcon, pinBG, pinBorder, pinIndex } = parseSeverity(thisItem);
+
+			if (!passesConnectionFilter(thisItem.id, connectedDeviceIDs)) {
+				if (isDiffUpdate) {
+					const existingMarker = markersByDeviceID.get(thisItem.id);
+					if (existingMarker) {
+						existingMarker.setMap(null);
+						markers = markers.filter(m => m !== existingMarker);
+						markersByDeviceID.delete(thisItem.id);
+						markersAddedOrRemoved = true;
+					}
+				}
+				itemsProcessed++;
+				if (itemsProcessed == totalGroups) onRefreshComplete();
+				return;
+			}
+
 			addConnectionsFromItem(thisItem);
 
 			// Differential update: update existing markers in-place instead of rebuilding

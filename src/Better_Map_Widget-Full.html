@@ -36,6 +36,7 @@
 	* 'MapIgnoreErrors': If "true" then won't show items in "Error" status. Default is "false".
 	* 'MapIgnoreCriticals': If "true" then won't show items in "Critical" status. Default is "false".
 	* 'MapIgnoreSDT': If "true" then won't show items in "SDT" status. Default is "false".
+	* 'MapOnlyShowConnectedItems': If "true" then will only show items that participate in active map connections. Default is "false".
 	* 'AutoResetMapOnRefresh': If "true" then the map will automatically zoom to encompass all items on timed refreshes. Default is "false".
 	* 'MapShowTiltControls': If "true" then the tilt & rotation controls for the map will be shown. Default is "false".
 	* 'MapDisableClustering': If "true" then clustering of adjacent markers on the map will be disabled. Might be desirable if showing connections between locations since clustering might hide markers at certain zoom levels. Default is "false".
@@ -67,6 +68,7 @@
 			<li>Added the ability to use geodesic (great circle) connection lines instead of Mercator lines. This is useful for long-distance connections where the Mercator lines might take non-optimal paths. Changeable via a new dashboard token named "MapUseGeodesicLines" set to either true or false (default is true).</li>
 			<li>Replaced use of some non-ASCII characters with their ASCII equivalents.</li>
 			<li>Changed some portions of code that LogicMonitor's HTML sanitizer kept breaking.</li>
+			<li>Added the ability to only show items with active connections. Changeable via a new dashboard token named &quot;MapOnlyShowConnectedItems&quot; set to either true or false (default is false).</li>
 		</ul>
 		<h3>Version 3.58</h3>
 		<ul>
@@ -213,6 +215,7 @@
 	defaults.showErrors = true;
 	defaults.showCriticals = true;
 	defaults.showSDT = true;
+	defaults.showConnected = false;
 
 	// Capture if a group filter...
 	// You can set it here or in a dashboard token named "MapGroupPathFilter"...
@@ -1231,6 +1234,10 @@
 						<input type="checkbox" id="showSDT" name="showSDT" value="showSDT" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide items in Scheduled Down Time (SDT)" />
 						<label for="showSDT"><div id="showSDTLabel" class="toolbarSevIcon">SDT</div></label>
 					</span>
+					<span class="sevFilterOption">
+						<input type="checkbox" id="showConnected" name="showConnected" value="showConnected" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="When checked, show only items with active connections">
+						<label for="showConnected"><div id="showConnectedLabel" class="toolbarSevIcon"><svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="Connected"><path d="M 12 28 Q 25 17 38 13" fill="none" stroke="#e0351b" stroke-width="3" stroke-linecap="round"/><path d="M 12 28 L 38 40" fill="none" stroke="#85c25d" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="28" r="5" fill="#85c25d"/><circle cx="38" cy="13" r="5" fill="#85c25d"/><circle cx="38" cy="40" r="5" fill="#85c25d"/></svg></div></label>
+					</span>
 				</span>
 
 				<span data-title="Toggle visibility of additional options">
@@ -1452,6 +1459,7 @@ if (window.RProfiler) {
 	var showErrors = getBetterMapGlobal("showErrors", true);
 	var showCriticals = getBetterMapGlobal("showCriticals", true);
 	var showSDT = getBetterMapGlobal("showSDT", true);
+	var showConnected = getBetterMapGlobal("showConnected", false);
 	var groupPathFilter = getBetterMapGlobal("groupPathFilter", "*");
 	var statusUpdateIntervalMinutes = getBetterMapGlobal("statusUpdateIntervalMinutes", 2);
 	var disableClustering = getBetterMapGlobal("disableClustering", false);
@@ -1517,6 +1525,7 @@ if (window.RProfiler) {
 		showErrors: "showErrors",
 		showCriticals: "showCriticals",
 		showSDT: "showSDT",
+		showConnected: "showConnected",
 		autoZoom: "autoResetMapOnRefresh",
 		weather: "weather",
 		weatherType: "weatherType",
@@ -1643,6 +1652,7 @@ if (window.RProfiler) {
 		if (typeof o.showErrors === "boolean") showErrors = o.showErrors;
 		if (typeof o.showCriticals === "boolean") showCriticals = o.showCriticals;
 		if (typeof o.showSDT === "boolean") showSDT = o.showSDT;
+		if (typeof o.showConnected === "boolean") showConnected = o.showConnected;
 		if (typeof o.autoResetMapOnRefresh === "boolean") autoResetMapOnRefresh = o.autoResetMapOnRefresh;
 
 		if (o.markerStyle === "circles" || o.markerStyle === "pins") {
@@ -1667,6 +1677,7 @@ if (window.RProfiler) {
 		_dom.showErrors.checked = showErrors;
 		_dom.showCriticals.checked = showCriticals;
 		_dom.showSDT.checked = showSDT;
+		_dom.showConnected.checked = showConnected;
 		_dom.autoZoom.checked = autoResetMapOnRefresh;
 		_dom.markerStyleSelect.value = markerStyle === "circles" ? "circles" : "pins";
 		_dom.customGroupFilterField.value = groupPathFilter;
@@ -2108,6 +2119,11 @@ if (window.RProfiler) {
 	if (isTruthyToken(ignoreSDTToken)) {
 		showSDT = false;
 	}
+	// Capture from token whether to only show items with active connections...
+	let onlyShowConnectedToken = "##MapOnlyShowConnectedItems##";
+	if (isTruthyToken(onlyShowConnectedToken)) {
+		showConnected = true;
+	}
 	// Capture from token whether to show the map tilt/rotation controls...
 	let showMapTiltControlsToken = "##MapShowTiltControls##";
 	// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
@@ -2212,6 +2228,7 @@ if (window.RProfiler) {
 		showErrors: getBetterMapElementById("showErrors"),
 		showCriticals: getBetterMapElementById("showCriticals"),
 		showSDT: getBetterMapElementById("showSDT"),
+		showConnected: getBetterMapElementById("showConnected"),
 		autoZoom: getBetterMapElementById("autoZoom"),
 		weather: getBetterMapElementById("weather"),
 		weatherType: getBetterMapElementById("weatherType"),
@@ -2227,6 +2244,7 @@ if (window.RProfiler) {
 		showErrorsLabel: getBetterMapElementById("showErrorsLabel"),
 		showCriticalsLabel: getBetterMapElementById("showCriticalsLabel"),
 		showSDTLabel: getBetterMapElementById("showSDTLabel"),
+		showConnectedLabel: getBetterMapElementById("showConnectedLabel"),
 		sidebarArea: getBetterMapElementById("sidebarArea"),
 		sidebarResizeHandle: getBetterMapElementById("sidebarResizeHandle"),
 		weatherOptions: getBetterMapElementById("weatherOptions"),
@@ -2241,6 +2259,7 @@ if (window.RProfiler) {
 	_dom.showErrors.checked = showErrors;
 	_dom.showCriticals.checked = showCriticals;
 	_dom.showSDT.checked = showSDT;
+	_dom.showConnected.checked = showConnected;
 	_dom.autoZoom.checked = autoResetMapOnRefresh;
 
 	if (showWeatherDefault == "global") {
@@ -2575,6 +2594,31 @@ if (window.RProfiler) {
 		);
 	}
 
+	// Function to collect device IDs that participate in at least one map connection...
+	function buildConnectedDeviceIDs(items) {
+		const ids = new Set();
+		if (mapSourceType !== "resources") return ids;
+		items.forEach(thisItem => {
+			if (!thisItem.autoProperties) return;
+			const propArray = thisItem.autoProperties.filter(item => item.name == connectionInfoProp);
+			if (propArray.length !== 1 || !propArray[0].value) return;
+			const connectionItems = String(propArray[0].value).split(";");
+			connectionItems.forEach(thisConnection => {
+				const params = thisConnection.split(",").map(param => param.trim());
+				if (params.length < 4 || !params[3]) return;
+				ids.add(String(thisItem.id));
+				ids.add(String(params[3]));
+			});
+		});
+		return ids;
+	}
+
+	// Function to determine whether an item should be shown based on the connected filter...
+	function passesConnectionFilter(itemId, connectedDeviceIDs) {
+		if (!showConnected) return true;
+		return connectedDeviceIDs.has(String(itemId));
+	}
+
 	// Function to clear all overlay data, listeners, and InfoWindows before loading a new overlay...
 	function clearOverlayState() {
 		map.data.forEach(function(feature) {
@@ -2804,6 +2848,41 @@ if (window.RProfiler) {
 
 	// For holding our connection status data...
 	let lineData = {};
+
+	// Function to parse connection metadata from a resource item into lineData...
+	function addConnectionsFromItem(thisItem) {
+		if (mapSourceType !== "resources" || !thisItem.autoProperties) return;
+
+		const propArray = thisItem.autoProperties.filter(item => item.name == connectionInfoProp);
+		if (propArray.length !== 1 || !propArray[0].value) return;
+
+		// Multiple connections to an endpoint can be specified by separating them with a semicolon.
+		const connectionItems = String(propArray[0].value).split(";");
+		connectionItems.forEach(thisConnection => {
+			const params = thisConnection.split(",").map(param => param.trim());
+			if (params.length < 4 || !params[1] || !params[2] || !params[3]) {
+				if (thisConnection.trim() !== "") {
+					console.debug("Skipping malformed map connection data", {
+						deviceID: thisItem.id,
+						connectionData: thisConnection,
+					});
+				}
+				return;
+			}
+
+			const connection = {
+				connectionName: params[0] || "Connection",
+				datasourceID: params[1],
+				instanceID: params[2],
+				deviceIDSource: thisItem.id,
+				deviceIDConnected: params[3],
+			};
+
+			// Include datasource and instance IDs so parallel links between
+			// the same two resources do not overwrite each other.
+			lineData[`${connection.deviceIDSource}:${connection.deviceIDConnected}:${connection.datasourceID}:${connection.instanceID}`] = connection;
+		});
+	}
 
 	// Pre-populate the group path filter field...
 	_dom.customGroupFilterField.value = groupPathFilter;
@@ -3765,6 +3844,7 @@ if (window.RProfiler) {
 		showErrors = _dom.showErrors.checked;
 		showCriticals = _dom.showCriticals.checked;
 		showSDT = _dom.showSDT.checked;
+		showConnected = _dom.showConnected.checked;
 		// If the user unchecked all the severities it'd essentially query all severities, so re-check all the checkboxes if that happens...
 		if (!showCleared && !showWarnings && !showErrors && !showCriticals && !showSDT) {
 			_dom.showCleared.checked = true;
@@ -3986,6 +4066,8 @@ if (window.RProfiler) {
 
 			// For use in zooming the map to encompass all our markers on initial draw...
 			bounds = new google.maps.LatLngBounds();
+			lineData = {};
+			const connectedDeviceIDs = buildConnectedDeviceIDs(groupData);
 
 			// Function called when all items have been processed...
 			async function onRefreshComplete() {
@@ -4053,6 +4135,23 @@ if (window.RProfiler) {
 			await buildMarkersInBatches(groupData, (thisItem) => {
 				let groupID = thisItem.id;
 				const { severity: highestSeverity, sevIcon, pinBG, pinBorder, pinIndex } = parseSeverity(thisItem);
+
+				if (!passesConnectionFilter(thisItem.id, connectedDeviceIDs)) {
+					if (isDiffUpdate) {
+						const existingMarker = markersByDeviceID.get(thisItem.id);
+						if (existingMarker) {
+							existingMarker.setMap(null);
+							markers = markers.filter(m => m !== existingMarker);
+							markersByDeviceID.delete(thisItem.id);
+							markersAddedOrRemoved = true;
+						}
+					}
+					itemsProcessed++;
+					if (itemsProcessed == totalGroups) onRefreshComplete();
+					return;
+				}
+
+				addConnectionsFromItem(thisItem);
 
 				// Differential update: update existing markers in-place instead of rebuilding
 				if (isDiffUpdate) {
@@ -4176,35 +4275,6 @@ if (window.RProfiler) {
 							});
 							if (customContent != "") {
 								customContent = `<div class="customItemArea">${customContent}</div>`;
-							}
-						}
-
-
-						// Look to see if connecting line info has been provided...
-						if (thisItem.autoProperties) {
-							let propArray = thisItem.autoProperties.filter(item => item.name == connectionInfoProp);
-							if (propArray.length == 1) {
-								// Multiple connections to an endpoint can be specifed by separating them with a semicolon...
-								const connectionItems = propArray[0].value.split(";");
-
-								// Loop through the connections...
-								connectionItems.forEach(thisConnection => {
-									// Split the comma-separated parameters...
-									let params = thisConnection.split(",");
-
-									if (params.length > 0) {
-										let tmp = {};
-										tmp.connectionName = params[0].trim();
-										tmp.datasourceID = params[1].trim();
-										tmp.instanceID = params[2].trim();
-										tmp.deviceIDSource = thisItem.id;
-										tmp.deviceIDConnected = params[3].trim();
-										// TODO: Maybe add support for another parameter for the source device ID to support group connections.
-
-										lineData[`${tmp.deviceIDSource}${tmp.deviceIDConnected}`] = tmp;
-										// lineData[tmp.deviceIDSource + ":" + tmp.deviceIDConnected] = tmp;
-									}
-								});
 							}
 						}
 

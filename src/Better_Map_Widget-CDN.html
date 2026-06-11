@@ -40,6 +40,7 @@
 	* 'MapIgnoreErrors': If "true" then won't show items in "Error" status. Default is "false".
 	* 'MapIgnoreCriticals': If "true" then won't show items in "Critical" status. Default is "false".
 	* 'MapIgnoreSDT': If "true" then won't show items in "SDT" status. Default is "false".
+	* 'MapOnlyShowConnectedItems': If "true" then will only show items that participate in active map connections. Default is "false".
 	* 'AutoResetMapOnRefresh': If "true" then the map will automatically zoom to encompass all items on timed refreshes. Default is "false".
 	* 'MapShowTiltControls': If "true" then the tilt & rotation controls for the map will be shown. Default is "false".
 	* 'MapDisableClustering': If "true" then clustering of adjacent markers on the map will be disabled. Might be desirable if showing connections between locations since clustering might hide markers at certain zoom levels. Default is "false".
@@ -85,6 +86,7 @@
 	showErrors: true,
 	showCriticals: true,
 	showSDT: true,
+	showConnected: false,
 
 	// Capture if a group filter...
 	// You can set it here or in a dashboard token named "MapGroupPathFilter"...
@@ -202,6 +204,8 @@
 	<div id="ignoreErrorsToken">##MapIgnoreErrors##</div>
 	<div id="ignoreCriticalsToken">##MapIgnoreCriticals##</div>
 	<div id="ignoreSDTToken">##MapIgnoreSDT##</div>
+	<div id="onlyShowConnectedToken">##MapOnlyShowConnectedItems##</div>
+	
 	<div id="showMapTiltControlsToken">##MapShowTiltControls##</div>
 	<div id="autoResetMapOnRefreshToken">##AutoResetMapOnRefresh##</div>
 	<div id="dashboardGroupPathToken">##MapGroupPathFilter##</div>
