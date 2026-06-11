@@ -1,12 +1,18 @@
-### A collection of useful custom-scripted LogicMonitor dashboard widgets.
+## A collection of useful custom-scripted LogicMonitor dashboard widgets.
 
 **NOTE:** While this work is provided for use by the LogicMonitor community, they were created as personal projects and are *not* officially supported by LogicMonitor.
 
-#### Widgets
-
-- [Better Map Widget](#better-map-widget)
-- [Dynamic Dashboard List](#dynamic-dashboard-list)
-- [Dashboard Themer](#dashboard-themer)
+- ### [Better Map Widget](#better-map-widget)
+	- ["CDN" vs "Full" Version](#cdn-vs-full-version)
+ 	- [Prerequisites](#prerequisites)
+  	- [Initial Configuration](#initial-configuration)
+  	- [Usage](#usage)
+  	- [Customizing Better Map Widget](#customizing-better-map-widget)
+  	- [Weather Options](#weather-options)
+  	- [Showing Connections between Locations](#showing-connections-between-locations)
+- ### [Dynamic Dashboard List](#dynamic-dashboard-list)
+	- [Customizing Dynamic Dashboard List](#customizing-dynamic-dashboard-list)
+- ### [Dashboard Themer](#dashboard-themer)
 
 ---
 # Better Map Widget
@@ -68,7 +74,7 @@ Note that by default the zoom level of the map will _not_ auto-reset on refres
 
 Visibility of the toolbar along the top of the widget can be toggled using the button in the upper-left corner of the map.
 
-## Optional Customization
+## Customizing Better Map Widget
 
 Behavior of the widget can be customized using the following optional dashboard tokens:
 
@@ -134,7 +140,7 @@ This script was created in response to a customer needing a quick way to drill-d
 
 To use this, just add a Text widget to your dashboard and in the widget's configuration screen click the "source" view then paste in this code. You can also just clone this widget to another dashboard on the same portal.
 
-## Optional Customization
+## Customizing Dynamic Dashboard List
 
 Behavior of the widget can be customized using the following optional dashboard tokens:
 
