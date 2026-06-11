@@ -16,6 +16,7 @@ var releaseNotes = `
 	<h3>Version 3.59</h3>
 	<ul>
 		<li>Added the ability to use geodesic (great circle) connection lines instead of Mercator lines. This is useful for long-distance connections where the Mercator lines might take non-optimal paths. Changeable via a new dashboard token named "MapUseGeodesicLines" set to either true or false (default is true).</li>
+		<li>Replaced use of some non-ASCII characters with their ASCII equivalents.</li>
 	</ul>
 	<h3>Version 3.58</h3>
 	<ul>
@@ -1095,7 +1096,7 @@ async function LMClient({
 			throw error; // Throw the augmented error object
 		}
 	} catch (error) {
-		// Abort errors are intentional cancellations — rethrow silently
+			// Abort errors are intentional cancellations - rethrow silently
 		if (error.name === 'AbortError') throw error;
 
 		console.error('An error occurred in LMClient:', error.message || error);
@@ -1340,7 +1341,7 @@ function clearAllPolylines() {
 	polylines = [];
 }
 
-// Function to clamp connection-line curvature to a valid screen-pixel offset (0–120, default 18)...
+// Function to clamp connection-line curvature to a valid screen-pixel offset (0-120, default 18)...
 function normalizeConnectionCurvature(value) {
 	const parsed = Number(value);
 	if (!Number.isFinite(parsed)) return 18;
@@ -1348,7 +1349,7 @@ function normalizeConnectionCurvature(value) {
 }
 parallelConnectionCurvature = normalizeConnectionCurvature(parallelConnectionCurvature);
 
-// Function to build an unordered endpoint-pair key so A→B and B→A links group together...
+// Function to build an unordered endpoint-pair key so A->B and B->A links group together...
 function getConnectionEndpointPairKey(sourceID, targetID) {
 	const a = String(sourceID);
 	const b = String(targetID);
@@ -1941,7 +1942,7 @@ async function initMap() {
 
 			// Add close button
 			const closeBtn = document.createElement('div');
-			closeBtn.innerHTML = '×';
+				closeBtn.innerHTML = '&times;';
 			closeBtn.style.cssText = `
 				position: absolute;
 				top: 5px;
@@ -2962,7 +2963,7 @@ async function refreshGroupData(timedRefresh = false) {
 					if (itemsProcessed == totalGroups) onRefreshComplete();
 					return;
 				}
-				// Item not found in existing markers — fall through to create a new one
+				// Item not found in existing markers - fall through to create a new one
 				markersAddedOrRemoved = true;
 			}
 
@@ -3405,7 +3406,7 @@ function renderSidebarList() {
 		if (item.props && item.props.length > 0) {
 			propsHtml = `<div class="sidebar-item-props">${item.props.map(p => `<div class="sidebar-item-prop" title="${p.name}: ${p.value}"><span class="sidebar-item-prop-label">${p.name}:</span> ${p.value}</div>`).join("")}</div>`;
 		}
-		html += `<div class="sidebar-item" data-device-id="${item.id}" title="${item.name} — ${label}">
+		html += `<div class="sidebar-item" data-device-id="${item.id}" title="${item.name} - ${label}">
 			<span class="sidebar-dot" style="background-color:${color};"></span>
 			<span class="sidebar-item-content"><span class="sidebar-item-name">${item.name}</span>${propsHtml}</span>
 		</div>`;
@@ -4275,7 +4276,7 @@ async function addWeatherLayer() {
 					const outageCount = event.feature.getProperty('OutageCount') || 0;
 					const percentAffected = event.feature.getProperty('PercentAffected') || 0;
 
-					// Calculate donut chart values (circumference = 2 * π * 35 ≈ 219.91)...
+					// Calculate donut chart values (circumference = 2 * pi * 35 ~= 219.91)...
 					const circumference = 219.91;
 					const filledAmount = (percentAffected / 100) * circumference;
 					const donutChart = `
