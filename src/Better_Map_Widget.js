@@ -9,10 +9,14 @@
 // * Display more information when clicking a marker.
 
 // ------------------------------------------------------------
-var version = "3.58 CDN";
+var version = "3.59 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.59</h3>
+	<ul>
+		<li>Added the ability to use geodesic (great circle) connection lines instead of Mercator lines. This is useful for long-distance connections where the Mercator lines might take non-optimal paths. Changeable via a new dashboard token named "MapUseGeodesicLines" set to either true or false (default is true).</li>
+	</ul>
 	<h3>Version 3.58</h3>
 	<ul>
 		<li>Overlapping connection lines are now displayed as parallel lines with a specified curvature.</li>
@@ -249,7 +253,7 @@ var showRoadLabels = getBetterMapGlobal("showRoadLabels", "off");
 var displayProps = getBetterMapGlobal("displayProps", "");
 var connectionInfoProp = getBetterMapGlobal("connectionInfoProp", "auto.custom_map_connection_data");
 var connectingLineWeight = getBetterMapGlobal("connectingLineWeight", 3);
-var useGeodesicLines = getBetterMapGlobal("useGeodesicLines", false);
+var useGeodesicLines = getBetterMapGlobal("useGeodesicLines", true);
 var parallelConnectionCurvature = getBetterMapGlobal("parallelConnectionCurvature", 18);
 var openWeatherAPIKey = getBetterMapGlobal("openWeatherAPIKey", "");
 var xweatherAPIID = getBetterMapGlobal("xweatherAPIID", "");
@@ -548,8 +552,8 @@ if (connectionCurvatureToken != "##MapConnectionCurvature##" && connectionCurvat
 // Capture from token whether to use geodesic (great circle) connection lines...
 var useGeodesicLinesTokenEl = getBetterMapElementById("useGeodesicLinesToken");
 var useGeodesicLinesToken = useGeodesicLinesTokenEl ? useGeodesicLinesTokenEl.innerText : "";
-if (isTruthyToken(useGeodesicLinesToken)) {
-	useGeodesicLines = true;
+if (useGeodesicLinesToken != "##MapUseGeodesicLines##" && useGeodesicLinesToken.trim() !== "") {
+	useGeodesicLines = isTruthyToken(useGeodesicLinesToken);
 }
 
 // Capture from token whether to use a LogicMonitor API bearer token or API ID & key...
@@ -1380,14 +1384,23 @@ function assignParallelConnectionOffsets() {
 	});
 }
 
-// Function to build a curved LatLng path for a connection, offset in screen pixels for parallel links...
-function buildConnectionPath(sourcePos, targetPos, connection) {
+// Function to determine how far off-center a connection line should be curved...
+function getConnectionPathOffsetIndex(connection) {
 	let offsetIndex = Number(connection?.parallelOffsetIndex || 0);
 	if (!offsetIndex && Number(connection?.parallelConnectionCount || 0) <= 1 && parallelConnectionCurvature > 0) {
 		offsetIndex = 1;
 	}
-	if (!offsetIndex) return [sourcePos, targetPos];
+	return offsetIndex;
+}
 
+// Function to estimate ground meters per screen pixel at a latitude and zoom level...
+function getMetersPerPixel(latLng, zoom) {
+	const lat = typeof latLng.lat === "function" ? latLng.lat() : latLng.lat;
+	return 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
+}
+
+// Function to build a curved LatLng path for a connection, offset in screen pixels for parallel links...
+function buildMercatorConnectionPath(sourcePos, targetPos, connection, offsetIndex) {
 	const projection = map?.getProjection?.();
 	const zoom = map?.getZoom?.();
 	if (!projection || typeof zoom !== "number") return [sourcePos, targetPos];
@@ -1422,6 +1435,62 @@ function buildConnectionPath(sourcePos, targetPos, connection) {
 		path.push(projection.fromPointToLatLng(new google.maps.Point(x, y)));
 	}
 	return path;
+}
+
+// Function to build a curved great-circle path, offset perpendicular to the geodesic for parallel links...
+function buildGeodesicConnectionPath(sourcePos, targetPos, connection, offsetIndex) {
+	const spherical = google.maps.geometry?.spherical;
+	if (!spherical) return buildMercatorConnectionPath(sourcePos, targetPos, connection, offsetIndex);
+
+	const source = sourcePos instanceof google.maps.LatLng
+		? sourcePos
+		: new google.maps.LatLng(sourcePos.lat, sourcePos.lng);
+	const target = targetPos instanceof google.maps.LatLng
+		? targetPos
+		: new google.maps.LatLng(targetPos.lat, targetPos.lng);
+	if (!spherical.computeDistanceBetween(source, target)) return [sourcePos, targetPos];
+
+	const zoom = map?.getZoom?.();
+	if (typeof zoom !== "number") return [source, target];
+
+	const directionSign = getConnectionDirectionSign(connection.deviceIDSource, connection.deviceIDConnected);
+	const offsetPixels = offsetIndex * parallelConnectionCurvature * directionSign;
+	const midpoint = spherical.interpolate(source, target, 0.5);
+	const offsetMetersMax = offsetPixels * getMetersPerPixel(midpoint, zoom);
+	const headingEpsilon = 0.01;
+	const path = [];
+
+	for (let i = 0; i <= parallelConnectionCurveSteps; i++) {
+		const t = i / parallelConnectionCurveSteps;
+		const greatCirclePoint = spherical.interpolate(source, target, t);
+		// Match the Mercator Bezier by peaking offset at the midpoint and tapering to zero at endpoints.
+		const bulge = 4 * t * (1 - t);
+		const offsetMeters = offsetMetersMax * bulge;
+		if (!offsetMeters) {
+			path.push(greatCirclePoint);
+			continue;
+		}
+
+		const pointBefore = spherical.interpolate(source, target, Math.max(0, t - headingEpsilon));
+		const pointAfter = spherical.interpolate(source, target, Math.min(1, t + headingEpsilon));
+		let heading = spherical.computeHeading(pointBefore, pointAfter);
+		if (!Number.isFinite(heading)) {
+			heading = spherical.computeHeading(source, target);
+		}
+		const perpHeading = heading + (offsetMeters >= 0 ? 90 : -90);
+		path.push(spherical.computeOffset(greatCirclePoint, Math.abs(offsetMeters), perpHeading));
+	}
+	return path;
+}
+
+// Function to build a curved LatLng path for a connection...
+function buildConnectionPath(sourcePos, targetPos, connection) {
+	const offsetIndex = getConnectionPathOffsetIndex(connection);
+	if (!offsetIndex) return [sourcePos, targetPos];
+	if (useGeodesicLines) {
+		return buildGeodesicConnectionPath(sourcePos, targetPos, connection, offsetIndex);
+	}
+	return buildMercatorConnectionPath(sourcePos, targetPos, connection, offsetIndex);
 }
 
 function isConnectionInCurrentFilter(connection) {
@@ -1817,7 +1886,8 @@ async function initMap() {
 	// Load some libraries needed by Google Maps...
 	const { Map, RenderingType, InfoWindow } = await google.maps.importLibrary("maps");
 	const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
-	const {ColorScheme} = await google.maps.importLibrary("core");
+	const { ColorScheme } = await google.maps.importLibrary("core");
+	await google.maps.importLibrary("geometry");
 
 	// CustomInfoWindow class - allows positioning InfoWindows to left/right/top/bottom of a point
 	// Defined here after Google Maps API is loaded so google.maps.OverlayView is available

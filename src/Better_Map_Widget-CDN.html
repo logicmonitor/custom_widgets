@@ -1,6 +1,6 @@
 <!--
 	Better Map Widget
-	Version 1.25 - CDN Version
+	Version 1.26 - CDN Version
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
@@ -44,7 +44,7 @@
 	* 'MapShowTiltControls': If "true" then the tilt & rotation controls for the map will be shown. Default is "false".
 	* 'MapDisableClustering': If "true" then clustering of adjacent markers on the map will be disabled. Might be desirable if showing connections between locations since clustering might hide markers at certain zoom levels. Default is "false".
 	* 'MapConnectionCurvature': Screen-pixel offset used to separate parallel connection lines between the same endpoints. Set to 0 for straight lines. Default is 18.
-	* 'MapGeodesicLines': If "true" then connection lines follow the Earth's curvature (great circle) instead of straight Mercator lines. Default is "false".
+	* 'MapUseGeodesicLines': If "false" then connection lines are drawn as straight Mercator lines instead of great circles. Default is "true".
 	* 'MapDisplayProperties': An optional comma-delimited list of custom properties to show when viewing a group's/resource's details.
 	* 'MapStyle': Allows one of the following available map style options: "silver", "standard", "dark", "aubergine", "satellite", or "silverblue". Default is "silverblue".
 	* 'MapShowRoadLabels': If "true" then road labels will be shown on the map. Default is "false".
@@ -147,8 +147,8 @@
 	// Stroke weight of connecting lines...
 	connectingLineWeight: 3,
 	// Whether to use geodesic (great circle) lines when connecting two locations...
-	// You can set it here or in a dashboard token named "MapGeodesicLines"...
-	useGeodesicLines: false,
+	// You can set it here or in a dashboard token named "MapUseGeodesicLines"...
+	useGeodesicLines: true,
 
 	// OpenWeather API key (required for OpenWeather radar)...
 	// You can set it here or in a dashboard token named "OpenWeatherAPIKey"...
@@ -218,7 +218,7 @@
 	<div id="apiKeyToken">##apiKey##</div>
 	<div id="markerStyleToken">##MapMarkerStyle##</div>
 	<div id="connectionCurvatureToken">##MapConnectionCurvature##</div>
-	<div id="useGeodesicLinesToken">##MapGeodesicLines##</div>
+	<div id="useGeodesicLinesToken">##MapUseGeodesicLines##</div>
 </div>
 
 <!-- If used as an embedded widget outside a normal LM dashboard then trying to load Google's marker clustering script externally breaks due to XSS, so I'm embedding the entire script here. Normally we would load this from https://unpkg.com/@googlemaps/markerclusterer@2.6.2/dist/index.min.js.-->
