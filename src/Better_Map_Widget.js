@@ -6,16 +6,29 @@
 // * Adjacent pins get grouped/clustered together for a cleaner map display.
 // * Clusters use a donut chart to represent the severities of the grouped markers.
 // * Easy toggling of weather layers.
-// * Display more information when clicking a marker.
+// * Quick & easy filtering of what's displayed on the map.
+//
+// CODING CONSTRAINTS (LogicMonitor HTML sanitizer):
+// * Use plain ASCII only in widget source (printable 0x20-0x7E plus tab/newline).
+// * Do not use em dashes, en dashes, curly quotes, ellipsis, or other non-ASCII punctuation.
+// * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
 
 // ------------------------------------------------------------
-var version = "3.58 CDN";
+var version = "3.59 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.59</h3>
+	<ul>
+		<li>Added the ability to use geodesic (great circle) connection lines instead of Mercator lines. This is useful for long-distance connections where the Mercator lines might take non-optimal paths. Changeable via a new dashboard token named "MapUseGeodesicLines" set to either true or false (default is true).</li>
+		<li>Replaced use of some non-ASCII characters with their ASCII equivalents.</li>
+		<li>Changed some portions of code that LogicMonitor's HTML sanitizer kept breaking.</li>
+		<li>Added the ability to only show items with active connections. Changeable via a new dashboard token named &quot;MapOnlyShowConnectedItems&quot; set to either true or false (default is false).</li>
+		<li>Added ability to show/hide status lines between items on the map. Changeable via a new dashboard token named &quot;MapShowConnectingLines&quot; set to either true or false (default is true).</li>
+	</ul>
 	<h3>Version 3.58</h3>
 	<ul>
-		<li>Overlapping connection lines are now displayed as parallel lines with a specified curvature.</li>
+		<li>Overlapping connection lines are now displayed as parallel lines with a specified curvature. (Thank you ES & CH for your feedback!)</li>
 	</ul>
 	<h3>Version 3.57</h3>
 	<ul>
@@ -146,11 +159,26 @@ if (betterMapInstanceId && !betterMapRegistry.instances[betterMapInstanceId]) {
 	betterMapRegistry.instances[betterMapInstanceId] = betterMapInstance;
 }
 var betterMapDefaults = betterMapInstance.defaults || {};
+var betterMapReloadGeneration = betterMapInstance.reloadGeneration || 0;
 var betterMapRoot = ensureBetterMapRoot(betterMapInstance.root);
 var betterMapTokenRoot = betterMapInstance.tokenRoot || document;
 if (betterMapRoot && betterMapInstanceId) {
 	betterMapRoot.setAttribute("data-better-map-instance-id", betterMapInstanceId);
 	betterMapInstance.root = betterMapRoot;
+}
+
+// LogicMonitor is a single-page app, so saving a widget re-runs this script without
+// reloading the page or the Google Maps API. Tear down any stale instance still
+// registered against this widget root before rebuilding the DOM.
+if (betterMapRoot && betterMapRegistry.instances) {
+	Object.keys(betterMapRegistry.instances).forEach(function(id) {
+		if (id === betterMapInstanceId) return;
+		var staleInstance = betterMapRegistry.instances[id];
+		if (staleInstance && staleInstance.root === betterMapRoot && typeof staleInstance.cleanup === "function") {
+			staleInstance.cleanup();
+			delete betterMapRegistry.instances[id];
+		}
+	});
 }
 
 // Function to route inline actions to the correct widget instance...
@@ -227,6 +255,8 @@ var showWarnings = getBetterMapGlobal("showWarnings", true);
 var showErrors = getBetterMapGlobal("showErrors", true);
 var showCriticals = getBetterMapGlobal("showCriticals", true);
 var showSDT = getBetterMapGlobal("showSDT", true);
+var showOnlyConnected = getBetterMapGlobal("showOnlyConnected", false);
+var showConnections = getBetterMapGlobal("showConnections", true);
 var groupPathFilter = getBetterMapGlobal("groupPathFilter", "*");
 var statusUpdateIntervalMinutes = getBetterMapGlobal("statusUpdateIntervalMinutes", 2);
 var disableClustering = getBetterMapGlobal("disableClustering", false);
@@ -249,6 +279,7 @@ var showRoadLabels = getBetterMapGlobal("showRoadLabels", "off");
 var displayProps = getBetterMapGlobal("displayProps", "");
 var connectionInfoProp = getBetterMapGlobal("connectionInfoProp", "auto.custom_map_connection_data");
 var connectingLineWeight = getBetterMapGlobal("connectingLineWeight", 3);
+var useGeodesicLines = getBetterMapGlobal("useGeodesicLines", true);
 var parallelConnectionCurvature = getBetterMapGlobal("parallelConnectionCurvature", 18);
 var openWeatherAPIKey = getBetterMapGlobal("openWeatherAPIKey", "");
 var xweatherAPIID = getBetterMapGlobal("xweatherAPIID", "");
@@ -291,6 +322,14 @@ betterMapRoot.innerHTML = `<!-- Create our options bar above the map... -->
 				<span class="sevFilterOption">
 					<input type="checkbox" id="showSDT" name="showSDT" value="showSDT" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide items in Scheduled Down Time (SDT)" />
 					<label for="showSDT"><div id="showSDTLabel" class="toolbarSevIcon">SDT</div></label>
+				</span>
+				<span class="sevFilterOption">
+					<input type="checkbox" id="showConnections" name="showConnections" value="showConnections" checked="true" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide status lines">
+					<label for="showConnections"><div id="showConnectionsLabel" class="toolbarSevIcon">Connections</div></label>
+				</span>
+				<span class="sevFilterOption">
+					<input type="checkbox" id="showConnected" name="showConnected" value="showConnected" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="When checked, show only items with status lines">
+					<label for="showConnected"><div id="showConnectedLabel" class="toolbarSevIcon">Connected</div></label>
 				</span>
 			</span>
 
@@ -440,6 +479,19 @@ var ignoreSDTToken = getBetterMapElementById("ignoreSDTToken").innerText;
 if (isTruthyToken(ignoreSDTToken)) {
 	showSDT = false;
 }
+// Capture from token whether to only show items with active connections...
+var onlyShowConnectedTokenEl = getBetterMapElementById("onlyShowConnectedToken");
+if (onlyShowConnectedTokenEl && isTruthyToken(onlyShowConnectedTokenEl.innerText)) {
+	showOnlyConnected = true;
+}
+// Capture from token whether to show connecting lines between endpoints...
+var showConnectingLinesTokenEl = getBetterMapElementById("showConnectingLinesToken");
+if (showConnectingLinesTokenEl) {
+	var showConnectingLinesToken = showConnectingLinesTokenEl.innerText;
+	if (showConnectingLinesToken != "##MapShowConnectingLines##") {
+		showConnections = isTruthyToken(showConnectingLinesToken);
+	}
+}
 // Capture from token whether to show the map tilt/rotation controls...
 var showMapTiltControlsToken = getBetterMapElementById("showMapTiltControlsToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
@@ -544,6 +596,13 @@ if (connectionCurvatureToken != "##MapConnectionCurvature##" && connectionCurvat
 	parallelConnectionCurvature = connectionCurvatureToken;
 }
 
+// Capture from token whether to use geodesic (great circle) connection lines...
+var useGeodesicLinesTokenEl = getBetterMapElementById("useGeodesicLinesToken");
+var useGeodesicLinesToken = useGeodesicLinesTokenEl ? useGeodesicLinesTokenEl.innerText : "";
+if (useGeodesicLinesToken != "##MapUseGeodesicLines##" && useGeodesicLinesToken.trim() !== "") {
+	useGeodesicLines = isTruthyToken(useGeodesicLinesToken);
+}
+
 // Capture from token whether to use a LogicMonitor API bearer token or API ID & key...
 var apiBearerTokenToken = getBetterMapElementById("apiBearerTokenToken").innerText;
 var apiIDToken = getBetterMapElementById("apiIDToken").innerText;
@@ -566,7 +625,7 @@ var googleMapApiKey = parent.LMGlobalData.googleMapInfo.key.toString();
 
 // Skip bootstrap when Maps is already on the page (e.g. CDN widget reload during dev).
 if (typeof google === 'undefined' || !google.maps || typeof google.maps.importLibrary !== 'function') {
-	(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
+	(g=>{var h,a,k,s,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=(s=m.querySelector("script[nonce]"))&&s.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
 	({key: googleMapApiKey, v: "weekly"});
 }
 
@@ -608,6 +667,8 @@ var __LMBMW_MAPOPTS_ELEMENT_TO_KEY = {
 	showErrors: "showErrors",
 	showCriticals: "showCriticals",
 	showSDT: "showSDT",
+	showConnections: "showConnections",
+	showConnected: "showOnlyConnected",
 	autoZoom: "autoResetMapOnRefresh",
 	weather: "weather",
 	weatherType: "weatherType",
@@ -621,7 +682,7 @@ function getContainingWidgetId() {
 		const parentDoc = window.parent.document;
 		const iframe = Array.from(parentDoc.querySelectorAll("iframe"))
 			.find(frame => frame.contentWindow === window);
-		return iframe?.closest("[id]")?.id || null;
+		return (iframe && iframe.closest("[id]") && iframe.closest("[id]").id) || null;
 	} catch (e) {
 		return null;
 	}
@@ -734,6 +795,9 @@ function applyPersistedMapOptionsFromCookie() {
 	if (typeof o.showErrors === "boolean") showErrors = o.showErrors;
 	if (typeof o.showCriticals === "boolean") showCriticals = o.showCriticals;
 	if (typeof o.showSDT === "boolean") showSDT = o.showSDT;
+	if (typeof o.showOnlyConnected === "boolean") showOnlyConnected = o.showOnlyConnected;
+	else if (typeof o.showConnected === "boolean") showOnlyConnected = o.showConnected;
+	if (typeof o.showConnections === "boolean") showConnections = o.showConnections;
 	if (typeof o.autoResetMapOnRefresh === "boolean") autoResetMapOnRefresh = o.autoResetMapOnRefresh;
 
 	if (o.markerStyle === "circles" || o.markerStyle === "pins") {
@@ -758,6 +822,8 @@ function applyPersistedMapOptionsFromCookie() {
 	_dom.showErrors.checked = showErrors;
 	_dom.showCriticals.checked = showCriticals;
 	_dom.showSDT.checked = showSDT;
+	_dom.showConnections.checked = showConnections;
+	_dom.showOnlyConnected.checked = showOnlyConnected;
 	_dom.autoZoom.checked = autoResetMapOnRefresh;
 	_dom.markerStyleSelect.value = markerStyle === "circles" ? "circles" : "pins";
 	_dom.customGroupFilterField.value = groupPathFilter;
@@ -1083,7 +1149,7 @@ async function LMClient({
 			throw error; // Throw the augmented error object
 		}
 	} catch (error) {
-		// Abort errors are intentional cancellations — rethrow silently
+			// Abort errors are intentional cancellations - rethrow silently
 		if (error.name === 'AbortError') throw error;
 
 		console.error('An error occurred in LMClient:', error.message || error);
@@ -1115,6 +1181,8 @@ var _dom = {
 	showErrors: getBetterMapElementById("showErrors"),
 	showCriticals: getBetterMapElementById("showCriticals"),
 	showSDT: getBetterMapElementById("showSDT"),
+	showConnections: getBetterMapElementById("showConnections"),
+	showOnlyConnected: getBetterMapElementById("showConnected"),
 	autoZoom: getBetterMapElementById("autoZoom"),
 	weather: getBetterMapElementById("weather"),
 	weatherType: getBetterMapElementById("weatherType"),
@@ -1130,6 +1198,8 @@ var _dom = {
 	showErrorsLabel: getBetterMapElementById("showErrorsLabel"),
 	showCriticalsLabel: getBetterMapElementById("showCriticalsLabel"),
 	showSDTLabel: getBetterMapElementById("showSDTLabel"),
+	showConnectionsLabel: getBetterMapElementById("showConnectionsLabel"),
+	showConnectedLabel: getBetterMapElementById("showConnectedLabel"),
 	sidebarArea: getBetterMapElementById("sidebarArea"),
 	sidebarResizeHandle: getBetterMapElementById("sidebarResizeHandle"),
 	weatherOptions: getBetterMapElementById("weatherOptions"),
@@ -1144,6 +1214,8 @@ _dom.showWarnings.checked = showWarnings;
 _dom.showErrors.checked = showErrors;
 _dom.showCriticals.checked = showCriticals;
 _dom.showSDT.checked = showSDT;
+_dom.showConnections.checked = showConnections;
+_dom.showOnlyConnected.checked = showOnlyConnected;
 _dom.autoZoom.checked = autoResetMapOnRefresh;
 
 if (showWeatherDefault == "global") {
@@ -1205,6 +1277,8 @@ var errorIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" 
 var criticalIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024" data-tooltip="Critical"><path fill="#e0351b" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M827.077 590.769c-133.908-232.369-39.385-354.462-39.385-354.462s-173.292 43.323-157.538 157.538c-35.446-31.508-216.615-86.646-114.215-271.754v-3.938h-3.938c-3.938 0-55.138 23.631-94.523 74.831-39.385 47.262-110.277 106.338-63.015 240.246 31.508 74.831 39.385 94.523-39.385 157.538 3.938-15.754 11.815-51.2 0-78.769-27.569-63.015-78.769-78.769-78.769-78.769s43.323 66.954 0 118.154c-39.385 43.323-55.138 129.969-35.446 200.862 15.754 59.077 70.892 106.338 157.538 137.846-7.877-3.938 110.277 43.323 244.185 3.938 59.077-19.692 137.846-43.323 185.108-106.338 39.385-51.2 74.831-129.969 39.385-196.923v0 0z"></path> <path fill="#e0351b" d="M551.385 827.077h-78.769v-78.769h78.769v78.769zM551.385 708.923h-78.769v-275.692h78.769v275.692z"></path> </svg>';
 var clearedIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="No alerts"><path id="Shape" fill="#ffffff" fill-rule="evenodd" stroke="none" d="M 43 25 C 43 15.61116 35.164986 8 25.5 8 C 15.835016 8 8 15.61116 8 25 C 8 34.38884 15.835016 42 25.5 42 C 35.164986 42 43 34.38884 43 25 Z"/><path id="Path" fill="#85c25d" stroke="none" d="M 25.5 4 C 37.374119 4 47 13.625877 47 25.5 C 47 37.374123 37.374119 47 25.5 47 C 13.625877 47 4 37.374123 4 25.5 C 4 13.625877 13.625877 4 25.5 4 Z M 17.975 17.974998 C 15.881312 17.974998 14.103745 18.670809 12.642242 20.062449 C 11.18074 21.45409 10.45 23.269981 10.45 25.510181 C 10.45 27.736805 11.18074 29.545912 12.642242 30.937551 C 14.103745 32.329193 15.881312 33.025002 17.975 33.025002 C 20.068687 33.025002 21.842855 32.329193 23.297562 30.937551 C 24.752264 29.545912 25.479607 27.736805 25.479607 25.510181 C 25.479607 23.283558 24.752264 21.471062 23.297562 20.072632 C 21.842855 18.674204 20.068687 17.974998 17.975 17.974998 Z M 31.006098 18.280481 L 27.784012 18.280481 L 27.784012 32.719521 L 31.006098 32.719521 L 31.006098 28.850101 L 32.637535 27.037582 L 36.532589 32.719521 L 40.549999 32.719521 L 34.901154 24.532646 L 40.529606 18.280481 L 36.287876 18.280481 L 31.006098 24.34936 L 31.006098 18.280481 Z M 17.975 21.111265 C 19.089819 21.111265 20.061874 21.48802 20.891193 22.241541 C 21.72051 22.995064 22.135162 24.07781 22.135162 25.489815 C 22.135162 26.901821 21.72051 27.981174 20.891193 28.727909 C 20.061874 29.474642 19.089819 29.848003 17.975 29.848003 C 16.86018 29.848003 15.884727 29.474642 15.048611 28.727909 C 14.212496 27.981174 13.794444 26.901821 13.794444 25.489815 C 13.794444 24.07781 14.209096 22.998459 15.038414 22.251724 C 15.881327 21.491413 16.86018 21.111265 17.975 21.111265 Z"/></svg>';
 var sdtIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="SDT"><path id="Oval" fill="#00A1FE" fill-rule="evenodd" stroke="none" d="M 46 25 C 46 13.40202 36.59798 4 25 4 C 13.40202 4 4 13.40202 4 25 C 4 36.59798 13.40202 46 25 46 C 36.59798 46 46 36.59798 46 25 Z"/><g id="Group"><path id="Path" fill="#000000" fill-opacity="0.01" stroke="none" d="M 5 5 L 45 5 L 45 45 L 5 45 Z"/><path id="path1" fill="#ffffff" stroke="none" d="M 25 9.0625 C 16.19795 9.0625 9.0625 16.197948 9.0625 25 C 9.0625 33.801994 16.19795 40.9375 25 40.9375 C 33.801998 40.9375 40.9375 33.801994 40.9375 25 L 36.25 25 C 36.25 31.213245 31.213249 36.25 25 36.25 C 18.7868 36.25 13.75 31.213245 13.75 25 C 13.75 18.786802 18.7868 13.75 25 13.75 L 25 9.0625 Z"/><path id="path2" fill="#ffffff" stroke="none" d="M 33.75 12.5 C 33.75 13.880699 32.630753 15 31.25 15 C 29.869299 15 28.75 13.880699 28.75 12.5 C 28.75 11.119301 29.869299 10 31.25 10 C 32.630753 10 33.75 11.119301 33.75 12.5 Z"/><path id="path3" fill="#ffffff" stroke="none" d="M 40 18.75 C 40 20.130701 38.880753 21.25 37.5 21.25 C 36.119247 21.25 35 20.130701 35 18.75 C 35 17.369301 36.119247 16.25 37.5 16.25 C 38.880753 16.25 40 17.369301 40 18.75 Z"/><path id="path4" fill="#ffffff" fill-rule="evenodd" stroke="none" d="M 23.125 16.000004 L 26.880026 16.000004 L 26.880026 24.899998 L 33.125 28.647003 L 30.725 31.83075 L 23.125 27.066555 L 23.125 16.000004 Z"/></g></svg>';
+const connectedIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="Connected"><path d="M 12 28 Q 25 17 38 13" fill="none" stroke="#e0351b" stroke-width="3" stroke-linecap="round"/><path d="M 12 28 L 38 40" fill="none" stroke="#85c25d" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="28" r="7" fill="#85c25d"/><circle cx="38" cy="13" r="7" fill="#85c25d"/><circle cx="38" cy="40" r="7" fill="#85c25d"/></svg>';
+const showConnectionsIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="Show connections"><path d="M 12 28 Q 25 17 38 13" fill="none" stroke="#e0351b" stroke-width="4" stroke-linecap="round" stroke-dasharray="4 4"/><path d="M 12 28 L 38 40" fill="none" stroke="#85c25d" stroke-width="4" stroke-linecap="round" stroke-dasharray="4 4"/><circle cx="12" cy="28" r="5" fill="#85c25d" fill-opacity="0.5"/><circle cx="38" cy="13" r="5" fill="#85c25d" fill-opacity="0.5"/><circle cx="38" cy="40" r="5" fill="#85c25d" fill-opacity="0.5"/></svg>';
 // Animated throbber for when we're updating data...
 var loadingSpinner = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_VpEe{animation:spinner_vXu6 1.2s cubic-bezier(0.52,.6,.25,.99) infinite}.spinner_eahp{animation-delay:.4s}.spinner_f7Y2{animation-delay:.8s}@keyframes spinner_vXu6{0%{r:0;opacity:1}100%{r:11px;opacity:0}}</style><circle class="spinner_VpEe" cx="12" cy="12" r="0" fill="red"/><circle class="spinner_VpEe spinner_eahp" cx="12" cy="12" r="0" fill="red"/><circle class="spinner_VpEe spinner_f7Y2" cx="12" cy="12" r="0" fill="red"/></svg>';
 // Icons for toggling visiiblity of the top toolbar...
@@ -1328,7 +1402,7 @@ function clearAllPolylines() {
 	polylines = [];
 }
 
-// Function to clamp connection-line curvature to a valid screen-pixel offset (0–120, default 18)...
+// Function to clamp connection-line curvature to a valid screen-pixel offset (0-120, default 18)...
 function normalizeConnectionCurvature(value) {
 	const parsed = Number(value);
 	if (!Number.isFinite(parsed)) return 18;
@@ -1336,7 +1410,7 @@ function normalizeConnectionCurvature(value) {
 }
 parallelConnectionCurvature = normalizeConnectionCurvature(parallelConnectionCurvature);
 
-// Function to build an unordered endpoint-pair key so A→B and B→A links group together...
+// Function to build an unordered endpoint-pair key so A->B and B->A links group together...
 function getConnectionEndpointPairKey(sourceID, targetID) {
 	const a = String(sourceID);
 	const b = String(targetID);
@@ -1372,16 +1446,25 @@ function assignParallelConnectionOffsets() {
 	});
 }
 
-// Function to build a curved LatLng path for a connection, offset in screen pixels for parallel links...
-function buildConnectionPath(sourcePos, targetPos, connection) {
-	let offsetIndex = Number(connection?.parallelOffsetIndex || 0);
-	if (!offsetIndex && Number(connection?.parallelConnectionCount || 0) <= 1 && parallelConnectionCurvature > 0) {
+// Function to determine how far off-center a connection line should be curved...
+function getConnectionPathOffsetIndex(connection) {
+	let offsetIndex = Number((connection && connection.parallelOffsetIndex) || 0);
+	if (!offsetIndex && Number((connection && connection.parallelConnectionCount) || 0) <= 1 && parallelConnectionCurvature > 0) {
 		offsetIndex = 1;
 	}
-	if (!offsetIndex) return [sourcePos, targetPos];
+	return offsetIndex;
+}
 
-	const projection = map?.getProjection?.();
-	const zoom = map?.getZoom?.();
+// Function to estimate ground meters per screen pixel at a latitude and zoom level...
+function getMetersPerPixel(latLng, zoom) {
+	const lat = typeof latLng.lat === "function" ? latLng.lat() : latLng.lat;
+	return 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
+}
+
+// Function to build a curved LatLng path for a connection, offset in screen pixels for parallel links...
+function buildMercatorConnectionPath(sourcePos, targetPos, connection, offsetIndex) {
+	const projection = (map && map.getProjection && map.getProjection());
+	const zoom = (map && map.getZoom && map.getZoom());
 	if (!projection || typeof zoom !== "number") return [sourcePos, targetPos];
 
 	const sourcePoint = projection.fromLatLngToPoint(sourcePos);
@@ -1416,11 +1499,116 @@ function buildConnectionPath(sourcePos, targetPos, connection) {
 	return path;
 }
 
+// Function to build a curved great-circle path, offset perpendicular to the geodesic for parallel links...
+function buildGeodesicConnectionPath(sourcePos, targetPos, connection, offsetIndex) {
+	const spherical = (google.maps.geometry && google.maps.geometry.spherical);
+	if (!spherical) return buildMercatorConnectionPath(sourcePos, targetPos, connection, offsetIndex);
+
+	const source = sourcePos instanceof google.maps.LatLng
+		? sourcePos
+		: new google.maps.LatLng(sourcePos.lat, sourcePos.lng);
+	const target = targetPos instanceof google.maps.LatLng
+		? targetPos
+		: new google.maps.LatLng(targetPos.lat, targetPos.lng);
+	if (!spherical.computeDistanceBetween(source, target)) return [sourcePos, targetPos];
+
+	const zoom = (map && map.getZoom && map.getZoom());
+	if (typeof zoom !== "number") return [source, target];
+
+	const directionSign = getConnectionDirectionSign(connection.deviceIDSource, connection.deviceIDConnected);
+	const offsetPixels = offsetIndex * parallelConnectionCurvature * directionSign;
+	const midpoint = spherical.interpolate(source, target, 0.5);
+	const offsetMetersMax = offsetPixels * getMetersPerPixel(midpoint, zoom);
+	const headingEpsilon = 0.01;
+	const path = [];
+
+	for (let i = 0; i <= parallelConnectionCurveSteps; i++) {
+		const t = i / parallelConnectionCurveSteps;
+		const greatCirclePoint = spherical.interpolate(source, target, t);
+		// Match the Mercator Bezier by peaking offset at the midpoint and tapering to zero at endpoints.
+		const bulge = 4 * t * (1 - t);
+		const offsetMeters = offsetMetersMax * bulge;
+		if (!offsetMeters) {
+			path.push(greatCirclePoint);
+			continue;
+		}
+
+		const pointBefore = spherical.interpolate(source, target, Math.max(0, t - headingEpsilon));
+		const pointAfter = spherical.interpolate(source, target, Math.min(1, t + headingEpsilon));
+		let heading = spherical.computeHeading(pointBefore, pointAfter);
+		if (!Number.isFinite(heading)) {
+			heading = spherical.computeHeading(source, target);
+		}
+		const perpHeading = heading + (offsetMeters >= 0 ? 90 : -90);
+		path.push(spherical.computeOffset(greatCirclePoint, Math.abs(offsetMeters), perpHeading));
+	}
+	return path;
+}
+
+// Function to build a curved LatLng path for a connection...
+// TY ES & CH for your feedback!
+function buildConnectionPath(sourcePos, targetPos, connection) {
+	const offsetIndex = getConnectionPathOffsetIndex(connection);
+	if (!offsetIndex) return [sourcePos, targetPos];
+	if (useGeodesicLines) {
+		return buildGeodesicConnectionPath(sourcePos, targetPos, connection, offsetIndex);
+	}
+	return buildMercatorConnectionPath(sourcePos, targetPos, connection, offsetIndex);
+}
+
 function isConnectionInCurrentFilter(connection) {
 	return Boolean(
 		getMarkerByDeviceID(connection.deviceIDSource) &&
 		getMarkerByDeviceID(connection.deviceIDConnected)
 	);
+}
+
+// Function to parse connection metadata from resource items into lineData and connectedDeviceIDs...
+function buildConnectionDataFromItems(items) {
+	const connectedDeviceIDs = new Set();
+	const newLineData = {};
+	if (mapSourceType !== "resources" || (!showOnlyConnected && !showConnections)) {
+		return { connectedDeviceIDs, lineData: newLineData };
+	}
+	items.forEach(thisItem => {
+		if (!thisItem.autoProperties) return;
+		const propArray = thisItem.autoProperties.filter(item => item.name == connectionInfoProp);
+		if (propArray.length !== 1 || !propArray[0].value) return;
+		const connectionItems = String(propArray[0].value).split(";");
+		connectionItems.forEach(thisConnection => {
+			const params = thisConnection.split(",").map(param => param.trim());
+			if (params.length < 4 || !params[1] || !params[2] || !params[3]) {
+				if (thisConnection.trim() !== "") {
+					console.debug("Skipping malformed map connection data", {
+						deviceID: thisItem.id,
+						connectionData: thisConnection,
+					});
+				}
+				return;
+			}
+			if (showOnlyConnected) {
+				connectedDeviceIDs.add(String(thisItem.id));
+				connectedDeviceIDs.add(String(params[3]));
+			}
+			if (showConnections) {
+				const connection = {
+					connectionName: params[0] || "Connection",
+					datasourceID: params[1],
+					instanceID: params[2],
+					deviceIDSource: thisItem.id,
+					deviceIDConnected: params[3],
+				};
+				newLineData[`${connection.deviceIDSource}:${connection.deviceIDConnected}:${connection.datasourceID}:${connection.instanceID}`] = connection;
+			}
+		});
+	});
+	return { connectedDeviceIDs, lineData: newLineData };
+}
+
+// Function to determine whether an item should be shown based on the connected filter...
+function passesConnectionFilter(itemId, connectedDeviceIDs) {
+	if (!showOnlyConnected) return true;
+	return connectedDeviceIDs.has(String(itemId));
 }
 
 // Function to clear all overlay data, listeners, and InfoWindows before loading a new overlay...
@@ -1447,7 +1635,7 @@ function closeAllInfoWindows(opts) {
 	if (clusterInfoWindow) {
 		clusterInfoWindow.close();
 	}
-	if (!opts?.skipMarker && markerInfoWindow) {
+	if (!(opts && opts.skipMarker) && markerInfoWindow) {
 		markerInfoWindow.close();
 		markerInfoWindow = null;
 	}
@@ -1657,41 +1845,6 @@ var fullRefresh = true;
 // For holding our connection status data...
 var lineData = {};
 
-// Function to parse connection metadata from a resource item into lineData...
-function addConnectionsFromItem(thisItem) {
-	if (mapSourceType !== "resources" || !thisItem.autoProperties) return;
-
-	const propArray = thisItem.autoProperties.filter(item => item.name == connectionInfoProp);
-	if (propArray.length !== 1 || !propArray[0].value) return;
-
-	// Multiple connections to an endpoint can be specified by separating them with a semicolon.
-	const connectionItems = String(propArray[0].value).split(";");
-	connectionItems.forEach(thisConnection => {
-		const params = thisConnection.split(",").map(param => param.trim());
-		if (params.length < 4 || !params[1] || !params[2] || !params[3]) {
-			if (thisConnection.trim() !== "") {
-				console.debug("Skipping malformed map connection data", {
-					deviceID: thisItem.id,
-					connectionData: thisConnection,
-				});
-			}
-			return;
-		}
-
-		const connection = {
-			connectionName: params[0] || "Connection",
-			datasourceID: params[1],
-			instanceID: params[2],
-			deviceIDSource: thisItem.id,
-			deviceIDConnected: params[3],
-		};
-
-		// Include datasource and instance IDs so parallel links between
-		// the same two resources do not overwrite each other.
-		lineData[`${connection.deviceIDSource}:${connection.deviceIDConnected}:${connection.datasourceID}:${connection.instanceID}`] = connection;
-	});
-}
-
 // Pre-populate the group path filter field...
 _dom.customGroupFilterField.value = groupPathFilter;
 
@@ -1708,6 +1861,8 @@ _dom.showWarningsLabel.innerHTML = warningIcon;
 _dom.showErrorsLabel.innerHTML = errorIcon;
 _dom.showCriticalsLabel.innerHTML = criticalIcon;
 _dom.showSDTLabel.innerHTML = sdtIcon;
+_dom.showConnectionsLabel.innerHTML = showConnectionsIcon;
+_dom.showConnectedLabel.innerHTML = connectedIcon;
 
 // Placeholder for marker cluster info...
 var clusterInfoWindow = null;
@@ -1716,12 +1871,59 @@ var markerInfoWindow = null;
 // Track map initialization state...
 var mapInitialized = false;
 var _mapInitializing = false;
+var _mapInitRetryTimeout = null;
 var initAttempts = 0;
 var MAX_INIT_ATTEMPTS = 10;
+
+// Function to check whether this script execution is still the active widget instance...
+function isBetterMapInstanceActive() {
+	if (!betterMapInstanceId) return true;
+	var inst = betterMapRegistry.instances && betterMapRegistry.instances[betterMapInstanceId];
+	return Boolean(inst && inst.reloadGeneration === betterMapReloadGeneration);
+}
+
+// Function to check whether map operations are safe in the current SPA lifecycle...
+function isMapReady() {
+	return Boolean(map && isBetterMapInstanceActive());
+}
+
+// Function to cancel pending map initialization retries...
+function cancelPendingMapInitialization() {
+	if (_mapInitRetryTimeout) {
+		clearTimeout(_mapInitRetryTimeout);
+		_mapInitRetryTimeout = null;
+	}
+	_mapInitializing = false;
+}
+
+// Function to tear down the Google Map instance before a widget reload...
+function destroyMapInstance() {
+	if (map) {
+		try {
+			google.maps.event.clearInstanceListeners(map);
+		} catch (error) {}
+		map = null;
+	}
+	mapInitialized = false;
+	initAttempts = 0;
+}
+
+// Function to nudge Google Maps to recalculate its size after the widget DOM is rebuilt...
+function scheduleMapResize() {
+	if (!map) return;
+	const trigger = () => {
+		if (map) google.maps.event.trigger(map, "resize");
+	};
+	trigger();
+	requestAnimationFrame(trigger);
+	setTimeout(trigger, 100);
+	setTimeout(trigger, 500);
+}
 
 // Function to initialize the map once Google Maps is available...
 async function ensureMapInitialized() {
 	if (mapInitialized || _mapInitializing) return;
+	if (!isBetterMapInstanceActive()) return;
 	_mapInitializing = true;
 
 	initAttempts++;
@@ -1747,12 +1949,21 @@ async function ensureMapInitialized() {
 
 		// All checks passed - initialize the map...
 		await initMap();
+		if (!isBetterMapInstanceActive()) {
+			_mapInitializing = false;
+			return;
+		}
 		mapInitialized = true;
+		_mapInitializing = false;
 		if (typeof _visibilityObserver !== 'undefined') _visibilityObserver.disconnect();
 		if (typeof _focusHandler !== 'undefined') window.removeEventListener('focus', _focusHandler);
 		console.log('Map initialized successfully');
 
 	} catch (error) {
+		if (!isBetterMapInstanceActive()) {
+			_mapInitializing = false;
+			return;
+		}
 		_mapInitializing = false;
 		console.warn(`Map init attempt ${initAttempts} failed:`, error.message);
 
@@ -1760,7 +1971,7 @@ async function ensureMapInitialized() {
 			// Exponential backoff: 100ms, 200ms, 400ms, etc. up to 2 seconds...
 			const delay = Math.min(100 * Math.pow(2, initAttempts - 1), 2000);
 			console.log(`Retrying in ${delay}ms...`);
-			setTimeout(ensureMapInitialized, delay);
+			_mapInitRetryTimeout = setTimeout(ensureMapInitialized, delay);
 		} else {
 			console.error('Max initialization attempts reached. Map failed to initialize.');
 		}
@@ -1809,7 +2020,8 @@ async function initMap() {
 	// Load some libraries needed by Google Maps...
 	const { Map, RenderingType, InfoWindow } = await google.maps.importLibrary("maps");
 	const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
-	const {ColorScheme} = await google.maps.importLibrary("core");
+	const { ColorScheme } = await google.maps.importLibrary("core");
+	await google.maps.importLibrary("geometry");
 
 	// CustomInfoWindow class - allows positioning InfoWindows to left/right/top/bottom of a point
 	// Defined here after Google Maps API is loaded so google.maps.OverlayView is available
@@ -1863,7 +2075,7 @@ async function initMap() {
 
 			// Add close button
 			const closeBtn = document.createElement('div');
-			closeBtn.innerHTML = '×';
+				closeBtn.innerHTML = '&times;';
 			closeBtn.style.cssText = `
 				position: absolute;
 				top: 5px;
@@ -2125,7 +2337,7 @@ async function initMap() {
 		tilt: mapTilt,
 		heading: mapHeading,
 		gestureHandling: mapGestureHandling,
-		renderingType: RenderingType.VECTOR,
+		renderingType: showMapTiltControls ? RenderingType.VECTOR : RenderingType.RASTER,
 		isFractionalZoomEnabled: true,
 		minZoom: 2,
 		clickableIcons: false,
@@ -2250,6 +2462,8 @@ async function initMap() {
 			console.log("Map data refreshed.");
 		}, statusUpdateIntervalMinutes*1000*60);
 	}
+
+	scheduleMapResize();
 }
 
 // Function for creating & styling the map button for toggling the options bar...
@@ -2575,6 +2789,8 @@ async function refreshGroupData(timedRefresh = false) {
 	showErrors = _dom.showErrors.checked;
 	showCriticals = _dom.showCriticals.checked;
 	showSDT = _dom.showSDT.checked;
+	showConnections = _dom.showConnections.checked;
+	showOnlyConnected = _dom.showOnlyConnected.checked;
 	// If the user unchecked all the severities it'd essentially query all severities, so re-check all the checkboxes if that happens...
 	if (!showCleared && !showWarnings && !showErrors && !showCriticals && !showSDT) {
 		_dom.showCleared.checked = true;
@@ -2687,6 +2903,7 @@ async function refreshGroupData(timedRefresh = false) {
 
 		if (primaryResult.total === 0) {
 			console.debug('No results found');
+			if (!isBetterMapInstanceActive() || refreshSignal.aborted) return;
 			_dom.refreshStatusArea.innerHTML = "<span class='noResultMessage'>No results</span>";
 			_dom.mapOptionsArea.classList.remove("disabled");
 			if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
@@ -2753,6 +2970,7 @@ async function refreshGroupData(timedRefresh = false) {
 
 	// If we've finished fetching all the group/resource data...
 	if (totalGroups > 0 && offset == totalGroups) {
+		if (!isBetterMapInstanceActive() || refreshSignal.aborted) return;
 		// console.debug('Total groups processed: ' + totalGroups);
 		// Reset our progress indicator...
 		_dom.refreshStatusArea.innerHTML = "";
@@ -2794,10 +3012,13 @@ async function refreshGroupData(timedRefresh = false) {
 
 		// For use in zooming the map to encompass all our markers on initial draw...
 		bounds = new google.maps.LatLngBounds();
-		lineData = {};
+		const connectionData = buildConnectionDataFromItems(groupData);
+		lineData = connectionData.lineData;
+		const connectedDeviceIDs = connectionData.connectedDeviceIDs;
 
 		// Function called when all items have been processed...
 		async function onRefreshComplete() {
+			if (!isBetterMapInstanceActive() || refreshSignal.aborted || !map) return;
 			if (!centerCalculated || (timedRefresh && autoResetMapOnRefresh)) {
 				resetZoom();
 				centerCalculated = true;
@@ -2826,8 +3047,8 @@ async function refreshGroupData(timedRefresh = false) {
 				}
 			}
 
-			if (mapSourceType == "resources") {
-				clearAllPolylines();
+			clearAllPolylines();
+			if (mapSourceType == "resources" && showConnections) {
 				assignParallelConnectionOffsets();
 				const connectionPromises = Object.values(lineData)
 					.filter(c => isConnectionInCurrentFilter(c))
@@ -2838,8 +3059,6 @@ async function refreshGroupData(timedRefresh = false) {
 					console.warn(`Failed to draw ${failedConnections.length} map connection line(s).`, failedConnections);
 				}
 				updatePolylineEndpoints();
-			} else {
-				clearAllPolylines();
 			}
 
 			populateSidebar();
@@ -2861,7 +3080,21 @@ async function refreshGroupData(timedRefresh = false) {
 		await buildMarkersInBatches(groupData, (thisItem) => {
 			let groupID = thisItem.id;
 			const { severity: highestSeverity, sevIcon, pinBG, pinBorder, pinIndex } = parseSeverity(thisItem);
-			addConnectionsFromItem(thisItem);
+
+			if (!passesConnectionFilter(thisItem.id, connectedDeviceIDs)) {
+				if (isDiffUpdate) {
+					const existingMarker = markersByDeviceID.get(thisItem.id);
+					if (existingMarker) {
+						existingMarker.setMap(null);
+						markers = markers.filter(m => m !== existingMarker);
+						markersByDeviceID.delete(thisItem.id);
+						markersAddedOrRemoved = true;
+					}
+				}
+				itemsProcessed++;
+				if (itemsProcessed == totalGroups) onRefreshComplete();
+				return;
+			}
 
 			// Differential update: update existing markers in-place instead of rebuilding
 			if (isDiffUpdate) {
@@ -2870,7 +3103,7 @@ async function refreshGroupData(timedRefresh = false) {
 					bounds.extend(existingMarker.position);
 
 					// Update severity if changed
-					if (String(pinIndex) !== existingMarker.content?.dataset?.severity) {
+					if (String(pinIndex) !== (existingMarker.content && existingMarker.content.dataset && existingMarker.content.dataset.severity)) {
 						existingMarker.content.dataset.severity = String(pinIndex);
 						existingMarker.zIndex = pinIndex;
 						const iconDiv = existingMarker.content.querySelector('.icon');
@@ -2884,7 +3117,7 @@ async function refreshGroupData(timedRefresh = false) {
 					if (itemsProcessed == totalGroups) onRefreshComplete();
 					return;
 				}
-				// Item not found in existing markers — fall through to create a new one
+				// Item not found in existing markers - fall through to create a new one
 				markersAddedOrRemoved = true;
 			}
 
@@ -3175,6 +3408,7 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 	// Plot the line on the map...
 	const thisPath = new google.maps.Polyline({
 		path: tmpCoords,
+		geodesic: useGeodesicLines,
 		strokeColor: connectionColor,
 		strokeOpacity: 1.0,
 		strokeWeight: connectingLineWeight,
@@ -3187,6 +3421,7 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 		sourceDeviceID: connection.deviceIDSource,
 		targetDeviceID: connection.deviceIDConnected,
 		connection: connection,
+		originalCoords: [sourcePos, targetPos],
 	});
 
 	// Show connection info on hover...
@@ -3252,6 +3487,82 @@ if (typeof sidebarDefaultWidth === 'undefined') { sidebarDefaultWidth = 300; }
 var sidebarSortMode = "severity";
 var sidebarItems = [];
 
+// LogicMonitor's widget sanitizer breaks nested template literals and ternary HTML fragments.
+function buildSidebarPropsHtml(props) {
+	if (!props || !props.length) return "";
+	var inner = props.map(function(p) {
+		var title = (p.name + ": " + p.value).replace(/"/g, "&quot;");
+		return '\x3cdiv class="sidebar-item-prop" title="' + title + '"\x3e' +
+			'\x3cspan class="sidebar-item-prop-label"\x3e' + p.name + ':\x3c/span\x3e ' + p.value +
+			'\x3c/div\x3e';
+	}).join("");
+	return '\x3cdiv class="sidebar-item-props"\x3e' + inner + '\x3c/div\x3e';
+}
+
+function buildClusterDeviceRowHtml(device) {
+	return '\x3cdiv style="display: flex; align-items: center; padding: 4px 8px; background: color-mix(in srgb, var(--' + device.status + '-color) 10%, white 30%); border-radius: 4px; gap: 8px; max-height: 25px;"\x3e' +
+		'\x3cdiv style="width: 8px; height: 8px; border-radius: 50%; background: var(--' + device.status + '-color); flex-shrink: 0;"\x3e\x3c/div\x3e' +
+		'\x3ca href="' + device.link + '" target="_blank" style="color: #1a73e8; text-decoration: none; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'"\x3e' +
+			device.name + device.sdtStatus +
+		'\x3c/a\x3e' +
+		'\x3cdiv style="display: flex; align-items: center;"\x3e' +
+			'\x3ca href="' + device.link + '" target="_blank" style="color: #1a73e8; display: flex; align-items: center; padding: 2px; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background=\'#e8f0fe\'" onmouseout="this.style.background=\'transparent\'"\x3e' +
+				'\x3csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"\x3e' +
+					'\x3cpath d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/\x3e' +
+					'\x3cpolyline points="15 3 21 3 21 9"/\x3e' +
+					'\x3cline x1="10" y1="14" x2="21" y2="3"/\x3e' +
+				'\x3c/svg\x3e' +
+			'\x3c/a\x3e' +
+		'\x3c/div\x3e' +
+	'\x3c/div\x3e';
+}
+
+function buildWildfireHighlightBlock(highlightValueHtml, highlightUnitHtml) {
+	if (!highlightValueHtml) return "";
+	var unitLine = highlightUnitHtml
+		? '\x3cdiv style="font-size:12px;color:#666;margin-top:2px;"\x3e' + highlightUnitHtml + '\x3c/div\x3e'
+		: "";
+	return '\x3cdiv style="text-align:center;margin:12px 0;padding:12px 8px;background:#fff5f5;border-radius:6px;"\x3e' +
+		'\x3cdiv style="font-size:22px;font-weight:700;color:#b91c1c;line-height:1.2;"\x3e' + highlightValueHtml + '\x3c/div\x3e' +
+		unitLine +
+	'\x3c/div\x3e';
+}
+
+function buildTsunamiWarningBannerHtml(tsunamiWarningHtml) {
+	var svg = '\x3csvg width="35px" height="35px" viewBox="0 0 60.601004 60.601004" xmlns="http://www.w3.org/2000/svg"\x3e' +
+		'\x3cpath d="m 57.316128,56.958628 c 1.125,0 2.225,-0.5825 2.825,-1.63125 0.6125,-1.04625 0.5625,-2.28875 0,-3.265 L 33.128628,5.2773777 c -0.5625,-0.97375 -1.6125,-1.635 -2.8375,-1.635 -1.2,0.0025 -2.25,0.66125 -2.8125,1.635 L 0.46612771,52.062378 c -0.575,0.97625 -0.6125,2.21875 -0.0125,3.265 0.61249999,1.04875 1.69999999,1.63125 2.83749999,1.63125 l 54.0250003,0" style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"/\x3e' +
+		'\x3cpath d="m 30.291127,9.0848757 -13.85,23.9900003 c 14.9125,-7.8575 22.4375,-2.24875 24.7875,3.58875 l -0.4625,0.26625 c -0.3625,-0.3475 -0.775,-0.65625 -1.2375,-0.935 -3.1125,-1.86375 -6.9375,-1.21 -8.55,1.46625 -1.6125,2.685 -0.3875,6.37375 2.725,8.24125 6.1375,3.68625 13.975,2.81 18.725,1.71125 L 30.291127,9.0848757" style="fill:white;fill-opacity:1;fill-rule:evenodd;stroke:none"/\x3e' +
+	'\x3c/svg\x3e';
+	return '\x3cdiv style="display: flex; flex-wrap: wrap; text-wrap: auto; align-items: center; gap: 8px; justify-content: center;"\x3e' +
+		svg +
+		'\x3cspan style="font-weight: bold;"\x3e' + tsunamiWarningHtml + '\x3c/span\x3e' +
+	'\x3c/div\x3e';
+}
+
+function buildFloodingLevelChartHtml(data) {
+	if (!data.gage_height || !data.rp_elevation) return "";
+	var floodHeight = Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5));
+	var floodDelta = (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2);
+	var normalElev = parseFloat(data.rp_elevation).toFixed(2);
+	var wavePath = "M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z";
+	return '\x3cdiv style="position:relative;width:80%;margin:0 auto;"\x3e' +
+		'\x3csvg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none"\x3e' +
+			'\x3cpath d="' + wavePath + '" fill="#ffb3b3"/\x3e' +
+		'\x3c/svg\x3e' +
+		'\x3cdiv style="background: linear-gradient(to bottom, #ffb3b3, #fe8787); height:' + floodHeight + 'px; width:100%; border-radius:4px 4px 0 0; display:flex; align-items:center; justify-content:center; color:#8b0000; font-weight:bold; font-size:12px;"\x3e' +
+			'\x3cspan style="margin-top: -5px; filter: drop-shadow(0 0 4px white);"\x3e+' + floodDelta + ' ft\x3c/span\x3e' +
+		'\x3c/div\x3e' +
+		'\x3cdiv style="position:relative;"\x3e' +
+			'\x3csvg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none"\x3e' +
+				'\x3cpath d="' + wavePath + '" fill="#87CEEB"/\x3e' +
+			'\x3c/svg\x3e' +
+			'\x3cdiv style="background: linear-gradient(to bottom, #87CEEB, #8ea6ba); height:40px; width:100%; border-radius:0 0 4px 4px; display:flex; align-items:center; justify-content:center; color:#142d47; font-weight:bold; font-size:12px;"\x3e' +
+				'\x3cspan style="filter: drop-shadow(0 0 4px white);"\x3eNormal Elevation: ' + normalElev + ' ft\x3c/span\x3e' +
+			'\x3c/div\x3e' +
+		'\x3c/div\x3e' +
+	'\x3c/div\x3e';
+}
+
 // Function to build the sidebar item list from current groupData...
 function buildSidebarItems() {
 	const severityOrder = { critical: 0, error: 1, warn: 2, sdt: 3, clear: 4 };
@@ -3273,7 +3584,7 @@ function buildSidebarItems() {
 			id: item.id,
 			name: item.displayName || item.name,
 			severity: severity,
-			severityIndex: severityOrder[severity] ?? 99,
+			severityIndex: (severity in severityOrder) ? severityOrder[severity] : 99,
 			location: (cached && cached.address) || "Unknown",
 			props: props,
 		};
@@ -3321,11 +3632,8 @@ function renderSidebarList() {
 		}
 		const color = severityColors[item.severity] || "#85c25d";
 		const label = severityLabels[item.severity] || "OK";
-		let propsHtml = "";
-		if (item.props && item.props.length > 0) {
-			propsHtml = `<div class="sidebar-item-props">${item.props.map(p => `<div class="sidebar-item-prop" title="${p.name}: ${p.value}"><span class="sidebar-item-prop-label">${p.name}:</span> ${p.value}</div>`).join("")}</div>`;
-		}
-		html += `<div class="sidebar-item" data-device-id="${item.id}" title="${item.name} — ${label}">
+		const propsHtml = buildSidebarPropsHtml(item.props);
+		html += `<div class="sidebar-item" data-device-id="${item.id}" title="${item.name} - ${label}">
 			<span class="sidebar-dot" style="background-color:${color};"></span>
 			<span class="sidebar-item-content"><span class="sidebar-item-name">${item.name}</span>${propsHtml}</span>
 		</div>`;
@@ -3556,31 +3864,7 @@ var renderer = {
 					<div style="border-top: 1px solid #eee; padding-top: 12px;">
 						<div style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">${mapSourceType.replace(/^./, char => char.toUpperCase())} (${count})</div>
 						<div style="display: grid; gap: 4px;">
-							${deviceDetails.map(device => `
-								<div style="display: flex; align-items: center; padding: 4px 8px; background: color-mix(in srgb, var(--${device.status}-color) 10%, white 30%); border-radius: 4px; gap: 8px; max-height: 25px;">
-									<div style="width: 8px; height: 8px; border-radius: 50%; background: var(--${device.status}-color); flex-shrink: 0;"></div>
-									<a href="${device.link}"
-										target="_blank"
-										style="color: #1a73e8; text-decoration: none; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-										onmouseover="this.style.textDecoration='underline'"
-										onmouseout="this.style.textDecoration='none'">
-										${device.name}${device.sdtStatus}
-									</a>
-									<div style="display: flex; align-items: center;">
-										<a href="${device.link}"
-											target="_blank"
-											style="color: #1a73e8; display: flex; align-items: center; padding: 2px; border-radius: 4px; transition: background 0.2s;"
-											onmouseover="this.style.background='#e8f0fe'"
-											onmouseout="this.style.background='transparent'">
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-												<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-												<polyline points="15 3 21 3 21 9"/>
-												<line x1="10" y1="14" x2="21" y2="3"/>
-											</svg>
-										</a>
-									</div>
-								</div>
-							`).join('')}
+							${deviceDetails.map(device => buildClusterDeviceRowHtml(device)).join('')}
 						</div>
 					</div>
 				</div>
@@ -3924,12 +4208,10 @@ async function addWeatherLayer() {
 					? `<p style="margin:10px 0 0 0;padding:8px 10px;border-left:3px solid #e0351b;background:#fafafa;border-radius:0 4px 4px 0;font-size:12px;color:#555;line-height:1.4;white-space:normal;word-break:break-word;">${escapeWildfireHtml(comments)}</p>`
 					: '';
 
-				const highlightBlock = highlightValue
-					? `<div style="text-align:center;margin:12px 0;padding:12px 8px;background:#fff5f5;border-radius:6px;">
-						<div style="font-size:22px;font-weight:700;color:#b91c1c;line-height:1.2;">${escapeWildfireHtml(highlightValue)}</div>
-						${highlightUnit ? `<div style="font-size:12px;color:#666;margin-top:2px;">${escapeWildfireHtml(highlightUnit)}</div>` : ''}
-					</div>`
-					: '';
+				const highlightBlock = buildWildfireHighlightBlock(
+					highlightValue ? escapeWildfireHtml(highlightValue) : "",
+					highlightUnit ? escapeWildfireHtml(highlightUnit) : ""
+				);
 
 				const statRows = (stats || []).map(stat => {
 					const valueHtml = stat.badge != null
@@ -4195,7 +4477,7 @@ async function addWeatherLayer() {
 					const outageCount = event.feature.getProperty('OutageCount') || 0;
 					const percentAffected = event.feature.getProperty('PercentAffected') || 0;
 
-					// Calculate donut chart values (circumference = 2 * π * 35 ≈ 219.91)...
+					// Calculate donut chart values (circumference = 2 * pi * 35 ~= 219.91)...
 					const circumference = 219.91;
 					const filledAmount = (percentAffected / 100) * circumference;
 					const donutChart = `
@@ -4332,17 +4614,17 @@ async function addWeatherLayer() {
 						const detailResponse = await fetch(detailUrl);
 						detailData = await detailResponse.json();
 						// Look for impact-link products...
-						const impactLinks = detailData?.properties?.products?.["impact-link"];
+						const impactLinks = (detailData && detailData.properties && detailData.properties.products && detailData.properties.products["impact-link"]);
 						if (impactLinks && impactLinks.length > 0) {
 							// Find the latest entry based on indexTime...
 							const latestImpactLink = impactLinks.reduce((latest, current) => {
-								const currentTime = current.properties?.indexTime || current.indexTime || 0;
-								const latestTime = latest.properties?.indexTime || latest.indexTime || 0;
+								const currentTime = (current.properties && current.properties.indexTime) || current.indexTime || 0;
+								const latestTime = (latest.properties && latest.properties.indexTime) || latest.indexTime || 0;
 								return (currentTime > latestTime) ? current : latest;
 							}, impactLinks[0]);
 							// Get text and url from the latest impact-link...
-							const impactText = latestImpactLink.properties?.text || latestImpactLink.text;
-							const impactUrl = latestImpactLink.properties?.url || latestImpactLink.url;
+							const impactText = (latestImpactLink.properties && latestImpactLink.properties.text) || latestImpactLink.text;
+							const impactUrl = (latestImpactLink.properties && latestImpactLink.properties.url) || latestImpactLink.url;
 							if (impactText && impactUrl) {
 								// tsunamiWarningHtml = `<a href="${impactUrl}" target="_blank" style="color: #333; text-decoration: underline;">${impactText}</a>`;
 								tsunamiWarningHtml = `<a href="${impactUrl}" title="View Tsunami details" target="_blank">Tsunami Risk</a>`;
@@ -4448,16 +4730,7 @@ async function addWeatherLayer() {
 								</div>
 							</div>
 						</div>
-						${event.feature.getProperty("tsunami") === 1 && quakeAgeInDays < 1 ? `
-							<div style="display: flex; flex-wrap: wrap; text-wrap: auto; align-items: center; gap: 8px; justify-content: center;">
-								<?xml version='1.0' encoding='UTF-8' standalone='no'?>
-								<svg width="35px" height="35px" viewBox="0 0 60.601004 60.601004" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" version="1.1" xmlns="http://www.w3.org/2000/svg">
-									<path d="m 57.316128,56.958628 c 1.125,0 2.225,-0.5825 2.825,-1.63125 0.6125,-1.04625 0.5625,-2.28875 0,-3.265 L 33.128628,5.2773777 c -0.5625,-0.97375 -1.6125,-1.635 -2.8375,-1.635 -1.2,0.0025 -2.25,0.66125 -2.8125,1.635 L 0.46612771,52.062378 c -0.575,0.97625 -0.6125,2.21875 -0.0125,3.265 0.61249999,1.04875 1.69999999,1.63125 2.83749999,1.63125 l 54.0250003,0" style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"/>
-									<path d="m 30.291127,9.0848757 -13.85,23.9900003 c 14.9125,-7.8575 22.4375,-2.24875 24.7875,3.58875 l -0.4625,0.26625 c -0.3625,-0.3475 -0.775,-0.65625 -1.2375,-0.935 -3.1125,-1.86375 -6.9375,-1.21 -8.55,1.46625 -1.6125,2.685 -0.3875,6.37375 2.725,8.24125 6.1375,3.68625 13.975,2.81 18.725,1.71125 L 30.291127,9.0848757" style="fill:white;fill-opacity:1;fill-rule:evenodd;stroke:none"/>
-								</svg>
-							<span style="font-weight: bold;">${tsunamiWarningHtml}</span>
-						</div>
-					` : ''}
+						${event.feature.getProperty("tsunami") === 1 && quakeAgeInDays < 1 ? buildTsunamiWarningBannerHtml(tsunamiWarningHtml) : ''}
 						<div style="margin: 15px 0; text-wrap: auto; line-height: 20px;">Current <a href="https://earthquake.usgs.gov/data/pager/onepager.php" target="_blank">USGS PAGER</a> Alert Level: <strong style="color: ${alertLabelColor}; background-color: black; padding: 5px; border-radius: 7px; font-size: 0.9em; white-space: nowrap;">${alertLabel}</strong></div>
 						<div style="font-size: 0.9em;">
 							<span style="font-weight: 500;">Detected:</span> ${quakeTime.toLocaleString()} <span style="font-size: 0.95em;">(${quakeAgeInDays.toFixed(1)} days ago)</span><br/>
@@ -4488,8 +4761,8 @@ async function addWeatherLayer() {
 				if (detailData) {
 					try {
 						// Look for ShakeMap product with cont_mmi.json...
-						const shakemapProduct = detailData?.properties?.products?.shakemap?.[0];
-						const contMmiUrl = shakemapProduct?.contents?.["download/cont_mmi.json"]?.url;
+						const shakemapProduct = (detailData && detailData.properties && detailData.properties.products && detailData.properties.products.shakemap && detailData.properties.products.shakemap[0]);
+						const contMmiUrl = (shakemapProduct && shakemapProduct.contents && shakemapProduct.contents["download/cont_mmi.json"] && shakemapProduct.contents["download/cont_mmi.json"].url);
 
 						if (contMmiUrl) {
 							const contMmiResponse = await fetch(contMmiUrl);
@@ -4605,48 +4878,7 @@ async function addWeatherLayer() {
 							<p style="margin:0;font-size:13px;">${data.description || 'No description available'}</p>
 							<div style="margin-top:12px;">
 								<div style="position:relative;width:100%;height:auto;">
-									<!-- Flooding level (red) -->
-									${data.gage_height && data.rp_elevation ? `
-									<div style="position:relative;width:80%;margin:0 auto;">
-										<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
-											<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#ffb3b3"/>
-										</svg>
-										<div style="
-											background: linear-gradient(to bottom, #ffb3b3, #fe8787);
-											height:${Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5))}px;
-											width:100%;
-											border-radius:4px 4px 0 0;
-											display:flex;
-											align-items:center;
-											justify-content:center;
-											color:#8b0000;
-											font-weight:bold;
-											font-size:12px;
-										">
-											<span style="margin-top: -5px; filter: drop-shadow(0 0 4px white);">+${(parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2)} ft</span>
-										</div>
-										<!-- Normal water level (blue) with wavy top -->
-										<div style="position:relative;">
-											<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
-												<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#87CEEB"/>
-											</svg>
-											<div style="
-												background: linear-gradient(to bottom, #87CEEB, #8ea6ba);
-												height:40px;
-												width:100%;
-												border-radius:0 0 4px 4px;
-												display:flex;
-												align-items:center;
-												justify-content:center;
-												color:#142d47;
-												font-weight:bold;
-												font-size:12px;
-											">
-												<span style="filter: drop-shadow(0 0 4px white);">Normal Elevation: ${parseFloat(data.rp_elevation).toFixed(2)} ft</span>
-											</div>
-										</div>
-									</div>
-									` : ''}
+									${buildFloodingLevelChartHtml(data)}
 								</div>
 							</div>
 							<div style="margin: 30px 0 5px 0;">
@@ -4670,6 +4902,7 @@ async function addWeatherLayer() {
 
 // Function to fit the map around a cluster's bounds...
 function fitClusterBounds(south, west, north, east) {
+	if (!isMapReady()) return;
 	closeAllInfoWindows();
 	map.fitBounds(new google.maps.LatLngBounds(
 		new google.maps.LatLng(south, west),
@@ -4684,6 +4917,7 @@ function fitClusterBounds(south, west, north, east) {
 
 // Function called when the "Reset Zoom" button is pressed...
 function resetZoom() {
+	if (!isMapReady()) return;
 	// If there's only 1 marker, avoid zooming in super close (i.e. use the default zoom level 3)...
 	if (markers.length > 0) {
 		// Add padding to avoid markers appearing under the map's UI controls...
@@ -4764,6 +4998,11 @@ function exposeBetterMapState(name, getValue, setValue) {
 function cleanupBetterMapInstance() {
 	clearInterval(weatherRefresher);
 	clearInterval(mapDataRefresher);
+	cancelPendingMapInitialization();
+	if (_currentRefreshController && !_currentRefreshController.signal.aborted) {
+		_currentRefreshController.abort();
+	}
+	_currentRefreshController = null;
 	try {
 		clearAllMarkers();
 		clearAllPolylines();
@@ -4781,6 +5020,7 @@ function cleanupBetterMapInstance() {
 	} catch (error) {
 		console.warn("Better Map Widget cleanup skipped some state:", error);
 	}
+	destroyMapInstance();
 	if (typeof _visibilityObserver !== "undefined" && _visibilityObserver) {
 		_visibilityObserver.disconnect();
 	}
