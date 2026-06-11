@@ -334,6 +334,8 @@
 		var previousInstanceId = mapBody && mapBody.getAttribute("data-better-map-instance-id");
 		var previousInstance = previousInstanceId && registry.instances[previousInstanceId];
 
+		registry.reloadGeneration = (registry.reloadGeneration || 0) + 1;
+
 		if (previousInstance && typeof previousInstance.cleanup === "function") {
 			previousInstance.cleanup();
 		}
@@ -351,6 +353,7 @@
 
 		registry.instances[instanceId] = {
 			createdAt: Date.now(),
+			reloadGeneration: registry.reloadGeneration,
 			defaults: (defaultsScript && defaultsScript.__betterMapDefaults) || (registry.pendingDefaults && registry.pendingDefaults.shift()) || {},
 			root: mapBody,
 			tokenRoot: tokenArea
@@ -363,6 +366,14 @@
 					instance.cleanup();
 				}
 				delete registry.instances[id];
+			}
+		});
+
+		// Remove previously loaded widget scripts from the SPA shell. The Google Maps
+		// API stays loaded, but each widget save should not accumulate script tags.
+		document.querySelectorAll("script[data-better-map-instance-id]").forEach(function(script) {
+			if (script.parentNode) {
+				script.parentNode.removeChild(script);
 			}
 		});
 

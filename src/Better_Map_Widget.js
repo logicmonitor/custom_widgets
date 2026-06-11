@@ -151,11 +151,26 @@ if (betterMapInstanceId && !betterMapRegistry.instances[betterMapInstanceId]) {
 	betterMapRegistry.instances[betterMapInstanceId] = betterMapInstance;
 }
 var betterMapDefaults = betterMapInstance.defaults || {};
+var betterMapReloadGeneration = betterMapInstance.reloadGeneration || 0;
 var betterMapRoot = ensureBetterMapRoot(betterMapInstance.root);
 var betterMapTokenRoot = betterMapInstance.tokenRoot || document;
 if (betterMapRoot && betterMapInstanceId) {
 	betterMapRoot.setAttribute("data-better-map-instance-id", betterMapInstanceId);
 	betterMapInstance.root = betterMapRoot;
+}
+
+// LogicMonitor is a single-page app, so saving a widget re-runs this script without
+// reloading the page or the Google Maps API. Tear down any stale instance still
+// registered against this widget root before rebuilding the DOM.
+if (betterMapRoot && betterMapRegistry.instances) {
+	Object.keys(betterMapRegistry.instances).forEach(function(id) {
+		if (id === betterMapInstanceId) return;
+		var staleInstance = betterMapRegistry.instances[id];
+		if (staleInstance && staleInstance.root === betterMapRoot && typeof staleInstance.cleanup === "function") {
+			staleInstance.cleanup();
+			delete betterMapRegistry.instances[id];
+		}
+	});
 }
 
 // Function to route inline actions to the correct widget instance...
@@ -1794,12 +1809,59 @@ var markerInfoWindow = null;
 // Track map initialization state...
 var mapInitialized = false;
 var _mapInitializing = false;
+var _mapInitRetryTimeout = null;
 var initAttempts = 0;
 var MAX_INIT_ATTEMPTS = 10;
+
+// Function to check whether this script execution is still the active widget instance...
+function isBetterMapInstanceActive() {
+	if (!betterMapInstanceId) return true;
+	var inst = betterMapRegistry.instances && betterMapRegistry.instances[betterMapInstanceId];
+	return Boolean(inst && inst.reloadGeneration === betterMapReloadGeneration);
+}
+
+// Function to check whether map operations are safe in the current SPA lifecycle...
+function isMapReady() {
+	return Boolean(map && isBetterMapInstanceActive());
+}
+
+// Function to cancel pending map initialization retries...
+function cancelPendingMapInitialization() {
+	if (_mapInitRetryTimeout) {
+		clearTimeout(_mapInitRetryTimeout);
+		_mapInitRetryTimeout = null;
+	}
+	_mapInitializing = false;
+}
+
+// Function to tear down the Google Map instance before a widget reload...
+function destroyMapInstance() {
+	if (map) {
+		try {
+			google.maps.event.clearInstanceListeners(map);
+		} catch (error) {}
+		map = null;
+	}
+	mapInitialized = false;
+	initAttempts = 0;
+}
+
+// Function to nudge Google Maps to recalculate its size after the widget DOM is rebuilt...
+function scheduleMapResize() {
+	if (!map) return;
+	const trigger = () => {
+		if (map) google.maps.event.trigger(map, "resize");
+	};
+	trigger();
+	requestAnimationFrame(trigger);
+	setTimeout(trigger, 100);
+	setTimeout(trigger, 500);
+}
 
 // Function to initialize the map once Google Maps is available...
 async function ensureMapInitialized() {
 	if (mapInitialized || _mapInitializing) return;
+	if (!isBetterMapInstanceActive()) return;
 	_mapInitializing = true;
 
 	initAttempts++;
@@ -1825,12 +1887,21 @@ async function ensureMapInitialized() {
 
 		// All checks passed - initialize the map...
 		await initMap();
+		if (!isBetterMapInstanceActive()) {
+			_mapInitializing = false;
+			return;
+		}
 		mapInitialized = true;
+		_mapInitializing = false;
 		if (typeof _visibilityObserver !== 'undefined') _visibilityObserver.disconnect();
 		if (typeof _focusHandler !== 'undefined') window.removeEventListener('focus', _focusHandler);
 		console.log('Map initialized successfully');
 
 	} catch (error) {
+		if (!isBetterMapInstanceActive()) {
+			_mapInitializing = false;
+			return;
+		}
 		_mapInitializing = false;
 		console.warn(`Map init attempt ${initAttempts} failed:`, error.message);
 
@@ -1838,7 +1909,7 @@ async function ensureMapInitialized() {
 			// Exponential backoff: 100ms, 200ms, 400ms, etc. up to 2 seconds...
 			const delay = Math.min(100 * Math.pow(2, initAttempts - 1), 2000);
 			console.log(`Retrying in ${delay}ms...`);
-			setTimeout(ensureMapInitialized, delay);
+			_mapInitRetryTimeout = setTimeout(ensureMapInitialized, delay);
 		} else {
 			console.error('Max initialization attempts reached. Map failed to initialize.');
 		}
@@ -2204,7 +2275,7 @@ async function initMap() {
 		tilt: mapTilt,
 		heading: mapHeading,
 		gestureHandling: mapGestureHandling,
-		renderingType: RenderingType.VECTOR,
+		renderingType: showMapTiltControls ? RenderingType.VECTOR : RenderingType.RASTER,
 		isFractionalZoomEnabled: true,
 		minZoom: 2,
 		clickableIcons: false,
@@ -2329,6 +2400,8 @@ async function initMap() {
 			console.log("Map data refreshed.");
 		}, statusUpdateIntervalMinutes*1000*60);
 	}
+
+	scheduleMapResize();
 }
 
 // Function for creating & styling the map button for toggling the options bar...
@@ -2766,6 +2839,7 @@ async function refreshGroupData(timedRefresh = false) {
 
 		if (primaryResult.total === 0) {
 			console.debug('No results found');
+			if (!isBetterMapInstanceActive() || refreshSignal.aborted) return;
 			_dom.refreshStatusArea.innerHTML = "<span class='noResultMessage'>No results</span>";
 			_dom.mapOptionsArea.classList.remove("disabled");
 			if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
@@ -2832,6 +2906,7 @@ async function refreshGroupData(timedRefresh = false) {
 
 	// If we've finished fetching all the group/resource data...
 	if (totalGroups > 0 && offset == totalGroups) {
+		if (!isBetterMapInstanceActive() || refreshSignal.aborted) return;
 		// console.debug('Total groups processed: ' + totalGroups);
 		// Reset our progress indicator...
 		_dom.refreshStatusArea.innerHTML = "";
@@ -2877,6 +2952,7 @@ async function refreshGroupData(timedRefresh = false) {
 
 		// Function called when all items have been processed...
 		async function onRefreshComplete() {
+			if (!isBetterMapInstanceActive() || refreshSignal.aborted || !map) return;
 			if (!centerCalculated || (timedRefresh && autoResetMapOnRefresh)) {
 				resetZoom();
 				centerCalculated = true;
@@ -4751,6 +4827,7 @@ async function addWeatherLayer() {
 
 // Function to fit the map around a cluster's bounds...
 function fitClusterBounds(south, west, north, east) {
+	if (!isMapReady()) return;
 	closeAllInfoWindows();
 	map.fitBounds(new google.maps.LatLngBounds(
 		new google.maps.LatLng(south, west),
@@ -4765,6 +4842,7 @@ function fitClusterBounds(south, west, north, east) {
 
 // Function called when the "Reset Zoom" button is pressed...
 function resetZoom() {
+	if (!isMapReady()) return;
 	// If there's only 1 marker, avoid zooming in super close (i.e. use the default zoom level 3)...
 	if (markers.length > 0) {
 		// Add padding to avoid markers appearing under the map's UI controls...
@@ -4845,6 +4923,11 @@ function exposeBetterMapState(name, getValue, setValue) {
 function cleanupBetterMapInstance() {
 	clearInterval(weatherRefresher);
 	clearInterval(mapDataRefresher);
+	cancelPendingMapInitialization();
+	if (_currentRefreshController && !_currentRefreshController.signal.aborted) {
+		_currentRefreshController.abort();
+	}
+	_currentRefreshController = null;
 	try {
 		clearAllMarkers();
 		clearAllPolylines();
@@ -4862,6 +4945,7 @@ function cleanupBetterMapInstance() {
 	} catch (error) {
 		console.warn("Better Map Widget cleanup skipped some state:", error);
 	}
+	destroyMapInstance();
 	if (typeof _visibilityObserver !== "undefined" && _visibilityObserver) {
 		_visibilityObserver.disconnect();
 	}
