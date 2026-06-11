@@ -126,7 +126,7 @@ Better Map Widget allows a way to represent connectivity between locations. Curr
 
 To configure:
 1. Be sure you've loaded the required PropertySource - [Set Better Map Widget Connections](https://github.com/logicmonitor/custom_widgets/blob/main/LogicModules/Set_Better_Map_Widget_Connections.json) - mentioned in the [Prerequisites](#prerequisites) section above.
-2. Go to the specific instance of one of either the 'SNMP_Network_Interfaces' datasource, a datasource with "VPN" in its name, or an LM Uptime ping/web check and add an instance-level property called 'custom_map_connection'. The value should be in the following format: `{Connection Title} > {Hostname/IP or display name of the connected resource}`
+2. Go to the specific instance of one of either the 'SNMP_Network_Interfaces' datasource, a datasource with "VPN" in its name, or an LM Uptime ping/web check and add an instance-level property called **`custom_map_connection`**. The value should be in the following format: **{Connection Title} > {Hostname/IP or display name of the connected resource}**
 
 For example: `London WAN > 192.168.1.10` would show a line titled "London WAN" representing alert status of this specific interface connected from that resource's location to the resource monitored as 192.168.1.10. The PropertySource automatically configures those instance-level properties as resource-level properties, along with other necessary data for the widget to use.
 
