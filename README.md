@@ -87,7 +87,9 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapIgnoreWarnings**: If "true" then won't show items in "Warning" status. Default is "false".
 - **MapIgnoreErrors**: If "true" then won't show items in "Error" status. Default is "false".
 - **MapIgnoreCriticals**: If "true" then won't show items in "Critical" status. Default is "false".
-  **MapIgnoreSDT**: If "true" then won't show items in "SDT" status. Default is "false".
+- **MapIgnoreSDT**: If "true" then won't show items in "SDT" status. Default is "false".
+- **MapOnlyShowConnectedItems**: If "true" then will only show items that participate in active map connections. Default is "false".
+- **MapShowConnectingLines**: If "false" then will hide status lines between connected endpoints. Default is "true".
 - **AutoResetMapOnRefresh**: If "true" then the map will automatically zoom to encompass all items on timed refreshes. Default is "false".
 - **MapDisableClustering**: If "true" then clustering of adjacent markers on the map will be disabled. Might be desirable if showing connections between locations since clustering might hide markers at certain zoom levels. Default is "false".
 - **MapDisplayProperties**: An optional comma-delimited list of custom properties to show when viewing a group's/resource's details.
@@ -96,6 +98,8 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapShowRoadLabels**: If "true" then road labels will be shown on the map. Default is "false".
 - **apiBearerToken**, or **apiID** + **apiKey**: Optional LogicMonitor API bearer token or API ID & key to use for the widget (primarily useful if embedding the widget outside of an LM dashboard). If not specified then the widget will use integrated portal authentication.
 - **XweatherAPIID** & **XweatherAPIKey**: Optional Xweather API ID & key to enable showing Xweather weather data (requires API ID & key available from [https://www.xweather.com/weather-api](https://www.xweather.com/weather-api). Xweather is offers a great deal of optional details such as lightning strikes, hail, wind gusts, etc. Many personal weather stations such as Ecowitt provide free Xweather API access if you feed them your weather data.
+- **MapConnectionCurvature**: Screen-pixel offset used to separate parallel connection lines between the same endpoints. Set to 0 for straight lines. Default is 18.
+- **MapUseGeodesicLines**: If "false" then connection lines are drawn as straight Mercator lines instead of great circles. Default is "true".
 
 ## Weather Options
 
