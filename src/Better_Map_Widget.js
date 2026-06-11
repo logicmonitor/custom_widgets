@@ -594,7 +594,7 @@ var googleMapApiKey = parent.LMGlobalData.googleMapInfo.key.toString();
 
 // Skip bootstrap when Maps is already on the page (e.g. CDN widget reload during dev).
 if (typeof google === 'undefined' || !google.maps || typeof google.maps.importLibrary !== 'function') {
-	(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
+	(g=>{var h,a,k,s,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=(s=m.querySelector("script[nonce]"))&&s.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
 	({key: googleMapApiKey, v: "weekly"});
 }
 
@@ -649,7 +649,7 @@ function getContainingWidgetId() {
 		const parentDoc = window.parent.document;
 		const iframe = Array.from(parentDoc.querySelectorAll("iframe"))
 			.find(frame => frame.contentWindow === window);
-		return iframe?.closest("[id]")?.id || null;
+		return (iframe && iframe.closest("[id]") && iframe.closest("[id]").id) || null;
 	} catch (e) {
 		return null;
 	}
@@ -1402,8 +1402,8 @@ function assignParallelConnectionOffsets() {
 
 // Function to determine how far off-center a connection line should be curved...
 function getConnectionPathOffsetIndex(connection) {
-	let offsetIndex = Number(connection?.parallelOffsetIndex || 0);
-	if (!offsetIndex && Number(connection?.parallelConnectionCount || 0) <= 1 && parallelConnectionCurvature > 0) {
+	let offsetIndex = Number((connection && connection.parallelOffsetIndex) || 0);
+	if (!offsetIndex && Number((connection && connection.parallelConnectionCount) || 0) <= 1 && parallelConnectionCurvature > 0) {
 		offsetIndex = 1;
 	}
 	return offsetIndex;
@@ -1417,8 +1417,8 @@ function getMetersPerPixel(latLng, zoom) {
 
 // Function to build a curved LatLng path for a connection, offset in screen pixels for parallel links...
 function buildMercatorConnectionPath(sourcePos, targetPos, connection, offsetIndex) {
-	const projection = map?.getProjection?.();
-	const zoom = map?.getZoom?.();
+	const projection = (map && map.getProjection && map.getProjection());
+	const zoom = (map && map.getZoom && map.getZoom());
 	if (!projection || typeof zoom !== "number") return [sourcePos, targetPos];
 
 	const sourcePoint = projection.fromLatLngToPoint(sourcePos);
@@ -1455,7 +1455,7 @@ function buildMercatorConnectionPath(sourcePos, targetPos, connection, offsetInd
 
 // Function to build a curved great-circle path, offset perpendicular to the geodesic for parallel links...
 function buildGeodesicConnectionPath(sourcePos, targetPos, connection, offsetIndex) {
-	const spherical = google.maps.geometry?.spherical;
+	const spherical = (google.maps.geometry && google.maps.geometry.spherical);
 	if (!spherical) return buildMercatorConnectionPath(sourcePos, targetPos, connection, offsetIndex);
 
 	const source = sourcePos instanceof google.maps.LatLng
@@ -1466,7 +1466,7 @@ function buildGeodesicConnectionPath(sourcePos, targetPos, connection, offsetInd
 		: new google.maps.LatLng(targetPos.lat, targetPos.lng);
 	if (!spherical.computeDistanceBetween(source, target)) return [sourcePos, targetPos];
 
-	const zoom = map?.getZoom?.();
+	const zoom = (map && map.getZoom && map.getZoom());
 	if (typeof zoom !== "number") return [source, target];
 
 	const directionSign = getConnectionDirectionSign(connection.deviceIDSource, connection.deviceIDConnected);
@@ -1540,7 +1540,7 @@ function closeAllInfoWindows(opts) {
 	if (clusterInfoWindow) {
 		clusterInfoWindow.close();
 	}
-	if (!opts?.skipMarker && markerInfoWindow) {
+	if (!(opts && opts.skipMarker) && markerInfoWindow) {
 		markerInfoWindow.close();
 		markerInfoWindow = null;
 	}
@@ -3025,7 +3025,7 @@ async function refreshGroupData(timedRefresh = false) {
 					bounds.extend(existingMarker.position);
 
 					// Update severity if changed
-					if (String(pinIndex) !== existingMarker.content?.dataset?.severity) {
+					if (String(pinIndex) !== (existingMarker.content && existingMarker.content.dataset && existingMarker.content.dataset.severity)) {
 						existingMarker.content.dataset.severity = String(pinIndex);
 						existingMarker.zIndex = pinIndex;
 						const iconDiv = existingMarker.content.querySelector('.icon');
@@ -3409,6 +3409,82 @@ if (typeof sidebarDefaultWidth === 'undefined') { sidebarDefaultWidth = 300; }
 var sidebarSortMode = "severity";
 var sidebarItems = [];
 
+// LogicMonitor's widget sanitizer breaks nested template literals and ternary HTML fragments.
+function buildSidebarPropsHtml(props) {
+	if (!props || !props.length) return "";
+	var inner = props.map(function(p) {
+		var title = (p.name + ": " + p.value).replace(/"/g, "&quot;");
+		return '\x3cdiv class="sidebar-item-prop" title="' + title + '"\x3e' +
+			'\x3cspan class="sidebar-item-prop-label"\x3e' + p.name + ':\x3c/span\x3e ' + p.value +
+			'\x3c/div\x3e';
+	}).join("");
+	return '\x3cdiv class="sidebar-item-props"\x3e' + inner + '\x3c/div\x3e';
+}
+
+function buildClusterDeviceRowHtml(device) {
+	return '\x3cdiv style="display: flex; align-items: center; padding: 4px 8px; background: color-mix(in srgb, var(--' + device.status + '-color) 10%, white 30%); border-radius: 4px; gap: 8px; max-height: 25px;"\x3e' +
+		'\x3cdiv style="width: 8px; height: 8px; border-radius: 50%; background: var(--' + device.status + '-color); flex-shrink: 0;"\x3e\x3c/div\x3e' +
+		'\x3ca href="' + device.link + '" target="_blank" style="color: #1a73e8; text-decoration: none; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'"\x3e' +
+			device.name + device.sdtStatus +
+		'\x3c/a\x3e' +
+		'\x3cdiv style="display: flex; align-items: center;"\x3e' +
+			'\x3ca href="' + device.link + '" target="_blank" style="color: #1a73e8; display: flex; align-items: center; padding: 2px; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background=\'#e8f0fe\'" onmouseout="this.style.background=\'transparent\'"\x3e' +
+				'\x3csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"\x3e' +
+					'\x3cpath d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/\x3e' +
+					'\x3cpolyline points="15 3 21 3 21 9"/\x3e' +
+					'\x3cline x1="10" y1="14" x2="21" y2="3"/\x3e' +
+				'\x3c/svg\x3e' +
+			'\x3c/a\x3e' +
+		'\x3c/div\x3e' +
+	'\x3c/div\x3e';
+}
+
+function buildWildfireHighlightBlock(highlightValueHtml, highlightUnitHtml) {
+	if (!highlightValueHtml) return "";
+	var unitLine = highlightUnitHtml
+		? '\x3cdiv style="font-size:12px;color:#666;margin-top:2px;"\x3e' + highlightUnitHtml + '\x3c/div\x3e'
+		: "";
+	return '\x3cdiv style="text-align:center;margin:12px 0;padding:12px 8px;background:#fff5f5;border-radius:6px;"\x3e' +
+		'\x3cdiv style="font-size:22px;font-weight:700;color:#b91c1c;line-height:1.2;"\x3e' + highlightValueHtml + '\x3c/div\x3e' +
+		unitLine +
+	'\x3c/div\x3e';
+}
+
+function buildTsunamiWarningBannerHtml(tsunamiWarningHtml) {
+	var svg = '\x3csvg width="35px" height="35px" viewBox="0 0 60.601004 60.601004" xmlns="http://www.w3.org/2000/svg"\x3e' +
+		'\x3cpath d="m 57.316128,56.958628 c 1.125,0 2.225,-0.5825 2.825,-1.63125 0.6125,-1.04625 0.5625,-2.28875 0,-3.265 L 33.128628,5.2773777 c -0.5625,-0.97375 -1.6125,-1.635 -2.8375,-1.635 -1.2,0.0025 -2.25,0.66125 -2.8125,1.635 L 0.46612771,52.062378 c -0.575,0.97625 -0.6125,2.21875 -0.0125,3.265 0.61249999,1.04875 1.69999999,1.63125 2.83749999,1.63125 l 54.0250003,0" style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"/\x3e' +
+		'\x3cpath d="m 30.291127,9.0848757 -13.85,23.9900003 c 14.9125,-7.8575 22.4375,-2.24875 24.7875,3.58875 l -0.4625,0.26625 c -0.3625,-0.3475 -0.775,-0.65625 -1.2375,-0.935 -3.1125,-1.86375 -6.9375,-1.21 -8.55,1.46625 -1.6125,2.685 -0.3875,6.37375 2.725,8.24125 6.1375,3.68625 13.975,2.81 18.725,1.71125 L 30.291127,9.0848757" style="fill:white;fill-opacity:1;fill-rule:evenodd;stroke:none"/\x3e' +
+	'\x3c/svg\x3e';
+	return '\x3cdiv style="display: flex; flex-wrap: wrap; text-wrap: auto; align-items: center; gap: 8px; justify-content: center;"\x3e' +
+		svg +
+		'\x3cspan style="font-weight: bold;"\x3e' + tsunamiWarningHtml + '\x3c/span\x3e' +
+	'\x3c/div\x3e';
+}
+
+function buildFloodingLevelChartHtml(data) {
+	if (!data.gage_height || !data.rp_elevation) return "";
+	var floodHeight = Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5));
+	var floodDelta = (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2);
+	var normalElev = parseFloat(data.rp_elevation).toFixed(2);
+	var wavePath = "M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z";
+	return '\x3cdiv style="position:relative;width:80%;margin:0 auto;"\x3e' +
+		'\x3csvg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none"\x3e' +
+			'\x3cpath d="' + wavePath + '" fill="#ffb3b3"/\x3e' +
+		'\x3c/svg\x3e' +
+		'\x3cdiv style="background: linear-gradient(to bottom, #ffb3b3, #fe8787); height:' + floodHeight + 'px; width:100%; border-radius:4px 4px 0 0; display:flex; align-items:center; justify-content:center; color:#8b0000; font-weight:bold; font-size:12px;"\x3e' +
+			'\x3cspan style="margin-top: -5px; filter: drop-shadow(0 0 4px white);"\x3e+' + floodDelta + ' ft\x3c/span\x3e' +
+		'\x3c/div\x3e' +
+		'\x3cdiv style="position:relative;"\x3e' +
+			'\x3csvg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none"\x3e' +
+				'\x3cpath d="' + wavePath + '" fill="#87CEEB"/\x3e' +
+			'\x3c/svg\x3e' +
+			'\x3cdiv style="background: linear-gradient(to bottom, #87CEEB, #8ea6ba); height:40px; width:100%; border-radius:0 0 4px 4px; display:flex; align-items:center; justify-content:center; color:#142d47; font-weight:bold; font-size:12px;"\x3e' +
+				'\x3cspan style="filter: drop-shadow(0 0 4px white);"\x3eNormal Elevation: ' + normalElev + ' ft\x3c/span\x3e' +
+			'\x3c/div\x3e' +
+		'\x3c/div\x3e' +
+	'\x3c/div\x3e';
+}
+
 // Function to build the sidebar item list from current groupData...
 function buildSidebarItems() {
 	const severityOrder = { critical: 0, error: 1, warn: 2, sdt: 3, clear: 4 };
@@ -3430,7 +3506,7 @@ function buildSidebarItems() {
 			id: item.id,
 			name: item.displayName || item.name,
 			severity: severity,
-			severityIndex: severityOrder[severity] ?? 99,
+			severityIndex: (severity in severityOrder) ? severityOrder[severity] : 99,
 			location: (cached && cached.address) || "Unknown",
 			props: props,
 		};
@@ -3478,10 +3554,7 @@ function renderSidebarList() {
 		}
 		const color = severityColors[item.severity] || "#85c25d";
 		const label = severityLabels[item.severity] || "OK";
-		let propsHtml = "";
-		if (item.props && item.props.length > 0) {
-			propsHtml = `<div class="sidebar-item-props">${item.props.map(p => `<div class="sidebar-item-prop" title="${p.name}: ${p.value}"><span class="sidebar-item-prop-label">${p.name}:</span> ${p.value}</div>`).join("")}</div>`;
-		}
+		const propsHtml = buildSidebarPropsHtml(item.props);
 		html += `<div class="sidebar-item" data-device-id="${item.id}" title="${item.name} - ${label}">
 			<span class="sidebar-dot" style="background-color:${color};"></span>
 			<span class="sidebar-item-content"><span class="sidebar-item-name">${item.name}</span>${propsHtml}</span>
@@ -3713,31 +3786,7 @@ var renderer = {
 					<div style="border-top: 1px solid #eee; padding-top: 12px;">
 						<div style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">${mapSourceType.replace(/^./, char => char.toUpperCase())} (${count})</div>
 						<div style="display: grid; gap: 4px;">
-							${deviceDetails.map(device => `
-								<div style="display: flex; align-items: center; padding: 4px 8px; background: color-mix(in srgb, var(--${device.status}-color) 10%, white 30%); border-radius: 4px; gap: 8px; max-height: 25px;">
-									<div style="width: 8px; height: 8px; border-radius: 50%; background: var(--${device.status}-color); flex-shrink: 0;"></div>
-									<a href="${device.link}"
-										target="_blank"
-										style="color: #1a73e8; text-decoration: none; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-										onmouseover="this.style.textDecoration='underline'"
-										onmouseout="this.style.textDecoration='none'">
-										${device.name}${device.sdtStatus}
-									</a>
-									<div style="display: flex; align-items: center;">
-										<a href="${device.link}"
-											target="_blank"
-											style="color: #1a73e8; display: flex; align-items: center; padding: 2px; border-radius: 4px; transition: background 0.2s;"
-											onmouseover="this.style.background='#e8f0fe'"
-											onmouseout="this.style.background='transparent'">
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-												<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-												<polyline points="15 3 21 3 21 9"/>
-												<line x1="10" y1="14" x2="21" y2="3"/>
-											</svg>
-										</a>
-									</div>
-								</div>
-							`).join('')}
+							${deviceDetails.map(device => buildClusterDeviceRowHtml(device)).join('')}
 						</div>
 					</div>
 				</div>
@@ -4081,12 +4130,10 @@ async function addWeatherLayer() {
 					? `<p style="margin:10px 0 0 0;padding:8px 10px;border-left:3px solid #e0351b;background:#fafafa;border-radius:0 4px 4px 0;font-size:12px;color:#555;line-height:1.4;white-space:normal;word-break:break-word;">${escapeWildfireHtml(comments)}</p>`
 					: '';
 
-				const highlightBlock = highlightValue
-					? `<div style="text-align:center;margin:12px 0;padding:12px 8px;background:#fff5f5;border-radius:6px;">
-						<div style="font-size:22px;font-weight:700;color:#b91c1c;line-height:1.2;">${escapeWildfireHtml(highlightValue)}</div>
-						${highlightUnit ? `<div style="font-size:12px;color:#666;margin-top:2px;">${escapeWildfireHtml(highlightUnit)}</div>` : ''}
-					</div>`
-					: '';
+				const highlightBlock = buildWildfireHighlightBlock(
+					highlightValue ? escapeWildfireHtml(highlightValue) : "",
+					highlightUnit ? escapeWildfireHtml(highlightUnit) : ""
+				);
 
 				const statRows = (stats || []).map(stat => {
 					const valueHtml = stat.badge != null
@@ -4489,17 +4536,17 @@ async function addWeatherLayer() {
 						const detailResponse = await fetch(detailUrl);
 						detailData = await detailResponse.json();
 						// Look for impact-link products...
-						const impactLinks = detailData?.properties?.products?.["impact-link"];
+						const impactLinks = (detailData && detailData.properties && detailData.properties.products && detailData.properties.products["impact-link"]);
 						if (impactLinks && impactLinks.length > 0) {
 							// Find the latest entry based on indexTime...
 							const latestImpactLink = impactLinks.reduce((latest, current) => {
-								const currentTime = current.properties?.indexTime || current.indexTime || 0;
-								const latestTime = latest.properties?.indexTime || latest.indexTime || 0;
+								const currentTime = (current.properties && current.properties.indexTime) || current.indexTime || 0;
+								const latestTime = (latest.properties && latest.properties.indexTime) || latest.indexTime || 0;
 								return (currentTime > latestTime) ? current : latest;
 							}, impactLinks[0]);
 							// Get text and url from the latest impact-link...
-							const impactText = latestImpactLink.properties?.text || latestImpactLink.text;
-							const impactUrl = latestImpactLink.properties?.url || latestImpactLink.url;
+							const impactText = (latestImpactLink.properties && latestImpactLink.properties.text) || latestImpactLink.text;
+							const impactUrl = (latestImpactLink.properties && latestImpactLink.properties.url) || latestImpactLink.url;
 							if (impactText && impactUrl) {
 								// tsunamiWarningHtml = `<a href="${impactUrl}" target="_blank" style="color: #333; text-decoration: underline;">${impactText}</a>`;
 								tsunamiWarningHtml = `<a href="${impactUrl}" title="View Tsunami details" target="_blank">Tsunami Risk</a>`;
@@ -4605,16 +4652,7 @@ async function addWeatherLayer() {
 								</div>
 							</div>
 						</div>
-						${event.feature.getProperty("tsunami") === 1 && quakeAgeInDays < 1 ? `
-							<div style="display: flex; flex-wrap: wrap; text-wrap: auto; align-items: center; gap: 8px; justify-content: center;">
-								<?xml version='1.0' encoding='UTF-8' standalone='no'?>
-								<svg width="35px" height="35px" viewBox="0 0 60.601004 60.601004" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" version="1.1" xmlns="http://www.w3.org/2000/svg">
-									<path d="m 57.316128,56.958628 c 1.125,0 2.225,-0.5825 2.825,-1.63125 0.6125,-1.04625 0.5625,-2.28875 0,-3.265 L 33.128628,5.2773777 c -0.5625,-0.97375 -1.6125,-1.635 -2.8375,-1.635 -1.2,0.0025 -2.25,0.66125 -2.8125,1.635 L 0.46612771,52.062378 c -0.575,0.97625 -0.6125,2.21875 -0.0125,3.265 0.61249999,1.04875 1.69999999,1.63125 2.83749999,1.63125 l 54.0250003,0" style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"/>
-									<path d="m 30.291127,9.0848757 -13.85,23.9900003 c 14.9125,-7.8575 22.4375,-2.24875 24.7875,3.58875 l -0.4625,0.26625 c -0.3625,-0.3475 -0.775,-0.65625 -1.2375,-0.935 -3.1125,-1.86375 -6.9375,-1.21 -8.55,1.46625 -1.6125,2.685 -0.3875,6.37375 2.725,8.24125 6.1375,3.68625 13.975,2.81 18.725,1.71125 L 30.291127,9.0848757" style="fill:white;fill-opacity:1;fill-rule:evenodd;stroke:none"/>
-								</svg>
-							<span style="font-weight: bold;">${tsunamiWarningHtml}</span>
-						</div>
-					` : ''}
+						${event.feature.getProperty("tsunami") === 1 && quakeAgeInDays < 1 ? buildTsunamiWarningBannerHtml(tsunamiWarningHtml) : ''}
 						<div style="margin: 15px 0; text-wrap: auto; line-height: 20px;">Current <a href="https://earthquake.usgs.gov/data/pager/onepager.php" target="_blank">USGS PAGER</a> Alert Level: <strong style="color: ${alertLabelColor}; background-color: black; padding: 5px; border-radius: 7px; font-size: 0.9em; white-space: nowrap;">${alertLabel}</strong></div>
 						<div style="font-size: 0.9em;">
 							<span style="font-weight: 500;">Detected:</span> ${quakeTime.toLocaleString()} <span style="font-size: 0.95em;">(${quakeAgeInDays.toFixed(1)} days ago)</span><br/>
@@ -4645,8 +4683,8 @@ async function addWeatherLayer() {
 				if (detailData) {
 					try {
 						// Look for ShakeMap product with cont_mmi.json...
-						const shakemapProduct = detailData?.properties?.products?.shakemap?.[0];
-						const contMmiUrl = shakemapProduct?.contents?.["download/cont_mmi.json"]?.url;
+						const shakemapProduct = (detailData && detailData.properties && detailData.properties.products && detailData.properties.products.shakemap && detailData.properties.products.shakemap[0]);
+						const contMmiUrl = (shakemapProduct && shakemapProduct.contents && shakemapProduct.contents["download/cont_mmi.json"] && shakemapProduct.contents["download/cont_mmi.json"].url);
 
 						if (contMmiUrl) {
 							const contMmiResponse = await fetch(contMmiUrl);
@@ -4762,48 +4800,7 @@ async function addWeatherLayer() {
 							<p style="margin:0;font-size:13px;">${data.description || 'No description available'}</p>
 							<div style="margin-top:12px;">
 								<div style="position:relative;width:100%;height:auto;">
-									<!-- Flooding level (red) -->
-									${data.gage_height && data.rp_elevation ? `
-									<div style="position:relative;width:80%;margin:0 auto;">
-										<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
-											<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#ffb3b3"/>
-										</svg>
-										<div style="
-											background: linear-gradient(to bottom, #ffb3b3, #fe8787);
-											height:${Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5))}px;
-											width:100%;
-											border-radius:4px 4px 0 0;
-											display:flex;
-											align-items:center;
-											justify-content:center;
-											color:#8b0000;
-											font-weight:bold;
-											font-size:12px;
-										">
-											<span style="margin-top: -5px; filter: drop-shadow(0 0 4px white);">+${(parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2)} ft</span>
-										</div>
-										<!-- Normal water level (blue) with wavy top -->
-										<div style="position:relative;">
-											<svg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none">
-												<path d="M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z" fill="#87CEEB"/>
-											</svg>
-											<div style="
-												background: linear-gradient(to bottom, #87CEEB, #8ea6ba);
-												height:40px;
-												width:100%;
-												border-radius:0 0 4px 4px;
-												display:flex;
-												align-items:center;
-												justify-content:center;
-												color:#142d47;
-												font-weight:bold;
-												font-size:12px;
-											">
-												<span style="filter: drop-shadow(0 0 4px white);">Normal Elevation: ${parseFloat(data.rp_elevation).toFixed(2)} ft</span>
-											</div>
-										</div>
-									</div>
-									` : ''}
+									${buildFloodingLevelChartHtml(data)}
 								</div>
 							</div>
 							<div style="margin: 30px 0 5px 0;">
