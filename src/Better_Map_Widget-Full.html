@@ -269,6 +269,7 @@
 	// Stroke weight of connecting lines...
 	defaults.connectingLineWeight = 3;
 	// Whether to use geodesic lines when connecting two locations (I recommend not so it just plots a straight line vs curve of the Earth)...
+	// You can set it here or in a dashboard token named "MapGeodesicLines"...
 	defaults.useGeodesicLines = false;
 
 	// OpenWeather API key (required for OpenWeather radar)...
@@ -2156,6 +2157,12 @@ if (window.RProfiler) {
 		markerStyle = "circles";
 	} else if (markerStyleTokenNorm === "pins" || markerStyleTokenNorm === "default" || markerStyleTokenNorm === "pin") {
 		markerStyle = "pins";
+	}
+
+	// Capture from token whether to use geodesic (great circle) connection lines...
+	let useGeodesicLinesToken = "##MapGeodesicLines##";
+	if (isTruthyToken(useGeodesicLinesToken)) {
+		useGeodesicLines = true;
 	}
 
 	// Cache frequently accessed DOM elements for performance

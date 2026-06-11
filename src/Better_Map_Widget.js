@@ -249,6 +249,7 @@ var showRoadLabels = getBetterMapGlobal("showRoadLabels", "off");
 var displayProps = getBetterMapGlobal("displayProps", "");
 var connectionInfoProp = getBetterMapGlobal("connectionInfoProp", "auto.custom_map_connection_data");
 var connectingLineWeight = getBetterMapGlobal("connectingLineWeight", 3);
+var useGeodesicLines = getBetterMapGlobal("useGeodesicLines", false);
 var parallelConnectionCurvature = getBetterMapGlobal("parallelConnectionCurvature", 18);
 var openWeatherAPIKey = getBetterMapGlobal("openWeatherAPIKey", "");
 var xweatherAPIID = getBetterMapGlobal("xweatherAPIID", "");
@@ -542,6 +543,13 @@ var connectionCurvatureTokenEl = getBetterMapElementById("connectionCurvatureTok
 var connectionCurvatureToken = connectionCurvatureTokenEl ? connectionCurvatureTokenEl.innerText : "";
 if (connectionCurvatureToken != "##MapConnectionCurvature##" && connectionCurvatureToken.trim() !== "") {
 	parallelConnectionCurvature = connectionCurvatureToken;
+}
+
+// Capture from token whether to use geodesic (great circle) connection lines...
+var useGeodesicLinesTokenEl = getBetterMapElementById("useGeodesicLinesToken");
+var useGeodesicLinesToken = useGeodesicLinesTokenEl ? useGeodesicLinesTokenEl.innerText : "";
+if (isTruthyToken(useGeodesicLinesToken)) {
+	useGeodesicLines = true;
 }
 
 // Capture from token whether to use a LogicMonitor API bearer token or API ID & key...
@@ -3175,6 +3183,7 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 	// Plot the line on the map...
 	const thisPath = new google.maps.Polyline({
 		path: tmpCoords,
+		geodesic: useGeodesicLines,
 		strokeColor: connectionColor,
 		strokeOpacity: 1.0,
 		strokeWeight: connectingLineWeight,
@@ -3187,6 +3196,7 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 		sourceDeviceID: connection.deviceIDSource,
 		targetDeviceID: connection.deviceIDConnected,
 		connection: connection,
+		originalCoords: [sourcePos, targetPos],
 	});
 
 	// Show connection info on hover...
