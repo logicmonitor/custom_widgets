@@ -1,12 +1,18 @@
-### A collection of useful custom-scripted LogicMonitor dashboard widgets.
+## A collection of useful custom-scripted LogicMonitor dashboard widgets.
 
 **NOTE:** While this work is provided for use by the LogicMonitor community, they were created as personal projects and are *not* officially supported by LogicMonitor.
 
-#### Widgets
-
-- [Better Map Widget](#better-map-widget)
-- [Dynamic Dashboard List](#dynamic-dashboard-list)
-- [Dashboard Themer](#dashboard-themer)
+- ### [Better Map Widget](#better-map-widget)
+	- ["CDN" vs "Full" Version](#cdn-vs-full-version)
+ 	- [Prerequisites](#prerequisites)
+  	- [Initial Configuration](#initial-configuration)
+  	- [Usage](#usage)
+  	- [Customizing Better Map Widget](#customizing-better-map-widget)
+  	- [Weather Options](#weather-options)
+  	- [Showing Connections between Locations](#showing-connections-between-locations)
+- ### [Dynamic Dashboard List](#dynamic-dashboard-list)
+	- [Customizing Dynamic Dashboard List](#customizing-dynamic-dashboard-list)
+- ### [Dashboard Themer](#dashboard-themer)
 
 ---
 # Better Map Widget
@@ -68,7 +74,7 @@ Note that by default the zoom level of the map will _not_ auto-reset on refres
 
 Visibility of the toolbar along the top of the widget can be toggled using the button in the upper-left corner of the map.
 
-## Optional Customization
+## Customizing Better Map Widget
 
 Behavior of the widget can be customized using the following optional dashboard tokens:
 
@@ -119,10 +125,10 @@ Below are details on the radar options available within the widget:
 Better Map Widget allows a way to represent connectivity between locations. Currently this only supports alert status of instances of the "SNMP_Network_Interfaces" datasource, any datasource with "VPN" in the name, and LM Uptime instances.
 
 To configure:
-1. Be sure you've loaded the required PropertySource mentioned in the Prerequisites section above.
-2. Go to the specific instance of one of either the 'SNMP_Network_Interfaces' datasource, a datasource with "VPN" in its name, or an LM Uptime ping/web check and add an instance-level property called 'custom_map_connection'. The value should be in the following format: `{Connection Title} > {Hostname/IP or display name of the connected resource}`
+1. Be sure you've loaded the required PropertySource - [Set Better Map Widget Connections](https://github.com/logicmonitor/custom_widgets/blob/main/LogicModules/Set_Better_Map_Widget_Connections.json) - mentioned in the [Prerequisites](#prerequisites) section above.
+2. Go to the specific instance of one of either the 'SNMP_Network_Interfaces' datasource, a datasource with "VPN" in its name, or an LM Uptime ping/web check and add an instance-level property called **`custom_map_connection`**. The value should be in the following format: **{Connection Title} > {Hostname/IP or display name of the connected resource}**
 
-For example: `London WAN > 192.168.1.10` would show a line titled "London WAN" representing this specific interface connected from that resource's location to the resource monitored as 192.168.1.10. A PropertySource - "Set Better Map Widget Connections" - automatically configures those instance-level properties as resource-level properties along with other necessary data for the widget to use.
+For example: Setting a `custom_map_connection` instance-level property with a value of `London WAN > 192.168.1.10` on a network interface would show a line titled "London WAN" connecting that resource to the resource monitored as 192.168.1.10. The line's color and tooltip will indicate the current alert status of that interface. The PropertySource automatically configures those instance-level properties as resource-level properties, along with other necessary data for the widget to use.
 
 ---
 # Dynamic Dashboard List
@@ -134,7 +140,7 @@ This script was created in response to a customer needing a quick way to drill-d
 
 To use this, just add a Text widget to your dashboard and in the widget's configuration screen click the "source" view then paste in this code. You can also just clone this widget to another dashboard on the same portal.
 
-## Optional Customization
+## Customizing Dynamic Dashboard List
 
 Behavior of the widget can be customized using the following optional dashboard tokens:
 
