@@ -65,10 +65,14 @@
 		registry.pendingDefaults = registry.pendingDefaults || [];
 		var defaults = {};
 
-	defaults.version = "3.59";
+	defaults.version = "3.60";
 	defaults.releaseNotes = `
 		<h2>Release Notes</h2>
 		<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+		<h3>Version 3.60</h3>
+		<ul>
+			<li>Fix for power outage data not plotting correctly. The widget now uses ODIN's county outage API as its primary source of US power outage data.</li>
+		</ul>
 		<h3>Version 3.59</h3>
 		<ul>
 			<li>Added the ability to use geodesic (great circle) connection lines instead of Mercator lines. This is useful for long-distance connections where the Mercator lines might take non-optimal paths. Changeable via a new dashboard token named "MapUseGeodesicLines" set to either true or false (default is true).</li>
@@ -1437,6 +1441,18 @@ if (window.RProfiler) {
 			return betterMapDefaults[name];
 		}
 		return typeof window[name] === "undefined" ? fallback : window[name];
+	}
+
+	// Base URL for static widget assets (JS/CSS/data JSON bundled in the repo)...
+	function getBetterMapWidgetAssetBase() {
+		if (window.__betterMapWidgetBase) {
+			return window.__betterMapWidgetBase;
+		}
+		var scriptSrc = (betterMapScript && betterMapScript.src) || '';
+		if (scriptSrc.indexOf('Better_Map_Widget.js') !== -1) {
+			return scriptSrc.replace(/Better_Map_Widget\.js.*$/, '');
+		}
+		return 'https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/src/';
 	}
 
 	// Function to find an element inside this widget instance first...
@@ -5367,20 +5383,25 @@ if (window.RProfiler) {
 				}
 			// Look to see if we should add power outages to the map...
 			} else if (optionalMapType == "us-poweroutages") {
-				// USA Today power outage data URL (fetched via CORS proxy)...
+				// ODIN county outage API (CORS-enabled, ~30KB). Primary source since USA Today's
+				// ~6.8MB JS feed cannot be fetched directly from the browser and public CORS
+				// proxies now return 522/408 timeouts against data.usatoday.com.
+				const odinOutageApiURL = 'https://openenergyhub.ornl.gov/api/explore/v2.1/catalog/datasets/odin-real-time-outages-county/records?select=communitydescriptor,county,state,sum(metersaffected)&group_by=communitydescriptor,county,state&limit=-1';
+				// USA Today fallback (requires CORS proxy; often fails with 522 on large payload)...
 				const usaTodayDataURL = `https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_data.js`;
-				// Multiple CORS proxies for fallback (some may be blocked or rate-limited)...
 				const corsProxies = [
-					{ url: 'https://api.codetabs.com/v1/proxy?quest=', encode: false },
 					{ url: 'https://api.allorigins.win/raw?url=', encode: true },
-					{ url: 'https://corsproxy.io/?', encode: true }
+					{ url: 'https://api.codetabs.com/v1/proxy?quest=', encode: false }
 				];
 				// US Counties GeoJSON with FIPS codes (from plotly datasets)...
 				const countiesGeoJsonURL = 'https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json';
-				const usaTodayTotalCustomersURL = 'https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_total.js';
+				const countyCustomersUsaTodayURL = getBetterMapWidgetAssetBase() + 'data/county-electric-customers-usatoday.json';
+				const countyCustomersOrnlURL = getBetterMapWidgetAssetBase() + 'data/county-electric-customers.json';
 
 				// Cache key for county GeoJSON - stored in localStorage since boundaries are static
 				const COUNTIES_CACHE_KEY = 'lm_bmw.countiesGeoJson.v1';
+				const COUNTY_CUSTOMERS_CACHE_KEY = 'lm_bmw.countyElectricCustomers.v2';
+				let countyCustomerSources = null;
 
 				// Function to get cached county GeoJSON or fetch fresh...
 				async function getCountiesGeoJson() {
@@ -5414,6 +5435,105 @@ if (window.RProfiler) {
 					return data;
 				}
 
+				// Bundled county customer totals: USA Today primary, ORNL EAGLE-I fallback (~86KB combined)...
+				async function fetchBundledCustomerTotals(url, label) {
+					const response = await fetch(url);
+					if (!response.ok) {
+						throw new Error(`${label} county customer totals fetch error: ${response.status}`);
+					}
+					return response.json();
+				}
+
+				async function getCountyCustomerTotals() {
+					try {
+						const cached = localStorage.getItem(COUNTY_CUSTOMERS_CACHE_KEY);
+						if (cached) {
+							const parsed = JSON.parse(cached);
+							if (parsed && parsed.customersByFips) {
+								console.debug('Using cached county electric customer totals from localStorage');
+								return parsed;
+							}
+						}
+					} catch (e) {
+						console.debug('County customer cache read failed:', e.message);
+					}
+
+					let usaTodayData = null;
+					let ornlData = null;
+
+					try {
+						usaTodayData = await fetchBundledCustomerTotals(countyCustomersUsaTodayURL, 'USA Today');
+						console.debug('Loaded bundled USA Today county customer totals');
+					} catch (e) {
+						console.warn('USA Today bundled county customer totals unavailable:', e.message);
+					}
+
+					try {
+						ornlData = await fetchBundledCustomerTotals(countyCustomersOrnlURL, 'ORNL EAGLE-I');
+						console.debug('Loaded bundled ORNL county customer totals');
+					} catch (e) {
+						console.warn('ORNL bundled county customer totals unavailable:', e.message);
+					}
+
+					if (!usaTodayData && !ornlData) {
+						throw new Error('No bundled county customer totals available');
+					}
+
+					const usaFips = (usaTodayData && usaTodayData.customersByFips) || {};
+					const ornlFips = (ornlData && ornlData.customersByFips) || {};
+					const merged = {};
+					let usaTodayCount = 0;
+					let ornlFallbackCount = 0;
+					const allFips = Object.keys(usaFips).concat(Object.keys(ornlFips));
+
+					for (let i = 0; i < allFips.length; i++) {
+						const fips = allFips[i];
+						if (merged[fips]) continue;
+						if (usaFips[fips] > 0) {
+							merged[fips] = usaFips[fips];
+							usaTodayCount++;
+						} else if (ornlFips[fips] > 0) {
+							merged[fips] = ornlFips[fips];
+							ornlFallbackCount++;
+						}
+					}
+
+					const data = {
+						v: 2,
+						customersByFips: merged,
+						sources: {
+							primary: usaTodayData ? 'usa_today' : 'ornl_eaglei',
+							usaTodayFetched: usaTodayData && usaTodayData.fetched,
+							ornlFetched: ornlData && ornlData.fetched,
+							usaTodayCount: usaTodayCount,
+							ornlFallbackCount: ornlFallbackCount
+						}
+					};
+
+					try {
+						localStorage.setItem(COUNTY_CUSTOMERS_CACHE_KEY, JSON.stringify(data));
+						console.debug('County electric customer totals cached to localStorage');
+					} catch (e) {
+						console.debug('County customer cache write failed:', e.message);
+					}
+					return data;
+				}
+
+				function applyOutagePercentages(outageDataByFips, customersByFips) {
+					let applied = 0;
+					for (const fips in outageDataByFips) {
+						const totalCustomers = customersByFips[fips];
+						if (totalCustomers > 0) {
+							outageDataByFips[fips].percentage = Math.min(
+								(outageDataByFips[fips].outageCount / totalCustomers) * 100,
+								100
+							);
+							applied++;
+						}
+					}
+					return applied;
+				}
+
 				// Function to try fetching with fallback proxies...
 				async function fetchWithCorsProxy(targetUrl) {
 					const urlWithCacheBust = targetUrl + `?v=${Date.now()}`;
@@ -5434,7 +5554,45 @@ if (window.RProfiler) {
 					throw new Error(`All CORS proxies failed to fetch power outage data`);
 				}
 
-				// Function to parse outage data in a single pass...
+				// Parse ODIN aggregated county outage records...
+				function parseOdinOutageData(data) {
+					const outageDataByFips = {};
+					for (const row of (data.results || [])) {
+						const fips = String(row.communitydescriptor || '').padStart(5, '0');
+						const outageCount = parseInt(row['sum(metersaffected)'], 10) || 0;
+						if (!fips) continue;
+						const county = row.county || 'Unknown';
+						const state = row.state || '';
+						outageDataByFips[fips] = {
+							name: state ? `${county} County, ${state}` : `${county} County`,
+							outageCount: outageCount,
+							percentage: 0,
+							fips: fips
+						};
+					}
+					return { outageDataByFips, maxTimeIndex: 0 };
+				}
+
+				// Try ODIN first, then fall back to USA Today via CORS proxy...
+				async function fetchOutageData() {
+					try {
+						const response = await fetch(odinOutageApiURL);
+						if (!response.ok) {
+							throw new Error(`ODIN outage fetch error: ${response.status}`);
+						}
+						const data = await response.json();
+						console.debug('Power outage data fetched from ODIN API');
+						return Object.assign({ dataSource: 'odin' }, parseOdinOutageData(data));
+					} catch (odinErr) {
+						console.warn('ODIN outage fetch failed, falling back to USA Today via CORS proxy:', odinErr.message);
+					}
+					const outageResponse = await fetchWithCorsProxy(usaTodayDataURL);
+					const outageText = await outageResponse.text();
+					console.debug('Power outage data fetched from USA Today via CORS proxy');
+					return Object.assign({ dataSource: 'usatoday' }, parseOutageData(outageText));
+				}
+
+				// Function to parse USA Today outage data in a single pass...
 				function parseOutageData(outageText) {
 					const allEntries = [];
 					let maxTimeIndex = 0;
@@ -5467,18 +5625,25 @@ if (window.RProfiler) {
 				try {
 					clearOverlayState();
 
-					// Fetch both data sources in parallel (counties use cache, outages via proxy)
-					const [countiesGeoJson, outageResponse] = await Promise.all([
+					// Fetch counties, outage data (ODIN/USA Today), and bundled customer totals...
+					const [countiesGeoJson, outageResult, countyCustomerData] = await Promise.all([
 						getCountiesGeoJson(),
-						fetchWithCorsProxy(usaTodayDataURL)
+						fetchOutageData(),
+						getCountyCustomerTotals()
 					]);
 
-					// Parse outage text in single pass (optimized)
-					const outageText = await outageResponse.text();
-					const { outageDataByFips, maxTimeIndex: CURRENT_TIME_INDEX } = parseOutageData(outageText);
+					const { outageDataByFips, maxTimeIndex: CURRENT_TIME_INDEX, dataSource } = outageResult;
+					const customersByFips = countyCustomerData.customersByFips || {};
+					countyCustomerSources = countyCustomerData.sources || null;
+
+					if (dataSource === 'odin') {
+						const percentCount = applyOutagePercentages(outageDataByFips, customersByFips);
+						const src = countyCustomerSources || {};
+						console.debug(`Applied customer percentages for ${percentCount} counties (USA Today: ${src.usaTodayCount || 0}, ORNL fallback: ${src.ornlFallbackCount || 0})`);
+					}
 
 					console.debug(`Detected maximum time index (m) value: ${CURRENT_TIME_INDEX}`);
-					console.debug(`Parsed ${Object.keys(outageDataByFips).length} counties with current outage data (m=${CURRENT_TIME_INDEX}) from USA Today`);
+					console.debug(`Parsed ${Object.keys(outageDataByFips).length} counties with current outage data from ${dataSource}`);
 
 					// Merge outage data into the counties GeoJSON by FIPS code...
 					let countiesWithOutages = 0;
@@ -5536,6 +5701,9 @@ if (window.RProfiler) {
 						// Calculate donut chart values (circumference = 2 * pi * 35 ~= 219.91)...
 						const circumference = 219.91;
 						const filledAmount = (percentAffected / 100) * circumference;
+						const donutCenterText = percentAffected > 0
+							? `${percentAffected.toFixed(1)}%`
+							: outageCount.toLocaleString();
 						const donutChart = `
 							<svg width="100" height="100" viewBox="0 0 100 100" style="display:block;margin:10px auto;">
 								<circle cx="50" cy="50" r="35" fill="none" stroke="#e0e0e0" stroke-width="12"/>
@@ -5544,9 +5712,17 @@ if (window.RProfiler) {
 									stroke-linecap="round"
 									transform="rotate(-90 50 50)"/>
 								<text x="50" y="50" text-anchor="middle" dominant-baseline="middle"
-									font-size="16" font-weight="bold" fill="#333">${percentAffected.toFixed(1)}%</text>
+									font-size="16" font-weight="bold" fill="#333">${donutCenterText}</text>
 							</svg>
 						`;
+						const outageDetailText = percentAffected > 0
+							? `Customers Without Power: <strong>${outageCount.toLocaleString()}</strong> (${percentAffected.toFixed(1)}%)`
+							: `Meters Affected: <strong>${outageCount.toLocaleString()}</strong>`;
+						const dataSourceHtml = dataSource === 'usatoday'
+							? `<a href="https://data.usatoday.com/national-power-outage-map-tracker/" target="_blank" style="color:#0085c4; text-decoration: none;">USA Today</a>`
+							: (countyCustomerSources && countyCustomerSources.primary === 'usa_today'
+								? `Outages: <a href="https://odin.ornl.gov/" target="_blank" style="color:#0085c4; text-decoration: none;">ODIN (US DOE)</a>, totals: <a href="https://data.usatoday.com/national-power-outage-map-tracker/" target="_blank" style="color:#0085c4; text-decoration: none;">USA Today</a>`
+								: `Outages: <a href="https://odin.ornl.gov/" target="_blank" style="color:#0085c4; text-decoration: none;">ODIN (US DOE)</a>, totals: <a href="https://doi.org/10.6084/m9.figshare.24237376" target="_blank" style="color:#0085c4; text-decoration: none;">ORNL EAGLE-I</a>`);
 
 						// Set the content of the info window...
 						parent.overlayInfoWindow.setContent(`
@@ -5554,10 +5730,10 @@ if (window.RProfiler) {
 								<h3 style="margin:0;">${countyName} Power Outages</h3>
 								${donutChart}
 								<p style="padding:5px 0;">
-									Customers Without Power: <strong>${outageCount.toLocaleString()}</strong> (${percentAffected.toFixed(1)}%)
+									${outageDetailText}
 								</p>
 								<p style="font-size:11px; color:#777; margin: 0;">
-									Data source: <a href="https://data.usatoday.com/national-power-outage-map-tracker/" target="_blank" style="color:#0085c4; text-decoration: none;">USA Today</a>
+									Data source: ${dataSourceHtml}
 								</p>
 							</div>
 						`);

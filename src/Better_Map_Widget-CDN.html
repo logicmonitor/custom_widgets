@@ -1,6 +1,6 @@
 <!--
 	Better Map Widget
-	Version 1.27 - CDN Version
+	Version 1.28 - CDN Version
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
@@ -237,6 +237,7 @@
 	(function loadBetterMapAssets(loaderScript) {
 		var ts = Date.now();
 		var widgetBase = "https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/src/";
+		window.__betterMapWidgetBase = widgetBase;
 		// var catchpointBeacon = "https://g.3gl.net/jp/14586/latest/InitialLoadScript.js";
 		var registry = window.__betterMapWidgetRegistry = window.__betterMapWidgetRegistry || { instances: Object.create(null) };
 		if (!registry.instances) {
