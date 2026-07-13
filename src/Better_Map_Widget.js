@@ -14,13 +14,14 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
 
 // ------------------------------------------------------------
-var version = "3.60 CDN";
+var version = "3.61 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-	<h3>Version 3.60</h3>
+	<h3>Version 3.61</h3>
 	<ul>
 		<li>Fix for power outage data not plotting correctly. The widget now uses ODIN's county outage API as its primary source of US power outage data.</li>
+		<li>Improved display of flood data.</li>
 	</ul>
 	<h3>Version 3.59</h3>
 	<ul>
@@ -3559,24 +3560,50 @@ function buildTsunamiWarningBannerHtml(tsunamiWarningHtml) {
 }
 
 function buildFloodingLevelChartHtml(data) {
-	if (!data.gage_height || !data.rp_elevation) return "";
-	var floodHeight = Math.max(20, Math.min(60, (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)) * 5));
-	var floodDelta = (parseFloat(data.gage_height) - parseFloat(data.rp_elevation)).toFixed(2);
-	var normalElev = parseFloat(data.rp_elevation).toFixed(2);
+	var gage = parseFloat(data.gage_height);
+	var normal = parseFloat(data.rp_elevation);
+	var delta = gage - normal;
+	if (!(gage > 0) || !(normal > 0) || !(delta > 0)) return "";
+
+	var chartMaxPx = 100;
+	var total = normal + delta;
+	var floodHeight = Math.max(1, Math.round((delta / total) * chartMaxPx));
+	var normalHeight = Math.max(24, Math.round((normal / total) * chartMaxPx));
+	var floodDelta = delta.toFixed(2);
+	var normalElev = normal.toFixed(2);
 	var wavePath = "M0,10 L0,5 Q12.5,0 25,5 T50,5 T75,5 T100,5 L100,10 Z";
-	return '\x3cdiv style="position:relative;width:80%;margin:0 auto;"\x3e' +
-		'\x3csvg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none"\x3e' +
-			'\x3cpath d="' + wavePath + '" fill="#ffb3b3"/\x3e' +
-		'\x3c/svg\x3e' +
-		'\x3cdiv style="background: linear-gradient(to bottom, #ffb3b3, #fe8787); height:' + floodHeight + 'px; width:100%; border-radius:4px 4px 0 0; display:flex; align-items:center; justify-content:center; color:#8b0000; font-weight:bold; font-size:12px;"\x3e' +
-			'\x3cspan style="margin-top: -5px; filter: drop-shadow(0 0 4px white);"\x3e+' + floodDelta + ' ft\x3c/span\x3e' +
-		'\x3c/div\x3e' +
-		'\x3cdiv style="position:relative;"\x3e' +
+
+	return '\x3cdiv style="display:flex;align-items:stretch;gap:6px;width:100%;min-width:min-content;"\x3e' +
+		'\x3cdiv style="flex:1 1 0;min-width:48px;position:relative;"\x3e' +
 			'\x3csvg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none"\x3e' +
-				'\x3cpath d="' + wavePath + '" fill="#87CEEB"/\x3e' +
+				'\x3cpath d="' + wavePath + '" fill="#ffb3b3"/\x3e' +
 			'\x3c/svg\x3e' +
-			'\x3cdiv style="background: linear-gradient(to bottom, #87CEEB, #8ea6ba); height:40px; width:100%; border-radius:0 0 4px 4px; display:flex; align-items:center; justify-content:center; color:#142d47; font-weight:bold; font-size:12px;"\x3e' +
-				'\x3cspan style="filter: drop-shadow(0 0 4px white);"\x3eNormal Elevation: ' + normalElev + ' ft\x3c/span\x3e' +
+			'\x3cdiv style="background:linear-gradient(to bottom,#ffb3b3,#fe8787);height:' + floodHeight + 'px;width:100%;border-radius:4px 4px 0 0;"\x3e\x3c/div\x3e' +
+			'\x3cdiv style="position:relative;"\x3e' +
+				'\x3csvg style="position:absolute;top:-8px;left:0;width:100%;height:10px;" viewBox="0 0 100 10" preserveAspectRatio="none"\x3e' +
+					'\x3cpath d="' + wavePath + '" fill="#87CEEB"/\x3e' +
+				'\x3c/svg\x3e' +
+				'\x3cdiv style="background:linear-gradient(to bottom,#87CEEB,#8ea6ba);height:' + normalHeight + 'px;width:100%;border-radius:0 0 4px 4px;"\x3e\x3c/div\x3e' +
+			'\x3c/div\x3e' +
+		'\x3c/div\x3e' +
+		'\x3cdiv style="flex:0 0 10px;display:flex;flex-direction:column;"\x3e' +
+			'\x3cdiv style="position:relative;height:' + floodHeight + 'px;width:10px;"\x3e' +
+				'\x3cdiv style="position:absolute;left:4px;top:0;bottom:0;width:1px;background:#8b0000;"\x3e\x3c/div\x3e' +
+				'\x3cdiv style="position:absolute;left:0;top:0;width:9px;height:1px;background:#8b0000;"\x3e\x3c/div\x3e' +
+				'\x3cdiv style="position:absolute;left:0;bottom:0;width:9px;height:1px;background:#8b0000;"\x3e\x3c/div\x3e' +
+			'\x3c/div\x3e' +
+			'\x3cdiv style="position:relative;height:' + normalHeight + 'px;width:10px;"\x3e' +
+				'\x3cdiv style="position:absolute;left:4px;top:0;bottom:0;width:1px;background:#142d47;"\x3e\x3c/div\x3e' +
+				'\x3cdiv style="position:absolute;left:0;top:0;width:9px;height:1px;background:#142d47;"\x3e\x3c/div\x3e' +
+				'\x3cdiv style="position:absolute;left:0;bottom:0;width:9px;height:1px;background:#142d47;"\x3e\x3c/div\x3e' +
+			'\x3c/div\x3e' +
+		'\x3c/div\x3e' +
+		'\x3cdiv style="flex:0 0 auto;display:flex;flex-direction:column;"\x3e' +
+			'\x3cdiv style="height:' + floodHeight + 'px;display:flex;align-items:center;color:#a90101;font-weight:bold;font-size:12px;white-space:nowrap;"\x3e' +
+				'+' + floodDelta + ' ft' +
+			'\x3c/div\x3e' +
+			'\x3cdiv style="height:' + normalHeight + 'px;display:flex;align-items:center;color:#142d47;font-weight:bold;font-size:12px;white-space:nowrap;"\x3e' +
+				'Normal: ' + normalElev + ' ft' +
 			'\x3c/div\x3e' +
 		'\x3c/div\x3e' +
 	'\x3c/div\x3e';
@@ -5052,7 +5079,7 @@ async function addWeatherLayer() {
 						nwis_id: feature.getProperty('nwis_id')
 					}
 					parent.overlayInfoWindow.setContent(`
-						<div style="line-height:1.5;overflow:hidden;color:#333;max-width:300px;">
+						<div style="line-height:1.5;color:#333;max-width:300px;overflow:visible;">
 							<h3 style="margin:0 0 8px 0;color:#4682B4;">${data.site_name || 'Unknown Site'}</h3>
 							<p style="margin:0;font-size:13px;">${data.description || 'No description available'}</p>
 							<div style="margin-top:12px;">
