@@ -65,271 +65,271 @@
 		registry.pendingDefaults = registry.pendingDefaults || [];
 		var defaults = {};
 
-	defaults.version = "3.61";
-	defaults.releaseNotes = `
-		<h2>Release Notes</h2>
-		<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-		<h3>Version 3.61</h3>
-		<ul>
-			<li>Fix for power outage data not plotting correctly. The widget now uses ODIN's county outage API as its primary source of US power outage data.</li>
-			<li>Improved display of flood data.</li>
-		</ul>
-		<h3>Version 3.59</h3>
-		<ul>
-			<li>Added the ability to use geodesic (great circle) connection lines instead of Mercator lines. This is useful for long-distance connections where the Mercator lines might take non-optimal paths. Changeable via a new dashboard token named "MapUseGeodesicLines" set to either true or false (default is true).</li>
-			<li>Replaced use of some non-ASCII characters with their ASCII equivalents.</li>
-			<li>Changed some portions of code that LogicMonitor's HTML sanitizer kept breaking.</li>
-			<li>Added the ability to only show items with active connections. Changeable via a new dashboard token named &quot;MapOnlyShowConnectedItems&quot; set to either true or false (default is false).</li>
-			<li>Added ability to show/hide status lines between items on the map. Changeable via a new dashboard token named &quot;MapShowConnectingLines&quot; set to either true or false (default is true).</li>
-		</ul>
-		<h3>Version 3.58</h3>
-		<ul>
-			<li>Overlapping connection lines are now displayed as parallel lines with a specified curvature. (Thank you ES & CH for your feedback!)</li>
-		</ul>
-		<h3>Version 3.57</h3>
-		<ul>
-			<li>Map toolbar option cookies are now scoped per widget instance (dashboard ID + widget ID). Existing dashboard-only cookies are still read and are migrated to the new format on the next save.</li>
-			<li>Fix for Google Maps trying to reinitialize when commiting code changes to an existing widget instance.</li>
-			<li>Updated to use MarkerClusterer v2.6.2.</li>
-		</ul>
-		<h3>Version 3.56</h3>
-		<ul>
-			<li>Fixed all toolbar options being saved to cookie whenever any toolbar option was changed.</li>
-			<li>Fixed path reset button not appearing on initial load when the value saved to cookie was different from the default value.</li>
-		</ul>
-		<h3>Version 3.55</h3>
-		<ul>
-			<li>Migrated the lingering reference to Google's legacy Marker class to the newer AdvancedMarkerElement.</li>
-		</ul>
-		<h3>Version 3.54</h3>
-		<ul>
-			<li>Improved display of wildfire information.</li>
-			<li>Fixed issue with variable scoping when multiple instances of the widget are used on the same page.</li>
-			<li>Fixed Google Maps' confusing default behavior of showing popups when clicking state/territory names.</li>
-		</ul>
-		<h3>Version 3.53</h3>
-		<ul>
-			<li>Added a button to reset the group filter if different from the default value.</li>
-			<li>Fixed issue with variable scoping when multiple instances of the widget are used on the same page.</li>
-			<li>Added some missing comments to the code.</li>
-		</ul>
-		<h3>Version 3.51</h3>
-		<ul>
-			<li>Cookies are now specific to each dashboard.</li>
-		</ul>
-		<h3>Version 3.50</h3>
-		<ul>
-			<li>Drop-down menu to select which type of map marker to use (pins or circles).</li>
-			<li>Renamed the &quot;	dot&quot; option to &quot;circles&quot; for consistency. Legacy &quot;default&quot;, &quot;pin&quot;, &quot;dot&quot;, &quot;dots&quot;, and &quot;circle&quot; values are still accepted for the &quot;MapMarkerStyle&quot; dashboard token.</li>
-			<li>When a user changes a toolbar option then the changes are saved to a cookie so that they persist across refreshes. Use the new &quot;Clear cache&quot; button to clear the cookie and reset the map to its default state.</li>
-		</ul>
-		<h3>Version 3.49</h3>
-		<ul>
-			<li>Added the ability to use dot-style markers instead of the default pin-style markers.</li>
-			<li>Fixed issue with mouse wheel scrolling not working correctly within the map info popup window.</li>
-		</ul>
-		<h3>Version 3.47</h3>
-		<ul>
-			<li>Optimizations to weather data refreshing.</li>
-			<li>Opacity of weather layers is now less jarring during zoom transitions.</li>
-			<li>Enabled support for OpenWeather Radar (requires free API key available from https://openweathermap.org/api).</li>
-			<li>Added LRU tile cache to reduce redundant network requests when the user zooms back to a previously-viewed level.</li>
-			<li>Fixed issue with connecting lines not being clickable to drill down to the instance details.</li>
-		</ul>
-		<h3>Version 3.45</h3>
-		<ul>
-			<li>Improved refresh speed when there are a large number of items on the map.</li>
-		</ul>
-		<h3>Version 3.44</h3>
-		<ul>
-			<li>A number of small fixes & improvements.</li>
-		</ul>
-		<h3>Version 3.41</h3>
-		<ul>
-			<li>Added the ability to show Xweather Global Radar (requires API ID & key available from https://www.xweather.com/weather-api). Xweather is offers a great deal of optional details such as lightning strikes, hail, wind gusts, etc. Many personal weather stations such as Ecowitt provide free Xweather API access if you feed them your weather data.</li>
-		</ul>
-		<h3>Version 3.39</h3>
-		<ul>
-			<li>Made the width of the map sidebar adjustable via drag handle.</li>
-		</ul>
-		<h3>Version 3.38</h3>
-		<ul>
-			<li>Added options for sorting items in the map sidebar by severity or by address.</li>
-			<li>If a value for the 'MapDisplayProperties' dashboard token is set, then those properties will be displayed in the map sidebar.</li>
-		</ul>
-		<h3>Version 3.36</h3>
-		<ul>
-			<li>Added the ability to show a map sidebar listing the status of all items on the map. It can be shown by default (or not) via a new dashboard token named "ShowMapSidebar".</li>
-		</ul>
-		<h3>Version 3.33</h3>
-		<ul>
-			<li>Improved the display of wildfire information.</li>
-		</ul>
-		<h3>Version 3.30</h3>
-		<ul>
-			<li>Added Catchpoint beacon for performance monitoring (no confidential data is collected).</li>
-		</ul>
-		<h3>Version 3.29</h3>
-		<ul>
-			<li>Fixed an infinite loop that could occur in certain situations.</li>
-		</ul>
-		<h3>Version 3.28</h3>
-		<ul>
-			<li>Optimized support for system & auto properties for location data.</li>
-		</ul>
-		<h3>Version 3.27</h3>
-		<ul>
-			<li>Added the ability to select the weather type and additional overlays from dropdowns instead of radio buttons.</li>
-			<li>Shifted the few static HTML portions to Javascript to make the CDN version easier to update.</li>
-			<li>Added a release notes button to the widget options.</li>
-		</ul>
-		<h3>Version 3.23</h3>
-		<ul>
-			<li>Re-added the option to specify credentials (bearer token or ID/key) for the widget's LM API calls.  If not specified then integrated portal authentication will be used.</li>
-			<li>Fix for US wildfire data not plotting correctly.</li>
-		</ul>
-		<h3>Version 3.19</h3>
-		<ul>
-			<li>Added two new 'MapStyle' options: "satellite" and "satellite-light".</li>
-			<li>Fix for US power outage data not plotting correctly.</li>
-		</ul>
-		<h3>Version 3.16</h3>
-		<ul>
-			<li>Added ability to specify a different location property (though use of the default 'location' property is still recommended).</li>
-			<li>Optimized loading of power outage data.</li>
-		</ul>
-		<h3>Version 3.12</h3>
-		<ul>
-			<li>Added hyperlink to tsunami details.</li>
-			<li>Added display of Australia bushfires.</li>
-		</ul>`;
+		defaults.version = "3.61";
+		defaults.releaseNotes = `
+			<h2>Release Notes</h2>
+			<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+			<h3>Version 3.61</h3>
+			<ul>
+				<li>Fix for power outage data not plotting correctly. The widget now uses ODIN's county outage API as its primary source of US power outage data.</li>
+				<li>Improved display of flood data.</li>
+			</ul>
+			<h3>Version 3.59</h3>
+			<ul>
+				<li>Added the ability to use geodesic (great circle) connection lines instead of Mercator lines. This is useful for long-distance connections where the Mercator lines might take non-optimal paths. Changeable via a new dashboard token named "MapUseGeodesicLines" set to either true or false (default is true).</li>
+				<li>Replaced use of some non-ASCII characters with their ASCII equivalents.</li>
+				<li>Changed some portions of code that LogicMonitor's HTML sanitizer kept breaking.</li>
+				<li>Added the ability to only show items with active connections. Changeable via a new dashboard token named &quot;MapOnlyShowConnectedItems&quot; set to either true or false (default is false).</li>
+				<li>Added ability to show/hide status lines between items on the map. Changeable via a new dashboard token named &quot;MapShowConnectingLines&quot; set to either true or false (default is true).</li>
+			</ul>
+			<h3>Version 3.58</h3>
+			<ul>
+				<li>Overlapping connection lines are now displayed as parallel lines with a specified curvature. (Thank you ES & CH for your feedback!)</li>
+			</ul>
+			<h3>Version 3.57</h3>
+			<ul>
+				<li>Map toolbar option cookies are now scoped per widget instance (dashboard ID + widget ID). Existing dashboard-only cookies are still read and are migrated to the new format on the next save.</li>
+				<li>Fix for Google Maps trying to reinitialize when commiting code changes to an existing widget instance.</li>
+				<li>Updated to use MarkerClusterer v2.6.2.</li>
+			</ul>
+			<h3>Version 3.56</h3>
+			<ul>
+				<li>Fixed all toolbar options being saved to cookie whenever any toolbar option was changed.</li>
+				<li>Fixed path reset button not appearing on initial load when the value saved to cookie was different from the default value.</li>
+			</ul>
+			<h3>Version 3.55</h3>
+			<ul>
+				<li>Migrated the lingering reference to Google's legacy Marker class to the newer AdvancedMarkerElement.</li>
+			</ul>
+			<h3>Version 3.54</h3>
+			<ul>
+				<li>Improved display of wildfire information.</li>
+				<li>Fixed issue with variable scoping when multiple instances of the widget are used on the same page.</li>
+				<li>Fixed Google Maps' confusing default behavior of showing popups when clicking state/territory names.</li>
+			</ul>
+			<h3>Version 3.53</h3>
+			<ul>
+				<li>Added a button to reset the group filter if different from the default value.</li>
+				<li>Fixed issue with variable scoping when multiple instances of the widget are used on the same page.</li>
+				<li>Added some missing comments to the code.</li>
+			</ul>
+			<h3>Version 3.51</h3>
+			<ul>
+				<li>Cookies are now specific to each dashboard.</li>
+			</ul>
+			<h3>Version 3.50</h3>
+			<ul>
+				<li>Drop-down menu to select which type of map marker to use (pins or circles).</li>
+				<li>Renamed the &quot;	dot&quot; option to &quot;circles&quot; for consistency. Legacy &quot;default&quot;, &quot;pin&quot;, &quot;dot&quot;, &quot;dots&quot;, and &quot;circle&quot; values are still accepted for the &quot;MapMarkerStyle&quot; dashboard token.</li>
+				<li>When a user changes a toolbar option then the changes are saved to a cookie so that they persist across refreshes. Use the new &quot;Clear cache&quot; button to clear the cookie and reset the map to its default state.</li>
+			</ul>
+			<h3>Version 3.49</h3>
+			<ul>
+				<li>Added the ability to use dot-style markers instead of the default pin-style markers.</li>
+				<li>Fixed issue with mouse wheel scrolling not working correctly within the map info popup window.</li>
+			</ul>
+			<h3>Version 3.47</h3>
+			<ul>
+				<li>Optimizations to weather data refreshing.</li>
+				<li>Opacity of weather layers is now less jarring during zoom transitions.</li>
+				<li>Enabled support for OpenWeather Radar (requires free API key available from https://openweathermap.org/api).</li>
+				<li>Added LRU tile cache to reduce redundant network requests when the user zooms back to a previously-viewed level.</li>
+				<li>Fixed issue with connecting lines not being clickable to drill down to the instance details.</li>
+			</ul>
+			<h3>Version 3.45</h3>
+			<ul>
+				<li>Improved refresh speed when there are a large number of items on the map.</li>
+			</ul>
+			<h3>Version 3.44</h3>
+			<ul>
+				<li>A number of small fixes & improvements.</li>
+			</ul>
+			<h3>Version 3.41</h3>
+			<ul>
+				<li>Added the ability to show Xweather Global Radar (requires API ID & key available from https://www.xweather.com/weather-api). Xweather is offers a great deal of optional details such as lightning strikes, hail, wind gusts, etc. Many personal weather stations such as Ecowitt provide free Xweather API access if you feed them your weather data.</li>
+			</ul>
+			<h3>Version 3.39</h3>
+			<ul>
+				<li>Made the width of the map sidebar adjustable via drag handle.</li>
+			</ul>
+			<h3>Version 3.38</h3>
+			<ul>
+				<li>Added options for sorting items in the map sidebar by severity or by address.</li>
+				<li>If a value for the 'MapDisplayProperties' dashboard token is set, then those properties will be displayed in the map sidebar.</li>
+			</ul>
+			<h3>Version 3.36</h3>
+			<ul>
+				<li>Added the ability to show a map sidebar listing the status of all items on the map. It can be shown by default (or not) via a new dashboard token named "ShowMapSidebar".</li>
+			</ul>
+			<h3>Version 3.33</h3>
+			<ul>
+				<li>Improved the display of wildfire information.</li>
+			</ul>
+			<h3>Version 3.30</h3>
+			<ul>
+				<li>Added Catchpoint beacon for performance monitoring (no confidential data is collected).</li>
+			</ul>
+			<h3>Version 3.29</h3>
+			<ul>
+				<li>Fixed an infinite loop that could occur in certain situations.</li>
+			</ul>
+			<h3>Version 3.28</h3>
+			<ul>
+				<li>Optimized support for system & auto properties for location data.</li>
+			</ul>
+			<h3>Version 3.27</h3>
+			<ul>
+				<li>Added the ability to select the weather type and additional overlays from dropdowns instead of radio buttons.</li>
+				<li>Shifted the few static HTML portions to Javascript to make the CDN version easier to update.</li>
+				<li>Added a release notes button to the widget options.</li>
+			</ul>
+			<h3>Version 3.23</h3>
+			<ul>
+				<li>Re-added the option to specify credentials (bearer token or ID/key) for the widget's LM API calls.  If not specified then integrated portal authentication will be used.</li>
+				<li>Fix for US wildfire data not plotting correctly.</li>
+			</ul>
+			<h3>Version 3.19</h3>
+			<ul>
+				<li>Added two new 'MapStyle' options: "satellite" and "satellite-light".</li>
+				<li>Fix for US power outage data not plotting correctly.</li>
+			</ul>
+			<h3>Version 3.16</h3>
+			<ul>
+				<li>Added ability to specify a different location property (though use of the default 'location' property is still recommended).</li>
+				<li>Optimized loading of power outage data.</li>
+			</ul>
+			<h3>Version 3.12</h3>
+			<ul>
+				<li>Added hyperlink to tsunami details.</li>
+				<li>Added display of Australia bushfires.</li>
+			</ul>`;
 
-	// Optional: You can specify a LogicMonitor API bearer token or API ID & key to use for the widget...
-	defaults.apiBearerToken = "";
-	defaults.lmAPIID = "";
-	defaults.lmAPIKey = "";
+		// Optional: You can specify a LogicMonitor API bearer token or API ID & key to use for the widget...
+		defaults.apiBearerToken = "";
+		defaults.lmAPIID = "";
+		defaults.lmAPIKey = "";
 
-	// Whether we're plotting "groups" or "resources" or "services" (strongly recommend staying with groups or services)...
-	// You can either set it here or in a dashboard token named 'MapSourceType'...
-	defaults.mapSourceType = "groups";
+		// Whether we're plotting "groups" or "resources" or "services" (strongly recommend staying with groups or services)...
+		// You can either set it here or in a dashboard token named 'MapSourceType'...
+		defaults.mapSourceType = "groups";
 
-	// The property to use for the location of the items on the map. Default is "location"...
-	// You can either set it here or in a dashboard token named 'MapLocationProperty'...
-	defaults.mapLocationProperty = "location";
+		// The property to use for the location of the items on the map. Default is "location"...
+		// You can either set it here or in a dashboard token named 'MapLocationProperty'...
+		defaults.mapLocationProperty = "location";
 
-	// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", "silverblue", "satellite", or "satellite-light"...
-	defaults.mapStyle = "silverblue";
+		// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", "silverblue", "satellite", or "satellite-light"...
+		defaults.mapStyle = "silverblue";
 
-	// Whether to ignore items with no active alerts (useful for maps with thousands of markers)...
-	// You can either set it here or in a dashboard token named 'MapIgnoreCleared'...
-	defaults.showCleared = true;
-	defaults.showWarnings = true;
-	defaults.showErrors = true;
-	defaults.showCriticals = true;
-	defaults.showSDT = true;
-	defaults.showOnlyConnected = false;
-	defaults.showConnections = true;
+		// Whether to ignore items with no active alerts (useful for maps with thousands of markers)...
+		// You can either set it here or in a dashboard token named 'MapIgnoreCleared'...
+		defaults.showCleared = true;
+		defaults.showWarnings = true;
+		defaults.showErrors = true;
+		defaults.showCriticals = true;
+		defaults.showSDT = true;
+		defaults.showOnlyConnected = false;
+		defaults.showConnections = true;
 
-	// Capture if a group filter...
-	// You can set it here or in a dashboard token named "MapGroupPathFilter"...
-	defaults.groupPathFilter = "*";
+		// Capture if a group filter...
+		// You can set it here or in a dashboard token named "MapGroupPathFilter"...
+		defaults.groupPathFilter = "*";
 
-	// Interval for updating group status data (in minutes)...
-	defaults.statusUpdateIntervalMinutes = 2;
+		// Interval for updating group status data (in minutes)...
+		defaults.statusUpdateIntervalMinutes = 2;
 
-	// Flag to disable marker clustering if needed...
-	defaults.disableClustering = false;
+		// Flag to disable marker clustering if needed...
+		defaults.disableClustering = false;
 
-	// Marker style. Options: "pins" (pin with icon) or "circles" (color-coded circle)...
-	defaults.markerStyle = "pins";
+		// Marker style. Options: "pins" (pin with icon) or "circles" (color-coded circle)...
+		defaults.markerStyle = "pins";
 
-	// Whether to show weather by default. Options are: "no", "global", "nexrad", "openweather", "xweather"...
-	// You can set it here or in a dashboard token named "MapShowWeather"...
-	defaults.showWeatherDefault = "no";
+		// Whether to show weather by default. Options are: "no", "global", "nexrad", "openweather", "xweather"...
+		// You can set it here or in a dashboard token named "MapShowWeather"...
+		defaults.showWeatherDefault = "no";
 
-	// If weather is shown, whether to show "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
-	// You can set it here or in a dashboard token named "MapOverlayOption"...
-	defaults.additionalOverlayOption = "earthquakes";
+		// If weather is shown, whether to show "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
+		// You can set it here or in a dashboard token named "MapOverlayOption"...
+		defaults.additionalOverlayOption = "earthquakes";
 
-	// Whether to show or hide the map options along the top of the widget by default...
-	// You can set it here or in a dashboard token named "HideMapOptions"...
-	defaults.hideMapOptionsByDefault = false;
+		// Whether to show or hide the map options along the top of the widget by default...
+		// You can set it here or in a dashboard token named "HideMapOptions"...
+		defaults.hideMapOptionsByDefault = false;
 
-	// Whether to show the sidebar by default...
-	// You can set it here or in a dashboard token named "ShowMapSidebar"...
-	defaults.showMapSidebarByDefault = false;
-	defaults.sidebarDefaultWidth = 300;
-	defaults.sidebarMinWidth = 220;
-	defaults.sidebarMaxWidth = 40;
+		// Whether to show the sidebar by default...
+		// You can set it here or in a dashboard token named "ShowMapSidebar"...
+		defaults.showMapSidebarByDefault = false;
+		defaults.sidebarDefaultWidth = 300;
+		defaults.sidebarMinWidth = 220;
+		defaults.sidebarMaxWidth = 40;
 
-	// Whether to automatically center the map to encompass all items during timed refreshes...
-	// You can set it here or in a dashboard token named "AutoResetMapOnRefresh"...
-	defaults.autoResetMapOnRefresh = false;
+		// Whether to automatically center the map to encompass all items during timed refreshes...
+		// You can set it here or in a dashboard token named "AutoResetMapOnRefresh"...
+		defaults.autoResetMapOnRefresh = false;
 
-	// When true will not refresh the data on a timed interval (useful ONLY during development)...
-	defaults.developmentFlag = false;
+		// When true will not refresh the data on a timed interval (useful ONLY during development)...
+		defaults.developmentFlag = false;
 
-	// Since we generally don't need to poll all properties every time, we can just grab them initially then occasionally every x number of polls based on the following variable (set to 0 to perform a full refresh every time)...
-	defaults.fullRefreshInterval = 0;
+		// Since we generally don't need to poll all properties every time, we can just grab them initially then occasionally every x number of polls based on the following variable (set to 0 to perform a full refresh every time)...
+		defaults.fullRefreshInterval = 0;
 
-	// Optional angle & heading for the Google Map...
-	defaults.showMapTiltControls = false;
-	defaults.mapTilt = 0;
-	defaults.mapHeading = 0;
+		// Optional angle & heading for the Google Map...
+		defaults.showMapTiltControls = false;
+		defaults.mapTilt = 0;
+		defaults.mapHeading = 0;
 
-	// Whether to include inherited locations in addition to those directly set on resources and/or services (disabling this can greatly increase refresh speed)...
-	defaults.pollInheritedLocations = true;
+		// Whether to include inherited locations in addition to those directly set on resources and/or services (disabling this can greatly increase refresh speed)...
+		defaults.pollInheritedLocations = true;
 
-	// Typically if both a 'latitude' & 'longitude' property are set, then we can assume the address is already geocoded. Set this to "true" to force geocoding the address instead...
-	defaults.ignoreLatLongProps = false;
+		// Typically if both a 'latitude' & 'longitude' property are set, then we can assume the address is already geocoded. Set this to "true" to force geocoding the address instead...
+		defaults.ignoreLatLongProps = false;
 
-	// Whether the Google Maps uses the "cooperative" gesture handling, or "greedy" that allows mouse-wheel zooming without having to hold a modifier key (Google's default is "cooperative")...
-	defaults.mapGestureHandling = "cooperative";
-	// Whether to show road labels...
-	defaults.showRoadLabels = "off";
+		// Whether the Google Maps uses the "cooperative" gesture handling, or "greedy" that allows mouse-wheel zooming without having to hold a modifier key (Google's default is "cooperative")...
+		defaults.mapGestureHandling = "cooperative";
+		// Whether to show road labels...
+		defaults.showRoadLabels = "off";
 
-	// An optional comma-delimited list of custom properties to show when viewing a group's/resource's details...
-	// You can set it here or in a dashboard token named "MapDisplayProperties"...
-	defaults.displayProps = "";
+		// An optional comma-delimited list of custom properties to show when viewing a group's/resource's details...
+		// You can set it here or in a dashboard token named "MapDisplayProperties"...
+		defaults.displayProps = "";
 
-	// Property to look for connecting information in...
-	defaults.connectionInfoProp = "auto.custom_map_connection_data";
-	// Stroke weight of connecting lines...
-	defaults.connectingLineWeight = 3;
-	// Whether to use geodesic lines when connecting two locations (I recommend not so it just plots a straight line vs curve of the Earth)...
-	// You can set it here or in a dashboard token named "MapUseGeodesicLines"...
-	defaults.useGeodesicLines = true;
-	// Screen-pixel offset used to separate parallel connection lines between the same endpoints...
-	// You can set it here or in a dashboard token named "MapConnectionCurvature"...
-	defaults.parallelConnectionCurvature = 18;
+		// Property to look for connecting information in...
+		defaults.connectionInfoProp = "auto.custom_map_connection_data";
+		// Stroke weight of connecting lines...
+		defaults.connectingLineWeight = 3;
+		// Whether to use geodesic lines when connecting two locations (I recommend not so it just plots a straight line vs curve of the Earth)...
+		// You can set it here or in a dashboard token named "MapUseGeodesicLines"...
+		defaults.useGeodesicLines = true;
+		// Screen-pixel offset used to separate parallel connection lines between the same endpoints...
+		// You can set it here or in a dashboard token named "MapConnectionCurvature"...
+		defaults.parallelConnectionCurvature = 18;
 
-	// OpenWeather API key (required for OpenWeather radar)...
-	// You can set it here or in a dashboard token named "OpenWeatherAPIKey"...
-	defaults.openWeatherAPIKey = "";
+		// OpenWeather API key (required for OpenWeather radar)...
+		// You can set it here or in a dashboard token named "OpenWeatherAPIKey"...
+		defaults.openWeatherAPIKey = "";
 
-	// Xweather API credentials (required for Xweather radar)...
-	// You can set them here or in dashboard tokens named "XweatherAPIID" and "XweatherAPIKey"...
-	defaults.xweatherAPIID = "";
-	defaults.xweatherAPIKey = "";
+		// Xweather API credentials (required for Xweather radar)...
+		// You can set them here or in dashboard tokens named "XweatherAPIID" and "XweatherAPIKey"...
+		defaults.xweatherAPIID = "";
+		defaults.xweatherAPIKey = "";
 
-	// Default opacity for weather layers...
-	defaults.weatherOpacity = 0.35;
-	defaults.satelliteWeatherOpacity = 0.6;
-	// Color scheme for the "global" weather option...
-	// See https://rainviewer.com/api/color-schemes.html for color scheme options (values are 0-8)...
-	defaults.rvOptionColorScheme = 8;
-	// Weather refresh interval in minutes...
-	defaults.weatherRefreshMinutes = 5;
-	// Whether to display details about a wildfire on "click" or "mouseover"...
-	defaults.showWildfireInfoEvent = "click";
-	// Whether the opacity of an earthquake's icon reflects "time" since the event, or "magnitude"...
-	defaults.quakeMode = "time";
-	// Always queue defaults so bootstrap can pair via shift() even when
-	// document.currentScript is not the same node found by sibling walk.
-	registry.pendingDefaults.push(defaults);
-	if (script) {
-		script.__betterMapDefaults = defaults;
-	}
+		// Default opacity for weather layers...
+		defaults.weatherOpacity = 0.35;
+		defaults.satelliteWeatherOpacity = 0.6;
+		// Color scheme for the "global" weather option...
+		// See https://rainviewer.com/api/color-schemes.html for color scheme options (values are 0-8)...
+		defaults.rvOptionColorScheme = 8;
+		// Weather refresh interval in minutes...
+		defaults.weatherRefreshMinutes = 5;
+		// Whether to display details about a wildfire on "click" or "mouseover"...
+		defaults.showWildfireInfoEvent = "click";
+		// Whether the opacity of an earthquake's icon reflects "time" since the event, or "magnitude"...
+		defaults.quakeMode = "time";
+		// Always queue defaults so bootstrap can pair via shift() even when
+		// document.currentScript is not the same node found by sibling walk.
+		registry.pendingDefaults.push(defaults);
+		if (script) {
+			script.__betterMapDefaults = defaults;
+		}
 	})(document.currentScript);
 </script>
 
