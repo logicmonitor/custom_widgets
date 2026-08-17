@@ -325,11 +325,39 @@ betterMapRoot.innerHTML = `<!-- Create our options bar above the map... -->
 
 			<span id="mapTypeOptions" data-title="Switch between viewing groups, resources, or services on the map">
 				<input type="radio" id="radioGroups" name="mapType" value="groups" checked onclick="betterMapWidgetCall('${betterMapInstanceId}', 'selectMapType', 'groups');" />
-				<label for="radioGroups" style="margin-right: 8px;">Groups</label>
+				<label for="radioGroups" style="margin-right: 8px;">
+					<svg focusable="false" role="img" aria-label="Group" width="22" viewBox="0 0 24 24">
+						<path d="M3 19h17v2H3c-1.1 0-2-.9-2-2V6h2v13zM23 6v9c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2l.01-11c0-1.1.89-2 1.99-2h5l2 2h7c1.1 0 2 .9 2 2zM7 15h14V6h-7.83l-2-2H7v11z"></path>
+						<title>Groups</title>
+					</svg>
+				</label>
 				<input type="radio" id="radioResources" name="mapType" value="resources" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'selectMapType', 'resources');" />
-				<label for="radioResources" style="margin-right: 8px;">Resources</label>
+				<label for="radioResources" style="margin-right: 8px;">
+					<svg focusable="false" role="img" aria-label="Resource" width="22" viewBox="0 0 24 24">
+						<path d="M17 18C17 17.448 17.448 17 18 17C18.552 17 19 17.448 19 18C19 18.553 18.552 19 18 19C17.448 19 17 18.553 17 18Z"></path>
+						<path d="M5 18C5 18.5523 5.44772 19 6 19H9C9.55228 19 10 18.5523 10 18C10 17.4477 9.55228 17 9 17H6C5.44772 17 5 17.4477 5 18Z"></path>
+						<path d="M14 18C14 17.448 14.448 17 15 17C15.552 17 16 17.448 16 18C16 18.553 15.552 19 15 19C14.448 19 14 18.553 14 18Z"></path>
+						<path d="M5 12C5 11.4477 5.44772 11 6 11H9C9.55228 11 10 11.4477 10 12C10 12.5523 9.55228 13 9 13H6C5.44772 13 5 12.5523 5 12Z"></path>
+						<path d="M16 12C16 12.553 15.552 13 15 13C14.448 13 14 12.553 14 12C14 11.448 14.448 11 15 11C15.552 11 16 11.448 16 12Z"></path>
+						<path d="M18 13C18.552 13 19 12.553 19 12C19 11.448 18.552 11 18 11C17.448 11 17 11.448 17 12C17 12.553 17.448 13 18 13Z"></path>
+						<path d="M10 6C10 5.44772 9.55228 5 9 5H6C5.44772 5 5 5.44772 5 6C5 6.55228 5.44772 7 6 7H9C9.55228 7 10 6.55228 10 6Z"></path>
+						<path d="M16 6C16 6.553 15.552 7 15 7C14.448 7 14 6.553 14 6C14 5.448 14.448 5 15 5C15.552 5 16 5.448 16 6Z"></path>
+						<path d="M18 7C18.552 7 19 6.553 19 6C19 5.448 18.552 5 18 5C17.448 5 17 5.448 17 6C17 6.553 17.448 7 18 7Z"></path>
+						<path fill-rule="evenodd" clip-rule="evenodd" d="M4 2H20C21.103 2 22 2.897 22 4V20C22 21.103 21.103 22 20 22H4C2.897 22 2 21.103 2 20V4C2 2.897 2.897 2 4 2ZM4 16V20H19.997L19.998 16H4ZM4 14H19.998L19.999 10H4V14ZM4 8H19.999L20 4H4V8Z"></path>
+						<title>Resources</title>
+					</svg>
+				</label>
 				<input type="radio" id="radioServices" name="mapType" value="services" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'selectMapType', 'services');" />
-				<label for="radioServices">Services</label>
+				<label for="radioServices">
+					<svg focusable="false" role="img" aria-label="Service" width="25" viewBox="0 0 20 20">
+						<g id="Vector">
+							<path d="M2 8.99999L9.59918 12.3246C9.8547 12.4364 10.1453 12.4364 10.4008 12.3246L18 8.99999V9.99999L10.8016 13.1493C10.2906 13.3729 9.7094 13.3729 9.19836 13.1493L2 9.99999V8.99999Z"></path>
+							<path fill-rule="evenodd" clip-rule="evenodd" d="M16.241 6.64999L10.3624 4.36389C10.1293 4.27323 9.87068 4.27323 9.63755 4.36389L3.75903 6.64999L9.63755 8.93608C9.87068 9.02674 10.1293 9.02674 10.3624 8.93608L16.241 6.64999ZM10.7249 3.43189C10.2586 3.25057 9.74136 3.25057 9.27511 3.43189L2.43795 6.09078C1.92791 6.28913 1.92791 7.01084 2.43795 7.20919L9.27511 9.86808C9.74136 10.0494 10.2586 10.0494 10.7249 9.86808L17.5621 7.20919C18.0721 7.01084 18.0721 6.28913 17.5621 6.09078L10.7249 3.43189Z"></path>
+							<path d="M2 12L9.59918 15.3246C9.8547 15.4364 10.1453 15.4364 10.4008 15.3246L18 12V13L10.8016 16.1493C10.2906 16.3729 9.7094 16.3729 9.19836 16.1493L2 13V12Z"></path>
+						</g>
+						<title>Services</title>
+					</svg>
+				</label>
 			</span>
 
 			<span id="sevFilterOptions">

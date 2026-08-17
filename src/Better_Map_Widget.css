@@ -234,11 +234,11 @@ body {
 }
 #mapTypeOptions {
 	display: inline-flex;
-	align-items: flex-end;
+	align-items: center;
 	margin-right: 5px;
 	border: 1px solid #ddd;
 	border-radius: 5px;
-	padding: 7px 7px 7px 3px;
+	padding: 2px 7px 2px 3px;
 }
 #sevFilterOptions {
 	display: flex;
