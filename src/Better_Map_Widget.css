@@ -232,6 +232,14 @@ body {
 	align-items: center;
 	margin: 0 5px;
 }
+#mapTypeOptions {
+	display: inline-flex;
+	align-items: flex-end;
+	margin-right: 5px;
+	border: 1px solid #ddd;
+	border-radius: 5px;
+	padding: 7px 7px 7px 3px;
+}
 #sevFilterOptions {
 	display: flex;
 	border: 1px solid #ddd;

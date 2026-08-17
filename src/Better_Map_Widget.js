@@ -14,10 +14,14 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
 
 // ------------------------------------------------------------
-var version = "3.61 CDN";
+var version = "3.62 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.62</h3>
+	<ul>
+		<li>Added toolbar options to switch between mapping groups, resources, or services. The initial selection comes from the &quot;MapSourceType&quot; token (or the hard-coded default) and the user's choice is remembered per widget until the &quot;Clear cache&quot; button is used.</li>
+	</ul>
 	<h3>Version 3.61</h3>
 	<ul>
 		<li>Fix for power outage data not plotting correctly. The widget now uses ODIN's county outage API as its primary source of US power outage data.</li>
@@ -318,6 +322,15 @@ betterMapRoot.innerHTML = `<!-- Create our options bar above the map... -->
 				<input type="text" id="customGroupFilterField" name="customGroupFilterField" value="*" onkeypress="betterMapWidgetCall('${betterMapInstanceId}', 'groupkeyHandler', event);" />
 			</span>
 			<button id="resetGroupFilterButton" type="button" data-title="Reset the group filter to the default value" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'resetGroupFilter');"><svg width="15" height="15" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path id="Path" fill="#000000" stroke="none" d="M 16 1.25 C 15.987 1.25 15.971 1.25 15.956 1.25 C 11.466 1.25 7.448 3.276001 4.769 6.464001 L 4.751 6.486 L 4.751 1.716999 C 4.751 1.302999 4.415 0.966999 4.001 0.966999 C 3.587 0.966999 3.251 1.302999 3.251 1.716999 L 3.251 1.716999 L 3.251 8.788 C 3.255 8.818001 3.261 8.845001 3.268 8.869999 L 3.267 8.865 C 3.275 8.970001 3.307 9.067001 3.358 9.15 L 3.356 9.146999 C 3.381 9.193001 3.408 9.232 3.438 9.269001 L 3.437 9.268 C 3.471 9.306 3.508 9.34 3.548 9.369999 L 3.55 9.371 C 3.57 9.390999 3.59 9.41 3.612 9.428001 L 3.613 9.429001 C 3.628 9.438 3.645 9.438 3.661 9.445999 C 3.703 9.466999 3.751 9.485001 3.802 9.497 L 3.807 9.498001 C 3.847 9.511 3.894 9.521 3.942 9.526001 L 3.945 9.526001 C 3.964 9.527 3.981 9.536999 4.001 9.536999 L 11.072 9.536999 C 11.486 9.536999 11.822 9.201 11.822 8.786999 C 11.822 8.373001 11.486 8.036999 11.072 8.036999 L 11.072 8.036999 L 5.429 8.036999 C 7.848 4.813 11.662 2.749001 15.958 2.749001 C 15.973 2.749001 15.988 2.749001 16.003 2.749001 L 16.000999 2.749001 C 23.318001 2.750999 29.247999 8.681999 29.247999 15.999001 C 29.247999 23.316 23.316 29.249001 15.998 29.249001 C 10.743 29.249001 6.203 26.190001 4.061 21.756001 L 4.027 21.677 C 3.903 21.423 3.647 21.250999 3.35 21.250999 C 2.936 21.250999 2.6 21.587 2.6 22.000999 C 2.6 22.117001 2.626 22.226999 2.674 22.325001 L 2.672 22.32 C 5.095 27.344999 10.15 30.750999 16.000999 30.750999 C 24.148001 30.750999 30.752001 24.146999 30.752001 16 C 30.752001 7.853001 24.148001 1.249001 16.002001 1.249001 L 16.002001 1.249001 Z"/> </svg></button>
+
+			<span id="mapTypeOptions" data-title="Switch between viewing groups, resources, or services on the map">
+				<input type="radio" id="radioGroups" name="mapType" value="groups" checked onclick="betterMapWidgetCall('${betterMapInstanceId}', 'selectMapType', 'groups');" />
+				<label for="radioGroups" style="margin-right: 8px;">Groups</label>
+				<input type="radio" id="radioResources" name="mapType" value="resources" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'selectMapType', 'resources');" />
+				<label for="radioResources" style="margin-right: 8px;">Resources</label>
+				<input type="radio" id="radioServices" name="mapType" value="services" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'selectMapType', 'services');" />
+				<label for="radioServices">Services</label>
+			</span>
 
 			<span id="sevFilterOptions">
 				<span class="sevFilterOption">
@@ -677,6 +690,7 @@ var __LMBMW_MAPOPTS_COOKIE_BASE = "lm_bmw_mapOpts_v1";
 var __LMBMW_MAPOPTS_MAX_AGE = 60 * 60 * 24 * 400;
 var __LMBMW_ALLOWED_OVERLAY_VALUES = ["wildfires", "us-poweroutages", "earthquakes", "us-flooding"];
 var __LMBMW_ALLOWED_WEATHER_TYPES = ["radar", "nexrad-n0q-900913", "xweather", "openweather"];
+var __LMBMW_ALLOWED_SOURCE_TYPES = ["groups", "resources", "services"];
 var __LMBMW_MAPOPTS_ELEMENT_TO_KEY = {
 	customGroupFilterField: "groupPathFilter",
 	showCleared: "showCleared",
@@ -790,6 +804,15 @@ function ensureMapOptsWeatherTypeValid() {
 	}
 }
 
+// Function to check the map type radio button matching the current source type...
+// (Anything other than "groups" or "services" is queried as resources, so the radio follows suit.)
+function syncMapTypeRadiosFromSourceType() {
+	if (!_dom.radioGroups || !_dom.radioResources || !_dom.radioServices) return;
+	_dom.radioGroups.checked = mapSourceType === "groups";
+	_dom.radioServices.checked = mapSourceType === "services";
+	_dom.radioResources.checked = mapSourceType !== "groups" && mapSourceType !== "services";
+}
+
 // Function to sync the selected overlay back to the overlay variable...
 function syncAdditionalOverlayVarFromSelect() {
 	const v = _dom.otherWeatherOverlays.value;
@@ -821,6 +844,10 @@ function applyPersistedMapOptionsFromCookie() {
 		markerStyle = o.markerStyle;
 	}
 
+	if (typeof o.mapSourceType === "string" && __LMBMW_ALLOWED_SOURCE_TYPES.indexOf(o.mapSourceType) >= 0) {
+		mapSourceType = o.mapSourceType;
+	}
+
 	if (typeof o.otherWeatherOverlays === "string" && __LMBMW_ALLOWED_OVERLAY_VALUES.indexOf(o.otherWeatherOverlays) >= 0) {
 		_dom.otherWeatherOverlays.value = o.otherWeatherOverlays;
 		if (o.otherWeatherOverlays === "us-poweroutages") additionalOverlayOption = "us-poweroutages";
@@ -844,6 +871,7 @@ function applyPersistedMapOptionsFromCookie() {
 	_dom.autoZoom.checked = autoResetMapOnRefresh;
 	_dom.markerStyleSelect.value = markerStyle === "circles" ? "circles" : "pins";
 	_dom.customGroupFilterField.value = groupPathFilter;
+	syncMapTypeRadiosFromSourceType();
 	updateResetGroupFilterButtonVisibility();
 }
 
@@ -939,6 +967,37 @@ function parseSeverity(item) {
 		pinBorder: meta.pinBorder,
 		pinIndex: meta.pinIndex,
 	};
+}
+
+// Function to switch between mapping groups, resources, or services...
+function selectMapType(newType) {
+	const requestedType = __LMBMW_ALLOWED_SOURCE_TYPES.indexOf(newType) >= 0 ? newType : "groups";
+	if (requestedType === mapSourceType) {
+		syncMapTypeRadiosFromSourceType();
+		return;
+	}
+	mapSourceType = requestedType;
+	syncMapTypeRadiosFromSourceType();
+	saveMapOptionsToCookie({ mapSourceType: mapSourceType });
+
+	// The markers, connecting lines, and info windows all belong to the previous source type...
+	clearAllMarkers();
+	clearAllPolylines();
+	lineData = {};
+	if (markerInfoWindow) {
+		markerInfoWindow.close();
+		markerInfoWindow = null;
+	}
+	if (clusterInfoWindow) {
+		clusterInfoWindow.close();
+		clusterInfoWindow = null;
+	}
+	bounds = new google.maps.LatLngBounds();
+	centerCalculated = false;
+
+	// Inherited & system location properties are only fetched on a full refresh...
+	pollCount = fullRefreshInterval + 1;
+	refreshGroupData();
 }
 
 // Function to reset the group filter to its initial value...
@@ -1205,6 +1264,9 @@ var _dom = {
 	weatherType: getBetterMapElementById("weatherType"),
 	otherWeatherOverlays: getBetterMapElementById("otherWeatherOverlays"),
 	markerStyleSelect: getBetterMapElementById("markerStyleSelect"),
+	radioGroups: getBetterMapElementById("radioGroups"),
+	radioResources: getBetterMapElementById("radioResources"),
+	radioServices: getBetterMapElementById("radioServices"),
 	customGroupFilterField: getBetterMapElementById("customGroupFilterField"),
 	resetGroupFilterButton: getBetterMapElementById("resetGroupFilterButton"),
 	mapOptionsArea: getBetterMapElementById("mapOptionsArea"),
@@ -1234,6 +1296,7 @@ _dom.showSDT.checked = showSDT;
 _dom.showConnections.checked = showConnections;
 _dom.showOnlyConnected.checked = showOnlyConnected;
 _dom.autoZoom.checked = autoResetMapOnRefresh;
+syncMapTypeRadiosFromSourceType();
 
 if (showWeatherDefault == "global") {
 	_dom.weather.checked = true;
@@ -5244,6 +5307,7 @@ var betterMapApi = {
 	refreshGroupData,
 	resetGroupFilter,
 	resetZoom,
+	selectMapType,
 	showReleaseNotes,
 	toggleMiscOptions
 };
