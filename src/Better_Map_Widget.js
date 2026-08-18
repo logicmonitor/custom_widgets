@@ -14,10 +14,15 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
 
 // ------------------------------------------------------------
-var version = "3.62 CDN";
+var version = "3.63 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.63</h3>
+	<ul>
+		<li>Fixed CDN hard-coded defaults (such as groupPathFilter) not applying when the CDN loader failed to attach them to the widget instance. The widget now recovers defaults from pendingDefaults or script expandos.</li>
+		<li>Empty or whitespace MapGroupPathFilter tokens no longer override a hard-coded groupPathFilter default.</li>
+	</ul>
 	<h3>Version 3.62</h3>
 	<ul>
 		<li>Added toolbar options to switch between mapping groups, resources, or services. The initial selection comes from the &quot;MapSourceType&quot; token (or the hard-coded default) and the user's choice is remembered per widget until the &quot;Clear cache&quot; button is used.</li>
@@ -167,10 +172,13 @@ var betterMapInstance = (betterMapRegistry.instances && betterMapRegistry.instan
 if (betterMapInstanceId && !betterMapRegistry.instances[betterMapInstanceId]) {
 	betterMapRegistry.instances[betterMapInstanceId] = betterMapInstance;
 }
-var betterMapDefaults = betterMapInstance.defaults || {};
 var betterMapReloadGeneration = betterMapInstance.reloadGeneration || 0;
 var betterMapRoot = ensureBetterMapRoot(betterMapInstance.root);
 var betterMapTokenRoot = betterMapInstance.tokenRoot || document;
+// Recover CDN defaults when the loader stored {} because document.currentScript
+// was not the same node later found by sibling walk / querySelector.
+var betterMapDefaults = resolveBetterMapDefaults(betterMapInstance, betterMapRoot, betterMapTokenRoot);
+betterMapInstance.defaults = betterMapDefaults;
 if (betterMapRoot && betterMapInstanceId) {
 	betterMapRoot.setAttribute("data-better-map-instance-id", betterMapInstanceId);
 	betterMapInstance.root = betterMapRoot;
@@ -239,6 +247,53 @@ function ensureBetterMapRoot(root) {
 	root.innerHTML = "&nbsp;";
 	(document.body || document.documentElement).appendChild(root);
 	return root;
+}
+
+// Function to count own keys on a defaults object...
+function betterMapDefaultsKeyCount(defaults) {
+	if (!defaults || typeof defaults !== "object") {
+		return 0;
+	}
+	return Object.keys(defaults).length;
+}
+
+// Function to find __betterMapDefaults on a previous sibling script...
+function findBetterMapDefaultsInPreviousSiblings(start) {
+	var element = start && start.previousElementSibling;
+	while (element) {
+		if (element.tagName === "SCRIPT" && element.__betterMapDefaults && betterMapDefaultsKeyCount(element.__betterMapDefaults)) {
+			return element.__betterMapDefaults;
+		}
+		element = element.previousElementSibling;
+	}
+	return null;
+}
+
+// Function to recover CDN defaults the HTML loader may have failed to attach...
+function resolveBetterMapDefaults(instance, root, tokenRoot) {
+	var existing = instance && instance.defaults;
+	if (betterMapDefaultsKeyCount(existing)) {
+		return existing;
+	}
+	var registry = window.__betterMapWidgetRegistry;
+	if (registry && registry.pendingDefaults && registry.pendingDefaults.length) {
+		var queued = registry.pendingDefaults.shift();
+		if (betterMapDefaultsKeyCount(queued)) {
+			return queued;
+		}
+	}
+	var nearby = findBetterMapDefaultsInPreviousSiblings(root)
+		|| findBetterMapDefaultsInPreviousSiblings(tokenRoot);
+	if (nearby) {
+		return nearby;
+	}
+	var scripts = document.getElementsByTagName("script");
+	for (var i = 0; i < scripts.length; i++) {
+		if (scripts[i].__betterMapDefaults && betterMapDefaultsKeyCount(scripts[i].__betterMapDefaults)) {
+			return scripts[i].__betterMapDefaults;
+		}
+	}
+	return existing || {};
 }
 
 // Function to find an element inside this widget instance first...
@@ -565,11 +620,13 @@ if (isTruthyToken(autoResetMapOnRefreshToken)) {
 }
 // console.debug("autoResetMapOnRefreshToken", autoResetMapOnRefreshToken);
 // Capture our group filter if defined as a token...
-var dashboardGroupPathToken = getBetterMapElementById("dashboardGroupPathToken").innerText;
-if (dashboardGroupPathToken != "##MapGroupPathFilter##") {
+// Ignore empty/whitespace tokens so an unset MapGroupPathFilter cannot wipe a CDN default.
+var dashboardGroupPathTokenEl = getBetterMapElementById("dashboardGroupPathToken");
+var dashboardGroupPathToken = ((dashboardGroupPathTokenEl && dashboardGroupPathTokenEl.innerText) || "").trim();
+if (dashboardGroupPathToken !== "" && dashboardGroupPathToken !== "##MapGroupPathFilter##") {
 	groupPathFilter = dashboardGroupPathToken;
 }
-if (groupPathFilter == "") {
+if (groupPathFilter === "") {
 	// Default to "*" if no value was given...
 	groupPathFilter = "*";
 }
