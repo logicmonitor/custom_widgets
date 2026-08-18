@@ -20,8 +20,8 @@ var releaseNotes = `
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
 	<h3>Version 3.63</h3>
 	<ul>
+		<li>URL-encode the LogicMonitor filter query parameter so group path values containing ampersands (and other reserved characters) no longer break REST API calls.</li>
 		<li>Fixed CDN hard-coded defaults (such as groupPathFilter) not applying when the CDN loader failed to attach them to the widget instance. The widget now recovers defaults from pendingDefaults or script expandos.</li>
-		<li>Empty or whitespace MapGroupPathFilter tokens no longer override a hard-coded groupPathFilter default.</li>
 	</ul>
 	<h3>Version 3.62</h3>
 	<ul>
@@ -2875,20 +2875,21 @@ function buildLocationQuery(offset, propSource, { fieldList, pathOperator, statu
 	const isGroupMode = mapSourceType === "groups";
 
 	// Default: fullPath filter with field limiting (used for group queries, or non-group edge cases)
-	let queryParams = `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=${propSource}.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
+	let filterValue = `${propSource}.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
 
 	if (!isGroupMode) {
 		if (groupPathFilter !== "*") {
 			const tmpPathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
 			if (tmpPathFilter !== "") {
-				queryParams = `?v=3&size=1000&offset=${offset}&filter=${propSource}.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
+				filterValue = `${propSource}.name:"${mapLocationProperty}",systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${tmpPathFilter}*\\"}"${statusFilter}${deviceFilter}`;
 			}
 		} else {
-			queryParams = `?v=3&size=1000&offset=${offset}&filter=${propSource}.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
+			filterValue = `${propSource}.name:"${mapLocationProperty}"${statusFilter}${deviceFilter}`;
 		}
+		return `?v=3&size=1000&offset=${offset}&filter=${encodeURIComponent(filterValue)}`;
 	}
 
-	return queryParams;
+	return `?v=3&size=1000&offset=${offset}&fields=${fieldList}&filter=${encodeURIComponent(filterValue)}`;
 }
 
 // Function to fetch paginated LogicMonitor API results...
