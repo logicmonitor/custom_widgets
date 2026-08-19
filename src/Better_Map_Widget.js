@@ -14,10 +14,14 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
 
 // ------------------------------------------------------------
-var version = "3.63 CDN";
+var version = "3.64 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.64</h3>
+	<ul>
+		<li>Overlay InfoWindows for earthquakes, wildfires, power outages, and floods now work independently when more than one Better Map Widget is on the same dashboard.</li>
+	</ul>
 	<h3>Version 3.63</h3>
 	<ul>
 		<li>URL-encode the LogicMonitor filter query parameter so group path values containing ampersands (and other reserved characters) no longer break REST API calls.</li>
@@ -1781,17 +1785,18 @@ function clearOverlayState() {
 	map.data.forEach(function(feature) {
 		map.data.remove(feature);
 	});
-	if (typeof parent.overlayInfoWindowListenerHandle == "object") {
-		google.maps.event.removeListener(parent.overlayInfoWindowListenerHandle);
+	if (overlayInfoWindowListenerHandle) {
+		google.maps.event.removeListener(overlayInfoWindowListenerHandle);
+		overlayInfoWindowListenerHandle = null;
 	}
-	if (parent.overlayInfoWindow) {
-		parent.overlayInfoWindow.close();
-		parent.overlayInfoWindow = null;
+	if (overlayInfoWindow) {
+		overlayInfoWindow.close();
+		overlayInfoWindow = null;
 	}
-	parent.overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
-	if (parent.mmiContourLines) {
-		parent.mmiContourLines.forEach(line => line.setMap(null));
-		parent.mmiContourLines = [];
+	overlayInfoWindow = new CustomInfoWindow({ content: "", anchor: 'right', offset: 20 });
+	if (mmiContourLines) {
+		mmiContourLines.forEach(line => line.setMap(null));
+		mmiContourLines = [];
 	}
 }
 
@@ -1804,8 +1809,8 @@ function closeAllInfoWindows(opts) {
 		markerInfoWindow.close();
 		markerInfoWindow = null;
 	}
-	if (parent.overlayInfoWindow) {
-		parent.overlayInfoWindow.close();
+	if (overlayInfoWindow) {
+		overlayInfoWindow.close();
 	}
 }
 
@@ -2032,6 +2037,9 @@ _dom.showConnectedLabel.innerHTML = connectedIcon;
 // Placeholder for marker cluster info...
 var clusterInfoWindow = null;
 var markerInfoWindow = null;
+var overlayInfoWindow = null;
+var overlayInfoWindowListenerHandle = null;
+var mmiContourLines = [];
 
 // Track map initialization state...
 var mapInitialized = false;
@@ -4435,7 +4443,7 @@ async function addWeatherLayer() {
 			}
 
 			// Show wildfire info on either "click" or "mouseover" (refer to the 'showWildfireInfoEvent' variable set at the top of this script)...
-			parent.overlayInfoWindowListenerHandle = map.data.addListener(showWildfireInfoEvent, function(event) {
+			overlayInfoWindowListenerHandle = map.data.addListener(showWildfireInfoEvent, function(event) {
 				const fireSource = event.feature.getProperty("_fireSource");
 				let infoContent = '';
 
@@ -4495,13 +4503,13 @@ async function addWeatherLayer() {
 				}
 
 				closeAllInfoWindows();
-				parent.overlayInfoWindow.setContent(infoContent);
-				parent.overlayInfoWindow.setPosition(event.latLng);
-				parent.overlayInfoWindow.open(map);
+				overlayInfoWindow.setContent(infoContent);
+				overlayInfoWindow.setPosition(event.latLng);
+				overlayInfoWindow.open(map);
 			});
 			if (showWildfireInfoEvent == "mouseover") {
-				parent.overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
-					parent.overlayInfoWindow.close();
+				overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
+					overlayInfoWindow.close();
 				});
 			}
 		// Look to see if we should add power outages to the map...
@@ -4816,7 +4824,7 @@ async function addWeatherLayer() {
 				});
 
 				// Show county info on click...
-				parent.overlayInfoWindowListenerHandle = map.data.addListener('click', function(event) {
+				overlayInfoWindowListenerHandle = map.data.addListener('click', function(event) {
 					const countyName = event.feature.getProperty('CountyName') || 'Unknown County';
 					const outageCount = event.feature.getProperty('OutageCount') || 0;
 					const percentAffected = event.feature.getProperty('PercentAffected') || 0;
@@ -4848,7 +4856,7 @@ async function addWeatherLayer() {
 							: `Outages: <a href="https://odin.ornl.gov/" target="_blank" style="color:#0085c4; text-decoration: none;">ODIN (US DOE)</a>, totals: <a href="https://doi.org/10.6084/m9.figshare.24237376" target="_blank" style="color:#0085c4; text-decoration: none;">ORNL EAGLE-I</a>`);
 
 					// Set the content of the info window...
-					parent.overlayInfoWindow.setContent(`
+					overlayInfoWindow.setContent(`
 						<div style="line-height:1.5;overflow:hidden;white-space:nowrap;color:#333;">
 							<h3 style="margin:0;">${countyName} Power Outages</h3>
 							${donutChart}
@@ -4862,8 +4870,8 @@ async function addWeatherLayer() {
 					`);
 
 					closeAllInfoWindows();
-					parent.overlayInfoWindow.setPosition(event.latLng);
-					parent.overlayInfoWindow.open(map);
+					overlayInfoWindow.setPosition(event.latLng);
+					overlayInfoWindow.open(map);
 				});
 
 				// Highlight counties on mouseover...
@@ -4945,7 +4953,7 @@ async function addWeatherLayer() {
 			});
 
 			// Show earthquake info on click...
-			parent.overlayInfoWindowListenerHandle = map.data.addListener('click', async function(event) {
+			overlayInfoWindowListenerHandle = map.data.addListener('click', async function(event) {
 				// Show an infowindow on click...
 				let quakeTime = new Date(event.feature.getProperty("time"));
 				let updated = new Date(event.feature.getProperty("updated"));
@@ -4990,7 +4998,7 @@ async function addWeatherLayer() {
 					}
 				}
 
-				parent.overlayInfoWindow.setContent(`
+				overlayInfoWindow.setContent(`
 					<div style="line-height:1.35;overflow:hidden;white-space:nowrap;color:black;width:250px;">
 						<div>
 							<div style="font-weight:700;font-size: 1.2em;">Earthquake: Magnitude ${event.feature.getProperty("mag")}</div>
@@ -5101,16 +5109,16 @@ async function addWeatherLayer() {
 				);
 
 				closeAllInfoWindows();
-				parent.overlayInfoWindow.setPosition(event.latLng);
-				parent.overlayInfoWindow.open(map);
+				overlayInfoWindow.setPosition(event.latLng);
+				overlayInfoWindow.open(map);
 
 				// Display ShakeMap MMI contour lines using the already-fetched detail data...
 				// Clear any previous contour lines...
-				if (parent.mmiContourLines) {
-					parent.mmiContourLines.forEach(line => line.setMap(null));
-					parent.mmiContourLines = [];
+				if (mmiContourLines) {
+					mmiContourLines.forEach(line => line.setMap(null));
+					mmiContourLines = [];
 				}
-				parent.mmiContourLines = [];
+				mmiContourLines = [];
 
 				// Use the already-fetched detailData for ShakeMap product...
 				if (detailData) {
@@ -5158,11 +5166,11 @@ async function addWeatherLayer() {
 											strokeWeight: strokeWeight,
 											map: map
 										});
-										parent.mmiContourLines.push(polyline);
+										mmiContourLines.push(polyline);
 									});
 								}
 							});
-							console.debug("Loaded " + parent.mmiContourLines.length + " MMI contour lines");
+							console.debug("Loaded " + mmiContourLines.length + " MMI contour lines");
 						}
 					} catch (err) {
 						console.debug("Could not load ShakeMap MMI data:", err.message);
@@ -5217,7 +5225,7 @@ async function addWeatherLayer() {
 					}
 				});
 
-				parent.overlayInfoWindowListenerHandle = map.data.addListener('click', function(event) {
+				overlayInfoWindowListenerHandle = map.data.addListener('click', function(event) {
 					const feature = event.feature;
 					// Extract properties from the feature...
 					const data = {
@@ -5227,7 +5235,7 @@ async function addWeatherLayer() {
 						rp_elevation: feature.getProperty('rp_elevation'),
 						nwis_id: feature.getProperty('nwis_id')
 					}
-					parent.overlayInfoWindow.setContent(`
+					overlayInfoWindow.setContent(`
 						<div style="line-height:1.5;color:#333;max-width:300px;overflow:visible;">
 							<h3 style="margin:0 0 8px 0;color:#4682B4;">${data.site_name || 'Unknown Site'}</h3>
 							<p style="margin:0;font-size:13px;">${data.description || 'No description available'}</p>
@@ -5245,8 +5253,8 @@ async function addWeatherLayer() {
 						</div>
 					`);
 					closeAllInfoWindows();
-					parent.overlayInfoWindow.setPosition(event.latLng);
-					parent.overlayInfoWindow.open(map);
+					overlayInfoWindow.setPosition(event.latLng);
+					overlayInfoWindow.open(map);
 				});
 			} catch (error) {
 				console.error("Failed to fetch flooding data:", error);
