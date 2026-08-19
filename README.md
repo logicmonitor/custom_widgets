@@ -107,6 +107,12 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapConnectionCurvature**: Screen-pixel offset used to separate parallel connection lines between the same endpoints. Set to 0 for straight lines. Default is 18.
 - **MapUseGeodesicLines**: If "false" then connection lines are drawn as straight Mercator lines instead of great circles. Default is "true".
 
+## Widget Interface
+
+![Image](https://raw.githubusercontent.com/logicmonitor/custom_widgets/main/Sample%20Dashboards/Screenshots/Better_Map_Widget_interface.png?raw=true)
+
+The image above provides an overview for most of the widget controls. Selections you choose in the toolbar are persisted between sessions (using a browser cookie). If you ever want to reset a widget back to its defaults, click the gear icon in the widget's toolbar to see the additional configuration options, then click the recycle icon.
+
 ## Weather Options
 
 The widget has the ability to overlay real-time weather from various sources on the map. Weather can have significant impact on your operations - not just to infrastructure but to employees, customers, partners, and more!
