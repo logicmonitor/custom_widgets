@@ -27,7 +27,7 @@
 	* 'MapLocationProperty': The property to use for the location of the items on the map. Default is "location".
 	* 'MapMarkerStyle': The style of marker to use for the items on the map. Use "pins" (default pin markers) or "circles" (color-coded circles). Legacy values "default", "pin", "dot", "dots", and "circle" are also accepted. Default is "pins".
 	* 'MapShowWeather': If weather should be shown by default. Options are "global", "nexrad", or "xweather". Default is "global".
-	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding" or "earthquakes". Default is "earthquakes".
+	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "none", "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding" or "earthquakes". Default is "earthquakes".
 	* 'HideMapOptions': If "true" then will hide the options bar by default. Default is "false".
 	* 'ShowMapSidebar': If "true" then will show the sidebar by default. Default is "false".
 	* 'MapSourceType': Whether to map "groups", "resources", or "services". Sets the initial toolbar selection, which the user can change. Default is "groups".
@@ -65,10 +65,14 @@
 		registry.pendingDefaults = registry.pendingDefaults || [];
 		var defaults = {};
 
-		defaults.version = "3.64";
+		defaults.version = "3.65";
 		defaults.releaseNotes = `
 			<h2>Release Notes</h2>
 			<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+			<h3>Version 3.65</h3>
+			<ul>
+				<li>Added a "None" option to the additional overlay dropdown so weather can be shown without earthquakes, wildfires, power outages, or flooding. Earthquakes remains the default overlay.</li>
+			</ul>
 			<h3>Version 3.64</h3>
 			<ul>
 				<li>Overlay InfoWindows for earthquakes, wildfires, power outages, and floods now work independently when more than one Better Map Widget is on the same dashboard.</li>
@@ -259,7 +263,7 @@
 		// You can set it here or in a dashboard token named "MapShowWeather"...
 		defaults.showWeatherDefault = "no";
 
-		// If weather is shown, whether to show "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
+		// If weather is shown, whether to show "none" or "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
 		// You can set it here or in a dashboard token named "MapOverlayOption"...
 		defaults.additionalOverlayOption = "earthquakes";
 
@@ -1344,10 +1348,11 @@
 							<span id="additionalOverlayOptions">
 								<span data-title="Additional layer options to show on the map when weather is enabled">
 									<select id="otherWeatherOverlays" onchange="betterMapWidgetCall('${betterMapInstanceId}', 'enableWeather');">
-										<option value="wildfires" selected>Wildfires</option>
-										<option value="us-poweroutages">US Power Outages</option>
-										<option value="earthquakes">Earthquakes (mag 6+, 7d)</option>
+										<option value="none">None</option>
+										<option value="earthquakes" selected>Earthquakes (mag 6+, 7d)</option>
 										<option value="us-flooding">US Flooding</option>
+										<option value="us-poweroutages">US Power Outages</option>
+										<option value="wildfires">Wildfires</option>
 									</select>
 								</span>
 							</span>
@@ -1603,7 +1608,7 @@ if (window.RProfiler) {
 
 	const __LMBMW_MAPOPTS_COOKIE_BASE = "lm_bmw_mapOpts_v1";
 	const __LMBMW_MAPOPTS_MAX_AGE = 60 * 60 * 24 * 400;
-	const __LMBMW_ALLOWED_OVERLAY_VALUES = ["wildfires", "us-poweroutages", "earthquakes", "us-flooding"];
+	const __LMBMW_ALLOWED_OVERLAY_VALUES = ["none", "wildfires", "us-poweroutages", "earthquakes", "us-flooding"];
 	const __LMBMW_ALLOWED_WEATHER_TYPES = ["radar", "nexrad-n0q-900913", "xweather", "openweather"];
 	const __LMBMW_ALLOWED_SOURCE_TYPES = ["groups", "resources", "services"];
 	const __LMBMW_MAPOPTS_ELEMENT_TO_KEY = {
@@ -1731,7 +1736,8 @@ if (window.RProfiler) {
 	// Function to sync the selected overlay back to the overlay variable...
 	function syncAdditionalOverlayVarFromSelect() {
 		const v = _dom.otherWeatherOverlays.value;
-		if (v === "wildfires") additionalOverlayOption = "wildfires";
+		if (v === "none") additionalOverlayOption = "none";
+		else if (v === "wildfires") additionalOverlayOption = "wildfires";
 		else if (v === "us-poweroutages") additionalOverlayOption = "us-poweroutages";
 		else if (v === "earthquakes") additionalOverlayOption = "earthquakes";
 		else if (v === "us-flooding") additionalOverlayOption = "us-flooding";
@@ -2314,7 +2320,7 @@ if (window.RProfiler) {
 		xweatherAPIKey = xweatherAPIKeyToken.trim();
 	}
 	let dashboardAddlOverlayToken = "##MapOverlayOption##".toLowerCase();
-	if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
+	if (dashboardAddlOverlayToken == "none" || dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
 		additionalOverlayOption = dashboardAddlOverlayToken;
 		if (additionalOverlayOption == "us-wildfires") {
 			additionalOverlayOption = "wildfires";
@@ -2438,7 +2444,9 @@ if (window.RProfiler) {
 		openweatherOption.textContent += " (API key required)";
 	}
 
-	if (additionalOverlayOption == "wildfires") {
+	if (additionalOverlayOption == "none") {
+		_dom.otherWeatherOverlays.value = "none";
+	} else if (additionalOverlayOption == "wildfires") {
 		_dom.otherWeatherOverlays.value = "wildfires";
 	} else if (additionalOverlayOption == "outages" || additionalOverlayOption == "us-poweroutages") {
 		_dom.otherWeatherOverlays.value = "us-poweroutages";
@@ -6267,6 +6275,8 @@ if (window.RProfiler) {
 				} catch (error) {
 					console.error("Failed to fetch flooding data:", error);
 				}
+			} else {
+				clearOverlayState();
 			}
 		}
 	}

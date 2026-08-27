@@ -1,6 +1,6 @@
 <!--
 	Better Map Widget
-	Version 1.28 - CDN Version
+	Version 1.29 - CDN Version
 	Developed by Kevin Ford
 
 	Some of the ideas behind this project:
@@ -31,7 +31,7 @@
 	* 'OpenWeatherAPIKey': API key for OpenWeather radar tiles (required when using "openweather" weather option).
 	* 'XweatherAPIID': API ID for Xweather radar tiles (required when using "xweather" weather option).
 	* 'XweatherAPIKey': API secret for Xweather radar tiles (required when using "xweather" weather option).
-	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding" or "earthquakes". Default is "earthquakes".
+	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "none", "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding" or "earthquakes". Default is "earthquakes".
 	* 'HideMapOptions': If "true" then will hide the options bar by default. Default is "false".
 	* 'ShowMapSidebar': If "true" then will show the sidebar by default. Default is "false".
 	* 'MapSourceType': Whether to map "groups", "resources", or "services". Default is "groups".
@@ -104,7 +104,7 @@
 				// You can set it here or in a dashboard token named "MapShowWeather"...
 				showWeatherDefault: "no",
 
-				// If weather is shown, whether to show "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
+				// If weather is shown, whether to show "none" or "wildfires" or "us-wildfires" or "outages" or "us-poweroutages" or "us-flooding" or "earthquakes"...
 				// You can set it here or in a dashboard token named "MapOverlayOption"...
 				additionalOverlayOption: "earthquakes",
 

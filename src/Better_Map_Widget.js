@@ -14,10 +14,14 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
 
 // ------------------------------------------------------------
-var version = "3.64 CDN";
+var version = "3.65 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.65</h3>
+	<ul>
+		<li>Added a "None" option to the additional overlay dropdown so weather can be shown without earthquakes, wildfires, power outages, or flooding. Earthquakes remains the default overlay.</li>
+	</ul>
 	<h3>Version 3.64</h3>
 	<ul>
 		<li>Overlay InfoWindows for earthquakes, wildfires, power outages, and floods now work independently when more than one Better Map Widget is on the same dashboard.</li>
@@ -480,10 +484,11 @@ betterMapRoot.innerHTML = `<!-- Create our options bar above the map... -->
 						<span id="additionalOverlayOptions">
 							<span data-title="Additional layer options to show on the map when weather is enabled">
 								<select id="otherWeatherOverlays" onchange="betterMapWidgetCall('${betterMapInstanceId}', 'enableWeather');">
-									<option value="wildfires" selected>Wildfires</option>
-									<option value="us-poweroutages">US Power Outages</option>
-									<option value="earthquakes">Earthquakes (mag 6+, 7d)</option>
+									<option value="none">None</option>
+									<option value="earthquakes" selected>Earthquakes (mag 6+, 7d)</option>
 									<option value="us-flooding">US Flooding</option>
+									<option value="us-poweroutages">US Power Outages</option>
+									<option value="wildfires">Wildfires</option>
 								</select>
 							</span>
 						</span>
@@ -667,7 +672,7 @@ if (xweatherAPIKeyTokenEl) {
 	}
 }
 var dashboardAddlOverlayToken = getBetterMapElementById("dashboardAddlOverlayToken").innerText.toLowerCase();
-if (dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
+if (dashboardAddlOverlayToken == "none" || dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
 	additionalOverlayOption = dashboardAddlOverlayToken;
 	if (additionalOverlayOption == "us-wildfires") {
 		additionalOverlayOption = "wildfires";
@@ -751,10 +756,10 @@ if (typeof google === 'undefined' || !google.maps || typeof google.maps.importLi
 // ------------------------------------------------------------
 // Catchpoint beacon for performance monitoring (no confidential data is collected!)...
 (function() {
-  var s = document.createElement('script');
-  s.defer = true;
-  s.src = 'https://g.3gl.net/jp/14586/latest/InitialLoadScript.js';
-  document.head.appendChild(s);
+	var s = document.createElement('script');
+	s.defer = true;
+	s.src = 'https://g.3gl.net/jp/14586/latest/InitialLoadScript.js';
+	document.head.appendChild(s);
 })();
 
 // ------------------------------------------------------------
@@ -777,7 +782,7 @@ function debounce(fn, delay = 300) {
 
 var __LMBMW_MAPOPTS_COOKIE_BASE = "lm_bmw_mapOpts_v1";
 var __LMBMW_MAPOPTS_MAX_AGE = 60 * 60 * 24 * 400;
-var __LMBMW_ALLOWED_OVERLAY_VALUES = ["wildfires", "us-poweroutages", "earthquakes", "us-flooding"];
+var __LMBMW_ALLOWED_OVERLAY_VALUES = ["none", "wildfires", "us-poweroutages", "earthquakes", "us-flooding"];
 var __LMBMW_ALLOWED_WEATHER_TYPES = ["radar", "nexrad-n0q-900913", "xweather", "openweather"];
 var __LMBMW_ALLOWED_SOURCE_TYPES = ["groups", "resources", "services"];
 var __LMBMW_MAPOPTS_ELEMENT_TO_KEY = {
@@ -905,7 +910,8 @@ function syncMapTypeRadiosFromSourceType() {
 // Function to sync the selected overlay back to the overlay variable...
 function syncAdditionalOverlayVarFromSelect() {
 	const v = _dom.otherWeatherOverlays.value;
-	if (v === "wildfires") additionalOverlayOption = "wildfires";
+	if (v === "none") additionalOverlayOption = "none";
+	else if (v === "wildfires") additionalOverlayOption = "wildfires";
 	else if (v === "us-poweroutages") additionalOverlayOption = "us-poweroutages";
 	else if (v === "earthquakes") additionalOverlayOption = "earthquakes";
 	else if (v === "us-flooding") additionalOverlayOption = "us-flooding";
@@ -1414,7 +1420,9 @@ if (openweatherOption && !openWeatherAPIKey) {
 	openweatherOption.textContent += " (API key required)";
 }
 
-if (additionalOverlayOption == "wildfires") {
+if (additionalOverlayOption == "none") {
+	_dom.otherWeatherOverlays.value = "none";
+} else if (additionalOverlayOption == "wildfires") {
 	_dom.otherWeatherOverlays.value = "wildfires";
 } else if (additionalOverlayOption == "outages" || additionalOverlayOption == "us-poweroutages") {
 	_dom.otherWeatherOverlays.value = "us-poweroutages";
@@ -5259,6 +5267,8 @@ async function addWeatherLayer() {
 			} catch (error) {
 				console.error("Failed to fetch flooding data:", error);
 			}
+		} else {
+			clearOverlayState();
 		}
 	}
 }

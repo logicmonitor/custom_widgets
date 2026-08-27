@@ -84,6 +84,7 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapShowWeather**: If weather should be shown by default. Options are "global", "nexrad", "xweather" or "openweather". Default is "global". (see below for more info about weather options)
 - **MapOverlayOption**: Which optional overlay to default to when weather is shown. Options are:
 	- "**earthquakes**" _(the default)_: Displays significant earthquakes. By default it shows quakes from the past 7 days and the icons fade based on age. There's an option to instead show quakes from the past 24 hours, which case the icon's boldness indicates the earthquake's magnitude. Clicking an earthquake's icon display more details.
+	- "**none**": Shows weather with no additional overlay (no earthquakes, wildfires, power outages, or flooding).
  	- "**wildfires**": Displays active wildfires in the US and Australia. Clicking a wildfire displays additional info.
   	- "**us-poweroutages**" (or just "outages" for short): Color-codes US counties by current number of customers without power (darker colors = higher % of customers affected). Clicking a county displays more info.
   	- "**us-flooding**": Plots blue dots for areas with active US flood alerts. Clicking a dot displays more details about the flooding.
