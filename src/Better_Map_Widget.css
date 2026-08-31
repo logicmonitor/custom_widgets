@@ -73,8 +73,11 @@ body {
 }
 #sidebarArea {
 	width: 300px;
-	min-width: 220px;
-	max-width: 40%;
+	/* Defaults for the sidebarMinWidth/sidebarMaxWidth settings, which the script overrides by
+	   setting these variables. Kept as stylesheet rules so the collapsed rule below can still
+	   override min-width, which an inline style would have prevented. */
+	min-width: var(--bmw-sidebar-min-width, 220px);
+	max-width: var(--bmw-sidebar-max-width, 40%);
 	flex-shrink: 0;
 	overflow-x: hidden;
 	overflow-y: auto;

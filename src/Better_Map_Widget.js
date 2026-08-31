@@ -31,6 +31,11 @@ var releaseNotes = `
 		<li>The sidebar's minimum and maximum drag widths now honor their settings instead of being fixed at 220 pixels and 40 percent.</li>
 		<li>The widget's stylesheet is no longer re-added to the page on every widget save, so its link tags no longer accumulate over a dashboard session.</li>
 		<li>Saving one map on a dashboard that holds several no longer clears the script tags belonging to the other maps.</li>
+		<li>Fixed a leak where the optional overlays' map listeners were re-added every five minutes without the old ones being removed. On a dashboard left open for hours this made moving the mouse across the map progressively slower.</li>
+		<li>NEXRAD radar tiles are now requested over HTTPS, so they no longer get blocked as insecure content.</li>
+		<li>Geocoding is now paced just under Google's published ceiling of 3,000 lookups per minute rather than firing every address at once, and retries when Google asks us to slow down. A large map building from an empty cache now resolves as fast as that ceiling allows without losing pins to rate limiting.</li>
+		<li>Address coordinates cached by one map are now shared with the other maps on the dashboard instead of each overwriting the others, so repeat lookups are avoided.</li>
+		<li>A refresh can no longer get stuck repeating the same request if the LogicMonitor API reports more records than it returns.</li>
 	</ul>
 	<h3>Version 3.67</h3>
 	<ul>
@@ -1488,6 +1493,8 @@ var widgetID = getContainingWidgetId();
 // Note our original tilt & heading values...
 var defaultMapTilt = mapTilt;
 var defaultMapHeading = mapHeading;
+// Zoom the map opens at, and what resetZoom falls back to when the bounds have no area to fit...
+var defaultMapZoom = 3;
 
 // SVG icon definitions for our different alert severities...
 var warningIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024" data-tooltip="Warning"><path fill="#f5ca1d" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M866.462 669.538l-275.692-433.231c-43.323-70.892-114.215-70.892-157.538 0l-275.692 433.231c-43.323 70.892-3.938 157.538 78.769 157.538h551.385c82.708 0 122.092-86.646 78.769-157.538v0 0z"></path> <path fill="#f5ca1d" d="M551.385 748.308h-78.769v-78.769h78.769v78.769zM551.385 630.154h-78.769v-275.692h78.769v275.692z"></path> </svg>';
@@ -1562,7 +1569,16 @@ if (!window.buildMarkersInBatches) {
 	window.buildMarkersInBatches = async function(items, fn, batchSize = 1000) {
 		for (let i = 0; i < items.length; i += batchSize) {
 			const slice = items.slice(i, i + batchSize);
-			for (const it of slice) { try { fn(it); } catch(e) {} }
+			// One item is allowed to fail without taking down the whole batch, but it has to be
+			// reported. A silent throw here skips that item's processed count, which is what strands
+			// the refresh spinner, and swallowing the error leaves nothing to diagnose it with...
+			for (const it of slice) {
+				try {
+					fn(it);
+				} catch (e) {
+					console.warn("Better Map Widget: skipped an item while building markers.", (it && (it.name || it.id)) || it, e);
+				}
+			}
 			await new Promise(r => { if ('requestIdleCallback' in window) requestIdleCallback(()=>r()); else setTimeout(r,0); });
 		}
 	}
@@ -1833,15 +1849,33 @@ function passesConnectionFilter(itemId, connectedDeviceIDs) {
 	return connectedDeviceIDs.has(String(itemId));
 }
 
+// Function to add a map.data listener and record its handle for teardown...
+// Every listener has to go through here. addWeatherLayer rebuilds its overlay on a timer, so an
+// untracked listener is installed again on each pass and never removed. The outage handlers below
+// restyle every county polygon, which means a few hours of accumulation turns each mouse move
+// across the map into dozens of full-collection restyles.
+function addOverlayDataListener(eventName, handler) {
+	const handle = map.data.addListener(eventName, handler);
+	overlayDataListenerHandles.push(handle);
+	return handle;
+}
+
+// Function to remove every map.data listener the current overlay installed...
+function removeOverlayDataListeners() {
+	(overlayDataListenerHandles || []).forEach(function(handle) {
+		try {
+			google.maps.event.removeListener(handle);
+		} catch (error) {}
+	});
+	overlayDataListenerHandles = [];
+}
+
 // Function to clear all overlay data, listeners, and InfoWindows before loading a new overlay...
 function clearOverlayState() {
 	map.data.forEach(function(feature) {
 		map.data.remove(feature);
 	});
-	if (overlayInfoWindowListenerHandle) {
-		google.maps.event.removeListener(overlayInfoWindowListenerHandle);
-		overlayInfoWindowListenerHandle = null;
-	}
+	removeOverlayDataListeners();
 	if (overlayInfoWindow) {
 		overlayInfoWindow.close();
 		overlayInfoWindow = null;
@@ -2050,8 +2084,15 @@ function loadCache() {
 }
 
 // Function to save the cached marker latitude/longitude information...
+// This key is shared by every widget instance, and each one keeps its own in-memory copy, so
+// writing that copy verbatim would discard whatever a sibling map resolved since this instance
+// loaded. Merging keeps both sets, which also lets a second map on the dashboard reuse addresses
+// the first already geocoded instead of paying for them again. This instance's values win on a
+// conflict so a re-geocoded address still updates.
 function saveCache() {
-	try { localStorage.setItem(__LMBMW_CACHE_KEY, JSON.stringify(cachedAddresses)); } catch (e) {}
+	try {
+		localStorage.setItem(__LMBMW_CACHE_KEY, JSON.stringify(Object.assign({}, loadCache(), cachedAddresses)));
+	} catch (e) {}
 }
 // Debounced version to avoid excessive localStorage writes during batch operations
 var debouncedSaveCache = debounce(saveCache, 1000);
@@ -2087,6 +2128,99 @@ function clearCache() {
 var _clearCacheMessageTimeout = null;
 var cachedAddresses = loadCache();
 
+// Geocoding runs through a queue instead of firing every uncached address at once. A large map
+// resolving a fresh cache would otherwise open a request per item within the same batch, and
+// Google answers the overflow with OVER_QUERY_LIMIT, which this widget treats as an unresolvable
+// address: the item is deducted from the expected count and never plotted.
+//
+// The published limit is 3,000 queries per minute, which is 50 per second, counted as the sum of
+// client-side and server-side queries against the API key. That is a rate, not a number of open
+// requests, so the queue paces starts across a trailing one-second window and runs as close to
+// the ceiling as it can. Raising concurrency alone would be the wrong control: 49 requests open
+// at a typical geocode latency works out to several hundred per second, so the load would spend
+// itself being throttled and retried and finish slower than a paced one.
+var GEOCODE_MAX_QPS = 49;
+// Only needs to be high enough that it is not the binding constraint. Sustaining 49 per second
+// takes about 25 in flight once responses approach half a second, and if they get slower than
+// that, letting concurrency throttle the rate is the safer behavior.
+var GEOCODE_MAX_CONCURRENT = 25;
+var GEOCODE_MAX_ATTEMPTS = 3;
+var GEOCODE_RETRY_DELAY_MS = 1200;
+var GEOCODE_RATE_WINDOW_MS = 1000;
+var _geocodeQueue = [];
+var _geocodeActive = 0;
+// Start times of the requests issued within the trailing window, oldest first...
+var _geocodeStartTimes = [];
+var _geocodePumpTimer = null;
+var _geocodeRetryTimers = new Set();
+
+// Function to queue a geocode request, keeping only a few in flight at a time...
+function enqueueGeocode(geocoder, request, callback) {
+	_geocodeQueue.push({ geocoder: geocoder, request: request, callback: callback, attempts: 0 });
+	pumpGeocodeQueue();
+}
+
+// Function to start queued geocode requests within the rate and concurrency limits...
+function pumpGeocodeQueue() {
+	if (_geocodePumpTimer !== null) {
+		clearTimeout(_geocodePumpTimer);
+		_geocodePumpTimer = null;
+	}
+	while (_geocodeActive < GEOCODE_MAX_CONCURRENT && _geocodeQueue.length) {
+		const now = Date.now();
+		// Forget starts that have aged out, so the array holds only the trailing window...
+		while (_geocodeStartTimes.length && now - _geocodeStartTimes[0] >= GEOCODE_RATE_WINDOW_MS) {
+			_geocodeStartTimes.shift();
+		}
+		if (_geocodeStartTimes.length >= GEOCODE_MAX_QPS) {
+			// At the ceiling, so wait for the oldest start to leave the window and resume there...
+			const waitMs = GEOCODE_RATE_WINDOW_MS - (now - _geocodeStartTimes[0]) + 5;
+			_geocodePumpTimer = setTimeout(function() {
+				_geocodePumpTimer = null;
+				if (!isBetterMapInstanceActive()) return;
+				pumpGeocodeQueue();
+			}, waitMs);
+			return;
+		}
+		_geocodeStartTimes.push(now);
+		const job = _geocodeQueue.shift();
+		_geocodeActive++;
+		job.geocoder.geocode(job.request, function(results, status) {
+			_geocodeActive--;
+			// OVER_QUERY_LIMIT means we asked too quickly rather than that the address is bad, so
+			// the job goes back on the queue after a pause instead of dropping its marker...
+			if (status === "OVER_QUERY_LIMIT" && job.attempts < GEOCODE_MAX_ATTEMPTS) {
+				job.attempts++;
+				const timer = setTimeout(function() {
+					_geocodeRetryTimers.delete(timer);
+					if (!isBetterMapInstanceActive()) return;
+					_geocodeQueue.unshift(job);
+					pumpGeocodeQueue();
+				}, GEOCODE_RETRY_DELAY_MS * job.attempts);
+				_geocodeRetryTimers.add(timer);
+				return;
+			}
+			try {
+				job.callback(results, status);
+			} finally {
+				pumpGeocodeQueue();
+			}
+		});
+	}
+}
+
+// Function to drop queued geocode work at teardown...
+function cancelPendingGeocodes() {
+	_geocodeRetryTimers.forEach(timer => clearTimeout(timer));
+	_geocodeRetryTimers.clear();
+	if (_geocodePumpTimer !== null) {
+		clearTimeout(_geocodePumpTimer);
+		_geocodePumpTimer = null;
+	}
+	_geocodeStartTimes.length = 0;
+	_geocodeQueue.length = 0;
+}
+
 // For holding our LM group data...
 var groupData = [];
 // For timing our refreshes...
@@ -2121,7 +2255,8 @@ _dom.showConnectedLabel.innerHTML = connectedIcon;
 var clusterInfoWindow = null;
 var markerInfoWindow = null;
 var overlayInfoWindow = null;
-var overlayInfoWindowListenerHandle = null;
+// Every map.data listener the current overlay installed, so teardown can remove all of them...
+var overlayDataListenerHandles = [];
 var mmiContourLines = [];
 
 // Track map initialization state...
@@ -2592,7 +2727,7 @@ async function initMap() {
 
 	// Create our Google Map...
 	map = new google.maps.Map(getBetterMapElementById("googleMap"), {
-		zoom: 3,
+		zoom: defaultMapZoom,
 		center: { lat: 0, lng: 0 },
 		mapId: "DEMO_MAP_ID",
 		// colorScheme: ColorScheme.DARK,
@@ -2882,11 +3017,13 @@ function initSidebarResize() {
 	const container = getBetterMapElementById("mapContainer");
 	if (!handle || !sidebar || !container) return;
 
-	// The stylesheet carries these same limits as its own defaults, so they have to be applied to
-	// the element too. Otherwise the CSS floor and ceiling would still win and changing the
-	// setting would have no visible effect...
-	sidebar.style.minWidth = getSidebarMinWidthPx() + "px";
-	sidebar.style.maxWidth = getSidebarMaxWidthPercent() + "%";
+	// These feed the stylesheet's min-width/max-width through custom properties rather than being
+	// set as inline min-width/max-width. An inline value outranks every selector, so the collapsed
+	// rule's "min-width: 0" could not win and the sidebar stayed at its minimum width when hidden.
+	// Going through a variable lets the configured limits apply while expanded and still leaves the
+	// collapse rule in charge...
+	sidebar.style.setProperty("--bmw-sidebar-min-width", getSidebarMinWidthPx() + "px");
+	sidebar.style.setProperty("--bmw-sidebar-max-width", getSidebarMaxWidthPercent() + "%");
 
 	let startX, startWidth;
 
@@ -3044,7 +3181,14 @@ async function fetchPaginatedLMItems({ resourcePath, buildQueryParams, signal, l
 		}
 
 		if (data.total !== total) total = data.total;
-		items.push(...data.items);
+		// A page that reports more records remaining but returns none would leave offset where it
+		// was, and the loop would reissue the same request forever against the LM API...
+		const page = Array.isArray(data.items) ? data.items : [];
+		if (!page.length) {
+			console.warn(`Better Map Widget: ${label} stopped at ${offset} of ${total} after an empty page.`);
+			break;
+		}
+		items.push(...page);
 		offset = items.length;
 
 		_dom.refreshStatusArea.innerHTML = `${loadingSpinner}&nbsp;${label}: ${offset} of ${total} (${Math.round(offset / total * 100)}%)`;
@@ -3288,6 +3432,37 @@ async function refreshGroupData(timedRefresh = false) {
 		const parser = new DOMParser();
 
 		let itemsProcessed = 0;
+		// onRefreshComplete tears down and rebuilds clustering and refits the map, so it has to run
+		// exactly once per pass. The count below is compared with >= rather than == because the
+		// geocoder failure path lowers totalGroups from async callbacks, so an exact match can be
+		// stepped over and leave the spinner up and the toolbar disabled for good. Since >= then
+		// stays true for every later increment, this flag is what holds it to a single run.
+		let refreshCompleteFired = false;
+
+		// Function to finish the refresh once every item has been accounted for...
+		async function finishRefreshIfComplete() {
+			if (refreshCompleteFired || itemsProcessed < totalGroups) return;
+			refreshCompleteFired = true;
+			await onRefreshComplete();
+		}
+
+		// Function to wrap per-item work so that an item which throws still gets accounted for...
+		// A failing item never reaches its own itemsProcessed increment, so the expected total could
+		// never be met and the refresh would sit unfinished. buildMarkersInBatches catches per-item
+		// errors too, but it is a shared window-level helper whose first definition on the page wins,
+		// so a widget save cannot rely on its copy being the current one. Keeping the accounting here
+		// in the refresh scope makes it work either way.
+		function withItemErrorAccounting(handler) {
+			return function(thisItem) {
+				try {
+					return handler(thisItem);
+				} catch (error) {
+					console.warn("Better Map Widget: skipping an item that failed to plot.", (thisItem && (thisItem.name || thisItem.id)) || thisItem, error);
+					totalGroups = totalGroups - 1;
+					finishRefreshIfComplete();
+				}
+			};
+		}
 
 		// Determine if we can do a differential (in-place) update
 		const isDiffUpdate = timedRefresh && markersByDeviceID.size > 0;
@@ -3379,7 +3554,7 @@ async function refreshGroupData(timedRefresh = false) {
 		}
 
 		// Process groups in batches to avoid UI jank with large datasets...
-		await buildMarkersInBatches(groupData, (thisItem) => {
+		await buildMarkersInBatches(groupData, withItemErrorAccounting((thisItem) => {
 			let groupID = thisItem.id;
 			const { severity: highestSeverity, sevIcon, pinBG, pinBorder, pinIndex } = parseSeverity(thisItem);
 
@@ -3394,7 +3569,7 @@ async function refreshGroupData(timedRefresh = false) {
 					}
 				}
 				itemsProcessed++;
-				if (itemsProcessed == totalGroups) onRefreshComplete();
+				finishRefreshIfComplete();
 				return;
 			}
 
@@ -3416,7 +3591,7 @@ async function refreshGroupData(timedRefresh = false) {
 					}
 
 					itemsProcessed++;
-					if (itemsProcessed == totalGroups) onRefreshComplete();
+					finishRefreshIfComplete();
 					return;
 				}
 				// Item not found in existing markers - fall through to create a new one
@@ -3481,7 +3656,7 @@ async function refreshGroupData(timedRefresh = false) {
 							plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, address);
 						} else {
 							// Attempt to geocode the address...
-							geocoder.geocode( {'address': address}, function(results, status) {
+							enqueueGeocode(geocoder, {'address': address}, function(results, status) {
 								if (status == 'OK') {
 									// Grab the longitude/latitude from the results...
 									let geocodedLocation = results[0].geometry.location;
@@ -3619,11 +3794,9 @@ async function refreshGroupData(timedRefresh = false) {
 				}
 				// console.log("itemsProcessed: " + itemsProcessed + " / totalGroups: " + totalGroups);
 
-				if (itemsProcessed == totalGroups) {
-					await onRefreshComplete();
-				}
+				await finishRefreshIfComplete();
 			}
-		});
+		}));
 	}
 }
 
@@ -4412,7 +4585,7 @@ async function addWeatherLayer() {
 			} else if (mapType.match(/(nexrad|q2)/g)) {
 				const nexradCacheBuster = Math.floor(Date.now() / (weatherRefreshMinutes * 60000));
 				map.overlayMapTypes.insertAt(0, createWeatherTileLayer(mapType, (tile, zoom) => {
-					return "http://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/" + mapType + "/" + zoom + "/" + tile.x + "/" + tile.y + ".png?" + nexradCacheBuster;
+					return "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/" + mapType + "/" + zoom + "/" + tile.x + "/" + tile.y + ".png?" + nexradCacheBuster;
 				}, { maxZoom: 12 }));
 
 			} else if (mapType === "openweather") {
@@ -4598,7 +4771,7 @@ async function addWeatherLayer() {
 			}
 
 			// Show wildfire info on either "click" or "mouseover" (refer to the 'showWildfireInfoEvent' variable set at the top of this script)...
-			overlayInfoWindowListenerHandle = map.data.addListener(showWildfireInfoEvent, function(event) {
+			addOverlayDataListener(showWildfireInfoEvent, function(event) {
 				const fireSource = event.feature.getProperty("_fireSource");
 				let infoContent = '';
 
@@ -4663,7 +4836,7 @@ async function addWeatherLayer() {
 				overlayInfoWindow.open(map);
 			});
 			if (showWildfireInfoEvent == "mouseover") {
-				overlayInfoWindowListenerHandle = map.data.addListener('mouseout', function(event) {
+				addOverlayDataListener('mouseout', function(event) {
 					overlayInfoWindow.close();
 				});
 			}
@@ -4992,7 +5165,7 @@ async function addWeatherLayer() {
 				});
 
 				// Show county info on click...
-				overlayInfoWindowListenerHandle = map.data.addListener('click', function(event) {
+				addOverlayDataListener('click', function(event) {
 					const countyName = event.feature.getProperty('CountyName') || 'Unknown County';
 					const outageCount = event.feature.getProperty('OutageCount') || 0;
 					const percentAffected = event.feature.getProperty('PercentAffected') || 0;
@@ -5043,11 +5216,11 @@ async function addWeatherLayer() {
 				});
 
 				// Highlight counties on mouseover...
-				map.data.addListener('mouseover', function(event) {
+				addOverlayDataListener('mouseover', function(event) {
 					map.data.revertStyle();
 					map.data.overrideStyle(event.feature, {strokeWeight: 3, strokeOpacity: 0.5});
 				});
-				map.data.addListener('mouseout', function(event) {
+				addOverlayDataListener('mouseout', function(event) {
 					map.data.revertStyle();
 				});
 
@@ -5121,7 +5294,7 @@ async function addWeatherLayer() {
 			});
 
 			// Show earthquake info on click...
-			overlayInfoWindowListenerHandle = map.data.addListener('click', async function(event) {
+			addOverlayDataListener('click', async function(event) {
 				// Show an infowindow on click...
 				let quakeTime = new Date(event.feature.getProperty("time"));
 				let updated = new Date(event.feature.getProperty("updated"));
@@ -5393,7 +5566,7 @@ async function addWeatherLayer() {
 					}
 				});
 
-				overlayInfoWindowListenerHandle = map.data.addListener('click', function(event) {
+				addOverlayDataListener('click', function(event) {
 					const feature = event.feature;
 					// Extract properties from the feature...
 					const data = {
@@ -5451,15 +5624,22 @@ function fitClusterBounds(south, west, north, east) {
 // Function called when the "Reset Zoom" button is pressed...
 function resetZoom() {
 	if (!isMapReady()) return;
-	// If there's only 1 marker, avoid zooming in super close (i.e. use the default zoom level 3)...
 	if (markers.length > 0) {
-		// Add padding to avoid markers appearing under the map's UI controls...
-		map.fitBounds(bounds, {
-			top: 70,
-			right: 70,
-			bottom: 70,
-			left: 70
-		});
+		// A single marker, or several stacked on one spot, gives bounds with no area. fitBounds on
+		// those zooms all the way to street level, so center on them at the map's opening zoom
+		// instead, which is what this function was always meant to do...
+		if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
+			map.setCenter(bounds.getCenter());
+			map.setZoom(defaultMapZoom);
+		} else {
+			// Add padding to avoid markers appearing under the map's UI controls...
+			map.fitBounds(bounds, {
+				top: 70,
+				right: 70,
+				bottom: 70,
+				left: 70
+			});
+		}
 	}
 	// Reset the tilt & heading back to their original values...
 	mapTilt = defaultMapTilt;
@@ -5583,6 +5763,7 @@ function cleanupBetterMapInstance() {
 	_clearCacheMessageTimeout = null;
 	cancelPendingMapInitialization();
 	cancelScheduledPolylineEndpointUpdate();
+	cancelPendingGeocodes();
 	// Queued debounced work would otherwise run against dead DOM after teardown...
 	debouncedSaveCache.cancel();
 	debouncedHandleMapOptionsAreaChange.cancel();
