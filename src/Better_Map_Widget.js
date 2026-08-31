@@ -14,10 +14,38 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
 
 // ------------------------------------------------------------
-var version = "3.65 CDN";
+var version = "3.68 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.68</h3>
+	<ul>
+		<li>Multiple Better Map Widgets on the same dashboard now share a single download of the widget's script and stylesheet, which speeds up loading a dashboard that contains several maps. Each full page refresh still pulls the currently published version.</li>
+		<li>Connection lines between two locations with only one link between them are now drawn straight. Curvature still applies to overlapping parallel links, which is what it was added for.</li>
+		<li>Panning and zooming a map with connection lines is smoother, since the lines are now recalculated once per frame instead of up to three times per refresh.</li>
+		<li>Cluster donut charts are now reused across clusters with the same mix of severities rather than being regenerated for every cluster on every pan and zoom.</li>
+		<li>The sidebar no longer rebuilds its item list while it is collapsed, and catches up when reopened.</li>
+		<li>Toggling the auto-zoom checkbox no longer refetches and rebuilds all weather overlays.</li>
+		<li>The power outage overlay no longer re-parses the county boundary data on every weather refresh, removing a periodic stall on large maps.</li>
+		<li>Added &quot;markerStyle&quot;, &quot;parallelConnectionCurvature&quot;, &quot;sidebarDefaultWidth&quot;, &quot;sidebarMinWidth&quot;, and &quot;sidebarMaxWidth&quot; to the editable defaults block, so they can be set without dashboard tokens.</li>
+		<li>The sidebar's minimum and maximum drag widths now honor their settings instead of being fixed at 220 pixels and 40 percent.</li>
+		<li>The widget's stylesheet is no longer re-added to the page on every widget save, so its link tags no longer accumulate over a dashboard session.</li>
+		<li>Saving one map on a dashboard that holds several no longer clears the script tags belonging to the other maps.</li>
+	</ul>
+	<h3>Version 3.67</h3>
+	<ul>
+		<li>Fixed the clear cache button leaving the geocode cache loaded in memory, which let cleared addresses reappear and be written back to browser storage.</li>
+		<li>Fixed the weather radar overlay drawing nothing whenever RainViewer returned no forecast frames.</li>
+		<li>Fixed an item's detail popup not reopening after it was dismissed with its X button, which previously required clicking a different item first.</li>
+		<li>Reduced the memory held after a dashboard edit or widget reload by releasing pending element watchers, queued deferred work, and each instance's window references during teardown.</li>
+	</ul>
+	<h3>Version 3.66</h3>
+	<ul>
+		<li>Group, resource, and service names, descriptions, addresses, custom property values, and connection names are now HTML-escaped before being displayed, so items whose names contain characters such as &amp;, &lt;, or &quot; render correctly instead of corrupting the marker, sidebar, and cluster popups.</li>
+		<li>Fixed the &quot;Force refresh the map data&quot; button performing a partial (differential) refresh instead of a full rebuild.</li>
+		<li>Fixed the map not re-fitting its zoom reliably after a toolbar filter change.</li>
+		<li>Fixed duplicate refresh timers and orphaned Google Map instances that could accumulate when the widget was saved while the map was still initializing.</li>
+	</ul>
 	<h3>Version 3.65</h3>
 	<ul>
 		<li>Added a "None" option to the additional overlay dropdown so weather can be shown without earthquakes, wildfires, power outages, or flooding. Earthquakes remains the default overlay.</li>
@@ -350,6 +378,9 @@ var additionalOverlayOption = getBetterMapGlobal("additionalOverlayOption", "ear
 var hideMapOptionsByDefault = getBetterMapGlobal("hideMapOptionsByDefault", false);
 var showMapSidebarByDefault = getBetterMapGlobal("showMapSidebarByDefault", false);
 var sidebarDefaultWidth = getBetterMapGlobal("sidebarDefaultWidth", 300);
+// Sidebar resize limits: the minimum is in pixels, the maximum is a percentage of the widget width...
+var sidebarMinWidth = getBetterMapGlobal("sidebarMinWidth", 220);
+var sidebarMaxWidth = getBetterMapGlobal("sidebarMaxWidth", 40);
 var autoResetMapOnRefresh = getBetterMapGlobal("autoResetMapOnRefresh", false);
 var developmentFlag = getBetterMapGlobal("developmentFlag", false);
 var fullRefreshInterval = getBetterMapGlobal("fullRefreshInterval", 0);
@@ -461,7 +492,10 @@ betterMapRoot.innerHTML = `<!-- Create our options bar above the map... -->
 
 			<div id="optionsToggleArea">
 				<span id="autoZoomOptions" data-title="Automatically reset the map's zoom to encompass all items after timed refreshes. You can also manually do so at any time using the 'Reset map zoom' button on the left of the map.">
-					<input type="checkbox" id="autoZoom" name="autoZoom" value="autoZoom" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'enableWeather');" checked="true" />
+					<!-- No handler needed: refreshGroupData reads this checkbox directly, and the
+					     mapOptionsArea change listener persists it. It previously called
+					     enableWeather, which refetched and rebuilt every weather overlay. -->
+					<input type="checkbox" id="autoZoom" name="autoZoom" value="autoZoom" checked="true" />
 					<label for="autoZoom">Auto-zoom</label>
 				</span>
 
@@ -774,10 +808,17 @@ var _currentRefreshController = null;
 // Function to debounce handlers when user input changes quickly...
 function debounce(fn, delay = 300) {
 	let timeoutId;
-	return (...args) => {
+	const debounced = (...args) => {
 		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => fn(...args), delay);
-	}
+	};
+	// Lets callers drop a queued call, either because it would undo work done since it was
+	// scheduled or because the widget is being torn down...
+	debounced.cancel = () => {
+		clearTimeout(timeoutId);
+		timeoutId = null;
+	};
+	return debounced;
 }
 
 var __LMBMW_MAPOPTS_COOKIE_BASE = "lm_bmw_mapOpts_v1";
@@ -1481,6 +1522,11 @@ var rvOptionSnowColors = 1; // 0 - do not show snow colors, 1 - show snow colors
 var rvAPIData = {};
 var rvMapFrames = [];
 var rvLastPastFramePosition = -1;
+// Parsed copies of the static power-outage reference data. The weather refresh interval calls
+// addWeatherLayer() every few minutes, and without these the multi-megabyte county boundary
+// JSON was re-read and re-parsed from localStorage on the main thread every single cycle...
+var _countiesGeoJsonMemo = null;
+var _countyCustomerTotalsMemo = null;
 var weatherRefresher = null;
 var mapDataRefresher = null;
 
@@ -1625,11 +1671,10 @@ function assignParallelConnectionOffsets() {
 
 // Function to determine how far off-center a connection line should be curved...
 function getConnectionPathOffsetIndex(connection) {
-	let offsetIndex = Number((connection && connection.parallelOffsetIndex) || 0);
-	if (!offsetIndex && Number((connection && connection.parallelConnectionCount) || 0) <= 1 && parallelConnectionCurvature > 0) {
-		offsetIndex = 1;
-	}
-	return offsetIndex;
+	// A lone connection has nothing to separate itself from, so it stays at offset 0 and
+	// buildConnectionPath returns a two-point straight line instead of interpolating a curve
+	// on every map idle. Curvature exists to fan out overlapping parallel links...
+	return Number((connection && connection.parallelOffsetIndex) || 0);
 }
 
 // Function to estimate ground meters per screen pixel at a latitude and zoom level...
@@ -1897,6 +1942,27 @@ function buildEarthquakeIconUrl(iconOpacity, alertColor) {
 	return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' data-tooltip='Earthquake' viewBox='0 0 302.836 302.836'%3E%3Cpath d='M271 256a15 15 0 0 1-15 15 15 15 0 0 1-15-15 15 15 0 0 1 15-15 15 15 0 0 1 15 15z' style='opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};stroke:none;stroke-width:8;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 139.29c-64.44 0-116.71 52.27-116.71 116.71S191.56 372.71 256 372.71 372.71 320.44 372.71 256 320.44 139.29 256 139.29zm0 3c62.818 0 113.71 50.892 113.71 113.71 0 62.818-50.892 113.71-113.71 113.71-62.818 0-113.71-50.892-113.71-113.71 0-62.818 50.892-113.71 113.71-113.71z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:.55474453;fill-rule:nonzero;stroke:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 214.266c-22.996 0-41.734 18.738-41.734 41.734 0 22.996 18.738 41.734 41.734 41.734 22.996 0 41.734-18.738 41.734-41.734 0-22.996-18.738-41.734-41.734-41.734zm0 9c18.132 0 32.734 14.602 32.734 32.734S274.132 288.734 256 288.734 223.266 274.132 223.266 256s14.602-32.734 32.734-32.734z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:${alertColor};stroke-width:3;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 189.678c-36.594 0-66.322 29.728-66.322 66.322s29.728 66.322 66.322 66.322 66.322-29.728 66.322-66.322-29.728-66.322-66.322-66.322zm0 6c33.35 0 60.322 26.971 60.322 60.322 0 33.35-26.971 60.322-60.322 60.322-33.35 0-60.322-26.971-60.322-60.322 0-33.35 26.971-60.322 60.322-60.322z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:none;stroke-width:6;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 166.164c-49.591 0-89.836 40.245-89.836 89.836S206.41 345.836 256 345.836 345.836 305.59 345.836 256 305.59 166.164 256 166.164zm0 4c47.43 0 85.836 38.406 85.836 85.836S303.43 341.836 256 341.836 170.164 303.43 170.164 256 208.57 170.164 256 170.164z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:${iconOpacity};fill-rule:nonzero;stroke:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3Cpath d='M256 109.582c-80.853 0-146.418 65.565-146.418 146.418 0 80.853 65.565 146.418 146.418 146.418 80.853 0 146.418-65.565 146.418-146.418 0-80.853-65.565-146.418-146.418-146.418zm0 2c79.772 0 144.418 64.646 144.418 144.418S335.772 400.418 256 400.418 111.582 335.772 111.582 256 176.228 111.582 256 111.582z' style='color:%23000;font-style:normal;font-variant:normal;font-weight:400;font-stretch:normal;font-size:medium;line-height:normal;font-family:sans-serif;text-indent:0;text-align:start;text-decoration:none;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:%23000;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;block-progression:tb;writing-mode:lr-tb;baseline-shift:baseline;text-anchor:start;white-space:normal;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:${iconOpacity};isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:%23000;solid-opacity:${iconOpacity};fill:${alertColor};fill-opacity:.35766422;fill-rule:nonzero;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:${iconOpacity};color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate' transform='translate(-104.582 -104.582)'/%3E%3C/svg%3E`;
 }
 
+var _polylineUpdateFrame = null;
+
+// Function to coalesce polyline endpoint updates into a single pass per frame...
+// A refresh can otherwise trigger three full passes in a row (the explicit call after plotting,
+// the clusterer's "clusteringend" event, and the map's "idle" event), each one walking every
+// polyline and rebuilding its path.
+function schedulePolylineEndpointUpdate() {
+	if (_polylineUpdateFrame !== null) return;
+	_polylineUpdateFrame = requestAnimationFrame(() => {
+		_polylineUpdateFrame = null;
+		updatePolylineEndpoints();
+	});
+}
+
+// Function to cancel a queued polyline endpoint update...
+function cancelScheduledPolylineEndpointUpdate() {
+	if (_polylineUpdateFrame === null) return;
+	cancelAnimationFrame(_polylineUpdateFrame);
+	_polylineUpdateFrame = null;
+}
+
 // Function to update polyline endpoints to follow clusters and markers, rebuilding curved paths...
 function updatePolylineEndpoints() {
 	if (!polylines.length) return;
@@ -1993,6 +2059,12 @@ var debouncedSaveCache = debounce(saveCache, 1000);
 // Function to clear cached marker locations and saved map options...
 function clearCache() {
 	try {
+		// Drop any queued write first, otherwise it would flush the addresses we are about to
+		// discard straight back into localStorage a moment after we remove the key...
+		debouncedSaveCache.cancel();
+		// The in-memory copy is the one every lookup actually reads, so removing only the
+		// localStorage key would leave the cache fully populated until the widget reloads...
+		cachedAddresses = {};
 		localStorage.removeItem(__LMBMW_CACHE_KEY);
 		clearMapOptionsCookie();
 		// Display our progress to the user (if status area is available)...
@@ -2003,13 +2075,16 @@ function clearCache() {
 			_dom.refreshStatusArea.innerHTML = "Local cache and saved map options were cleared";
 			_dom.refreshStatusArea.style.display = "flex";
 			// Add timer to remove message after 2 seconds...
-			setTimeout(() => {
+			clearTimeout(_clearCacheMessageTimeout);
+			_clearCacheMessageTimeout = setTimeout(() => {
+				if (!_dom.refreshStatusArea) return;
 				_dom.refreshStatusArea.innerHTML = "";
 				_dom.refreshStatusArea.style.display = "none";
 			}, 2000);
 		}
 	} catch (e) {}
 }
+var _clearCacheMessageTimeout = null;
 var cachedAddresses = loadCache();
 
 // For holding our LM group data...
@@ -2055,6 +2130,8 @@ var _mapInitializing = false;
 var _mapInitRetryTimeout = null;
 var initAttempts = 0;
 var MAX_INIT_ATTEMPTS = 10;
+// Bumped whenever initialization is cancelled so an awaiting initMap() can detect it was torn down.
+var mapInitGeneration = 0;
 
 // Function to check whether this script execution is still the active widget instance...
 function isBetterMapInstanceActive() {
@@ -2078,6 +2155,7 @@ function cancelPendingMapInitialization() {
 		_mapInitRetryTimeout = null;
 	}
 	_mapInitializing = false;
+	mapInitGeneration++;
 }
 
 // Function to tear down the Google Map instance before a widget reload...
@@ -2132,8 +2210,8 @@ async function ensureMapInitialized() {
 		}
 
 		// All checks passed - initialize the map...
-		await initMap();
-		if (!isBetterMapInstanceActive()) {
+		const initialized = await initMap();
+		if (!initialized || !isBetterMapInstanceActive()) {
 			_mapInitializing = false;
 			return;
 		}
@@ -2200,12 +2278,20 @@ window.addEventListener('focus', _focusHandler);
 // ----- FUNCTIONS
 
 // Function to create our map...
+// Returns true when the map was fully built, or false when the widget was torn down mid-init.
 async function initMap() {
+	// LogicMonitor can re-save this widget while the library imports below are still pending.
+	// Anything created after that point would be unreachable by the new instance's cleanup.
+	const thisInitGeneration = mapInitGeneration;
+	const initStillCurrent = () => thisInitGeneration === mapInitGeneration && isBetterMapInstanceActive();
+
 	// Load some libraries needed by Google Maps...
 	const { Map, RenderingType, InfoWindow } = await google.maps.importLibrary("maps");
 	const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
 	const { ColorScheme } = await google.maps.importLibrary("core");
 	await google.maps.importLibrary("geometry");
+
+	if (!initStillCurrent()) return false;
 
 	// CustomInfoWindow class - allows positioning InfoWindows to left/right/top/bottom of a point
 	// Defined here after Google Maps API is loaded so google.maps.OverlayView is available
@@ -2528,7 +2614,7 @@ async function initMap() {
 	});
 
 	// Redraw polylines after zoom/pan/drag completes...
-	map.addListener("idle", () => updatePolylineEndpoints());
+	map.addListener("idle", () => schedulePolylineEndpointUpdate());
 
 	// Vector maps are nicer but sometimes don't load right away. Plus they're mainly useful if tilt controls are enabled, so use the normal raster map by default...
 	// if (showMapTiltControls) {
@@ -2604,6 +2690,12 @@ async function initMap() {
 	// Add an area to display when we're updating...
 	const updateAreaDiv = await createUpdateArea(map);
 
+	// Bail out before starting any weather or refresh timers this instance could no longer clear...
+	if (!initStillCurrent()) {
+		destroyMapInstance();
+		return false;
+	}
+
 	// *** MAP THEME ***
 	// Set our map theme (can be set via default at beginning of this script or via a "MapStyle" dashboard token)...
 	if (mapStyle == "satellite") {
@@ -2635,6 +2727,7 @@ async function initMap() {
 	// Load our LogicMonitor data only after we know our update area has been created...
 	waitForElm('#refreshStatusArea').then((elm) => {
 		// console.log('Element is ready');
+		if (!elm) return;
 		refreshGroupData();
 	});
 
@@ -2642,12 +2735,13 @@ async function initMap() {
 	if (!developmentFlag) {
 		clearInterval(mapDataRefresher);
 		mapDataRefresher = setInterval(function() {
-			refreshGroupData(timedRefresh = true);
+			refreshGroupData(true);
 			console.log("Map data refreshed.");
 		}, statusUpdateIntervalMinutes*1000*60);
 	}
 
 	scheduleMapResize();
+	return true;
 }
 
 // Function for creating & styling the map button for toggling the options bar...
@@ -2698,7 +2792,8 @@ function createWeatherRefreshControl(map) {
 		id: "weatherRefreshButton",
 		title: "Force refresh the map data",
 		innerHTML: '<svg viewBox="-0.5 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M7.1998 10.8799L3.9998 14.0799L0.799805 10.8799" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M17.72 6.77007C16.6086 5.63347 15.1839 4.85371 13.6275 4.53032C12.0711 4.20693 10.4536 4.35459 8.98145 4.95439C7.5093 5.5542 6.24924 6.57899 5.362 7.898C4.47476 9.21701 4.0006 10.7703 4 12.3599V14.0901" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M16.7998 13.96L19.9998 10.75L23.1998 13.96" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M6.28027 18.0801C7.39163 19.2167 8.8164 19.9962 10.3728 20.3196C11.9292 20.643 13.5467 20.4956 15.0188 19.8958C16.491 19.2959 17.751 18.2712 18.6383 16.9521C19.5255 15.6331 19.9997 14.0796 20.0003 12.49V10.76" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-		onClick: refreshGroupData
+		// Wrapped so the click event is not passed through as refreshGroupData's timedRefresh flag...
+		onClick: () => refreshGroupData()
 	});
 }
 
@@ -2754,6 +2849,8 @@ function createSidebarToggleControl(map) {
 			mapEl.classList.remove("sidebar-hidden");
 			if (handle) handle.classList.remove("sidebar-hidden");
 			svg.style.transform = "rotate(90deg)";
+			// Pick up anything that refreshed while the sidebar was collapsed...
+			if (_sidebarNeedsRebuild) populateSidebar();
 		} else {
 			sidebar.style.width = "";
 			sidebar.classList.add("sidebar-hidden");
@@ -2766,12 +2863,30 @@ function createSidebarToggleControl(map) {
 	return btn;
 }
 
+// Function to resolve the sidebar's minimum width in pixels...
+function getSidebarMinWidthPx() {
+	const value = Number(sidebarMinWidth);
+	return Number.isFinite(value) && value > 0 ? value : 220;
+}
+
+// Function to resolve the sidebar's maximum width as a percentage of the widget...
+function getSidebarMaxWidthPercent() {
+	const value = Number(sidebarMaxWidth);
+	return Number.isFinite(value) && value > 0 && value <= 100 ? value : 40;
+}
+
 // Function to initialize sidebar resize drag handling...
 function initSidebarResize() {
 	const handle = _dom.sidebarResizeHandle;
 	const sidebar = _dom.sidebarArea;
 	const container = getBetterMapElementById("mapContainer");
 	if (!handle || !sidebar || !container) return;
+
+	// The stylesheet carries these same limits as its own defaults, so they have to be applied to
+	// the element too. Otherwise the CSS floor and ceiling would still win and changing the
+	// setting would have no visible effect...
+	sidebar.style.minWidth = getSidebarMinWidthPx() + "px";
+	sidebar.style.maxWidth = getSidebarMaxWidthPercent() + "%";
 
 	let startX, startWidth;
 
@@ -2789,7 +2904,8 @@ function initSidebarResize() {
 	// Function to resize the sidebar while dragging...
 	function onMouseMove(e) {
 		const delta = startX - e.clientX;
-		const newWidth = Math.max(220, Math.min(startWidth + delta, container.getBoundingClientRect().width * 0.4));
+		const maxWidth = container.getBoundingClientRect().width * (getSidebarMaxWidthPercent() / 100);
+		const newWidth = Math.max(getSidebarMinWidthPx(), Math.min(startWidth + delta, maxWidth));
 		sidebar.style.width = newWidth + "px";
 	}
 
@@ -3064,7 +3180,8 @@ async function refreshGroupData(timedRefresh = false) {
 	}
 
 	// Reset our zoom level when the filter options change...
-	if (centerCalculated && autoZoom && !timedRefresh) {
+	// (User-initiated refreshes always refit; the auto-zoom checkbox only governs timed refreshes.)
+	if (centerCalculated && !timedRefresh) {
 		centerCalculated = false;
 	}
 
@@ -3227,7 +3344,7 @@ async function refreshGroupData(timedRefresh = false) {
 						onClusterClick: null
 					});
 					clusterer.addListener("clusteringend", () => {
-						updatePolylineEndpoints();
+						schedulePolylineEndpointUpdate();
 					});
 				}
 			}
@@ -3243,7 +3360,7 @@ async function refreshGroupData(timedRefresh = false) {
 				if (failedConnections.length > 0) {
 					console.warn(`Failed to draw ${failedConnections.length} map connection line(s).`, failedConnections);
 				}
-				updatePolylineEndpoints();
+				schedulePolylineEndpointUpdate();
 			}
 
 			populateSidebar();
@@ -3398,7 +3515,7 @@ async function refreshGroupData(timedRefresh = false) {
 						propList.forEach(thisProp => {
 							const found = findItemProperty(thisItem, thisProp.trim());
 							if (found) {
-								customContent = `${customContent}<div class="customItem"><span class="customItemName">${found.name}</span>: ${found.value}</div>`;
+								customContent = `${customContent}<div class="customItem"><span class="customItemName">${escapeHtml(found.name)}</span>: ${escapeHtml(found.value)}</div>`;
 							}
 						});
 						if (customContent != "") {
@@ -3412,6 +3529,7 @@ async function refreshGroupData(timedRefresh = false) {
 					// The pin's z-index gets overwritten when clicked to show details, so capture the original severity in the pin's metadata...
 					content.dataset.severity = pinIndex;
 					// Create the content shown when the pin is clicked...
+					const itemId = encodeURIComponent(thisItem.id);
 					if (mapSourceType == "groups") {
 						// Capture the group's description...
 						let groupDescription = thisItem.description;
@@ -3419,13 +3537,14 @@ async function refreshGroupData(timedRefresh = false) {
 						if (groupDescription == "") {
 							groupDescription = address;
 						}
+						groupDescription = escapeHtml(groupDescription);
 
 						content.innerHTML = `
 							<div class="icon ${highestSeverity}">
 								${sevIcon}
 							</div>
 							<div class="details">
-								<div class="groupName"><a href="/santaba/uiv4/resources/treeNodes/t-dg,id-${thisItem.id}?source=details" target="_blank">${thisItem.name}</a></div>
+								<div class="groupName"><a href="/santaba/uiv4/resources/treeNodes/t-dg,id-${itemId}?source=details" target="_blank">${escapeHtml(thisItem.name)}</a></div>
 								<div class="description">${groupDescription}${customContent}</div>
 								<div class="features">
 									<div title="${thisItem.numOfHosts} Standard Devices">
@@ -3442,17 +3561,17 @@ async function refreshGroupData(timedRefresh = false) {
 										<span>${thisItem.numOfKubernetesDevices}</span>
 									</div>
 									<div class="drillDownButton" title="Open group in new tab">
-										<a href="/santaba/uiv4/resources/treeNodes/t-dg,id-${thisItem.id}?source=details" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path fill="white" d="M384 64C366.3 64 352 78.3 352 96C352 113.7 366.3 128 384 128L466.7 128L265.3 329.4C252.8 341.9 252.8 362.2 265.3 374.7C277.8 387.2 298.1 387.2 310.6 374.7L512 173.3L512 256C512 273.7 526.3 288 544 288C561.7 288 576 273.7 576 256L576 96C576 78.3 561.7 64 544 64L384 64zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 416C480 398.3 465.7 384 448 384C430.3 384 416 398.3 416 416L416 496C416 504.8 408.8 512 400 512L144 512C135.2 512 128 504.8 128 496L128 240C128 231.2 135.2 224 144 224L224 224C241.7 224 256 209.7 256 192C256 174.3 241.7 160 224 160L144 160z"/></svg></a>
+										<a href="/santaba/uiv4/resources/treeNodes/t-dg,id-${itemId}?source=details" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path fill="white" d="M384 64C366.3 64 352 78.3 352 96C352 113.7 366.3 128 384 128L466.7 128L265.3 329.4C252.8 341.9 252.8 362.2 265.3 374.7C277.8 387.2 298.1 387.2 310.6 374.7L512 173.3L512 256C512 273.7 526.3 288 544 288C561.7 288 576 273.7 576 256L576 96C576 78.3 561.7 64 544 64L384 64zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 416C480 398.3 465.7 384 448 384C430.3 384 416 398.3 416 416L416 496C416 504.8 408.8 512 400 512L144 512C135.2 512 128 504.8 128 496L128 240C128 231.2 135.2 224 144 224L224 224C241.7 224 256 209.7 256 192C256 174.3 241.7 160 224 160L144 160z"/></svg></a>
 									</div>
 								</div>
 							</div>
 						`;
 					} else {
 						// Capture the group's description...
-						let groupDescription = thisItem.description;
+						let groupDescription = escapeHtml(thisItem.description);
 						// If the group doesn't have a description then fallback to showing the address...
 						if (groupDescription == "") {
-							groupDescription = "Host:" + thisItem.name + "<br/>Address: " + cachedAddresses[groupID].address;
+							groupDescription = "Host:" + escapeHtml(thisItem.name) + "<br/>Address: " + escapeHtml(cachedAddresses[groupID].address);
 						}
 
 						content.innerHTML = `
@@ -3460,11 +3579,11 @@ async function refreshGroupData(timedRefresh = false) {
 								${sevIcon}
 							</div>
 							<div class="details">
-								<div class="groupName"><a href="/santaba/uiv4/resources/treeNodes/t-d,id-${thisItem.id}?source=details&tab=alert" target="_blank">${thisItem.displayName}</a></div>
+								<div class="groupName"><a href="/santaba/uiv4/resources/treeNodes/t-d,id-${itemId}?source=details&tab=alert" target="_blank">${escapeHtml(thisItem.displayName)}</a></div>
 								<div class="description">${groupDescription}${customContent}</div>
 								<div class="features">
 									<div class="drillDownButton" title="Open group in new tab">
-										<a href="/santaba/uiv4/resources/treeNodes/t-d,id-${thisItem.id}?source=details&tab=alert" target="_blank" class="link"><svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path fill="white" d="M384 64C366.3 64 352 78.3 352 96C352 113.7 366.3 128 384 128L466.7 128L265.3 329.4C252.8 341.9 252.8 362.2 265.3 374.7C277.8 387.2 298.1 387.2 310.6 374.7L512 173.3L512 256C512 273.7 526.3 288 544 288C561.7 288 576 273.7 576 256L576 96C576 78.3 561.7 64 544 64L384 64zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 416C480 398.3 465.7 384 448 384C430.3 384 416 398.3 416 416L416 496C416 504.8 408.8 512 400 512L144 512C135.2 512 128 504.8 128 496L128 240C128 231.2 135.2 224 144 224L224 224C241.7 224 256 209.7 256 192C256 174.3 241.7 160 224 160L144 160z"/></svg></a>
+										<a href="/santaba/uiv4/resources/treeNodes/t-d,id-${itemId}?source=details&tab=alert" target="_blank" class="link"><svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path fill="white" d="M384 64C366.3 64 352 78.3 352 96C352 113.7 366.3 128 384 128L466.7 128L265.3 329.4C252.8 341.9 252.8 362.2 265.3 374.7C277.8 387.2 298.1 387.2 310.6 374.7L512 173.3L512 256C512 273.7 526.3 288 544 288C561.7 288 576 273.7 576 256L576 96C576 78.3 561.7 64 544 64L384 64zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 416C480 398.3 465.7 384 448 384C430.3 384 416 398.3 416 416L416 496C416 504.8 408.8 512 400 512L144 512C135.2 512 128 504.8 128 496L128 240C128 231.2 135.2 224 144 224L224 224C241.7 224 256 209.7 256 192C256 174.3 241.7 160 224 160L144 160z"/></svg></a>
 									</div>
 								</div>
 							</div>
@@ -3619,7 +3738,7 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 
 	google.maps.event.addListener(thisPath, "mouseover", function(e) {
 		lineInfoWindow.setPosition(e.latLng);
-		lineInfoWindow.setContent(`<strong>${connection.connectionName}</strong><br/>Connection alert status: <a href="/santaba/uiv4/resources/treeNodes/t-i,id-${connection.instanceID}?source=details&tab=alert" target="_blank" title="Click to view alerts" style="border: 0;">${alertStatus}</a>`);
+		lineInfoWindow.setContent(`<strong>${escapeHtml(connection.connectionName)}</strong><br/>Connection alert status: <a href="/santaba/uiv4/resources/treeNodes/t-i,id-${encodeURIComponent(connection.instanceID)}?source=details&tab=alert" target="_blank" title="Click to view alerts" style="border: 0;">${escapeHtml(alertStatus)}</a>`);
 		lineInfoWindow.open(map);
 	});
 	google.maps.event.addListener(thisPath, "mouseout", function(e) {
@@ -3635,8 +3754,10 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 function toggleHighlight(markerView, group) {
 	closeAllInfoWindows({ skipMarker: true });
 
-	// If clicking the same marker that's already open, close it
-	if (markerInfoWindow && markerInfoWindow.markerId === markerView.deviceID) {
+	// If clicking the same marker that's already open, close it. The isOpen test matters because
+	// dismissing the window with its own X button leaves this reference in place, and without it
+	// the next click on that same marker was treated as a second toggle-off and opened nothing...
+	if (markerInfoWindow && markerInfoWindow.markerId === markerView.deviceID && markerInfoWindow.isOpen) {
 		markerInfoWindow.close();
 		markerInfoWindow = null;
 		return;
@@ -3671,27 +3792,45 @@ function toggleHighlight(markerView, group) {
 if (typeof sidebarDefaultWidth === 'undefined') { sidebarDefaultWidth = 300; }
 var sidebarSortMode = "severity";
 var sidebarItems = [];
+// Set when a refresh completed while the sidebar was collapsed, so opening it repopulates...
+var _sidebarNeedsRebuild = true;
+
+// Function to escape text for safe interpolation into markup or a double-quoted attribute...
+function escapeHtml(str) {
+	if (str == null) return '';
+	return String(str)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
 
 // LogicMonitor's widget sanitizer breaks nested template literals and ternary HTML fragments.
 function buildSidebarPropsHtml(props) {
 	if (!props || !props.length) return "";
 	var inner = props.map(function(p) {
-		var title = (p.name + ": " + p.value).replace(/"/g, "&quot;");
-		return '\x3cdiv class="sidebar-item-prop" title="' + title + '"\x3e' +
-			'\x3cspan class="sidebar-item-prop-label"\x3e' + p.name + ':\x3c/span\x3e ' + p.value +
+		var name = escapeHtml(p.name);
+		var value = escapeHtml(p.value);
+		return '\x3cdiv class="sidebar-item-prop" title="' + name + ': ' + value + '"\x3e' +
+			'\x3cspan class="sidebar-item-prop-label"\x3e' + name + ':\x3c/span\x3e ' + value +
 			'\x3c/div\x3e';
 	}).join("");
 	return '\x3cdiv class="sidebar-item-props"\x3e' + inner + '\x3c/div\x3e';
 }
 
 function buildClusterDeviceRowHtml(device) {
+	// device.name is read back out of the marker DOM via textContent, so entities are already
+	// decoded by the time we get here and must be re-escaped before returning to markup.
+	var name = escapeHtml(device.name);
+	var link = escapeHtml(device.link);
 	return '\x3cdiv style="display: flex; align-items: center; padding: 4px 8px; background: color-mix(in srgb, var(--' + device.status + '-color) 10%, white 30%); border-radius: 4px; gap: 8px; max-height: 25px;"\x3e' +
 		'\x3cdiv style="width: 8px; height: 8px; border-radius: 50%; background: var(--' + device.status + '-color); flex-shrink: 0;"\x3e\x3c/div\x3e' +
-		'\x3ca href="' + device.link + '" target="_blank" style="color: #1a73e8; text-decoration: none; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'"\x3e' +
-			device.name + device.sdtStatus +
+		'\x3ca href="' + link + '" target="_blank" style="color: #1a73e8; text-decoration: none; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'"\x3e' +
+			name + device.sdtStatus +
 		'\x3c/a\x3e' +
 		'\x3cdiv style="display: flex; align-items: center;"\x3e' +
-			'\x3ca href="' + device.link + '" target="_blank" style="color: #1a73e8; display: flex; align-items: center; padding: 2px; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background=\'#e8f0fe\'" onmouseout="this.style.background=\'transparent\'"\x3e' +
+			'\x3ca href="' + link + '" target="_blank" style="color: #1a73e8; display: flex; align-items: center; padding: 2px; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background=\'#e8f0fe\'" onmouseout="this.style.background=\'transparent\'"\x3e' +
 				'\x3csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"\x3e' +
 					'\x3cpath d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/\x3e' +
 					'\x3cpolyline points="15 3 21 3 21 9"/\x3e' +
@@ -3838,18 +3977,25 @@ function renderSidebarList() {
 		const groupKey = sidebarSortMode === "severity" ? item.severity : item.location;
 		if (groupKey !== currentGroup) {
 			currentGroup = groupKey;
-			const headerLabel = sidebarSortMode === "severity" ? (severityLabels[groupKey] || groupKey) : groupKey;
+			const headerLabel = escapeHtml(sidebarSortMode === "severity" ? (severityLabels[groupKey] || groupKey) : groupKey);
 			html += `<div class="sidebar-group-header" title="${headerLabel}">${headerLabel}</div>`;
 		}
 		const color = severityColors[item.severity] || "#85c25d";
 		const label = severityLabels[item.severity] || "OK";
 		const propsHtml = buildSidebarPropsHtml(item.props);
-		html += `<div class="sidebar-item" data-device-id="${item.id}" title="${item.name} - ${label}">
+		const itemName = escapeHtml(item.name);
+		html += `<div class="sidebar-item" data-device-id="${escapeHtml(item.id)}" title="${itemName} - ${label}">
 			<span class="sidebar-dot" style="background-color:${color};"></span>
-			<span class="sidebar-item-content"><span class="sidebar-item-name">${item.name}</span>${propsHtml}</span>
+			<span class="sidebar-item-content"><span class="sidebar-item-name">${itemName}</span>${propsHtml}</span>
 		</div>`;
 	});
 	sidebar.innerHTML = html;
+}
+
+// Function to check whether the sidebar is currently expanded...
+function isSidebarVisible() {
+	const sidebar = _dom.sidebarArea;
+	return Boolean(sidebar && !sidebar.classList.contains("sidebar-hidden"));
 }
 
 // Function to populate the sidebar with all plotted items...
@@ -3857,8 +4003,16 @@ function populateSidebar() {
 	const sidebar = _dom.sidebarArea;
 	if (!sidebar) return;
 
-	buildSidebarItems();
-	renderSidebarList();
+	// Building the item list walks every item and its display properties, and rendering rewrites
+	// the entire list markup, so skip both while the sidebar is collapsed and catch up when the
+	// user opens it...
+	if (isSidebarVisible()) {
+		_sidebarNeedsRebuild = false;
+		buildSidebarItems();
+		renderSidebarList();
+	} else {
+		_sidebarNeedsRebuild = true;
+	}
 
 	if (!sidebar._clickBound) {
 		sidebar._clickBound = true;
@@ -3894,6 +4048,12 @@ function populateSidebar() {
 		});
 	}
 }
+
+// Donut chart data URLs keyed by severity mix, since clusters with the same composition produce
+// byte-identical SVG and the markup plus base64 encoding is rebuilt for every cluster on every
+// clustering pass (which happens on each pan, zoom, and refresh)...
+var _clusterIconCache = new Map();
+var CLUSTER_ICON_CACHE_MAX = 200;
 
 // Our custom renderer for MarkerClusterer to create donut charts based on status of clustered items...
 var renderer = {
@@ -3936,8 +4096,18 @@ var renderer = {
 			}
 		});
 
-		// Create an SVG donut chart representing severities of clustered pins...
-		const svg = window.btoa(`
+		// Every value interpolated into the SVG below goes into the cache key, so a hit is always
+		// byte-identical to a freshly built chart...
+		const iconKey = [
+			severityPercents.get("4"), severityPercents.get("3"), severityPercents.get("2"), severityPercents.get("1"),
+			severityOffsets.get("4"), severityOffsets.get("3"), severityOffsets.get("2"), severityOffsets.get("1"),
+			mapTilt
+		].join("|");
+
+		let chartUrl = _clusterIconCache.get(iconKey);
+		if (!chartUrl) {
+			// Create an SVG donut chart representing severities of clustered pins...
+			const svg = window.btoa(`
 			<svg fill="#0000ff" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 42 42" class="donut">
 				<filter id="gaussian-blur" x="-20%" y="-20%" width="140%" height="140%">
 					<feDropShadow dx="0" dy="${mapTilt/100+0.7}" stdDeviation="1.3" flood-opacity="0.7" />
@@ -3958,12 +4128,18 @@ var renderer = {
 					<circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#f5ca1d" stroke-width="7" stroke-dasharray="${severityPercents.get("1")} ${100-severityPercents.get("1")}" stroke-dashoffset="${severityOffsets.get("1")}"></circle>
 				</g>
 			</svg>`);
+			chartUrl = `data:image/svg+xml;base64,${svg}`;
+			if (_clusterIconCache.size >= CLUSTER_ICON_CACHE_MAX) {
+				_clusterIconCache.delete(_clusterIconCache.keys().next().value);
+			}
+			_clusterIconCache.set(iconKey, chartUrl);
+		}
 
 		// Add the chart to the map...
 		const clusterContent = document.createElement("div");
 		clusterContent.style.cssText = "position:relative;width:45px;height:45px;cursor:pointer;";
 		const chartImg = document.createElement("img");
-		chartImg.src = `data:image/svg+xml;base64,${svg}`;
+		chartImg.src = chartUrl;
 		chartImg.width = 45;
 		chartImg.height = 45;
 		chartImg.alt = `${count} items`;
@@ -4161,11 +4337,13 @@ async function initWeather() {
 
 // Function to get the latest radar frame from RainViewer...
 function initRainViewerData() {
-	rvMapFrames = rvAPIData.radar.past;
-	if (rvAPIData.radar.nowcast) {
-		rvMapFrames = rvMapFrames.concat(rvAPIData.radar.nowcast);
-		rvLastPastFramePosition = rvAPIData.radar.past.length - 1;
-	}
+	const radar = rvAPIData.radar || {};
+	const pastFrames = Array.isArray(radar.past) ? radar.past : [];
+	// The frame we render is the most recent observed image, so this index has to come from
+	// past[] alone. Deriving it inside the nowcast branch left it at -1 whenever RainViewer
+	// returned no forecast frames, and every tile then dereferenced rvMapFrames[-1]...
+	rvLastPastFramePosition = pastFrames.length - 1;
+	rvMapFrames = Array.isArray(radar.nowcast) ? pastFrames.concat(radar.nowcast) : pastFrames.slice();
 }
 
 // Custom MapType implementation for weather tile overlays.
@@ -4174,35 +4352,9 @@ function initRainViewerData() {
 // weatherOpacity applied directly. Because Google Maps only animates
 // the outer container, tiles never flash at full opacity during zooms.
 //
-// Includes an LRU tile cache keyed by URL to avoid redundant network
-// requests when the user zooms back to a previously-viewed level.
-var TILE_CACHE_MAX = 256;
-var _tileCache = new Map();
-
-// Function to create a weather tile image with LRU caching...
-function _cachedTileImg(url, ownerDocument) {
-	if (_tileCache.has(url)) {
-		const cached = _tileCache.get(url);
-		_tileCache.delete(url);
-		_tileCache.set(url, cached);
-		const img = ownerDocument.createElement('img');
-		img.src = cached;
-		return img;
-	}
-	const img = ownerDocument.createElement('img');
-	img.src = url;
-	img.addEventListener('load', () => {
-		if (_tileCache.size >= TILE_CACHE_MAX) {
-			_tileCache.delete(_tileCache.keys().next().value);
-		}
-		_tileCache.set(url, url);
-	}, { once: true });
-	return img;
-}
-
-// Function to clear the cached weather tiles...
-function clearTileCache() { _tileCache.clear(); }
-
+// Revisited tiles are served from the browser's own HTTP cache. An in-page
+// cache is not useful here because getTile has to return a fresh element
+// each call, so it can only hand back the same URL a miss would have used.
 // Function to create a weather tile overlay layer...
 function createWeatherTileLayer(name, getTileUrl, opts = {}) {
 	const tileSize = new google.maps.Size(256, 256);
@@ -4217,7 +4369,8 @@ function createWeatherTileLayer(name, getTileUrl, opts = {}) {
 			if (opts.maxZoom && zoom > opts.maxZoom) return div;
 			const url = getTileUrl(coord, zoom);
 			if (!url) return div;
-			const img = _cachedTileImg(url, ownerDocument);
+			const img = ownerDocument.createElement('img');
+			img.src = url;
 			img.style.width = '100%';
 			img.style.height = '100%';
 			img.style.display = 'block';
@@ -4240,7 +4393,6 @@ async function addWeatherLayer() {
 
 		try {
 			map.overlayMapTypes.clear();
-			clearTileCache();
 
 			if (mapType == "radar") {
 				initRainViewerData();
@@ -4250,7 +4402,11 @@ async function addWeatherLayer() {
 				let snow = rvOptionKind == 'satellite' ? 0 : rvOptionSnowColors;
 
 				map.overlayMapTypes.insertAt(0, createWeatherTileLayer(mapType, (tile, zoom) => {
-					return [rvAPIData.host + rvMapFrames[rvLastPastFramePosition].path, 256, zoom, tile.x, tile.y, colorScheme, smooth + '_' + snow + '.png'].join('/');
+					// Returning nothing yields a blank tile rather than throwing per tile when
+					// RainViewer gave us no usable frames...
+					const frame = rvMapFrames[rvLastPastFramePosition];
+					if (!frame || !frame.path || !rvAPIData.host) return null;
+					return [rvAPIData.host + frame.path, 256, zoom, tile.x, tile.y, colorScheme, smooth + '_' + snow + '.png'].join('/');
 				}, { maxZoom: 7 }));
 
 			} else if (mapType.match(/(nexrad|q2)/g)) {
@@ -4362,15 +4518,6 @@ async function addWeatherLayer() {
 				<path d="M18.2 36.8C13.4 36.8 10.5 33.7 10.5 29.6C10.5 26 13.2 23.5 15.1 20.8C16.6 18.7 16.9 16.7 16.5 14.4C20.4 16.6 22.6 20.1 22.1 23.4C23.6 22.5 24.6 21 25.1 19.3C27.1 21.8 28.2 25 28.2 28.1C28.2 33.2 24.1 36.8 18.2 36.8Z" fill="url(#emberGlow)"/>
 				<path d="M18.1 36.7C15.4 36.7 13.7 35 13.7 32.7C13.7 30.6 15.4 29.1 16.5 27.5C17.4 26.1 17.6 24.9 17.3 23.4C20 25 21.4 27.1 21.1 29.2C22 28.7 22.7 27.8 23.1 26.8C24.2 28.2 24.8 30 24.8 31.7C24.8 34.8 22.2 36.7 18.1 36.7Z" fill="#FFE08A"/>
 			</svg>`;
-			function escapeWildfireHtml(str) {
-				if (str == null) return '';
-				return String(str)
-					.replace(/&/g, '&amp;')
-					.replace(/</g, '&lt;')
-					.replace(/>/g, '&gt;')
-					.replace(/"/g, '&quot;');
-			}
-
 			function formatWildfireAgeDays(ageDays, locale) {
 				if (ageDays == null) {
 					return { display: '(not available)', badge: null };
@@ -4387,7 +4534,7 @@ async function addWeatherLayer() {
 
 			function wildfireAgeBadgeHtml(displayText, ageDays) {
 				if (displayText == null || displayText === '(not available)') {
-					return `<span style="font-size:13px;font-weight:600;color:rgb(20,29,48);">${escapeWildfireHtml(displayText)}</span>`;
+					return `<span style="font-size:13px;font-weight:600;color:rgb(20,29,48);">${escapeHtml(displayText)}</span>`;
 				}
 				let bg = '#f0f0f0';
 				let color = '#555';
@@ -4398,7 +4545,7 @@ async function addWeatherLayer() {
 					bg = '#fff8e1';
 					color = '#f57c00';
 				}
-				return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;background:${bg};color:${color};">${escapeWildfireHtml(displayText)}</span>`;
+				return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;background:${bg};color:${color};">${escapeHtml(displayText)}</span>`;
 			}
 
 			function buildWildfireInfoHtml(options) {
@@ -4412,24 +4559,24 @@ async function addWeatherLayer() {
 				} = options;
 
 				const categoryChip = category
-					? `<span style="display:inline-block;margin-top:4px;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#fff3f3;color:#b91c1c;">${escapeWildfireHtml(category)}</span>`
+					? `<span style="display:inline-block;margin-top:4px;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#fff3f3;color:#b91c1c;">${escapeHtml(category)}</span>`
 					: '';
 
 				const commentsBlock = comments
-					? `<p style="margin:10px 0 0 0;padding:8px 10px;border-left:3px solid #e0351b;background:#fafafa;border-radius:0 4px 4px 0;font-size:12px;color:#555;line-height:1.4;white-space:normal;word-break:break-word;">${escapeWildfireHtml(comments)}</p>`
+					? `<p style="margin:10px 0 0 0;padding:8px 10px;border-left:3px solid #e0351b;background:#fafafa;border-radius:0 4px 4px 0;font-size:12px;color:#555;line-height:1.4;white-space:normal;word-break:break-word;">${escapeHtml(comments)}</p>`
 					: '';
 
 				const highlightBlock = buildWildfireHighlightBlock(
-					highlightValue ? escapeWildfireHtml(highlightValue) : "",
-					highlightUnit ? escapeWildfireHtml(highlightUnit) : ""
+					highlightValue ? escapeHtml(highlightValue) : "",
+					highlightUnit ? escapeHtml(highlightUnit) : ""
 				);
 
 				const statRows = (stats || []).map(stat => {
 					const valueHtml = stat.badge != null
 						? wildfireAgeBadgeHtml(stat.value, stat.badge)
-						: `<span style="font-size:13px;font-weight:600;color:rgb(20,29,48);text-align:right;max-width:60%;word-break:break-word;">${escapeWildfireHtml(stat.value)}</span>`;
+						: `<span style="font-size:13px;font-weight:600;color:rgb(20,29,48);text-align:right;max-width:60%;word-break:break-word;">${escapeHtml(stat.value)}</span>`;
 					return `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 8px;background:#f5f5f5;border-radius:4px;">
-						<span style="font-size:12px;color:#666;flex-shrink:0;">${escapeWildfireHtml(stat.label)}</span>
+						<span style="font-size:12px;color:#666;flex-shrink:0;">${escapeHtml(stat.label)}</span>
 						${valueHtml}
 					</div>`;
 				}).join('');
@@ -4438,7 +4585,7 @@ async function addWeatherLayer() {
 					<div style="display:flex;align-items:flex-start;gap:10px;">
 						${WILDFIRE_FLAME_SVG}
 						<div style="min-width:0;flex:1;">
-						<div style="font-weight:600;font-size:16px;line-height:1.3;">${escapeWildfireHtml(title || 'Unknown')}</div>
+						<div style="font-weight:600;font-size:16px;line-height:1.3;">${escapeHtml(title || 'Unknown')}</div>
 						${categoryChip}
 						</div>
 					</div>
@@ -4544,12 +4691,18 @@ async function addWeatherLayer() {
 
 			// Function to get cached county GeoJSON or fetch fresh...
 			async function getCountiesGeoJson() {
+				// Already parsed during this page's lifetime, so skip the multi-megabyte re-parse...
+				if (_countiesGeoJsonMemo) {
+					return _countiesGeoJsonMemo;
+				}
+
 				// Try localStorage cache first (county boundaries are static, persist across sessions)
 				try {
 					const cached = localStorage.getItem(COUNTIES_CACHE_KEY);
 					if (cached) {
 						console.debug('Using cached counties GeoJSON from localStorage');
-						return JSON.parse(cached);
+						_countiesGeoJsonMemo = JSON.parse(cached);
+						return _countiesGeoJsonMemo;
 					}
 				} catch (e) {
 					console.debug('localStorage read failed:', e.message);
@@ -4571,6 +4724,7 @@ async function addWeatherLayer() {
 					console.debug('localStorage write failed (quota exceeded?):', e.message);
 				}
 
+				_countiesGeoJsonMemo = data;
 				return data;
 			}
 
@@ -4584,12 +4738,17 @@ async function addWeatherLayer() {
 			}
 
 			async function getCountyCustomerTotals() {
+				if (_countyCustomerTotalsMemo) {
+					return _countyCustomerTotalsMemo;
+				}
+
 				try {
 					const cached = localStorage.getItem(COUNTY_CUSTOMERS_CACHE_KEY);
 					if (cached) {
 						const parsed = JSON.parse(cached);
 						if (parsed && parsed.customersByFips) {
 							console.debug('Using cached county electric customer totals from localStorage');
+							_countyCustomerTotalsMemo = parsed;
 							return parsed;
 						}
 					}
@@ -4655,6 +4814,7 @@ async function addWeatherLayer() {
 				} catch (e) {
 					console.debug('County customer cache write failed:', e.message);
 				}
+				_countyCustomerTotalsMemo = data;
 				return data;
 			}
 
@@ -5336,30 +5496,55 @@ function toggleMiscOptions() {
 	}
 }
 
+// Waiters for elements that have not appeared yet, tracked so teardown can release them...
+var _pendingElementWaiters = new Set();
+
 // Function to wait until an element exists in this widget instance...
+// Resolves with null if the widget is torn down before the element appears.
 function waitForElm(selector) {
 	return new Promise(resolve => {
-		if (getBetterMapScopedQuery(selector)) {
-			return resolve(getBetterMapScopedQuery(selector));
+		const existing = getBetterMapScopedQuery(selector);
+		if (existing) {
+			return resolve(existing);
 		}
 
-		const observer = new MutationObserver(mutations => {
-			if (getBetterMapScopedQuery(selector)) {
-				observer.disconnect();
-				resolve(getBetterMapScopedQuery(selector));
-			}
+		const waiter = { observer: null, resolve: resolve };
+		waiter.observer = new MutationObserver(mutations => {
+			const found = getBetterMapScopedQuery(selector);
+			if (!found) return;
+			_pendingElementWaiters.delete(waiter);
+			waiter.observer.disconnect();
+			resolve(found);
 		});
+		// Without this bookkeeping, a widget removed before the element rendered left a
+		// subtree observer running against the whole dashboard for the life of the page...
+		_pendingElementWaiters.add(waiter);
 
 		// If you get "parameter 1 is not of type 'Node'" error, see https://stackoverflow.com/a/77855838/492336
-		observer.observe(betterMapRoot || document.body, {
+		waiter.observer.observe(betterMapRoot || document.body, {
 			childList: true,
 			subtree: true
 		});
 	});
 }
 
+// Function to stop watching for elements that never appeared...
+function disconnectPendingElementWaiters() {
+	_pendingElementWaiters.forEach(waiter => {
+		try {
+			waiter.observer.disconnect();
+			waiter.resolve(null);
+		} catch (error) {}
+	});
+	_pendingElementWaiters.clear();
+}
+
+// Accessors this instance installed on window, so teardown can tell them apart from a newer one's...
+var _exposedStateProps = [];
+
 // Function to expose selected widget state for legacy integrations...
 function exposeBetterMapState(name, getValue, setValue) {
+	_exposedStateProps.push({ name: name, get: getValue });
 	Object.defineProperty(window, name, {
 		configurable: true,
 		get: getValue,
@@ -5367,11 +5552,42 @@ function exposeBetterMapState(name, getValue, setValue) {
 	});
 }
 
+// Function to release the window references this instance installed...
+// Each one closes over this script's scope, so leaving them behind keeps the whole instance
+// (markers, group data, cached addresses) reachable after the widget is gone. Ownership is
+// checked by identity first so a newer instance's accessors are never removed.
+function releaseBetterMapWindowState() {
+	_exposedStateProps.forEach(prop => {
+		try {
+			const descriptor = Object.getOwnPropertyDescriptor(window, prop.name);
+			if (descriptor && descriptor.get === prop.get) {
+				delete window[prop.name];
+			}
+		} catch (error) {}
+	});
+	_exposedStateProps = [];
+	Object.keys(betterMapApi).forEach(key => {
+		try {
+			if (window[key] === betterMapApi[key]) {
+				delete window[key];
+			}
+		} catch (error) {}
+	});
+}
+
 // Function to clean up timers, markers, and event listeners before the widget is reloaded...
 function cleanupBetterMapInstance() {
 	clearInterval(weatherRefresher);
 	clearInterval(mapDataRefresher);
+	clearTimeout(_clearCacheMessageTimeout);
+	_clearCacheMessageTimeout = null;
 	cancelPendingMapInitialization();
+	cancelScheduledPolylineEndpointUpdate();
+	// Queued debounced work would otherwise run against dead DOM after teardown...
+	debouncedSaveCache.cancel();
+	debouncedHandleMapOptionsAreaChange.cancel();
+	disconnectPendingElementWaiters();
+	document.removeEventListener("DOMContentLoaded", ensureMapInitialized);
 	if (_currentRefreshController && !_currentRefreshController.signal.aborted) {
 		_currentRefreshController.abort();
 	}
@@ -5379,6 +5595,7 @@ function cleanupBetterMapInstance() {
 	try {
 		clearAllMarkers();
 		clearAllPolylines();
+		_clusterIconCache.clear();
 		if (markerInfoWindow) {
 			markerInfoWindow.close();
 			markerInfoWindow = null;
@@ -5400,6 +5617,7 @@ function cleanupBetterMapInstance() {
 	if (typeof _focusHandler !== "undefined") {
 		window.removeEventListener("focus", _focusHandler);
 	}
+	releaseBetterMapWindowState();
 }
 
 var betterMapApi = {
