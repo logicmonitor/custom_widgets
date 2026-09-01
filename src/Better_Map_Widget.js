@@ -36,6 +36,8 @@ var releaseNotes = `
 		<li>Geocoding is now paced just under Google's published ceiling of 3,000 lookups per minute rather than firing every address at once, and retries when Google asks us to slow down. A large map building from an empty cache now resolves as fast as that ceiling allows without losing pins to rate limiting.</li>
 		<li>Address coordinates cached by one map are now shared with the other maps on the dashboard instead of each overwriting the others, so repeat lookups are avoided.</li>
 		<li>A refresh can no longer get stuck repeating the same request if the LogicMonitor API reports more records than it returns.</li>
+		<li>Fixed refreshes that could leave the loading spinner up and the toolbar greyed out for good. The map now finishes a refresh even when some locations cannot be resolved, and an item that fails to plot is reported in the browser console instead of disappearing silently.</li>
+		<li>A map showing a single location, or several locations at the same address, no longer zooms all the way in to street level when it opens or when the reset-zoom button is used.</li>
 	</ul>
 	<h3>Version 3.67</h3>
 	<ul>

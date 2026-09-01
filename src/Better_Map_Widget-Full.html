@@ -87,6 +87,8 @@
 				<li>Geocoding is now paced just under Google's published ceiling of 3,000 lookups per minute rather than firing every address at once, and retries when Google asks us to slow down. A large map building from an empty cache now resolves as fast as that ceiling allows without losing pins to rate limiting.</li>
 				<li>Address coordinates cached by one map are now shared with the other maps on the dashboard instead of each overwriting the others, so repeat lookups are avoided.</li>
 				<li>A refresh can no longer get stuck repeating the same request if the LogicMonitor API reports more records than it returns.</li>
+				<li>Fixed refreshes that could leave the loading spinner up and the toolbar greyed out for good. The map now finishes a refresh even when some locations cannot be resolved, and an item that fails to plot is reported in the browser console instead of disappearing silently.</li>
+				<li>A map showing a single location, or several locations at the same address, no longer zooms all the way in to street level when it opens or when the reset-zoom button is used.</li>
 			</ul>
 			<h3>Version 3.67</h3>
 			<ul>
@@ -689,6 +691,9 @@
 	}
 	#resetGroupFilterButton {
 		display: none;
+		margin: 0 5px 0 -5px;
+		height: 22px;
+		align-items: center;
 	}
 	#refreshStatusArea {
 		/* font-weight: bold; */
@@ -2520,6 +2525,8 @@ if (window.RProfiler) {
 	// Note our original tilt & heading values...
 	const defaultMapTilt = mapTilt;
 	const defaultMapHeading = mapHeading;
+	// Zoom the map opens at, and what resetZoom falls back to when the bounds have no area to fit...
+	const defaultMapZoom = 3;
 
 	// SVG icon definitions for our different alert severities...
 	const warningIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024" data-tooltip="Warning"><path fill="#f5ca1d" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M866.462 669.538l-275.692-433.231c-43.323-70.892-114.215-70.892-157.538 0l-275.692 433.231c-43.323 70.892-3.938 157.538 78.769 157.538h551.385c82.708 0 122.092-86.646 78.769-157.538v0 0z"></path> <path fill="#f5ca1d" d="M551.385 748.308h-78.769v-78.769h78.769v78.769zM551.385 630.154h-78.769v-275.692h78.769v275.692z"></path> </svg>';
@@ -2594,7 +2601,16 @@ if (window.RProfiler) {
 		window.buildMarkersInBatches = async function(items, fn, batchSize = 1000) {
 			for (let i = 0; i < items.length; i += batchSize) {
 				const slice = items.slice(i, i + batchSize);
-				for (const it of slice) { try { fn(it); } catch(e) {} }
+				// One item is allowed to fail without taking down the whole batch, but it has to be
+				// reported. A silent throw here skips that item's processed count, which is what strands
+				// the refresh spinner, and swallowing the error leaves nothing to diagnose it with...
+				for (const it of slice) {
+					try {
+						fn(it);
+					} catch (e) {
+						console.warn("Better Map Widget: skipped an item while building markers.", (it && (it.name || it.id)) || it, e);
+					}
+				}
 				await new Promise(r => { if ('requestIdleCallback' in window) requestIdleCallback(()=>r()); else setTimeout(r,0); });
 			}
 		}
@@ -3747,7 +3763,7 @@ if (window.RProfiler) {
 
 		// Create our Google Map...
 		map = new google.maps.Map(getBetterMapElementById("googleMap"), {
-			zoom: 3,
+			zoom: defaultMapZoom,
 			center: { lat: 0, lng: 0 },
 			mapId: "DEMO_MAP_ID",
 			// colorScheme: ColorScheme.DARK,
@@ -6624,15 +6640,22 @@ if (window.RProfiler) {
 	// Function called when the "Reset Zoom" button is pressed...
 	function resetZoom() {
 		if (!isMapReady()) return;
-		// If there's only 1 marker, avoid zooming in super close (i.e. use the default zoom level 3)...
 		if (markers.length > 0) {
-			// Add padding to avoid markers appearing under the map's UI controls...
-			map.fitBounds(bounds, {
-				top: 70,
-				right: 70,
-				bottom: 70,
-				left: 70
-			});
+			// A single marker, or several stacked on one spot, gives bounds with no area. fitBounds on
+			// those zooms all the way to street level, so center on them at the map's opening zoom
+			// instead, which is what this function was always meant to do...
+			if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
+				map.setCenter(bounds.getCenter());
+				map.setZoom(defaultMapZoom);
+			} else {
+				// Add padding to avoid markers appearing under the map's UI controls...
+				map.fitBounds(bounds, {
+					top: 70,
+					right: 70,
+					bottom: 70,
+					left: 70
+				});
+			}
 		}
 		// Reset the tilt & heading back to their original values...
 		mapTilt = defaultMapTilt;

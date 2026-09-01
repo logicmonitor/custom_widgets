@@ -298,6 +298,8 @@ body {
 #resetGroupFilterButton {
 	display: none;
 	margin: 0 5px 0 -5px;
+	height: 22px;
+	align-items: center;
 }
 #refreshStatusArea {
 	/* font-weight: bold; */
