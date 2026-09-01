@@ -18,9 +18,10 @@ var version = "3.69 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-	<h3>Version 3.69</h3>
+	<h3>Version 3.70</h3>
 	<ul>
 		<li>The loading indicator now shows geocoding progress (&quot;Geocoding x of y&quot;) when addresses are being resolved, so you can see the map is still working when many new locations need coordinates.</li>
+		<li>Modifications to ensure compliance with LogicMonitor's new dashboard CSP requirements.</li>
 	</ul>
 	<h3>Version 3.68</h3>
 	<ul>
