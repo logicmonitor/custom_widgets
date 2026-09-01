@@ -2143,14 +2143,14 @@ var cachedAddresses = loadCache();
 // The published limit is 3,000 queries per minute, which is 50 per second, counted as the sum of
 // client-side and server-side queries against the API key. That is a rate, not a number of open
 // requests, so the queue paces starts across a trailing one-second window and runs as close to
-// the ceiling as it can. Raising concurrency alone would be the wrong control: 49 requests open
+// the ceiling as it can. Raising concurrency alone would be the wrong control: 50 requests open
 // at a typical geocode latency works out to several hundred per second, so the load would spend
 // itself being throttled and retried and finish slower than a paced one.
-var GEOCODE_MAX_QPS = 49;
-// Only needs to be high enough that it is not the binding constraint. Sustaining 49 per second
+var GEOCODE_MAX_QPS = 50;
+// Only needs to be high enough that it is not the binding constraint. Sustaining 50 per second
 // takes about 25 in flight once responses approach half a second, and if they get slower than
 // that, letting concurrency throttle the rate is the safer behavior.
-var GEOCODE_MAX_CONCURRENT = 25;
+var GEOCODE_MAX_CONCURRENT = 49;
 var GEOCODE_MAX_ATTEMPTS = 3;
 var GEOCODE_RETRY_DELAY_MS = 1200;
 var GEOCODE_RATE_WINDOW_MS = 1000;
