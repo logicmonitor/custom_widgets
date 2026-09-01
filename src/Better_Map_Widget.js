@@ -38,6 +38,7 @@ var releaseNotes = `
 		<li>A refresh can no longer get stuck repeating the same request if the LogicMonitor API reports more records than it returns.</li>
 		<li>Fixed refreshes that could leave the loading spinner up and the toolbar greyed out for good. The map now finishes a refresh even when some locations cannot be resolved, and an item that fails to plot is reported in the browser console instead of disappearing silently.</li>
 		<li>A map showing a single location, or several locations at the same address, no longer zooms all the way in to street level when it opens or when the reset-zoom button is used.</li>
+		<li>Console messages now include the widget ID to distinguish between multiple map widget instances on the same dashboard.</li>
 	</ul>
 	<h3>Version 3.67</h3>
 	<ul>
@@ -1317,7 +1318,7 @@ async function LMClient({
 				requestOptions.body = JSON.stringify(postBody);
 				// console.debug('Request body included:', postBody);
 			} catch (stringifyError) {
-				console.error('Failed to stringify postBody:', stringifyError);
+				console.error(`Map ${widgetID}: Failed to stringify postBody:`, stringifyError);
 				// Add user-friendly message to the error
 				stringifyError.message = `Invalid postBody provided. Could not stringify to JSON. Original error: ${stringifyError.message}`;
 				throw stringifyError;
@@ -1342,7 +1343,7 @@ async function LMClient({
 				// console.debug('API call successful, response data received.'); // Avoid logging potentially sensitive data by default
 				return data;
 			} catch (jsonError) {
-				console.error('Failed to parse JSON response:', jsonError);
+				console.error(`Map ${widgetID}: Failed to parse JSON response:`, jsonError);
 				// Create a new error with more context
 				const parseError = new Error(`Successfully received response (${response.status}), but failed to parse JSON body. Original error: ${jsonError.message}`);
 				parseError.status = response.status; // Attach status for context
@@ -1359,19 +1360,19 @@ async function LMClient({
 			try {
 				const errorBody = await response.text(); // Use text first in case it's not JSON
 				error.body = errorBody || 'No additional error details provided.'; // Attach body to error
-				console.warn(`API Error Body: ${error.body}`); // Log the raw error body
+				console.warn(`Map ${widgetID}: API Error Body: ${error.body}`); // Log the raw error body
 			} catch (bodyError) {
-				console.warn('Could not read error response body:', bodyError);
+				console.warn(`Map ${widgetID}: Could not read error response body:`, bodyError);
 				error.body = 'Could not read error response body.';
 			}
-			console.error('LogicMonitor API Error:', { status: error.status, statusText: error.statusText });
+			console.error(`Map ${widgetID}: LogicMonitor API Error:`, { status: error.status, statusText: error.statusText });
 			throw error; // Throw the augmented error object
 		}
 	} catch (error) {
 			// Abort errors are intentional cancellations - rethrow silently
 		if (error.name === 'AbortError') throw error;
 
-		console.error('An error occurred in LMClient:', error.message || error);
+		console.error(`Map ${widgetID}: An error occurred in LMClient:`, error.message || error);
 
 		// Re-throw the error to be handled by the caller.
 		// Ensure it's always an Error object.
@@ -1578,7 +1579,7 @@ if (!window.buildMarkersInBatches) {
 				try {
 					fn(it);
 				} catch (e) {
-					console.warn("Better Map Widget: skipped an item while building markers.", (it && (it.name || it.id)) || it, e);
+					console.warn(`Map ${widgetID}: skipped an item while building markers.`, (it && (it.name || it.id)) || it, e);
 				}
 			}
 			await new Promise(r => { if ('requestIdleCallback' in window) requestIdleCallback(()=>r()); else setTimeout(r,0); });
@@ -2326,7 +2327,7 @@ async function ensureMapInitialized() {
 	_mapInitializing = true;
 
 	initAttempts++;
-	console.log(`Map initialization attempt ${initAttempts}...`);
+	console.log(`Map ${widgetID}: initialization attempt ${initAttempts}...`);
 
 	try {
 		// Check if Google Maps API is available...
@@ -2356,7 +2357,7 @@ async function ensureMapInitialized() {
 		_mapInitializing = false;
 		if (typeof _visibilityObserver !== 'undefined') _visibilityObserver.disconnect();
 		if (typeof _focusHandler !== 'undefined') window.removeEventListener('focus', _focusHandler);
-		console.log('Map initialized successfully');
+		console.log(`Map ${widgetID} initialized successfully`);
 
 	} catch (error) {
 		if (!isBetterMapInstanceActive()) {
@@ -2364,15 +2365,15 @@ async function ensureMapInitialized() {
 			return;
 		}
 		_mapInitializing = false;
-		console.warn(`Map init attempt ${initAttempts} failed:`, error.message);
+		console.warn(`Map ${widgetID}: init attempt ${initAttempts} failed:`, error.message);
 
 		if (initAttempts < MAX_INIT_ATTEMPTS) {
 			// Exponential backoff: 100ms, 200ms, 400ms, etc. up to 2 seconds...
 			const delay = Math.min(100 * Math.pow(2, initAttempts - 1), 2000);
-			console.log(`Retrying in ${delay}ms...`);
+			console.log(`Map ${widgetID}: Retrying in ${delay}ms...`);
 			_mapInitRetryTimeout = setTimeout(ensureMapInitialized, delay);
 		} else {
-			console.error('Max initialization attempts reached. Map failed to initialize.');
+			console.error(`Map ${widgetID}: Max initialization attempts reached. Map failed to initialize.`);
 		}
 	}
 }
@@ -2394,7 +2395,7 @@ if (mapContainer && typeof IntersectionObserver !== 'undefined') {
 	_visibilityObserver = new IntersectionObserver((entries) => {
 		entries.forEach(entry => {
 			if (entry.isIntersecting && !mapInitialized) {
-				console.log('Map container became visible, attempting initialization...');
+				console.log(`Map ${widgetID}: container became visible, attempting initialization...`);
 				ensureMapInitialized();
 			}
 		});
@@ -2405,7 +2406,7 @@ if (mapContainer && typeof IntersectionObserver !== 'undefined') {
 // Fallback: Also try when window is focused (handles tab switching)...
 var _focusHandler = () => {
 	if (!mapInitialized) {
-		console.log('Window focused, checking map initialization...');
+		console.log(`Map ${widgetID}: Window focused, checking map initialization...`);
 		setTimeout(ensureMapInitialized, 100);
 	}
 };
@@ -2873,7 +2874,7 @@ async function initMap() {
 		clearInterval(mapDataRefresher);
 		mapDataRefresher = setInterval(function() {
 			refreshGroupData(true);
-			console.log("Map data refreshed.");
+			console.log(`Map ${widgetID}: data refreshed.`);
 		}, statusUpdateIntervalMinutes*1000*60);
 	}
 
@@ -3187,7 +3188,7 @@ async function fetchPaginatedLMItems({ resourcePath, buildQueryParams, signal, l
 		// was, and the loop would reissue the same request forever against the LM API...
 		const page = Array.isArray(data.items) ? data.items : [];
 		if (!page.length) {
-			console.warn(`Better Map Widget: ${label} stopped at ${offset} of ${total} after an empty page.`);
+			console.warn(`Map ${widgetID}: ${label} stopped at ${offset} of ${total} after an empty page.`);
 			break;
 		}
 		items.push(...page);
@@ -3371,7 +3372,7 @@ async function refreshGroupData(timedRefresh = false) {
 			_currentRefreshController = null;
 			return;
 		}
-		console.error('Error fetching group data:', error);
+		console.error(`Map ${widgetID}: Error fetching group data:`, error);
 		_dom.refreshStatusArea.innerHTML = `<span class='noResultMessage'>Error loading data: ${error.message || 'Unknown error'}</span>`;
 		totalGroups = -1;
 		_dom.mapOptionsArea.classList.remove("disabled");
@@ -3409,7 +3410,7 @@ async function refreshGroupData(timedRefresh = false) {
 				_currentRefreshController = null;
 				return;
 			}
-			console.error('Error fetching inherited locations:', error);
+			console.error(`Map ${widgetID}: Error fetching inherited locations:`, error);
 			_dom.refreshStatusArea.innerHTML = `<span class='noResultMessage'>Error loading data: ${error.message || 'Unknown error'}</span>`;
 			_dom.mapOptionsArea.classList.remove("disabled");
 			if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
@@ -3459,7 +3460,7 @@ async function refreshGroupData(timedRefresh = false) {
 				try {
 					return handler(thisItem);
 				} catch (error) {
-					console.warn("Better Map Widget: skipping an item that failed to plot.", (thisItem && (thisItem.name || thisItem.id)) || thisItem, error);
+					console.warn(`Map ${widgetID}: skipping an item that failed to plot.`, (thisItem && (thisItem.name || thisItem.id)) || thisItem, error);
 					totalGroups = totalGroups - 1;
 					finishRefreshIfComplete();
 				}
@@ -3535,7 +3536,7 @@ async function refreshGroupData(timedRefresh = false) {
 				const connectionResults = await Promise.allSettled(connectionPromises);
 				const failedConnections = connectionResults.filter(result => result.status === "rejected");
 				if (failedConnections.length > 0) {
-					console.warn(`Failed to draw ${failedConnections.length} map connection line(s).`, failedConnections);
+					console.warn(`Map ${widgetID}: Failed to draw ${failedConnections.length} connection line(s).`, failedConnections);
 				}
 				schedulePolylineEndpointUpdate();
 			}
@@ -3830,7 +3831,7 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 	} catch (error) {
 		alertStatus = "Unknown";
 		connectionColor = "#999999";
-		console.warn("Unable to fetch map connection status; drawing line with unknown status.", {
+		console.warn(`Map ${widgetID}: Unable to fetch connection status; drawing line with unknown status.`, {
 			connection,
 			error,
 		});
@@ -4492,7 +4493,7 @@ async function fetchRainViewerData() {
 async function initWeather() {
 	if (_dom.weatherType.value === "radar") {
 		try { await fetchRainViewerData(); } catch (error) {
-			console.error("Failed to fetch RainViewer weather data:", error);
+			console.error(`Map ${widgetID}: Failed to fetch RainViewer weather data:`, error);
 		}
 	}
 
@@ -4502,11 +4503,11 @@ async function initWeather() {
 	weatherRefresher = setInterval(async function() {
 		if (_dom.weatherType.value === "radar") {
 			try { await fetchRainViewerData(); } catch (error) {
-				console.error("Failed to refresh weather data:", error);
+				console.error(`Map ${widgetID}: Failed to refresh weather data:`, error);
 			}
 		}
 		addWeatherLayer();
-		console.log("Weather maps refreshed.");
+		console.log(`Map ${widgetID}: Weather maps refreshed.`);
 	}, weatherRefreshMinutes*1000*60);
 }
 
@@ -4592,7 +4593,7 @@ async function addWeatherLayer() {
 
 			} else if (mapType === "openweather") {
 				if (!openWeatherAPIKey) {
-					console.error("OpenWeather radar requires an API key. Set it via the 'OpenWeatherAPIKey' dashboard token or the 'openWeatherAPIKey' variable.");
+					console.error(`Map ${widgetID}: OpenWeather radar requires an API key. Set it via the 'OpenWeatherAPIKey' dashboard token or the 'openWeatherAPIKey' variable.`);
 				} else {
 					map.overlayMapTypes.insertAt(0, createWeatherTileLayer("openweather", (tile, zoom) => {
 						return "https://tile.openweathermap.org/map/precipitation_new/" + zoom + "/" + tile.x + "/" + tile.y + ".png?appid=" + openWeatherAPIKey;
@@ -4601,7 +4602,7 @@ async function addWeatherLayer() {
 
 			} else if (mapType === "xweather") {
 				if (!xweatherAPIID || !xweatherAPIKey) {
-					console.error("Xweather radar requires an API ID and secret. Set them via the 'XweatherAPIID' and 'XweatherAPIKey' dashboard tokens or the 'xweatherAPIID' and 'xweatherAPIKey' variables.");
+					console.error(`Map ${widgetID}: Xweather radar requires an API ID and secret. Set them via the 'XweatherAPIID' and 'XweatherAPIKey' dashboard tokens or the 'xweatherAPIID' and 'xweatherAPIKey' variables.`);
 				} else {
 					map.overlayMapTypes.insertAt(0, createWeatherTileLayer("xweather", (tile, zoom) => {
 						return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
@@ -4609,7 +4610,7 @@ async function addWeatherLayer() {
 				}
 			}
 		} catch (error) {
-			console.error('Error adding weather layer:', error);
+			console.error(`Map ${widgetID}: Error adding weather layer:`, error);
 		}
 
 		// Look to see if we should add wildfire into the map...
@@ -4667,7 +4668,7 @@ async function addWeatherLayer() {
 					console.debug(`Total wildfire features plotted: ${combined.features.length}`);
 				}
 			}).catch(error => {
-				console.error('Error loading wildfire data:', error);
+				console.error(`Map ${widgetID}: Error loading wildfire data:`, error);
 			});
 
 			// Color the wildfire areas as red...
@@ -4938,14 +4939,14 @@ async function addWeatherLayer() {
 					usaTodayData = await fetchBundledCustomerTotals(countyCustomersUsaTodayURL, 'USA Today');
 					console.debug('Loaded bundled USA Today county customer totals');
 				} catch (e) {
-					console.warn('USA Today bundled county customer totals unavailable:', e.message);
+					console.warn(`Map ${widgetID}: USA Today bundled county customer totals unavailable:`, e.message);
 				}
 
 				try {
 					ornlData = await fetchBundledCustomerTotals(countyCustomersOrnlURL, 'ORNL EAGLE-I');
 					console.debug('Loaded bundled ORNL county customer totals');
 				} catch (e) {
-					console.warn('ORNL bundled county customer totals unavailable:', e.message);
+					console.warn(`Map ${widgetID}: ORNL bundled county customer totals unavailable:`, e.message);
 				}
 
 				if (!usaTodayData && !ornlData) {
@@ -5020,9 +5021,9 @@ async function addWeatherLayer() {
 							console.debug(`Power outage data fetched successfully using proxy ${i + 1}`);
 							return response;
 						}
-						console.warn(`CORS proxy ${i + 1} returned ${response.status}, trying next...`);
+						console.warn(`Map ${widgetID}: CORS proxy ${i + 1} returned ${response.status}, trying next...`);
 					} catch (err) {
-						console.warn(`CORS proxy ${i + 1} failed: ${err.message}, trying next...`);
+						console.warn(`Map ${widgetID}: CORS proxy ${i + 1} failed: ${err.message}, trying next...`);
 					}
 				}
 				throw new Error(`All CORS proxies failed to fetch power outage data`);
@@ -5058,7 +5059,7 @@ async function addWeatherLayer() {
 					console.debug('Power outage data fetched from ODIN API');
 					return Object.assign({ dataSource: 'odin' }, parseOdinOutageData(data));
 				} catch (odinErr) {
-					console.warn('ODIN outage fetch failed, falling back to USA Today via CORS proxy:', odinErr.message);
+					console.warn(`Map ${widgetID}: ODIN outage fetch failed, falling back to USA Today via CORS proxy:`, odinErr.message);
 				}
 				const outageResponse = await fetchWithCorsProxy(usaTodayDataURL);
 				const outageText = await outageResponse.text();
@@ -5227,7 +5228,7 @@ async function addWeatherLayer() {
 				});
 
 			} catch (error) {
-				console.error("Failed to fetch power outage data:", error);
+				console.error(`Map ${widgetID}: Failed to fetch power outage data:`, error);
 			}
 		} else if (optionalMapType == "earthquakes") {
 			clearOverlayState();
@@ -5521,7 +5522,7 @@ async function addWeatherLayer() {
 				}
 			});
 			} catch (error) {
-				console.error("Failed to load earthquake data:", error);
+				console.error(`Map ${widgetID}: Failed to load earthquake data:`, error);
 			}
 		} else if (optionalMapType == "us-flooding") {
 			// const countiesGeoJsonURL = `https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json?v=${Date.now()}`;
@@ -5600,7 +5601,7 @@ async function addWeatherLayer() {
 					overlayInfoWindow.open(map);
 				});
 			} catch (error) {
-				console.error("Failed to fetch flooding data:", error);
+				console.error(`Map ${widgetID}: Failed to fetch flooding data:`, error);
 			}
 		} else {
 			clearOverlayState();
@@ -5791,7 +5792,7 @@ function cleanupBetterMapInstance() {
 			clearOverlayState();
 		}
 	} catch (error) {
-		console.warn("Better Map Widget cleanup skipped some state:", error);
+		console.warn(`Map ${widgetID}: cleanup skipped some state:`, error);
 	}
 	destroyMapInstance();
 	if (typeof _visibilityObserver !== "undefined" && _visibilityObserver) {
