@@ -146,6 +146,7 @@ body {
 	border-radius: 50%;
 	flex-shrink: 0;
 	margin-top: 3px;
+	background-color: var(--dot-color);
 }
 #sidebarArea .sidebar-item-content {
 	flex: 1;
@@ -790,4 +791,352 @@ body {
 	.gm-control-active {
 		display: flex !important;
 	}
+}
+
+/* ============================================================
+   CSP-Compliant Popup Styles
+   ============================================================ */
+
+/* --- Cluster Popup --- */
+.cluster-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+.cluster-title {
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.cluster-zoom-btn {
+	padding: 6px 12px;
+	background: #1a73e8;
+	color: white;
+	border: none;
+	border-radius: 4px;
+	font-size: 13px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	transition: background 0.2s;
+}
+
+.cluster-zoom-btn:hover {
+	background: #1557b0;
+}
+
+.cluster-stats {
+	display: grid;
+	gap: 8px;
+	margin-bottom: 16px;
+}
+
+.cluster-stat-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.cluster-devices-section {
+	border-top: 1px solid #eee;
+	padding-top: 12px;
+}
+
+.cluster-devices-title {
+	font-weight: 600;
+	font-size: 14px;
+	margin-bottom: 8px;
+}
+
+.cluster-devices-list {
+	display: grid;
+	gap: 4px;
+}
+
+/* --- Cluster Device Row --- */
+.cluster-device-row {
+	display: flex;
+	align-items: center;
+	padding: 4px 8px;
+	background: color-mix(in srgb, var(--device-status-color) 10%, white 30%);
+	border-radius: 4px;
+	gap: 8px;
+	max-height: 25px;
+}
+
+.cluster-device-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--device-status-color);
+	flex-shrink: 0;
+}
+
+.cluster-device-link {
+	color: #1a73e8;
+	text-decoration: none;
+	flex-grow: 1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.cluster-device-link:hover {
+	text-decoration: underline;
+}
+
+.cluster-device-actions {
+	display: flex;
+	align-items: center;
+}
+
+.cluster-device-icon {
+	color: #1a73e8;
+	display: flex;
+	align-items: center;
+	padding: 2px;
+	border-radius: 4px;
+	transition: background 0.2s;
+}
+
+.cluster-device-icon:hover {
+	background: #e8f0fe;
+}
+
+/* --- Status Dots --- */
+.status-dot {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+}
+
+.status-dot--critical {
+	background: #e0351b;
+}
+
+.status-dot--error {
+	background: #ff8c00;
+}
+
+.status-dot--warning {
+	background: #f5ca1d;
+}
+
+.status-dot--clear {
+	background: #85c25d;
+}
+
+.status-dot--sdt {
+	background: #00a1fe;
+}
+
+/* --- Generic Popup Link Styles --- */
+.bmw-link {
+	color: #1a73e8;
+	text-decoration: none;
+}
+
+.bmw-link:hover {
+	text-decoration: underline;
+}
+
+.bmw-link--external {
+	color: #1a73e8;
+	display: inline-flex;
+	align-items: center;
+	padding: 2px;
+	border-radius: 4px;
+	transition: background 0.2s;
+}
+
+.bmw-link--external:hover {
+	background: #e8f0fe;
+}
+
+/* --- Info Popup Common Styles --- */
+.info-popup-section {
+	margin-bottom: 12px;
+}
+
+.info-popup-title {
+	font-weight: 600;
+	font-size: 14px;
+	margin-bottom: 8px;
+}
+
+.info-popup-stat {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.info-popup-highlight {
+	text-align: center;
+	margin: 12px 0;
+	padding: 12px 8px;
+	background: #fff5f5;
+	border-radius: 6px;
+}
+
+.info-popup-highlight-value {
+	font-size: 22px;
+	font-weight: 700;
+	color: #b91c1c;
+	line-height: 1.2;
+}
+
+.info-popup-highlight-unit {
+	font-size: 12px;
+	color: #666;
+	margin-top: 2px;
+}
+
+/* --- CTA Button --- */
+.bmw-cta-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 16px;
+	background: dodgerblue;
+	color: white;
+	border: none;
+	border-radius: 4px;
+	font-size: 13px;
+	cursor: pointer;
+	text-decoration: none;
+	transition: background 0.2s;
+}
+
+.bmw-cta-btn:hover {
+	background: #1e7fd6;
+}
+
+/* --- Tsunami Warning Banner --- */
+.tsunami-warning-banner {
+	display: flex;
+	flex-wrap: wrap;
+	text-wrap: auto;
+	align-items: center;
+	gap: 8px;
+	justify-content: center;
+}
+
+.tsunami-warning-text {
+	font-weight: bold;
+}
+
+/* --- Flooding Chart --- */
+.flood-chart {
+	display: flex;
+	align-items: flex-end;
+	gap: 4px;
+	margin: 12px 0;
+	padding: 8px;
+	background: #f8f9fa;
+	border-radius: 6px;
+}
+
+.flood-chart-bar {
+	width: 20px;
+	border-radius: 2px 2px 0 0;
+	transition: height 0.3s;
+}
+
+.flood-chart-bar--flood {
+	background: #ef4444;
+}
+
+.flood-chart-bar--normal {
+	background: #3b82f6;
+}
+
+.flood-chart-labels {
+	display: flex;
+	justify-content: space-around;
+	font-size: 11px;
+	color: #666;
+	margin-top: 4px;
+}
+
+/* --- Wildfire Badge --- */
+.wildfire-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 4px;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+/* --- Earthquake Gauge --- */
+.quake-gauge {
+	position: relative;
+	height: 20px;
+	border-radius: 10px;
+	margin: 12px 0;
+}
+
+.quake-gauge-marker {
+	position: absolute;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: 28px;
+	height: 28px;
+	background: white;
+	border: 3px solid #333;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: bold;
+	font-size: 12px;
+}
+
+/* --- Power Outage Stats --- */
+.outage-stats {
+	display: grid;
+	gap: 8px;
+}
+
+.outage-stat {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.outage-icon {
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+/* --- Loading Spinner Animation --- */
+@keyframes bmw-spinner-pulse {
+	0% { r: 0; opacity: 1; }
+	100% { r: 11px; opacity: 0; }
+}
+
+.bmw-spinner-ring {
+	animation: bmw-spinner-pulse 1.2s cubic-bezier(0.52, 0.6, 0.25, 0.99) infinite;
+}
+
+.bmw-spinner-ring-2 {
+	animation-delay: 0.4s;
+}
+
+.bmw-spinner-ring-3 {
+	animation-delay: 0.8s;
+}
+
+/* --- Toolbar Label Styles --- */
+.map-type-label {
+	margin-right: 8px;
+}
+
+.toolbar-icon-vcenter {
+	vertical-align: middle;
 }

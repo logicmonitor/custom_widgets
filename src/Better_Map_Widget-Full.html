@@ -76,7 +76,7 @@
 			<h3>Version 3.68</h3>
 			<ul>
 				<li>Multiple Better Map Widgets on the same dashboard now share a single download of the widget's script and stylesheet, which speeds up loading a dashboard that contains several maps. Each full page refresh still pulls the currently published version.</li>
-				<li>Connection lines between two locations with only one link between them are now drawn straight. Curvature still applies to overlapping parallel links, which is what it was added for.</li>
+				<li>Connection lines between two locations with only one link between them are now drawn straight. Curvature still applies to overlapping parallel links.</li>
 				<li>Panning and zooming a map with connection lines is smoother, since the lines are now recalculated once per frame instead of up to three times per refresh.</li>
 				<li>Cluster donut charts are now reused across clusters with the same mix of severities rather than being regenerated for every cluster on every pan and zoom.</li>
 				<li>The sidebar no longer rebuilds its item list while it is collapsed, and catches up when reopened.</li>
@@ -545,6 +545,7 @@
 		border-radius: 50%;
 		flex-shrink: 0;
 		margin-top: 3px;
+		background-color: var(--dot-color);
 	}
 	#sidebarArea .sidebar-item-content {
 		flex: 1;
@@ -1191,6 +1192,209 @@
 			display: flex !important;
 		}
 	}
+
+	/* ============================================================
+	   CSP-Compliant Popup Styles
+	   ============================================================ */
+
+	/* --- Cluster Popup --- */
+	.cluster-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 12px;
+	}
+
+	.cluster-title {
+		font-weight: 600;
+		font-size: 14px;
+	}
+
+	.cluster-zoom-btn {
+		padding: 6px 12px;
+		background: #1a73e8;
+		color: white;
+		border: none;
+		border-radius: 4px;
+		font-size: 13px;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		transition: background 0.2s;
+	}
+
+	.cluster-zoom-btn:hover {
+		background: #1557b0;
+	}
+
+	.cluster-stats {
+		display: grid;
+		gap: 8px;
+		margin-bottom: 16px;
+	}
+
+	.cluster-stat-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.cluster-devices-section {
+		border-top: 1px solid #eee;
+		padding-top: 12px;
+	}
+
+	.cluster-devices-title {
+		font-weight: 600;
+		font-size: 14px;
+		margin-bottom: 8px;
+	}
+
+	.cluster-devices-list {
+		display: grid;
+		gap: 4px;
+	}
+
+	/* --- Cluster Device Row --- */
+	.cluster-device-row {
+		display: flex;
+		align-items: center;
+		padding: 4px 8px;
+		background: color-mix(in srgb, var(--device-status-color) 10%, white 30%);
+		border-radius: 4px;
+		gap: 8px;
+		max-height: 25px;
+	}
+
+	.cluster-device-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--device-status-color);
+		flex-shrink: 0;
+	}
+
+	.cluster-device-link {
+		color: #1a73e8;
+		text-decoration: none;
+		flex-grow: 1;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.cluster-device-link:hover {
+		text-decoration: underline;
+	}
+
+	.cluster-device-actions {
+		display: flex;
+		align-items: center;
+	}
+
+	.cluster-device-icon {
+		color: #1a73e8;
+		display: flex;
+		align-items: center;
+		padding: 2px;
+		border-radius: 4px;
+		transition: background 0.2s;
+	}
+
+	.cluster-device-icon:hover {
+		background: #e8f0fe;
+	}
+
+	/* --- Status Dots --- */
+	.status-dot {
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+	}
+
+	.status-dot--critical {
+		background: #e0351b;
+	}
+
+	.status-dot--error {
+		background: #ff8c00;
+	}
+
+	.status-dot--warning {
+		background: #f5ca1d;
+	}
+
+	.status-dot--clear {
+		background: #85c25d;
+	}
+
+	.status-dot--sdt {
+		background: #00a1fe;
+	}
+
+	/* --- Info Popup Common Styles --- */
+	.info-popup-highlight {
+		text-align: center;
+		margin: 12px 0;
+		padding: 12px 8px;
+		background: #fff5f5;
+		border-radius: 6px;
+	}
+
+	.info-popup-highlight-value {
+		font-size: 22px;
+		font-weight: 700;
+		color: #b91c1c;
+		line-height: 1.2;
+	}
+
+	.info-popup-highlight-unit {
+		font-size: 12px;
+		color: #666;
+		margin-top: 2px;
+	}
+
+	/* --- Tsunami Warning Banner --- */
+	.tsunami-warning-banner {
+		display: flex;
+		flex-wrap: wrap;
+		text-wrap: auto;
+		align-items: center;
+		gap: 8px;
+		justify-content: center;
+	}
+
+	.tsunami-warning-text {
+		font-weight: bold;
+	}
+
+	/* --- Toolbar Label Styles --- */
+	.map-type-label {
+		margin-right: 8px;
+	}
+
+	.toolbar-icon-vcenter {
+		vertical-align: middle;
+	}
+
+	/* --- Loading Spinner Animation --- */
+	@keyframes bmw-spinner-pulse {
+		0% { r: 0; opacity: 1; }
+		100% { r: 11px; opacity: 0; }
+	}
+
+	.bmw-spinner-ring {
+		animation: bmw-spinner-pulse 1.2s cubic-bezier(0.52, 0.6, 0.25, 0.99) infinite;
+	}
+
+	.bmw-spinner-ring-2 {
+		animation-delay: 0.4s;
+	}
+
+	.bmw-spinner-ring-3 {
+		animation-delay: 0.8s;
+	}
 </style>
 
 <!-- Our main widget body... -->
@@ -1293,21 +1497,21 @@
 				<span id="customGroupFilterOptions">
 					<span data-title="Path to the items you'd like on the map. Examples:&quot;*&quot;, &quot;Locations/*&quot;">
 						<label for="customGroupFilterField">Group filter:</label>
-						<input type="text" data-title="Path to the items you'd like on the map. Examples:&quot;*&quot;, &quot;Locations/*&quot;" id="customGroupFilterField" name="customGroupFilterField" value="*" onkeypress="betterMapWidgetCall('${betterMapInstanceId}', 'groupkeyHandler', event);" />
+						<input type="text" data-title="Path to the items you'd like on the map. Examples:&quot;*&quot;, &quot;Locations/*&quot;" id="customGroupFilterField" name="customGroupFilterField" value="*" data-bmw-action="groupkeyHandler" data-bmw-event="keypress" />
 					</span>
 				</span>
-				<button id="resetGroupFilterButton" type="button" data-title="Reset the group filter to the default value" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'resetGroupFilter');"><svg width="15" height="15" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path id="Path" fill="#000000" stroke="none" d="M 16 1.25 C 15.987 1.25 15.971 1.25 15.956 1.25 C 11.466 1.25 7.448 3.276001 4.769 6.464001 L 4.751 6.486 L 4.751 1.716999 C 4.751 1.302999 4.415 0.966999 4.001 0.966999 C 3.587 0.966999 3.251 1.302999 3.251 1.716999 L 3.251 1.716999 L 3.251 8.788 C 3.255 8.818001 3.261 8.845001 3.268 8.869999 L 3.267 8.865 C 3.275 8.970001 3.307 9.067001 3.358 9.15 L 3.356 9.146999 C 3.381 9.193001 3.408 9.232 3.438 9.269001 L 3.437 9.268 C 3.471 9.306 3.508 9.34 3.548 9.369999 L 3.55 9.371 C 3.57 9.390999 3.59 9.41 3.612 9.428001 L 3.613 9.429001 C 3.628 9.438 3.645 9.438 3.661 9.445999 C 3.703 9.466999 3.751 9.485001 3.802 9.497 L 3.807 9.498001 C 3.847 9.511 3.894 9.521 3.942 9.526001 L 3.945 9.526001 C 3.964 9.527 3.981 9.536999 4.001 9.536999 L 11.072 9.536999 C 11.486 9.536999 11.822 9.201 11.822 8.786999 C 11.822 8.373001 11.486 8.036999 11.072 8.036999 L 11.072 8.036999 L 5.429 8.036999 C 7.848 4.813 11.662 2.749001 15.958 2.749001 C 15.973 2.749001 15.988 2.749001 16.003 2.749001 L 16.000999 2.749001 C 23.318001 2.750999 29.247999 8.681999 29.247999 15.999001 C 29.247999 23.316 23.316 29.249001 15.998 29.249001 C 10.743 29.249001 6.203 26.190001 4.061 21.756001 L 4.027 21.677 C 3.903 21.423 3.647 21.250999 3.35 21.250999 C 2.936 21.250999 2.6 21.587 2.6 22.000999 C 2.6 22.117001 2.626 22.226999 2.674 22.325001 L 2.672 22.32 C 5.095 27.344999 10.15 30.750999 16.000999 30.750999 C 24.148001 30.750999 30.752001 24.146999 30.752001 16 C 30.752001 7.853001 24.148001 1.249001 16.002001 1.249001 L 16.002001 1.249001 Z"/> </svg></button>
+				<button id="resetGroupFilterButton" type="button" data-title="Reset the group filter to the default value" data-bmw-action="resetGroupFilter"><svg width="15" height="15" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path id="Path" fill="#000000" stroke="none" d="M 16 1.25 C 15.987 1.25 15.971 1.25 15.956 1.25 C 11.466 1.25 7.448 3.276001 4.769 6.464001 L 4.751 6.486 L 4.751 1.716999 C 4.751 1.302999 4.415 0.966999 4.001 0.966999 C 3.587 0.966999 3.251 1.302999 3.251 1.716999 L 3.251 1.716999 L 3.251 8.788 C 3.255 8.818001 3.261 8.845001 3.268 8.869999 L 3.267 8.865 C 3.275 8.970001 3.307 9.067001 3.358 9.15 L 3.356 9.146999 C 3.381 9.193001 3.408 9.232 3.438 9.269001 L 3.437 9.268 C 3.471 9.306 3.508 9.34 3.548 9.369999 L 3.55 9.371 C 3.57 9.390999 3.59 9.41 3.612 9.428001 L 3.613 9.429001 C 3.628 9.438 3.645 9.438 3.661 9.445999 C 3.703 9.466999 3.751 9.485001 3.802 9.497 L 3.807 9.498001 C 3.847 9.511 3.894 9.521 3.942 9.526001 L 3.945 9.526001 C 3.964 9.527 3.981 9.536999 4.001 9.536999 L 11.072 9.536999 C 11.486 9.536999 11.822 9.201 11.822 8.786999 C 11.822 8.373001 11.486 8.036999 11.072 8.036999 L 11.072 8.036999 L 5.429 8.036999 C 7.848 4.813 11.662 2.749001 15.958 2.749001 C 15.973 2.749001 15.988 2.749001 16.003 2.749001 L 16.000999 2.749001 C 23.318001 2.750999 29.247999 8.681999 29.247999 15.999001 C 29.247999 23.316 23.316 29.249001 15.998 29.249001 C 10.743 29.249001 6.203 26.190001 4.061 21.756001 L 4.027 21.677 C 3.903 21.423 3.647 21.250999 3.35 21.250999 C 2.936 21.250999 2.6 21.587 2.6 22.000999 C 2.6 22.117001 2.626 22.226999 2.674 22.325001 L 2.672 22.32 C 5.095 27.344999 10.15 30.750999 16.000999 30.750999 C 24.148001 30.750999 30.752001 24.146999 30.752001 16 C 30.752001 7.853001 24.148001 1.249001 16.002001 1.249001 L 16.002001 1.249001 Z"/> </svg></button>
 
 				<span id="mapTypeOptions" data-title="Switch between viewing groups, resources, or services on the map">
-					<input type="radio" id="radioGroups" name="mapType" value="groups" checked onclick="betterMapWidgetCall('${betterMapInstanceId}', 'selectMapType', 'groups');" />
-					<label for="radioGroups" style="margin-right: 8px;">
+					<input type="radio" id="radioGroups" name="mapType" value="groups" checked data-bmw-action="selectMapType" data-bmw-arg="groups" />
+					<label for="radioGroups" class="map-type-label">
 						<svg focusable="false" role="img" aria-label="Group" width="22" viewBox="0 0 24 24">
 							<path d="M3 19h17v2H3c-1.1 0-2-.9-2-2V6h2v13zM23 6v9c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2l.01-11c0-1.1.89-2 1.99-2h5l2 2h7c1.1 0 2 .9 2 2zM7 15h14V6h-7.83l-2-2H7v11z"></path>
 							<title>Groups</title>
 						</svg>
 					</label>
-					<input type="radio" id="radioResources" name="mapType" value="resources" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'selectMapType', 'resources');" />
-					<label for="radioResources" style="margin-right: 8px;">
+					<input type="radio" id="radioResources" name="mapType" value="resources" data-bmw-action="selectMapType" data-bmw-arg="resources" />
+					<label for="radioResources" class="map-type-label">
 						<svg focusable="false" role="img" aria-label="Resource" width="22" viewBox="0 0 24 24">
 							<path d="M17 18C17 17.448 17.448 17 18 17C18.552 17 19 17.448 19 18C19 18.553 18.552 19 18 19C17.448 19 17 18.553 17 18Z"></path>
 							<path d="M5 18C5 18.5523 5.44772 19 6 19H9C9.55228 19 10 18.5523 10 18C10 17.4477 9.55228 17 9 17H6C5.44772 17 5 17.4477 5 18Z"></path>
@@ -1322,7 +1526,7 @@
 							<title>Resources</title>
 						</svg>
 					</label>
-					<input type="radio" id="radioServices" name="mapType" value="services" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'selectMapType', 'services');" />
+					<input type="radio" id="radioServices" name="mapType" value="services" data-bmw-action="selectMapType" data-bmw-arg="services" />
 					<label for="radioServices">
 						<svg focusable="false" role="img" aria-label="Service" width="25" viewBox="0 0 20 20">
 							<g id="Vector">
@@ -1337,37 +1541,37 @@
 
 				<span id="sevFilterOptions">
 					<span class="sevFilterOption">
-						<input type="checkbox" id="showCleared" name="showCleared" value="showCleared" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide items with no active alerts" />
+						<input type="checkbox" id="showCleared" name="showCleared" value="showCleared" data-bmw-action="refreshGroupData" data-title="Show/hide items with no active alerts" />
 						<label for="showCleared"><div id="showClearedLabel" class="toolbarSevIcon">Cleared</div></label>
 					</span>
 					<span class="sevFilterOption">
-						<input type="checkbox" id="showWarnings" name="showWarnings" value="showWarnings" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide items with active Warning alerts" />
+						<input type="checkbox" id="showWarnings" name="showWarnings" value="showWarnings" data-bmw-action="refreshGroupData" data-title="Show/hide items with active Warning alerts" />
 						<label for="showWarnings"><div id="showWarningsLabel" class="toolbarSevIcon">Warnings</div></label>
 					</span>
 					<span class="sevFilterOption">
-						<input type="checkbox" id="showErrors" name="showErrors" value="showErrors" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide items with active Error alerts" />
+						<input type="checkbox" id="showErrors" name="showErrors" value="showErrors" data-bmw-action="refreshGroupData" data-title="Show/hide items with active Error alerts" />
 						<label for="showErrors"><div id="showErrorsLabel" class="toolbarSevIcon">Errors</div></label>
 					</span>
 					<span class="sevFilterOption">
-						<input type="checkbox" id="showCriticals" name="showCriticals" value="showCriticals" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide items with active Critical alerts" />
+						<input type="checkbox" id="showCriticals" name="showCriticals" value="showCriticals" data-bmw-action="refreshGroupData" data-title="Show/hide items with active Critical alerts" />
 						<label for="showCriticals"><div id="showCriticalsLabel" class="toolbarSevIcon">Criticals</div></label>
 					</span>
 					<span class="sevFilterOption">
-						<input type="checkbox" id="showSDT" name="showSDT" value="showSDT" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide items in Scheduled Down Time (SDT)" />
+						<input type="checkbox" id="showSDT" name="showSDT" value="showSDT" data-bmw-action="refreshGroupData" data-title="Show/hide items in Scheduled Down Time (SDT)" />
 						<label for="showSDT"><div id="showSDTLabel" class="toolbarSevIcon">SDT</div></label>
 					</span>
 					<span class="sevFilterOption">
-						<input type="checkbox" id="showConnections" name="showConnections" value="showConnections" checked="true" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="Show/hide status lines">
+						<input type="checkbox" id="showConnections" name="showConnections" value="showConnections" checked="true" data-bmw-action="refreshGroupData" data-title="Show/hide status lines">
 						<label for="showConnections"><div id="showConnectionsLabel" class="toolbarSevIcon">Connections</div></label>
 					</span>
 					<span class="sevFilterOption">
-						<input type="checkbox" id="showConnected" name="showConnected" value="showConnected" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'refreshGroupData');" data-title="When checked, show only items with status lines">
+						<input type="checkbox" id="showConnected" name="showConnected" value="showConnected" data-bmw-action="refreshGroupData" data-title="When checked, show only items with status lines">
 						<label for="showConnected"><div id="showConnectedLabel" class="toolbarSevIcon">Connected</div></label>
 					</span>
 				</span>
 
 				<span data-title="Toggle visibility of additional options">
-					<svg id="optionsToggleButton" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'toggleMiscOptions')" width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" style="vertical-align: middle;"><path id="gearIcon" d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6c-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2c-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8c-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8c-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3c-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6c4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2c5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8c8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336a80 80 0 1 0 0-160 80 80 0 1 0 0 160z" fill="#aaa"/></svg>
+					<svg id="optionsToggleButton" data-bmw-action="toggleMiscOptions" width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="toolbar-icon-vcenter"><path id="gearIcon" d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6c-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2c-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8c-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8c-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3c-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6c4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2c5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8c8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336a80 80 0 1 0 0-160 80 80 0 1 0 0 160z" fill="#aaa"/></svg>
 				</span>
 				<svg id="gearIconChevron" style="display: none; margin-left: -3px;" width="10" height="15" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 512"><path d="M246.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-9.2-9.2-22.9-11.9-34.9-6.9s-19.8 16.6-19.8 29.6l0 256c0 12.9 7.8 24.6 19.8 29.6s25.7 2.2 34.9-6.9l128-128z" fill="#999"/></svg>
 
@@ -1382,13 +1586,13 @@
 
 					<span id="weatherOptionsArea">
 						<span data-title="Enables overlay of current weather radar and more">
-							<input type="checkbox" id="weather" name="weather" value="weather" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'enableWeather');" />
+							<input type="checkbox" id="weather" name="weather" value="weather" data-bmw-action="enableWeather" />
 							<label for="weather">Weather</label>
 						</span>
 
 						<span id="weatherOptions">
 							<span data-title="Which source to use for weather information">
-								<select id="weatherType" onchange="betterMapWidgetCall('${betterMapInstanceId}', 'enableWeather');">
+								<select id="weatherType" data-bmw-action="enableWeather" data-bmw-event="change">
 									<option value="radar" selected>Global Radar</option>
 									<option value="nexrad-n0q-900913">US NEXRAD Radar</option>
 									<option value="xweather">Xweather Global Radar</option>
@@ -1398,7 +1602,7 @@
 
 							<span id="additionalOverlayOptions">
 								<span data-title="Additional layer options to show on the map when weather is enabled">
-									<select id="otherWeatherOverlays" onchange="betterMapWidgetCall('${betterMapInstanceId}', 'enableWeather');">
+									<select id="otherWeatherOverlays" data-bmw-action="enableWeather" data-bmw-event="change">
 										<option value="none">None</option>
 										<option value="earthquakes" selected>Earthquakes (mag 6+, 7d)</option>
 										<option value="us-flooding">US Flooding</option>
@@ -1417,11 +1621,11 @@
 							</select>
 						</span>
 					</span>
-					<button id="releaseNotesButton" type="button" data-title="View release notes" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'showReleaseNotes');">
+					<button id="releaseNotesButton" type="button" data-title="View release notes" data-bmw-action="showReleaseNotes">
 						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" height="22" width="22"><!--!Font Awesome Free v7.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2026 Fonticons, Inc.--><path d="M320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM288 224C288 206.3 302.3 192 320 192C337.7 192 352 206.3 352 224C352 241.7 337.7 256 320 256C302.3 256 288 241.7 288 224zM280 288L328 288C341.3 288 352 298.7 352 312L352 400L360 400C373.3 400 384 410.7 384 424C384 437.3 373.3 448 360 448L280 448C266.7 448 256 437.3 256 424C256 410.7 266.7 400 280 400L304 400L304 336L280 336C266.7 336 256 325.3 256 312C256 298.7 266.7 288 280 288z"/></svg>
 					</button>
-					<button id="clearCacheButton" type="button" data-title="Clear geocode cache and saved toolbar options in this browser (use if the map misbehaves)" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'clearCache');">
-						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" height="20" width="20" style="vertical-align: middle;"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path id="recycleIcon" d="M216.3 124C262.5 44 378 44 424.2 124L461.5 188.6L489.2 172.6C497.6 167.7 508.1 168.4 515.8 174.3C523.5 180.2 526.9 190.2 524.4 199.6L500.9 287C497.5 299.8 484.3 307.4 471.5 304L384.1 280.6C374.7 278.1 367.8 270.2 366.5 260.6C365.2 251 369.9 241.5 378.3 236.7L406 220.7L368.7 156.1C347.1 118.8 293.3 118.8 271.7 156.1L266.4 165.2C257.6 180.5 238 185.7 222.7 176.9C207.4 168.1 202.2 148.5 211 133.1L216.3 124zM513.7 343.1C529 334.3 548.6 339.5 557.4 354.8L562.7 363.9C608.9 443.9 551.2 543.9 458.8 543.9L384.2 543.9L384.2 575.9C384.2 585.6 378.4 594.4 369.4 598.1C360.4 601.8 350.1 599.8 343.2 592.9L279.2 528.9C269.8 519.5 269.8 504.3 279.2 495L343.2 431C350.1 424.1 360.4 422.1 369.4 425.8C378.4 429.5 384.2 438.3 384.2 448L384.2 480L458.8 480C501.9 480 528.9 433.3 507.3 396L502 386.9C493.2 371.6 498.4 352 513.7 343.2zM115 299.4L87.3 283.4C78.9 278.5 74.2 269.1 75.5 259.5C76.8 249.9 83.7 242 93.1 239.5L180.5 216C193.3 212.6 206.5 220.2 209.9 233L233.3 320.4C235.8 329.8 232.4 339.7 224.7 345.7C217 351.7 206.5 352.3 198.1 347.4L170.4 331.4L133.1 396C111.5 433.3 138.5 480 181.6 480L192.2 480C209.9 480 224.2 494.3 224.2 512C224.2 529.7 209.9 544 192.2 544L181.6 544C89.3 544 31.6 444 77.8 364L115 299.4z"/></svg>
+					<button id="clearCacheButton" type="button" data-title="Clear geocode cache and saved toolbar options in this browser (use if the map misbehaves)" data-bmw-action="clearCache">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" height="20" width="20" class="toolbar-icon-vcenter"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path id="recycleIcon" d="M216.3 124C262.5 44 378 44 424.2 124L461.5 188.6L489.2 172.6C497.6 167.7 508.1 168.4 515.8 174.3C523.5 180.2 526.9 190.2 524.4 199.6L500.9 287C497.5 299.8 484.3 307.4 471.5 304L384.1 280.6C374.7 278.1 367.8 270.2 366.5 260.6C365.2 251 369.9 241.5 378.3 236.7L406 220.7L368.7 156.1C347.1 118.8 293.3 118.8 271.7 156.1L266.4 165.2C257.6 180.5 238 185.7 222.7 176.9C207.4 168.1 202.2 148.5 211 133.1L216.3 124zM513.7 343.1C529 334.3 548.6 339.5 557.4 354.8L562.7 363.9C608.9 443.9 551.2 543.9 458.8 543.9L384.2 543.9L384.2 575.9C384.2 585.6 378.4 594.4 369.4 598.1C360.4 601.8 350.1 599.8 343.2 592.9L279.2 528.9C269.8 519.5 269.8 504.3 279.2 495L343.2 431C350.1 424.1 360.4 422.1 369.4 425.8C378.4 429.5 384.2 438.3 384.2 448L384.2 480L458.8 480C501.9 480 528.9 433.3 507.3 396L502 386.9C493.2 371.6 498.4 352 513.7 343.2zM115 299.4L87.3 283.4C78.9 278.5 74.2 269.1 75.5 259.5C76.8 249.9 83.7 242 93.1 239.5L180.5 216C193.3 212.6 206.5 220.2 209.9 233L233.3 320.4C235.8 329.8 232.4 339.7 224.7 345.7C217 351.7 206.5 352.3 198.1 347.4L170.4 331.4L133.1 396C111.5 433.3 138.5 480 181.6 480L192.2 480C209.9 480 224.2 494.3 224.2 512C224.2 529.7 209.9 544 192.2 544L181.6 544C89.3 544 31.6 444 77.8 364L115 299.4z"/></svg>
 					</button>
 				</div>
 			</div>
@@ -1436,9 +1640,9 @@
 			<div id="sidebarArea">&nbsp;</div>
 		</div>
 
-		<div id="releaseNotesOverlay" onclick="if(event.target===this)betterMapWidgetCall('${betterMapInstanceId}', 'closeReleaseNotes');">
+		<div id="releaseNotesOverlay" data-bmw-action="closeReleaseNotes" data-bmw-self-only="true">
 			<div id="releaseNotesPopup">
-				<button id="releaseNotesCloseBtn" onclick="betterMapWidgetCall('${betterMapInstanceId}', 'closeReleaseNotes');">&times;</button>
+				<button id="releaseNotesCloseBtn" data-bmw-action="closeReleaseNotes">&times;</button>
 				<div id="releaseNotesContent">${releaseNotes}</div>
 			</div>
 		</div>`;
@@ -2463,7 +2667,29 @@ if (window.RProfiler) {
 		optionsToggleArea: getBetterMapElementById("optionsToggleArea"),
 		gearIcon: getBetterMapElementById("gearIcon"),
 		gearIconChevron: getBetterMapElementById("gearIconChevron"),
+		releaseNotesOverlay: getBetterMapElementById("releaseNotesOverlay"),
+		releaseNotesCloseBtn: getBetterMapElementById("releaseNotesCloseBtn"),
 	}
+
+	// Attach event listeners to elements with data-bmw-action attributes (CSP compliance)...
+	betterMapRoot.querySelectorAll('[data-bmw-action]').forEach(function(el) {
+		var action = el.dataset.bmwAction;
+		var arg = el.dataset.bmwArg;
+		var selfOnly = el.dataset.bmwSelfOnly === 'true';
+		var eventType = el.dataset.bmwEvent || 'click';
+		el.addEventListener(eventType, function(e) {
+			// For overlay backgrounds, only trigger if the click was directly on the element itself
+			if (selfOnly && e.target !== el) return;
+			// Build the arguments for betterMapWidgetCall
+			if (eventType === 'keypress') {
+				window.betterMapWidgetCall(betterMapInstanceId, action, e);
+			} else if (arg !== undefined) {
+				window.betterMapWidgetCall(betterMapInstanceId, action, arg);
+			} else {
+				window.betterMapWidgetCall(betterMapInstanceId, action);
+			}
+		});
+	});
 
 	// Set the form fields as appropriate...
 	_dom.showCleared.checked = showCleared;
@@ -2542,7 +2768,7 @@ if (window.RProfiler) {
 	const connectedIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="Connected"><path d="M 12 28 Q 25 17 38 13" fill="none" stroke="#e0351b" stroke-width="3" stroke-linecap="round"/><path d="M 12 28 L 38 40" fill="none" stroke="#85c25d" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="28" r="7" fill="#85c25d"/><circle cx="38" cy="13" r="7" fill="#85c25d"/><circle cx="38" cy="40" r="7" fill="#85c25d"/></svg>';
 	const showConnectionsIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="Show connections"><path d="M 12 28 Q 25 17 38 13" fill="none" stroke="#e0351b" stroke-width="4" stroke-linecap="round" stroke-dasharray="4 4"/><path d="M 12 28 L 38 40" fill="none" stroke="#85c25d" stroke-width="4" stroke-linecap="round" stroke-dasharray="4 4"/><circle cx="12" cy="28" r="5" fill="#85c25d" fill-opacity="0.5"/><circle cx="38" cy="13" r="5" fill="#85c25d" fill-opacity="0.5"/><circle cx="38" cy="40" r="5" fill="#85c25d" fill-opacity="0.5"/></svg>';
 	// Animated throbber for when we're updating data...
-	const loadingSpinner = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_VpEe{animation:spinner_vXu6 1.2s cubic-bezier(0.52,.6,.25,.99) infinite}.spinner_eahp{animation-delay:.4s}.spinner_f7Y2{animation-delay:.8s}@keyframes spinner_vXu6{0%{r:0;opacity:1}100%{r:11px;opacity:0}}</style><circle class="spinner_VpEe" cx="12" cy="12" r="0" fill="red"/><circle class="spinner_VpEe spinner_eahp" cx="12" cy="12" r="0" fill="red"/><circle class="spinner_VpEe spinner_f7Y2" cx="12" cy="12" r="0" fill="red"/></svg>';
+	const loadingSpinner = '<svg class="bmw-spinner" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle class="bmw-spinner-ring bmw-spinner-ring-1" cx="12" cy="12" r="0" fill="red"/><circle class="bmw-spinner-ring bmw-spinner-ring-2" cx="12" cy="12" r="0" fill="red"/><circle class="bmw-spinner-ring bmw-spinner-ring-3" cx="12" cy="12" r="0" fill="red"/></svg>';
 	// Icons for toggling visiiblity of the top toolbar...
 	const optionsToggleVisibleIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px;"><rect x="10" y="42" width="428" height="428" rx="54" ry="54" fill="none" stroke="#000000" stroke-width="20"/><path fill="#000000" d="M241.6 175.7C237.1 170.8 230.7 168 224 168S210.9 170.8 206.4 175.7l-96 104c-6.469 7-8.188 17.19-4.375 25.91C109.8 314.3 118.5 320 127.1 320h192c9.531 0 18.16-5.656 22-14.38c3.813-8.719 2.094-18.91-4.375-25.91L241.6 175.7z"/></svg>';
 	const optionsToggleHiddenIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px;"><rect x="10" y="42" width="428" height="428" rx="54" ry="54" fill="none" stroke="#000000" stroke-width="20"/><path fill="#000000" d="M320 192H128C118.5 192 109.8 197.7 105.1 206.4C102.2 215.1 103.9 225.3 110.4 232.3l96 104C210.9 341.2 217.3 344 224 344s13.09-2.812 17.62-7.719l96-104c6.469-7 8.188-17.19 4.375-25.91C338.2 197.7 329.5 192 320 192z"/></svg>';
@@ -5059,13 +5285,13 @@ if (window.RProfiler) {
 		// decoded by the time we get here and must be re-escaped before returning to markup.
 		var name = escapeHtml(device.name);
 		var link = escapeHtml(device.link);
-		return '\x3cdiv style="display: flex; align-items: center; padding: 4px 8px; background: color-mix(in srgb, var(--' + device.status + '-color) 10%, white 30%); border-radius: 4px; gap: 8px; max-height: 25px;"\x3e' +
-			'\x3cdiv style="width: 8px; height: 8px; border-radius: 50%; background: var(--' + device.status + '-color); flex-shrink: 0;"\x3e\x3c/div\x3e' +
-			'\x3ca href="' + link + '" target="_blank" style="color: #1a73e8; text-decoration: none; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'"\x3e' +
+		return '\x3cdiv class="cluster-device-row" style="--device-status-color: var(--' + device.status + '-color);"\x3e' +
+			'\x3cdiv class="cluster-device-dot"\x3e\x3c/div\x3e' +
+			'\x3ca href="' + link + '" target="_blank" class="cluster-device-link"\x3e' +
 				name + device.sdtStatus +
 			'\x3c/a\x3e' +
-			'\x3cdiv style="display: flex; align-items: center;"\x3e' +
-				'\x3ca href="' + link + '" target="_blank" style="color: #1a73e8; display: flex; align-items: center; padding: 2px; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background=\'#e8f0fe\'" onmouseout="this.style.background=\'transparent\'"\x3e' +
+			'\x3cdiv class="cluster-device-actions"\x3e' +
+				'\x3ca href="' + link + '" target="_blank" class="cluster-device-icon"\x3e' +
 					'\x3csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"\x3e' +
 						'\x3cpath d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/\x3e' +
 						'\x3cpolyline points="15 3 21 3 21 9"/\x3e' +
@@ -5079,22 +5305,22 @@ if (window.RProfiler) {
 	function buildWildfireHighlightBlock(highlightValueHtml, highlightUnitHtml) {
 		if (!highlightValueHtml) return "";
 		var unitLine = highlightUnitHtml
-			? '\x3cdiv style="font-size:12px;color:#666;margin-top:2px;"\x3e' + highlightUnitHtml + '\x3c/div\x3e'
+			? '\x3cdiv class="info-popup-highlight-unit"\x3e' + highlightUnitHtml + '\x3c/div\x3e'
 			: "";
-		return '\x3cdiv style="text-align:center;margin:12px 0;padding:12px 8px;background:#fff5f5;border-radius:6px;"\x3e' +
-			'\x3cdiv style="font-size:22px;font-weight:700;color:#b91c1c;line-height:1.2;"\x3e' + highlightValueHtml + '\x3c/div\x3e' +
+		return '\x3cdiv class="info-popup-highlight"\x3e' +
+			'\x3cdiv class="info-popup-highlight-value"\x3e' + highlightValueHtml + '\x3c/div\x3e' +
 			unitLine +
 		'\x3c/div\x3e';
 	}
 
 	function buildTsunamiWarningBannerHtml(tsunamiWarningHtml) {
 		var svg = '\x3csvg width="35px" height="35px" viewBox="0 0 60.601004 60.601004" xmlns="http://www.w3.org/2000/svg"\x3e' +
-			'\x3cpath d="m 57.316128,56.958628 c 1.125,0 2.225,-0.5825 2.825,-1.63125 0.6125,-1.04625 0.5625,-2.28875 0,-3.265 L 33.128628,5.2773777 c -0.5625,-0.97375 -1.6125,-1.635 -2.8375,-1.635 -1.2,0.0025 -2.25,0.66125 -2.8125,1.635 L 0.46612771,52.062378 c -0.575,0.97625 -0.6125,2.21875 -0.0125,3.265 0.61249999,1.04875 1.69999999,1.63125 2.83749999,1.63125 l 54.0250003,0" style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"/\x3e' +
-			'\x3cpath d="m 30.291127,9.0848757 -13.85,23.9900003 c 14.9125,-7.8575 22.4375,-2.24875 24.7875,3.58875 l -0.4625,0.26625 c -0.3625,-0.3475 -0.775,-0.65625 -1.2375,-0.935 -3.1125,-1.86375 -6.9375,-1.21 -8.55,1.46625 -1.6125,2.685 -0.3875,6.37375 2.725,8.24125 6.1375,3.68625 13.975,2.81 18.725,1.71125 L 30.291127,9.0848757" style="fill:white;fill-opacity:1;fill-rule:evenodd;stroke:none"/\x3e' +
+			'\x3cpath d="m 57.316128,56.958628 c 1.125,0 2.225,-0.5825 2.825,-1.63125 0.6125,-1.04625 0.5625,-2.28875 0,-3.265 L 33.128628,5.2773777 c -0.5625,-0.97375 -1.6125,-1.635 -2.8375,-1.635 -1.2,0.0025 -2.25,0.66125 -2.8125,1.635 L 0.46612771,52.062378 c -0.575,0.97625 -0.6125,2.21875 -0.0125,3.265 0.61249999,1.04875 1.69999999,1.63125 2.83749999,1.63125 l 54.0250003,0" fill="#000000" fill-rule="nonzero"/\x3e' +
+			'\x3cpath d="m 30.291127,9.0848757 -13.85,23.9900003 c 14.9125,-7.8575 22.4375,-2.24875 24.7875,3.58875 l -0.4625,0.26625 c -0.3625,-0.3475 -0.775,-0.65625 -1.2375,-0.935 -3.1125,-1.86375 -6.9375,-1.21 -8.55,1.46625 -1.6125,2.685 -0.3875,6.37375 2.725,8.24125 6.1375,3.68625 13.975,2.81 18.725,1.71125 L 30.291127,9.0848757" fill="white" fill-rule="evenodd"/\x3e' +
 		'\x3c/svg\x3e';
-		return '\x3cdiv style="display: flex; flex-wrap: wrap; text-wrap: auto; align-items: center; gap: 8px; justify-content: center;"\x3e' +
+		return '\x3cdiv class="tsunami-warning-banner"\x3e' +
 			svg +
-			'\x3cspan style="font-weight: bold;"\x3e' + tsunamiWarningHtml + '\x3c/span\x3e' +
+			'\x3cspan class="tsunami-warning-text"\x3e' + tsunamiWarningHtml + '\x3c/span\x3e' +
 		'\x3c/div\x3e';
 	}
 
@@ -5220,7 +5446,7 @@ if (window.RProfiler) {
 			const propsHtml = buildSidebarPropsHtml(item.props);
 			const itemName = escapeHtml(item.name);
 			html += `<div class="sidebar-item" data-device-id="${escapeHtml(item.id)}" title="${itemName} - ${label}">
-				<span class="sidebar-dot" style="background-color:${color};"></span>
+				<span class="sidebar-dot" style="--dot-color:${color}"></span>
 				<span class="sidebar-item-content"><span class="sidebar-item-name">${itemName}</span>${propsHtml}</span>
 			</div>`;
 		});
@@ -5437,21 +5663,9 @@ if (window.RProfiler) {
 
 				return `
 					<div class="mapInfoPopupWindow">
-						<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-							<div style="font-weight: 600; font-size: 14px;">Cluster Summary</div>
-							<button onclick="betterMapWidgetCall('${betterMapInstanceId}', 'fitClusterBounds', ${clusterBounds.getSouthWest().lat()}, ${clusterBounds.getSouthWest().lng()}, ${clusterBounds.getNorthEast().lat()}, ${clusterBounds.getNorthEast().lng()})" style="
-								padding: 6px 12px;
-								background: #1a73e8;
-								color: white;
-								border: none;
-								border-radius: 4px;
-								font-size: 13px;
-								cursor: pointer;
-								display: flex;
-								align-items: center;
-								gap: 6px;
-								transition: background 0.2s;
-							" onmouseover="this.style.background='#1557b0'" onmouseout="this.style.background='#1a73e8'">
+						<div class="cluster-header">
+							<div class="cluster-title">Cluster Summary</div>
+							<button class="cluster-zoom-btn" data-sw-lat="${clusterBounds.getSouthWest().lat()}" data-sw-lng="${clusterBounds.getSouthWest().lng()}" data-ne-lat="${clusterBounds.getNorthEast().lat()}" data-ne-lng="${clusterBounds.getNorthEast().lng()}">
 								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
 									<circle cx="11" cy="11" r="8"/>
 									<line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -5461,31 +5675,31 @@ if (window.RProfiler) {
 								Zoom into Cluster
 							</button>
 						</div>
-						<div style="display: grid; gap: 8px; margin-bottom: 16px;">
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<div style="width: 12px; height: 12px; border-radius: 50%; background: #e0351b;"></div>
+						<div class="cluster-stats">
+							<div class="cluster-stat-row">
+								<div class="status-dot status-dot--critical"></div>
 								<span>Critical: ${severityCounts.get("3") || 0}</span>
 							</div>
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<div style="width: 12px; height: 12px; border-radius: 50%; background: #ff8c00;"></div>
+							<div class="cluster-stat-row">
+								<div class="status-dot status-dot--error"></div>
 								<span>Error: ${severityCounts.get("2") || 0}</span>
 							</div>
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<div style="width: 12px; height: 12px; border-radius: 50%; background: #f5ca1d;"></div>
+							<div class="cluster-stat-row">
+								<div class="status-dot status-dot--warning"></div>
 								<span>Warning: ${severityCounts.get("1") || 0}</span>
 							</div>
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<div style="width: 12px; height: 12px; border-radius: 50%; background: #85c25d;"></div>
+							<div class="cluster-stat-row">
+								<div class="status-dot status-dot--clear"></div>
 								<span>Clear: ${severityCounts.get("0") || 0}</span>
 							</div>
-							<div style="display: flex; align-items: center; gap: 8px;">
-								<div style="width: 12px; height: 12px; border-radius: 50%; background: #00a1fe;"></div>
+							<div class="cluster-stat-row">
+								<div class="status-dot status-dot--sdt"></div>
 								<span>SDT: ${severityCounts.get("4") || 0}</span>
 							</div>
 						</div>
-						<div style="border-top: 1px solid #eee; padding-top: 12px;">
-							<div style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">${mapSourceType.replace(/^./, char => char.toUpperCase())} (${count})</div>
-							<div style="display: grid; gap: 4px;">
+						<div class="cluster-devices-section">
+							<div class="cluster-devices-title">${mapSourceType.replace(/^./, char => char.toUpperCase())} (${count})</div>
+							<div class="cluster-devices-list">
 								${deviceDetails.map(device => buildClusterDeviceRowHtml(device)).join('')}
 							</div>
 						</div>
@@ -5503,6 +5717,22 @@ if (window.RProfiler) {
 					offset: 50
 				});
 				clusterInfoWindow.open(map);
+				// Attach click listener to zoom button after info window renders (CSP compliance)
+				requestAnimationFrame(() => {
+					if (clusterInfoWindow && clusterInfoWindow.div) {
+						const zoomBtn = clusterInfoWindow.div.querySelector('.cluster-zoom-btn');
+						if (zoomBtn) {
+							zoomBtn.addEventListener('click', function() {
+								fitClusterBounds(
+									parseFloat(this.dataset.swLat),
+									parseFloat(this.dataset.swLng),
+									parseFloat(this.dataset.neLat),
+									parseFloat(this.dataset.neLng)
+								);
+							});
+						}
+					}
+				});
 			});
 
 			return marker;
