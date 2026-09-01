@@ -14,10 +14,14 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
 
 // ------------------------------------------------------------
-var version = "3.68 CDN";
+var version = "3.69 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.69</h3>
+	<ul>
+		<li>The loading indicator now shows geocoding progress (&quot;Geocoding x of y&quot;) when addresses are being resolved, so you can see the map is still working when many new locations need coordinates.</li>
+	</ul>
 	<h3>Version 3.68</h3>
 	<ul>
 		<li>Multiple Better Map Widgets on the same dashboard now share a single download of the widget's script and stylesheet, which speeds up loading a dashboard that contains several maps. Each full page refresh still pulls the currently published version.</li>
@@ -3421,10 +3425,7 @@ async function refreshGroupData(timedRefresh = false) {
 	if (totalGroups > 0 && offset == totalGroups) {
 		if (!isBetterMapInstanceActive() || refreshSignal.aborted) return;
 		// console.debug('Total groups processed: ' + totalGroups);
-		// Reset our progress indicator...
-		_dom.refreshStatusArea.innerHTML = "";
-		_dom.refreshStatusArea.style.display = "none";
-		// Re-enable the toolbar fields...
+		// Re-enable the toolbar fields (but keep status area visible for geocoding progress)...
 		_dom.mapOptionsArea.classList.remove("disabled");
 		if (_dom.weatherRefreshButton) {
 			_dom.weatherRefreshButton.classList.remove("disabled");
@@ -3435,6 +3436,25 @@ async function refreshGroupData(timedRefresh = false) {
 		const parser = new DOMParser();
 
 		let itemsProcessed = 0;
+		// Track geocoding progress for status display...
+		let geocodesToDo = 0;
+		let geocodesDone = 0;
+
+		// Function to update the status area with geocoding progress...
+		function updateGeocodingStatus() {
+			if (geocodesToDo > 0 && geocodesDone < geocodesToDo) {
+				_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Geocoding " + (geocodesDone + 1) + " of " + geocodesToDo;
+				_dom.refreshStatusArea.style.display = "flex";
+			}
+		}
+
+		// Function to mark a geocode as complete and update status...
+		function geocodeComplete() {
+			geocodesDone++;
+			if (geocodesDone < geocodesToDo) {
+				updateGeocodingStatus();
+			}
+		}
 		// onRefreshComplete tears down and rebuilds clustering and refits the map, so it has to run
 		// exactly once per pass. The count below is compared with >= rather than == because the
 		// geocoder failure path lowers totalGroups from async callbacks, so an exact match can be
@@ -3553,6 +3573,10 @@ async function refreshGroupData(timedRefresh = false) {
 			map.setTilt(mapTilt);
 			map.setHeading(mapHeading);
 
+			// Hide the status area now that all items are processed...
+			_dom.refreshStatusArea.innerHTML = "";
+			_dom.refreshStatusArea.style.display = "none";
+
 			_currentRefreshController = null;
 		}
 
@@ -3659,7 +3683,10 @@ async function refreshGroupData(timedRefresh = false) {
 							plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, address);
 						} else {
 							// Attempt to geocode the address...
+							geocodesToDo++;
+							updateGeocodingStatus();
 							enqueueGeocode(geocoder, {'address': address}, function(results, status) {
+								geocodeComplete();
 								if (status == 'OK') {
 									// Grab the longitude/latitude from the results...
 									let geocodedLocation = results[0].geometry.location;
