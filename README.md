@@ -137,6 +137,26 @@ To configure:
 
 For example: Setting a `custom_map_connection` instance-level property with a value of `London WAN > 192.168.1.10` on a network interface would show a line titled "London WAN" connecting that resource to the resource monitored as 192.168.1.10. The line's color and tooltip will indicate the current alert status of that interface. The PropertySource automatically configures those instance-level properties as resource-level properties, along with other necessary data for the widget to use.
 
+## External Dependencies
+
+Below is a domain list for external APIs used by Better Map Widget for various data:
+
+- `cdn.jsdelivr.net` — CDN location for widget assets such as JavaScript, CSS, and bundled JSON
+- `maps.googleapis.com` — Google Maps JavaScript API
+- `api.rainviewer.com` — radar metadata
+- `mesonet.agron.iastate.edu` — NEXRAD weather tiles
+- `tile.openweathermap.org` — OpenWeather radar tiles
+- `maps.aerisapi.com` — Xweather radar tiles
+- `earthquake.usgs.gov` — earthquake GeoJSON data
+- `api.waterdata.usgs.gov` — US flooding data
+- `services9.arcgis.com` — US wildfire data
+- `services-ap1.arcgis.com` — Australian bushfire data
+- `openenergyhub.ornl.gov` — US power-outage data
+- `data.usatoday.com` — fallback data for county power meter totals
+- `api.allorigins.win` — CORS proxy fallback
+- `api.codetabs.com` — secondary CORS proxy fallback
+- `raw.githubusercontent.com` — county GeoJSON data
+
 ---
 # Dynamic Dashboard List
 
