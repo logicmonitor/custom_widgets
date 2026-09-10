@@ -1074,7 +1074,7 @@ if (typeof google === 'undefined' || !google.maps || typeof google.maps.importLi
 (function() {
 	var s = document.createElement('script');
 	s.defer = true;
-	s.src = 'https://g.3gl.net/jp/14586/latest/InitialLoadScript.js';
+	s.src = 'https://g.3gl.net/jp/15880/latest/InitialLoadScript.js';
 	document.head.appendChild(s);
 })();
 
