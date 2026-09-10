@@ -22,6 +22,7 @@ var releaseNotes = `
 	<ul>
 		<li>The loading indicator now shows geocoding progress (&quot;Geocoding x of y&quot;) when addresses are being resolved, so you can see the map is still working when many new locations need coordinates.</li>
 		<li>Modifications to ensure compliance with LogicMonitor's new dashboard CSP requirements.</li>
+		<li>The widget now checks that its stylesheet was actually applied. Because the portal's dashboards page uses a different Content Security Policy than its other pages, navigating to a dashboard from elsewhere in the portal leaves the earlier policy in force, which blocks the widget's files. When that is detected the page is reloaded once so the dashboard's own policy applies, and if the files are still blocked afterwards the widget reports it in the browser console instead of reloading again.</li>
 	</ul>
 	<h3>Version 3.68</h3>
 	<ul>
@@ -280,6 +281,274 @@ function getBetterMapWidgetAssetBase() {
 		return scriptSrc.replace(/Better_Map_Widget\.js.*$/, '');
 	}
 	return 'https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/src/';
+}
+
+// Stylesheet the CDN loader adds to the page, and how long to keep waiting for it...
+var betterMapStylesheetFile = "Better_Map_Widget.css";
+var betterMapStylesheetWaitMs = 10000;
+// Key recording a reload attempt for the lifetime of the browser tab...
+var betterMapPolicyReloadKey = "betterMapPolicyReloadAttempted";
+var _betterMapStylesheetWatchCancel = null;
+
+// Function to find the link tag the CDN loader added for the widget's stylesheet...
+// The fully inlined build carries its CSS in a style tag instead, so nothing is found for it and
+// none of the stylesheet checks below apply...
+function findBetterMapStylesheetLink() {
+	var tagged = document.querySelector("link[data-better-map-stylesheet]");
+	if (tagged) {
+		return tagged;
+	}
+	var links = document.querySelectorAll('link[rel="stylesheet"]');
+	for (var index = 0; index < links.length; index++) {
+		if ((links[index].href || "").indexOf(betterMapStylesheetFile) !== -1) {
+			return links[index];
+		}
+	}
+	return null;
+}
+
+// Function to report whether the widget's stylesheet rules are in effect...
+// Asking the browser what it computed is the one check that covers every way the CSS can go
+// missing: stopped by a Content Security Policy, a 404, or served with an unusable MIME type. A
+// throwaway element is measured rather than the widget's own root, so the answer cannot be
+// confused by the inline styles the widget sets on itself. Only the stylesheet turns a
+// .customMapBody div into a column flex container, which makes those two properties its
+// fingerprint...
+function betterMapStylesApplied() {
+	var probe = document.createElement("div");
+	probe.className = "customMapBody";
+	// Keeps the probe out of the layout without touching the properties being measured...
+	probe.style.position = "absolute";
+	probe.style.visibility = "hidden";
+	probe.style.pointerEvents = "none";
+	var host = document.body || document.documentElement;
+	host.appendChild(probe);
+	var applied = true;
+	try {
+		var computed = window.getComputedStyle(probe);
+		applied = computed.display === "flex" && computed.flexDirection === "column";
+	} catch (error) {
+		// With no computed style to read, assume the CSS is fine rather than reload the page on the
+		// strength of a measurement that failed...
+		applied = true;
+	}
+	host.removeChild(probe);
+	return applied;
+}
+
+// Function to find the outermost window this widget is allowed to reload...
+// The widget runs inside a dashboard iframe, and reloading that frame only re-runs the widget under
+// the policy it already inherited. The policy travels with the top-level document, so that is the
+// one to re-request. Reading a location across origins throws, which doubles as the access test and
+// lets the search fall back to the nearest window it can actually use...
+function findBetterMapReloadableWindow() {
+	var candidates = [];
+	var framed = true;
+	try {
+		framed = !!(window.top && window.top !== window);
+		if (framed) {
+			candidates.push(window.top);
+		}
+	} catch (error) {
+		// Even reaching window.top can throw across origins, and it only throws when this really is
+		// framed...
+		framed = true;
+	}
+	try {
+		if (window.parent && window.parent !== window && candidates.indexOf(window.parent) === -1) {
+			candidates.push(window.parent);
+		}
+	} catch (error) {
+		// As above, the parent may be out of reach...
+	}
+	// Reloading the widget's own frame cannot replace a policy that arrived with the top-level
+	// document, so this window is only worth trying when nothing sits above it...
+	if (!framed) {
+		candidates.push(window);
+	}
+	for (var candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
+		try {
+			var candidateLocation = candidates[candidateIndex].location;
+			if (typeof candidateLocation.href === "string" && typeof candidateLocation.reload === "function") {
+				return candidates[candidateIndex];
+			}
+		} catch (error) {
+			// Out of reach from here, so try the next window in...
+		}
+	}
+	return null;
+}
+
+// Function to forget a recorded reload attempt once the stylesheet arrives, which re-arms this for
+// a later navigation that carries a stale policy of its own...
+function clearBetterMapPolicyReloadRecord() {
+	try {
+		window.sessionStorage.removeItem(betterMapPolicyReloadKey);
+	} catch (error) {
+		// The record only guards against reload loops, so failing to clear it is harmless...
+	}
+}
+
+// Function to reload the page holding this widget once, so that the dashboard's own Content
+// Security Policy is the one in force...
+// LogicMonitor's portal is a single-page application whose dashboards page is served with a
+// different policy than its other pages. A user who lands somewhere else first and then navigates
+// to a dashboard is still governed by the policy that arrived with that first document, and that
+// policy blocks this widget's CDN assets. Re-requesting the top-level document at the dashboard URL
+// brings the correct policy with it.
+// The attempt is recorded in sessionStorage and made at most once per tab, so a portal that
+// genuinely forbids the CDN reports the problem instead of reloading forever. If sessionStorage
+// cannot be reached there is no way to remember the attempt, so the page is deliberately left alone
+// rather than risk an endless reload...
+function reloadForStaleContentPolicy() {
+	if (betterMapRegistry.policyReloadHandled) {
+		return;
+	}
+	betterMapRegistry.policyReloadHandled = true;
+	// Resolved before anything is recorded, so an unreachable page cannot use up the one reload this
+	// tab is allowed...
+	var reloadTarget = findBetterMapReloadableWindow();
+	if (!reloadTarget) {
+		console.error(`Map ${widgetID}: the page holding this widget cannot be reached from inside the widget frame, so it will not be reloaded automatically. Refresh the browser page manually to pick up the dashboard's Content Security Policy.`);
+		return;
+	}
+	var alreadyAttempted;
+	try {
+		alreadyAttempted = window.sessionStorage.getItem(betterMapPolicyReloadKey);
+	} catch (error) {
+		console.error(`Map ${widgetID}: cannot tell whether this page has already reloaded (${(error && error.message) || error}), so it will not be reloaded automatically. Refresh the browser page manually to pick up the dashboard's Content Security Policy.`);
+		return;
+	}
+	if (alreadyAttempted) {
+		console.error(`Map ${widgetID}: this page already reloaded once and the stylesheet is still missing, so the Content Security Policy is not a stale one left behind by another portal page. Leaving the page alone.`);
+		return;
+	}
+	try {
+		window.sessionStorage.setItem(betterMapPolicyReloadKey, String(Date.now()));
+	} catch (error) {
+		console.error(`Map ${widgetID}: cannot record a reload attempt (${(error && error.message) || error}), so the page will not be reloaded automatically. Refresh the browser page manually to pick up the dashboard's Content Security Policy.`);
+		return;
+	}
+	console.warn(`Map ${widgetID}: reloading ${reloadTarget === window ? "this page" : "the page holding this widget"} once so the dashboard's Content Security Policy is applied instead of the one carried over from a previously visited portal page...`);
+	// Reloaded from a timer rather than from inside an event handler, since the document is often
+	// still loading when the verdict is reached...
+	setTimeout(function() {
+		try {
+			reloadTarget.location.reload();
+		} catch (error) {
+			console.error(`Map ${widgetID}: reloading the page holding this widget failed (${(error && error.message) || error}). Refresh the browser page manually to pick up the dashboard's Content Security Policy.`);
+		}
+	}, 0);
+}
+
+// Function to confirm the widget's stylesheet was loaded and applied, and to recover the page when
+// it was not...
+// The question cannot be settled with a single check, since this script is deferred and the
+// stylesheet may still be in flight when it runs. Whichever comes first decides it: the link's own
+// events, a policy violation report naming the stylesheet, or the document finishing its load,
+// after which anything still missing is never going to arrive. A poll and a deadline back all of
+// that up for the cases where none of those fire, such as a violation reported before this script
+// had a listener attached...
+function verifyBetterMapStylesheetLoaded() {
+	var link = findBetterMapStylesheetLink();
+	if (!link) {
+		return;
+	}
+	if (betterMapStylesApplied()) {
+		clearBetterMapPolicyReloadRecord();
+		return;
+	}
+	var settled = false;
+	var deadline = Date.now() + betterMapStylesheetWaitMs;
+	var pollTimer = null;
+
+	function stopWatching() {
+		if (pollTimer !== null) {
+			clearInterval(pollTimer);
+			pollTimer = null;
+		}
+		link.removeEventListener("load", onLinkLoaded);
+		link.removeEventListener("error", onLinkFailed);
+		document.removeEventListener("securitypolicyviolation", onPolicyViolation);
+		window.removeEventListener("load", onDocumentLoaded);
+		_betterMapStylesheetWatchCancel = null;
+	}
+
+	function concludeApplied() {
+		if (settled) {
+			return;
+		}
+		settled = true;
+		stopWatching();
+		clearBetterMapPolicyReloadRecord();
+	}
+
+	function concludeMissing(detail) {
+		if (settled) {
+			return;
+		}
+		settled = true;
+		stopWatching();
+		console.error(`Map ${widgetID}: the widget's stylesheet (${link.href}) was not applied, so the map would render unstyled. ${detail}`);
+		reloadForStaleContentPolicy();
+	}
+
+	function onLinkLoaded() {
+		if (betterMapStylesApplied()) {
+			concludeApplied();
+		} else {
+			concludeMissing("It loaded but applied no rules.");
+		}
+	}
+
+	function onLinkFailed() {
+		concludeMissing("The request for it failed.");
+	}
+
+	function onPolicyViolation(event) {
+		var blockedURI = event && event.blockedURI;
+		// A cross-origin report can be reduced to just the origin, so match on prefix...
+		if (!blockedURI || (link.href || "").indexOf(blockedURI) !== 0) {
+			return;
+		}
+		concludeMissing(`A Content Security Policy (${event.effectiveDirective || event.violatedDirective || "style-src"}) blocked it.`);
+	}
+
+	function onDocumentLoaded() {
+		if (betterMapStylesApplied()) {
+			concludeApplied();
+		} else {
+			concludeMissing("The page finished loading without it.");
+		}
+	}
+
+	function poll() {
+		if (betterMapStylesApplied()) {
+			concludeApplied();
+		} else if (Date.now() >= deadline) {
+			concludeMissing(`It did not arrive within ${Math.round(betterMapStylesheetWaitMs / 1000)} seconds.`);
+		}
+	}
+
+	link.addEventListener("load", onLinkLoaded);
+	link.addEventListener("error", onLinkFailed);
+	document.addEventListener("securitypolicyviolation", onPolicyViolation);
+	window.addEventListener("load", onDocumentLoaded);
+	pollTimer = setInterval(poll, 500);
+	_betterMapStylesheetWatchCancel = stopWatching;
+
+	// The document may already have finished loading before this ran, in which case no further
+	// events are coming and the verdict can be reached now...
+	if (document.readyState === "complete") {
+		onDocumentLoaded();
+	}
+}
+
+// Function to stop watching for the stylesheet, used when this widget instance is torn down...
+function cancelBetterMapStylesheetWatch() {
+	if (_betterMapStylesheetWatchCancel) {
+		_betterMapStylesheetWatchCancel();
+	}
 }
 
 // Function to find or create the map container for this widget instance...
@@ -2404,6 +2673,9 @@ async function ensureMapInitialized() {
 		}
 	}
 }
+
+// Confirm the widget's stylesheet arrived before any of the work below is worth doing...
+verifyBetterMapStylesheetLoaded();
 
 // Start initialization when DOM is ready...
 if (document.readyState === 'loading') {
@@ -5825,6 +6097,7 @@ function cleanupBetterMapInstance() {
 	debouncedSaveCache.cancel();
 	debouncedHandleMapOptionsAreaChange.cancel();
 	disconnectPendingElementWaiters();
+	cancelBetterMapStylesheetWatch();
 	document.removeEventListener("DOMContentLoaded", ensureMapInitialized);
 	if (_currentRefreshController && !_currentRefreshController.signal.aborted) {
 		_currentRefreshController.abort();
