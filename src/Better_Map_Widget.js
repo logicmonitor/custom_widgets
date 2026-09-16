@@ -14,10 +14,14 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
 
 // ------------------------------------------------------------
-var version = "3.70 CDN";
+var version = "3.71 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.71</h3>
+	<ul>
+		<li>If all items in a cluster are at the same location then the cluster's popup now displays a message to that fact explaining why the cluster cannot be zoomed in.</li>
+	</ul>
 	<h3>Version 3.70</h3>
 	<ul>
 		<li>The loading indicator now shows geocoding progress (&quot;Geocoding x of y&quot;) when addresses are being resolved, so you can see the map is still working when many new locations need coordinates.</li>
@@ -4698,18 +4702,26 @@ var renderer = {
 				clusterBounds.extend(device.position);
 			});
 
-			return `
-				<div class="mapInfoPopupWindow">
-					<div class="cluster-header">
-						<div class="cluster-title">Cluster Summary</div>
-							<button class="cluster-zoom-btn" data-sw-lat="${clusterBounds.getSouthWest().lat()}" data-sw-lng="${clusterBounds.getSouthWest().lng()}" data-ne-lat="${clusterBounds.getNorthEast().lat()}" data-ne-lng="${clusterBounds.getNorthEast().lng()}">
+			// When every clustered item sits on the exact same point the bounds collapse to that point,
+			// so zooming in can never break the cluster apart. Flag it so the popup can disable the zoom
+			// button and call out why the cluster will not split...
+			const allSameLocation = clusterBounds.getSouthWest().equals(clusterBounds.getNorthEast());
+
+			const zoomBtnInner = allSameLocation ? `All have same location` : `
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
 								<circle cx="11" cy="11" r="8"/>
 								<line x1="21" y1="21" x2="16.65" y2="16.65"/>
 								<line x1="11" y1="8" x2="11" y2="14"/>
 								<line x1="8" y1="11" x2="14" y2="11"/>
 							</svg>
-							Zoom into Cluster
+							Zoom into Cluster`;
+
+			return `
+				<div class="mapInfoPopupWindow">
+					<div class="cluster-header">
+						<div class="cluster-title">Cluster Summary</div>
+							<button class="cluster-zoom-btn"${allSameLocation ? ' disabled' : ''} data-sw-lat="${clusterBounds.getSouthWest().lat()}" data-sw-lng="${clusterBounds.getSouthWest().lng()}" data-ne-lat="${clusterBounds.getNorthEast().lat()}" data-ne-lng="${clusterBounds.getNorthEast().lng()}">
+							${zoomBtnInner}
 						</button>
 					</div>
 					<div class="cluster-stats">

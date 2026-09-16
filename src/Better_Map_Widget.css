@@ -824,8 +824,13 @@ body {
 	transition: background 0.2s;
 }
 
-.cluster-zoom-btn:hover {
+.cluster-zoom-btn:hover:not(:disabled) {
 	background: #1557b0;
+}
+
+.cluster-zoom-btn:disabled {
+	background: #9aa0a6;
+	cursor: default;
 }
 
 .cluster-stats {
