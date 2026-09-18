@@ -806,12 +806,12 @@ betterMapRoot.innerHTML = `<!-- Create our options bar above the map... -->
 						<span id="additionalOverlayOptions">
 							<span data-title="Additional layer options to show on the map when weather is enabled">
 								<select id="otherWeatherOverlays" data-bmw-action="enableWeather" data-bmw-event="change">
-									<option value="none">None</option>
-									<option value="earthquakes" selected>Earthquakes (mag 6+, 7d)</option>
-									<option value="us-flooding">US Flooding</option>
-									<option value="us-poweroutages">US Power Outages</option>
-									<option value="wildfires">Wildfires</option>
-									<option value="hurricanes">Hurricanes</option>
+								<option value="none">None</option>
+								<option value="earthquakes" selected>Earthquakes (mag 6+, 7d)</option>
+								<option value="hurricanes">Hurricanes</option>
+								<option value="us-flooding">US Flooding</option>
+								<option value="us-poweroutages">US Power Outages</option>
+								<option value="wildfires">Wildfires</option>
 								</select>
 							</span>
 						</span>
@@ -4992,12 +4992,22 @@ function hurricaneAddGeometry(geometry, group, kind) {
 	}
 }
 
-const HURRICANE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="40" height="40" fill="#d62d24" role="img" aria-label="Tropical cyclone"><path d="M128 272C128 168.4 203.7 82.5 302.9 66.6C312 65.2 320 72.6 320 81.9L320 145.2C320 153.6 326.5 160.5 334.7 161.7C435 176.6 512 263 512 367.4C512 471 436.3 556.9 337.1 572.8C327.9 574.3 320 566.9 320 557.6L320 494.3C320 485.9 313.5 479 305.3 477.7C205 462.9 128 376.4 128 272zM416 320C416 267 373 224 320 224C267 224 224 267 224 320C224 373 267 416 320 416C373 416 416 373 416 320zM320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320C288 302.3 302.3 288 320 288z"/></svg>';
+const HURRICANE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="30" height="30" fill="#d62d24" role="img" aria-label="Tropical cyclone"><path d="M128 272C128 168.4 203.7 82.5 302.9 66.6C312 65.2 320 72.6 320 81.9L320 145.2C320 153.6 326.5 160.5 334.7 161.7C435 176.6 512 263 512 367.4C512 471 436.3 556.9 337.1 572.8C327.9 574.3 320 566.9 320 557.6L320 494.3C320 485.9 313.5 479 305.3 477.7C205 462.9 128 376.4 128 272zM416 320C416 267 373 224 320 224C267 224 224 267 224 320C224 373 267 416 320 416C373 416 416 373 416 320zM320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320C288 302.3 302.3 288 320 288z"/></svg>';
 
-function hurricaneMarkerContent() {
+function hurricaneIconSvg(color) {
+	return HURRICANE_ICON_SVG.replace('fill="#d62d24"', `fill="${color || "#d62d24"}"`);
+}
+
+function hurricaneIsStale(properties) {
+	const toDate = properties && (properties.todate || properties.to_date || properties.enddate || properties.end_date);
+	const timestamp = Date.parse(toDate || "");
+	return Number.isFinite(timestamp) && Date.now() - timestamp > 24 * 60 * 60 * 1000;
+}
+
+function hurricaneMarkerContent(color) {
 	const content = document.createElement("div");
 	content.style.cssText = "display:flex;align-items:center;justify-content:center;";
-	content.innerHTML = HURRICANE_ICON_SVG;
+	content.innerHTML = hurricaneIconSvg(color);
 	content.title = "Tropical cyclone";
 	return content;
 }
@@ -5006,6 +5016,12 @@ function hurricaneSeverityText(properties) {
 	const severity = properties && properties.severitydata;
 	if (severity && typeof severity === "object" && severity.severitytext) return String(severity.severitytext);
 	return String((properties && (properties.severitytext || properties.severity_text)) || "");
+}
+
+function hurricaneTrackPointTooltip(properties) {
+	const label = String((properties && (properties.polygonlabel || properties.polygon_label)) || "").trim();
+	const severity = hurricaneSeverityText(properties);
+	return [label, severity].filter(Boolean).join("\n") || "Track point";
 }
 
 function hurricaneTrackPointContent(severityText, color) {
@@ -5024,8 +5040,8 @@ function hurricaneDisplayName(properties) {
 function hurricaneInfoHtml(storm) {
 	const properties = storm.properties || {};
 	const severity = properties.severitydata && typeof properties.severitydata === "object" ? properties.severitydata.severitytext : "";
-	const infoIcon = HURRICANE_ICON_SVG.replace('width="40" height="40"', 'width="100" height="100"');
-	return `<div style="position:relative;line-height:1.35;color:#222;min-width:300px;max-width:360px;padding:4px 108px 4px 0;"><div style="position:absolute;top:0;right:0;width:100px;height:100px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(hurricaneDisplayName(properties))}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`;
+	const infoIcon = hurricaneIconSvg(hurricaneIsStale(properties) ? "#888888d4" : "#d62d24").replace('width="30" height="30"', 'width="100" height="100"');
+	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 108px 4px 0;"><div style="position:absolute;top:0;right:0;width:100px;height:100px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(hurricaneDisplayName(properties))}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`;
 }
 
 function plotHurricanes(geojson) {
@@ -5049,7 +5065,7 @@ function plotHurricanes(geojson) {
 		if (!point || !point.feature.geometry || point.feature.geometry.coordinates.length < 2) return;
 		const position = { lat: Number(point.feature.geometry.coordinates[1]), lng: Number(point.feature.geometry.coordinates[0]) };
 		if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
-		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: hurricaneMarkerContent(), anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), zIndex: 1000 });
+		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: hurricaneMarkerContent(hurricaneIsStale(storm.properties) ? "#888888d4" : "#d62d24"), anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), zIndex: 1000 });
 		marker.addListener("gmp-click", () => {
 			hurricanePathOverlays.forEach(overlay => overlay.setMap(null));
 			hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
@@ -5065,13 +5081,13 @@ function plotHurricanes(geojson) {
 			const coordinates = trackPoint.feature.geometry.coordinates;
 			const trackPosition = { lat: Number(coordinates[1]), lng: Number(coordinates[0]) };
 			if (!Number.isFinite(trackPosition.lat) || !Number.isFinite(trackPosition.lng)) return;
-			const severityText = hurricaneSeverityText(trackPoint.feature.properties || {});
-			const trackColor = String(trackPoint.feature.properties && trackPoint.feature.properties.actual || "").toLowerCase() === "true" ? "#555" : "#d32f2f";
+			const severityText = hurricaneTrackPointTooltip(trackPoint.feature.properties || {});
+			const trackColor = String(trackPoint.feature.properties && trackPoint.feature.properties.actual || "").toLowerCase() === "true" ? "rgb(130 130 130)" : "#d32f2f";
 			const trackMarker = new google.maps.marker.AdvancedMarkerElement({ map: null, position: trackPosition, content: hurricaneTrackPointContent(severityText, trackColor), anchorLeft: "-50%", anchorTop: "-50%", title: severityText || "Track point", zIndex: 999 });
 			storm.trackPointMarkers.push(trackMarker);
 			hurricaneTrackPointMarkers.push(trackMarker);
 		});
-		storm.historical.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: "#555", strokeOpacity: .85, strokeWeight: 2 })));
+		storm.historical.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: "rgb(130 130 130)", strokeOpacity: .85, strokeWeight: 2 })));
 		storm.forecast.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: "#d32f2f", strokeOpacity: .95, strokeWeight: 2, icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 2 }, offset: "0", repeat: "12px" }] })));
 		storm.cones.forEach(paths => storm.pathOverlays.push(new google.maps.Polygon({ map: null, paths, fillColor: "#f6b44b", fillOpacity: .24, strokeColor: "#d98b1e", strokeOpacity: .7, strokeWeight: 1 })));
 		hurricanePathOverlays.push(...storm.pathOverlays);
@@ -5139,10 +5155,13 @@ async function loadHurricanesFromGdacsApi() {
 		const episodeId = gdacsValue(properties, ["episodeid", "episode_id"]);
 		if (eventType !== "TC" || !isCurrent || !eventId) return;
 		const key = `${eventId}/${episodeId || ""}`;
-		if (!eventGroups.has(key)) eventGroups.set(key, { item: null, geometries: [] });
+		if (!eventGroups.has(key)) eventGroups.set(key, { item: null, geometries: [], pointMetadata: [] });
 		const group = eventGroups.get(key);
 		const polygonLabel = String(gdacsValue(properties, ["polygonlabel", "polygon_label"]));
 		const polygonClass = String(gdacsValue(properties, ["class"]));
+		if (/^Point_Polygon_Point_/i.test(polygonClass) && Array.isArray(item.bbox) && item.bbox.length >= 4) {
+			group.pointMetadata.push({ coordinates: [(Number(item.bbox[0]) + Number(item.bbox[2])) / 2, (Number(item.bbox[1]) + Number(item.bbox[3])) / 2], polygonlabel: polygonLabel, severitydata: properties.severitydata });
+		}
 		if (item.geometry && ["Polygon", "MultiPolygon"].includes(item.geometry.type) && (/uncertainty\s+cones/i.test(polygonLabel) || /poly_cones/i.test(polygonClass))) {
 			group.geometries.push(item.geometry);
 		}
@@ -5150,6 +5169,7 @@ async function loadHurricanesFromGdacsApi() {
 	});
 	const eventItems = Array.from(eventGroups.values()).filter(group => group.item).map(group => {
 		group.item._gdacsGeometries = group.geometries;
+		group.item._gdacsPointMetadata = group.pointMetadata;
 		return group.item;
 	});
 	console.debug(`Map ${widgetID}: GDACS map returned ${allMapFeatures.length} feature(s), ${eventItems.length} active tropical cyclone(s)`);
@@ -5175,7 +5195,7 @@ async function loadHurricanesFromGdacsApi() {
 			const timelineResponse = await fetch(timelineUrl, { cache: "no-store" });
 			if (!timelineResponse.ok) throw new Error(`timeline HTTP ${timelineResponse.status}`);
 			const timelineItems = gdacsTimelineItems(await timelineResponse.json());
-			return { properties: Object.assign({}, properties, { eventid: eventId, episodeid: episodeId }), timelineItems, geometries: item._gdacsGeometries || [], anchorGeometry: item.geometry };
+			return { properties: Object.assign({}, properties, { eventid: eventId, episodeid: episodeId }), timelineItems, geometries: item._gdacsGeometries || [], pointMetadata: item._gdacsPointMetadata || [], anchorGeometry: item.geometry };
 		} catch (error) {
 			console.warn(`Map ${widgetID}: Failed to load GDACS timeline for ${eventId}:`, error.message);
 			return null;
@@ -5192,6 +5212,16 @@ async function loadHurricanesFromGdacsApi() {
 			const coordinates = gdacsTimelineCoordinates(item.coordinates || item.coordinate || item.position);
 			if (!coordinates || !coordinates.every(Number.isFinite)) return;
 			const props = Object.assign({}, storm.properties, item);
+			delete props.polygonlabel;
+			delete props.polygon_label;
+			delete props.severitydata;
+			let nearestMetadata = null;
+			let nearestDistance = Infinity;
+			storm.pointMetadata.forEach(metadata => {
+				const distance = Math.hypot(metadata.coordinates[0] - coordinates[0], metadata.coordinates[1] - coordinates[1]);
+				if (distance < nearestDistance) { nearestDistance = distance; nearestMetadata = metadata; }
+			});
+			if (nearestMetadata && nearestDistance < 0.25) Object.assign(props, { polygonlabel: nearestMetadata.polygonlabel, severitydata: nearestMetadata.severitydata });
 			const actual = String(item.actual || "").toLowerCase() === "true";
 			const current = String(item.current || "").toLowerCase() === "true";
 			track.push({ coordinates, actual, current });
