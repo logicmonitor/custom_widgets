@@ -14,13 +14,14 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
 
 // ------------------------------------------------------------
-var version = "3.71 CDN";
+var version = "3.71a CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-	<h3>Version 3.71</h3>
+	<h3>Version 3.71a</h3>
 	<ul>
 		<li>If all items in a cluster are at the same location then the cluster's popup now displays a message to that fact explaining why the cluster cannot be zoomed in.</li>
+		<li>(a) Changed the clustering algorithm to keep clusters together at all zoom levels so items with the same coordinates won't overlap each other.</li>
 	</ul>
 	<h3>Version 3.70</h3>
 	<ul>
@@ -1798,6 +1799,9 @@ var defaultMapTilt = mapTilt;
 var defaultMapHeading = mapHeading;
 // Zoom the map opens at, and what resetZoom falls back to when the bounds have no area to fit...
 var defaultMapZoom = 3;
+// Deepest zoom Google Maps supports. Clustering is capped at this so that pins sharing a coordinate
+// stay grouped in a donut instead of splitting into markers stacked on top of each other...
+var googleMapsMaxZoom = 22;
 
 // SVG icon definitions for our different alert severities...
 var warningIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024" data-tooltip="Warning"><path fill="#f5ca1d" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M866.462 669.538l-275.692-433.231c-43.323-70.892-114.215-70.892-157.538 0l-275.692 433.231c-43.323 70.892-3.938 157.538 78.769 157.538h551.385c82.708 0 122.092-86.646 78.769-157.538v0 0z"></path> <path fill="#f5ca1d" d="M551.385 748.308h-78.769v-78.769h78.769v78.769zM551.385 630.154h-78.769v-275.692h78.769v275.692z"></path> </svg>';
@@ -3832,7 +3836,9 @@ async function refreshGroupData(timedRefresh = false) {
 						google.maps.event.clearInstanceListeners(clusterer);
 						clusterer.setMap(null);
 					}
-					const algorithm = new markerClusterer.SuperClusterAlgorithm({radius: 120});
+					// Without maxZoom the library stops clustering at zoom 16 and overlapping pins end up
+					// hidden behind each other...
+					const algorithm = new markerClusterer.SuperClusterAlgorithm({radius: 120, maxZoom: googleMapsMaxZoom});
 					clusterer = new markerClusterer.MarkerClusterer({
 						markers,
 						map,
@@ -4702,12 +4708,14 @@ var renderer = {
 				clusterBounds.extend(device.position);
 			});
 
-			// When every clustered item sits on the exact same point the bounds collapse to that point,
-			// so zooming in can never break the cluster apart. Flag it so the popup can disable the zoom
-			// button and call out why the cluster will not split...
+			// When every clustered item sits on the exact same point the bounds collapse to that point.
+			// Zooming in is still useful until street-ish detail, so only disable the button once the
+			// map is already at zoom 18 or closer...
 			const allSameLocation = clusterBounds.getSouthWest().equals(clusterBounds.getNorthEast());
+			const currentZoom = (map && map.getZoom && map.getZoom()) || 0;
+			const disableSameLocationZoom = allSameLocation && currentZoom >= 18;
 
-			const zoomBtnInner = allSameLocation ? `All have same location` : `
+			const zoomBtnInner = disableSameLocationZoom ? `All have same location` : `
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
 								<circle cx="11" cy="11" r="8"/>
 								<line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -4720,7 +4728,7 @@ var renderer = {
 				<div class="mapInfoPopupWindow">
 					<div class="cluster-header">
 						<div class="cluster-title">Cluster Summary</div>
-							<button class="cluster-zoom-btn"${allSameLocation ? ' disabled' : ''} data-sw-lat="${clusterBounds.getSouthWest().lat()}" data-sw-lng="${clusterBounds.getSouthWest().lng()}" data-ne-lat="${clusterBounds.getNorthEast().lat()}" data-ne-lng="${clusterBounds.getNorthEast().lng()}">
+							<button class="cluster-zoom-btn"${disableSameLocationZoom ? ' disabled' : ''} data-sw-lat="${clusterBounds.getSouthWest().lat()}" data-sw-lng="${clusterBounds.getSouthWest().lng()}" data-ne-lat="${clusterBounds.getNorthEast().lat()}" data-ne-lng="${clusterBounds.getNorthEast().lng()}">
 							${zoomBtnInner}
 						</button>
 					</div>
@@ -5951,10 +5959,18 @@ async function addWeatherLayer() {
 function fitClusterBounds(south, west, north, east) {
 	if (!isMapReady()) return;
 	closeAllInfoWindows();
-	map.fitBounds(new google.maps.LatLngBounds(
+	const clusterBounds = new google.maps.LatLngBounds(
 		new google.maps.LatLng(south, west),
 		new google.maps.LatLng(north, east)
-	), {
+	);
+	// A cluster of pins on the same point has no area, so fitBounds would zoom all the way to
+	// street level. Cap that case at zoom 18 so the user can still inspect the area...
+	if (clusterBounds.getSouthWest().equals(clusterBounds.getNorthEast())) {
+		map.setCenter(clusterBounds.getCenter());
+		map.setZoom(18);
+		return;
+	}
+	map.fitBounds(clusterBounds, {
 		top: 70,
 		right: 70,
 		bottom: 70,
