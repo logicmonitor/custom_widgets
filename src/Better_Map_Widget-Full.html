@@ -5936,7 +5936,7 @@ if (window.RProfiler) {
 			content.style.cssText = "display:flex;align-items:center;justify-content:center;";
 			content.innerHTML = hurricaneIconSvg(hurricaneIsStale(storm.properties) ? "#888888d4" : "#d62d24");
 			const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content, anchorLeft: "-50%", anchorTop: "-50%", title: String(storm.properties.name || storm.properties.title || "Tropical cyclone"), zIndex: 1000 });
-			marker.addListener("gmp-click", () => { hurricanePathOverlays.forEach(overlay => overlay.setMap(null)); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); storm.pathOverlays.forEach(overlay => overlay.setMap(map)); storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; }); closeAllInfoWindows(); const severity = storm.properties.severitydata && typeof storm.properties.severitydata === "object" ? storm.properties.severitydata.severitytext : ""; const infoIcon = hurricaneIconSvg(hurricaneIsStale(storm.properties) ? "#888888d4" : "#d62d24").replace('width="30" height="30"', 'width="100" height="100"'); overlayInfoWindow.setContent(`<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 108px 4px 0;"><div style="position:absolute;top:0;right:0;width:100px;height:100px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(storm.properties.name || storm.properties.title || "Tropical cyclone")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(storm.properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(storm.properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`); overlayInfoWindow.setPosition(position); overlayInfoWindow.open(map); });
+			marker.addListener("gmp-click", () => { hurricanePathOverlays.forEach(overlay => overlay.setMap(null)); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); storm.pathOverlays.forEach(overlay => overlay.setMap(map)); storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; }); closeAllInfoWindows(); const severity = storm.properties.severitydata && typeof storm.properties.severitydata === "object" ? storm.properties.severitydata.severitytext : ""; const infoIcon = hurricaneIconSvg(hurricaneIsStale(storm.properties) ? "#888888d4" : "#d62d24").replace('width="30" height="30"', 'width="100" height="100"'); overlayInfoWindow.setContent(`<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 108px 4px 0;"><div style="position:absolute;top:0;right:0;width:100px;height:100px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(storm.properties.name || storm.properties.title || "Tropical cyclone")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(storm.properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(storm.properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`); overlayInfoWindow.setPosition(position); overlayInfoWindow.open(map); if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px"; });
 			hurricaneMarkers.push(marker);
 			storm.points.filter(item => item !== point).forEach(trackPoint => {
 				const coordinates = trackPoint.feature.geometry.coordinates;
@@ -6022,6 +6022,14 @@ if (window.RProfiler) {
 			return group.item;
 		});
 		console.debug(`Map ${widgetID}: GDACS map returned ${allMapFeatures.length} feature(s), ${list.length} active tropical cyclone(s)`);
+		const initialFeatures = [];
+		list.forEach(item => {
+			const props = gdacsProperties(item);
+			if (item.geometry && item.geometry.type === "Point") initialFeatures.push({ type: "Feature", geometry: item.geometry, properties: Object.assign({}, props, { _current: true, _mapAnchor: true }) });
+			(item._gdacsGeometries || []).forEach(geometry => initialFeatures.push({ type: "Feature", geometry, properties: props }));
+		});
+		clearOverlayState();
+		plotHurricanes({ type: "FeatureCollection", features: initialFeatures });
 		const features = [];
 		await Promise.all(list.map(async item => {
 			const props = gdacsProperties(item);
@@ -6069,7 +6077,7 @@ if (window.RProfiler) {
 			} catch (error) { console.warn(`Map ${widgetID}: Failed to load GDACS timeline for ${eventId}:`, error.message); }
 		}));
 		console.debug(`Map ${widgetID}: GDACS produced ${features.length} hurricane feature(s)`);
-		plotHurricanes({ type: "FeatureCollection", features });
+		return { type: "FeatureCollection", features };
 	}
 
 	async function addWeatherLayer() {
@@ -6126,9 +6134,10 @@ if (window.RProfiler) {
 
 			// Look to see if we should add hurricanes into the map...
 			if (optionalMapType == "hurricanes") {
-				clearOverlayState();
 				try {
-					await loadHurricanesFromGdacsApi();
+					const hurricaneData = await loadHurricanesFromGdacsApi();
+					clearOverlayState();
+					plotHurricanes(hurricaneData);
 				} catch (error) { console.error(`Map ${widgetID}: Failed to fetch hurricane data:`, error); }
 			// Look to see if we should add wildfire into the map...
 			} else if (optionalMapType == "wildfires") {

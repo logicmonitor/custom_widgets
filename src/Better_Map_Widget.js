@@ -5075,6 +5075,7 @@ function plotHurricanes(geojson) {
 			overlayInfoWindow.setContent(hurricaneInfoHtml(storm));
 			overlayInfoWindow.setPosition(position);
 			overlayInfoWindow.open(map);
+			if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px";
 		});
 		hurricaneMarkers.push(marker);
 		storm.points.filter(item => item !== point).forEach(trackPoint => {
@@ -5173,6 +5174,14 @@ async function loadHurricanesFromGdacsApi() {
 		return group.item;
 	});
 	console.debug(`Map ${widgetID}: GDACS map returned ${allMapFeatures.length} feature(s), ${eventItems.length} active tropical cyclone(s)`);
+	const initialFeatures = [];
+	eventItems.forEach(item => {
+		const properties = gdacsStormProperties(item);
+		if (item.geometry && item.geometry.type === "Point") initialFeatures.push({ type: "Feature", geometry: item.geometry, properties: Object.assign({}, properties, { _current: true, _mapAnchor: true }) });
+		(item._gdacsGeometries || []).forEach(geometry => initialFeatures.push({ type: "Feature", geometry, properties }));
+	});
+	clearOverlayState();
+	plotHurricanes({ type: "FeatureCollection", features: initialFeatures });
 
 	const storms = await Promise.all(eventItems.map(async item => {
 		const properties = gdacsStormProperties(item);
@@ -5238,7 +5247,7 @@ async function loadHurricanesFromGdacsApi() {
 		});
 	});
 	console.debug(`Map ${widgetID}: GDACS produced ${features.length} hurricane feature(s)`);
-	plotHurricanes({ type: "FeatureCollection", features });
+	return { type: "FeatureCollection", features };
 }
 
 async function addWeatherLayer() {
@@ -5295,9 +5304,10 @@ async function addWeatherLayer() {
 
 		// Look to see if we should add hurricanes into the map...
 		if (optionalMapType == "hurricanes") {
-			clearOverlayState();
 			try {
-				await loadHurricanesFromGdacsApi();
+				const hurricaneData = await loadHurricanesFromGdacsApi();
+				clearOverlayState();
+				plotHurricanes(hurricaneData);
 			} catch (error) {
 				console.error(`Map ${widgetID}: Failed to fetch GDACS hurricane API data:`, error);
 			}
