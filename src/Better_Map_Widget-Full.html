@@ -3194,6 +3194,7 @@ if (window.RProfiler) {
 			hurricanePathOverlays.forEach(overlay => { try { overlay.setMap(null); } catch (error) {} });
 			hurricanePathOverlays = [];
 		}
+		hurricaneConeOverlays = [];
 	}
 
 	// Function to close all open InfoWindows...
@@ -3566,6 +3567,7 @@ if (window.RProfiler) {
 	let hurricaneMarkers = [];
 	let hurricaneTrackPointMarkers = [];
 	let hurricanePathOverlays = [];
+	let hurricaneConeOverlays = [];
 
 	// Function to apply the selected marker style to existing markers...
 	function applyMarkerStyleFromSelect() {
@@ -4076,6 +4078,7 @@ if (window.RProfiler) {
 
 		// Redraw polylines after zoom/pan/drag completes...
 		map.addListener("idle", () => schedulePolylineEndpointUpdate());
+		map.addListener("click", () => hideHurricaneTracks());
 
 		// Vector maps are nicer but sometimes don't load right away. Plus they're mainly useful if tilt controls are enabled, so use the normal raster map by default...
 		// if (showMapTiltControls) {
@@ -5906,7 +5909,10 @@ if (window.RProfiler) {
 
 	// Function to add weather & other optional overlays to the map...
 	const HURRICANE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="30" height="30" fill="#d62d24" role="img" aria-label="Tropical cyclone"><path d="M128 272C128 168.4 203.7 82.5 302.9 66.6C312 65.2 320 72.6 320 81.9L320 145.2C320 153.6 326.5 160.5 334.7 161.7C435 176.6 512 263 512 367.4C512 471 436.3 556.9 337.1 572.8C327.9 574.3 320 566.9 320 557.6L320 494.3C320 485.9 313.5 479 305.3 477.7C205 462.9 128 376.4 128 272zM416 320C416 267 373 224 320 224C267 224 224 267 224 320C224 373 267 416 320 416C373 416 416 373 416 320zM320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320C288 302.3 302.3 288 320 288z"/></svg>';
+	const HURRICANE_HISTORICAL_COLOR = "rgb(170 170 170)";
+	const HURRICANE_PROJECTED_COLOR = "rgb(239 108 100)";
 	function hurricaneIconSvg(color) { return HURRICANE_ICON_SVG.replace('fill="#d62d24"', `fill="${color || "#d62d24"}"`); }
+	function hideHurricaneTracks() { hurricanePathOverlays.forEach(overlay => overlay.setMap(null)); hurricaneConeOverlays.forEach(overlay => overlay.setMap(null)); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); hurricaneMarkers.forEach(marker => { if (marker.content) marker.content.style.filter = "none"; }); }
 
 	function plotHurricanes(geojson) {
 		const storms = new Map();
@@ -5915,7 +5921,7 @@ if (window.RProfiler) {
 			const props = feature.properties || {};
 			const idKey = Object.keys(props).find(key => /event.?id|episode.?id|cyclone.?id|storm.?id|alert.?id/i.test(key));
 			const id = String((idKey && props[idKey]) || feature.id || props.name || `storm-${index}`);
-			if (!storms.has(id)) storms.set(id, { properties: {}, points: [], historical: [], forecast: [], cones: [], pathOverlays: [], trackPointMarkers: [] });
+			if (!storms.has(id)) storms.set(id, { properties: {}, points: [], historical: [], forecast: [], cones: [], pathOverlays: [], coneOverlays: [], trackPointMarkers: [] });
 			const storm = storms.get(id);
 			storm.properties = Object.assign({}, storm.properties, props);
 			const text = JSON.stringify(props).toLowerCase();
@@ -5935,7 +5941,8 @@ if (window.RProfiler) {
 			content.style.cssText = "display:flex;align-items:center;justify-content:center;";
 			content.innerHTML = hurricaneIconSvg("#d62d24");
 			const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content, anchorLeft: "-50%", anchorTop: "-50%", title: String(storm.properties.name || storm.properties.title || "Tropical cyclone"), zIndex: 1000 });
-			marker.addListener("gmp-click", () => { hurricanePathOverlays.forEach(overlay => overlay.setMap(null)); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); storm.pathOverlays.forEach(overlay => overlay.setMap(map)); storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; }); closeAllInfoWindows(); const severity = storm.properties.severitydata && typeof storm.properties.severitydata === "object" ? storm.properties.severitydata.severitytext : ""; const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="100" height="100"'); overlayInfoWindow.setContent(`<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 108px 4px 0;"><div style="position:absolute;top:0;right:0;width:100px;height:100px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(storm.properties.name || storm.properties.title || "Tropical cyclone")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(storm.properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(storm.properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`); overlayInfoWindow.setPosition(position); overlayInfoWindow.open(map); if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px"; });
+			marker.addListener("gmp-click", () => { hurricanePathOverlays.forEach(overlay => overlay.setMap(null)); hurricaneConeOverlays.forEach(overlay => overlay.setMap(null)); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); storm.pathOverlays.forEach(overlay => overlay.setMap(map)); storm.coneOverlays.forEach(overlay => overlay.setMap(map)); storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; }); closeAllInfoWindows(); const severity = storm.properties.severitydata && typeof storm.properties.severitydata === "object" ? storm.properties.severitydata.severitytext : ""; const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="80" height="80"'); overlayInfoWindow.setContent(`<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(storm.properties.name || storm.properties.title || "Tropical cyclone")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(storm.properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(storm.properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`); overlayInfoWindow.setPosition(position); overlayInfoWindow.open(map); if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px"; });
+			marker.addListener("gmp-click", () => { hurricaneMarkers.forEach(otherMarker => { if (otherMarker.content) otherMarker.content.style.filter = "none"; }); if (marker.content) marker.content.style.filter = "drop-shadow(white 0px 0px 3px)"; });
 			hurricaneMarkers.push(marker);
 			storm.points.filter(item => item !== point).forEach(trackPoint => {
 				const coordinates = trackPoint.feature.geometry.coordinates;
@@ -5946,19 +5953,20 @@ if (window.RProfiler) {
 				const polygonLabel = String((trackPoint.feature.properties && (trackPoint.feature.properties.polygonlabel || trackPoint.feature.properties.polygon_label)) || "").trim();
 				const tooltipText = [polygonLabel, severityText].filter(Boolean).join("\n") || "Track point";
 				const content = document.createElement("div");
-				const trackColor = String(trackPoint.feature.properties && trackPoint.feature.properties.actual || "").toLowerCase() === "true" ? "rgb(130 130 130)" : "#d32f2f";
-				content.style.cssText = `width:8px;height:8px;border-radius:50%;background:${trackColor};border:1px solid white;box-shadow:0 1px 3px rgba(0,0,0,.65);`;
+				const trackColor = String(trackPoint.feature.properties && trackPoint.feature.properties.actual || "").toLowerCase() === "true" ? HURRICANE_HISTORICAL_COLOR : HURRICANE_PROJECTED_COLOR;
+				content.style.cssText = `width:8px;height:8px;border-radius:50%;background:${trackColor};border:1px solid white;`;
 				content.title = tooltipText;
 				content.setAttribute("aria-label", tooltipText);
 				const trackMarker = new google.maps.marker.AdvancedMarkerElement({ map: null, position: trackPosition, content, anchorLeft: "-50%", anchorTop: "-50%", title: tooltipText, zIndex: 999 });
 				storm.trackPointMarkers.push(trackMarker);
 				hurricaneTrackPointMarkers.push(trackMarker);
 			});
-			storm.historical.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: "rgb(130 130 130)", strokeOpacity: .85, strokeWeight: 2 })));
-			storm.forecast.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: "#d32f2f", strokeOpacity: .95, strokeWeight: 2 })));
-			storm.cones.forEach(paths => storm.pathOverlays.push(new google.maps.Polygon({ map: null, paths, fillColor: "#f6b44b", fillOpacity: .24, strokeColor: "#d98b1e", strokeOpacity: .7, strokeWeight: 1 })));
+			storm.historical.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: HURRICANE_HISTORICAL_COLOR, strokeOpacity: .9, strokeWeight: 2 })));
+			storm.forecast.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: HURRICANE_PROJECTED_COLOR, strokeOpacity: .95, strokeWeight: 2 })));
+			storm.cones.forEach(paths => { const cone = new google.maps.Polygon({ map: null, paths, fillColor: "#f6b44b", fillOpacity: .24, strokeColor: "#d98b1e", strokeOpacity: .7, strokeWeight: 1 }); storm.coneOverlays.push(cone); storm.pathOverlays.push(cone); hurricaneConeOverlays.push(cone); });
 			hurricanePathOverlays.push(...storm.pathOverlays);
 		});
+		console.debug(`Map ${widgetID}: Plotted ${hurricaneMarkers.length} active tropical cyclone(s) with ${hurricaneConeOverlays.length} uncertainty cone(s)`);
 	}
 
 	function gdacsItems(data) {
@@ -6014,7 +6022,7 @@ if (window.RProfiler) {
 			const polygonLabel = String(gdacsValue(props, ["polygonlabel", "polygon_label"]));
 			const polygonClass = String(gdacsValue(props, ["class"]));
 			if (/^Point_Polygon_Point_/i.test(polygonClass) && Array.isArray(item.bbox) && item.bbox.length >= 4) group.pointMetadata.push({ coordinates: [(Number(item.bbox[0]) + Number(item.bbox[2])) / 2, (Number(item.bbox[1]) + Number(item.bbox[3])) / 2], polygonlabel: polygonLabel, severitydata: props.severitydata });
-			if (item.geometry && ["Polygon", "MultiPolygon"].includes(item.geometry.type) && (/uncertainty\s+cones/i.test(polygonLabel) || /poly_cones/i.test(polygonClass))) group.geometries.push(item.geometry);
+			if (item.geometry && ["Polygon", "MultiPolygon"].includes(item.geometry.type) && (/uncertainty\s+cone/i.test(polygonLabel) || /poly[_\s-]*cones?/i.test(polygonClass))) group.geometries.push(item.geometry);
 			if (!group.item || item.geometry?.type === "Point") group.item = item;
 		});
 		const list = Array.from(eventGroups.values()).filter(group => group.item).map(group => {
