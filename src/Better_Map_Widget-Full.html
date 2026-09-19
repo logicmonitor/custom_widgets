@@ -3568,6 +3568,11 @@ if (window.RProfiler) {
 	let hurricaneTrackPointMarkers = [];
 	let hurricanePathOverlays = [];
 	let hurricaneConeOverlays = [];
+	let hurricaneTracksLoading = false;
+	let hurricaneSelectedStormId = null;
+	let hurricaneBaseFeatures = [];
+	let hurricaneTrackLoaders = new Map();
+	let hurricaneLoadedTrackFeatures = new Map();
 
 	// Function to apply the selected marker style to existing markers...
 	function applyMarkerStyleFromSelect() {
@@ -5912,10 +5917,13 @@ if (window.RProfiler) {
 	const HURRICANE_HISTORICAL_COLOR = "rgb(170 170 170)";
 	const HURRICANE_PROJECTED_COLOR = "rgb(239 108 100)";
 	function hurricaneIconSvg(color) { return HURRICANE_ICON_SVG.replace('fill="#d62d24"', `fill="${color || "#d62d24"}"`); }
-	function hideHurricaneTracks() { hurricanePathOverlays.forEach(overlay => overlay.setMap(null)); hurricaneConeOverlays.forEach(overlay => overlay.setMap(null)); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); hurricaneMarkers.forEach(marker => { if (marker.content) marker.content.style.filter = "none"; }); }
+	function hurricaneInfoHtml(storm) { const properties = storm.properties || {}; const severity = properties.severitydata && typeof properties.severitydata === "object" ? properties.severitydata.severitytext : ""; const loadingStatus = hurricaneTracksLoading ? `<div style="border-top:1px solid #eee;padding:6px 0;color:#666;font-style:italic;display:flex;align-items:center;gap:4px;">${loadingSpinner}<span>Getting storm tracks</span></div>` : ""; const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="80" height="80"'); return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(properties.name || properties.title || "Tropical cyclone")}</div>${loadingStatus}<div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`; }
+	function hideHurricaneTracks() { hurricaneSelectedStormId = null; hurricanePathOverlays.forEach(overlay => overlay.setMap(null)); hurricaneConeOverlays.forEach(overlay => overlay.setMap(null)); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); hurricaneMarkers.forEach(marker => { if (marker.content) marker.content.style.filter = "none"; }); }
+	function hurricaneReplotLoadedTracks() { clearOverlayState(); plotHurricanes({ type: "FeatureCollection", features: hurricaneBaseFeatures.concat(...hurricaneLoadedTrackFeatures.values()) }); }
 
 	function plotHurricanes(geojson) {
 		const storms = new Map();
+		const plottedStorms = new Map();
 		const pathFor = coordinates => (coordinates || []).map(c => ({ lat: Number(c[1]), lng: Number(c[0]) })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
 		(geojson.features || []).forEach((feature, index) => {
 			const props = feature.properties || {};
@@ -5931,7 +5939,7 @@ if (window.RProfiler) {
 			if (feature.geometry.type === "LineString") storm[kind].push(pathFor(feature.geometry.coordinates));
 			if (feature.geometry.type === "Polygon") storm.cones.push(feature.geometry.coordinates.map(pathFor));
 		});
-		storms.forEach(storm => {
+		storms.forEach((storm, id) => {
 			const point = storm.points.find(item => item.current) || storm.points[0];
 			if (!point) return;
 			const c = point.feature.geometry.coordinates;
@@ -5941,7 +5949,11 @@ if (window.RProfiler) {
 			content.style.cssText = "display:flex;align-items:center;justify-content:center;";
 			content.innerHTML = hurricaneIconSvg("#d62d24");
 			const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content, anchorLeft: "-50%", anchorTop: "-50%", title: String(storm.properties.name || storm.properties.title || "Tropical cyclone"), zIndex: 1000 });
-			marker.addListener("gmp-click", () => { hurricanePathOverlays.forEach(overlay => overlay.setMap(null)); hurricaneConeOverlays.forEach(overlay => overlay.setMap(null)); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); storm.pathOverlays.forEach(overlay => overlay.setMap(map)); storm.coneOverlays.forEach(overlay => overlay.setMap(map)); storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; }); closeAllInfoWindows(); const severity = storm.properties.severitydata && typeof storm.properties.severitydata === "object" ? storm.properties.severitydata.severitytext : ""; const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="80" height="80"'); overlayInfoWindow.setContent(`<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(storm.properties.name || storm.properties.title || "Tropical cyclone")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(storm.properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(storm.properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`); overlayInfoWindow.setPosition(position); overlayInfoWindow.open(map); if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px"; });
+			plottedStorms.set(id, { storm, marker, position });
+			marker.addListener("gmp-click", () => { hurricaneSelectedStormId = id; });
+			marker.addListener("gmp-click", () => { hurricanePathOverlays.forEach(overlay => overlay.setMap(null)); hurricaneConeOverlays.forEach(overlay => overlay.setMap(null)); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); storm.pathOverlays.forEach(overlay => overlay.setMap(map)); storm.coneOverlays.forEach(overlay => overlay.setMap(map)); storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; }); closeAllInfoWindows(); const severity = storm.properties.severitydata && typeof storm.properties.severitydata === "object" ? storm.properties.severitydata.severitytext : ""; const loadingStatus = hurricaneTracksLoading ? '<div style="border-top:1px solid #eee;padding:6px 0;color:#666;font-style:italic;">Getting storm tracks</div>' : ""; const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="80" height="80"'); overlayInfoWindow.setContent(`<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(storm.properties.name || storm.properties.title || "Tropical cyclone")}</div>${loadingStatus}<div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(storm.properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(storm.properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`); overlayInfoWindow.setPosition(position); overlayInfoWindow.open(map); if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px"; });
+			marker.addListener("gmp-click", () => { const trackLoader = hurricaneTrackLoaders.get(id); if (!trackLoader || hurricaneLoadedTrackFeatures.has(id)) return; hurricaneTracksLoading = true; overlayInfoWindow.setContent(hurricaneInfoHtml(storm)); trackLoader().then(features => { hurricaneLoadedTrackFeatures.set(id, features); hurricaneTracksLoading = false; hurricaneReplotLoadedTracks(); }).catch(error => { hurricaneTracksLoading = false; console.warn(`Map ${widgetID}: Failed to load tracks for ${storm.properties.name || storm.properties.title || "Tropical cyclone"}:`, error.message); overlayInfoWindow.setContent(hurricaneInfoHtml(storm)); }); });
+			marker.addListener("gmp-click", () => { setTimeout(() => { overlayInfoWindow.setContent(hurricaneInfoHtml(storm)); if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px"; }, 0); });
 			marker.addListener("gmp-click", () => { hurricaneMarkers.forEach(otherMarker => { if (otherMarker.content) otherMarker.content.style.filter = "none"; }); if (marker.content) marker.content.style.filter = "drop-shadow(white 0px 0px 3px)"; });
 			hurricaneMarkers.push(marker);
 			storm.points.filter(item => item !== point).forEach(trackPoint => {
@@ -5966,6 +5978,20 @@ if (window.RProfiler) {
 			storm.cones.forEach(paths => { const cone = new google.maps.Polygon({ map: null, paths, fillColor: "#f6b44b", fillOpacity: .24, strokeColor: "#d98b1e", strokeOpacity: .7, strokeWeight: 1 }); storm.coneOverlays.push(cone); storm.pathOverlays.push(cone); hurricaneConeOverlays.push(cone); });
 			hurricanePathOverlays.push(...storm.pathOverlays);
 		});
+		const selected = !hurricaneTracksLoading && hurricaneSelectedStormId ? plottedStorms.get(hurricaneSelectedStormId) : null;
+		if (selected) {
+			hurricanePathOverlays.forEach(overlay => overlay.setMap(null));
+			hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
+			selected.storm.pathOverlays.forEach(overlay => overlay.setMap(map));
+			selected.storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; });
+			hurricaneMarkers.forEach(otherMarker => { if (otherMarker.content) otherMarker.content.style.filter = "none"; });
+			if (selected.marker.content) selected.marker.content.style.filter = "drop-shadow(white 0px 0px 3px)";
+			closeAllInfoWindows();
+			overlayInfoWindow.setContent(hurricaneInfoHtml(selected.storm));
+			overlayInfoWindow.setPosition(selected.position);
+			overlayInfoWindow.open(map);
+			if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px";
+		}
 		console.debug(`Map ${widgetID}: Plotted ${hurricaneMarkers.length} active tropical cyclone(s) with ${hurricaneConeOverlays.length} uncertainty cone(s)`);
 	}
 
@@ -6001,10 +6027,61 @@ if (window.RProfiler) {
 		const values = String(value || "").match(/-?\d+(?:\.\d+)?/g);
 		return values && values.length >= 2 ? [Number(values[0]), Number(values[1])] : null;
 	}
+	const HURRICANE_JSON_CACHE = new Map();
+	async function hurricaneFetchJson(url) {
+		const cached = HURRICANE_JSON_CACHE.get(url);
+		if (cached && Date.now() - cached.timestamp < 600000) return cached.promise;
+		const promise = fetch(url, { cache: "no-store" }).then(async response => {
+			if (!response.ok) throw new Error(`GDACS request failed: ${response.status}`);
+			return response.json();
+		}).catch(error => { HURRICANE_JSON_CACHE.delete(url); throw error; });
+		HURRICANE_JSON_CACHE.set(url, { timestamp: Date.now(), promise });
+		return promise;
+	}
+	async function hurricaneLoadStormFeatures(item) {
+		const properties = gdacsProperties(item);
+		const eventId = gdacsValue(properties, ["eventid", "event_id"]);
+		const episodeId = gdacsValue(properties, ["episodeid", "episode_id"]);
+		if (!eventId) return [];
+		let episode = item;
+		let timelineUrl = gdacsTimelineUrl(item);
+		if (!timelineUrl && episodeId) {
+			episode = await hurricaneFetchJson(`https://www.gdacs.org/gdacsapi/api/events/getepisodedata?eventtype=TC&eventid=${encodeURIComponent(eventId)}&episodeid=${encodeURIComponent(episodeId)}`);
+			timelineUrl = gdacsTimelineUrl(episode);
+		}
+		if (!timelineUrl) return [];
+		const timelineItems = gdacsTimelineItems(await hurricaneFetchJson(timelineUrl));
+		const features = [];
+		const track = [];
+		const pointMetadata = item._gdacsPointMetadata || [];
+		timelineItems.forEach(timelineItem => {
+			const coordinates = gdacsCoordinates(timelineItem.coordinates || timelineItem.coordinate || timelineItem.position);
+			if (!coordinates || !coordinates.every(Number.isFinite)) return;
+			const pointProperties = Object.assign({}, properties, timelineItem);
+			delete pointProperties.polygonlabel;
+			delete pointProperties.polygon_label;
+			delete pointProperties.severitydata;
+			let nearestMetadata = null;
+			let nearestDistance = Infinity;
+			pointMetadata.forEach(metadata => { const distance = Math.hypot(metadata.coordinates[0] - coordinates[0], metadata.coordinates[1] - coordinates[1]); if (distance < nearestDistance) { nearestDistance = distance; nearestMetadata = metadata; } });
+			if (nearestMetadata && nearestDistance < 0.25) Object.assign(pointProperties, { polygonlabel: nearestMetadata.polygonlabel, severitydata: nearestMetadata.severitydata });
+			const actual = String(timelineItem.actual || "").toLowerCase() === "true";
+			const current = String(timelineItem.current || "").toLowerCase() === "true";
+			track.push({ coordinates, actual, current });
+			features.push({ type: "Feature", geometry: { type: "Point", coordinates }, properties: Object.assign({}, pointProperties, { _current: current, _actual: actual }) });
+		});
+		const history = track.filter(point => point.actual).map(point => point.coordinates);
+		const forecast = track.filter(point => !point.actual).map(point => point.coordinates);
+		const anchor = item.geometry && item.geometry.type === "Point" ? item.geometry.coordinates : null;
+		const currentCoordinates = track.find(point => point.current)?.coordinates || anchor;
+		if (currentCoordinates && (!forecast.length || forecast[0][0] !== currentCoordinates[0] || forecast[0][1] !== currentCoordinates[1])) forecast.unshift(currentCoordinates);
+		const stormProperties = Object.assign({}, properties, { eventid: eventId, episodeid: episodeId });
+		if (history.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: history }, properties: Object.assign({}, stormProperties, { _trackType: "historical" }) });
+		if (forecast.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: forecast }, properties: Object.assign({}, stormProperties, { _trackType: "forecast" }) });
+		return features;
+	}
 	async function loadHurricanesFromGdacsApi() {
-		const listResponse = await fetch(`https://www.gdacs.org/gdacsapi/api/events/geteventlist/map?eventtype=TC&ts=${Date.now()}`, { cache: "no-store" });
-		if (!listResponse.ok) throw new Error(`GDACS tropical cyclone map error: ${listResponse.status}`);
-		const listData = await listResponse.json();
+		const listData = await hurricaneFetchJson("https://www.gdacs.org/gdacsapi/api/events/geteventlist/map?eventtype=TC");
 		const allMapFeatures = gdacsItems(listData);
 		const eventGroups = new Map();
 		allMapFeatures.forEach(item => {
@@ -6039,54 +6116,16 @@ if (window.RProfiler) {
 		});
 		clearOverlayState();
 		plotHurricanes({ type: "FeatureCollection", features: initialFeatures });
-		const features = [];
-		await Promise.all(list.map(async item => {
+		hurricaneBaseFeatures = initialFeatures;
+		hurricaneTrackLoaders = new Map();
+		hurricaneLoadedTrackFeatures = new Map();
+		list.forEach(item => {
 			const props = gdacsProperties(item);
-			const eventId = gdacsValue(props, ["eventid", "event_id"]);
-			const episodeId = gdacsValue(props, ["episodeid", "episode_id"]);
-			if (!eventId) return;
-			let episode = item;
-			if (episodeId) {
-				try {
-					const episodeResponse = await fetch(`https://www.gdacs.org/gdacsapi/api/events/getepisodedata?eventtype=TC&eventid=${encodeURIComponent(eventId)}&episodeid=${encodeURIComponent(episodeId)}`, { cache: "no-store" });
-					if (episodeResponse.ok) episode = await episodeResponse.json();
-				} catch (error) { console.warn(`Map ${widgetID}: Failed to load GDACS episode ${eventId}/${episodeId}:`, error.message); }
-			}
-			const timelineUrl = gdacsTimelineUrl(episode) || gdacsTimelineUrl(item);
-			if (!timelineUrl) return;
-			try {
-				const timelineResponse = await fetch(timelineUrl, { cache: "no-store" });
-				if (!timelineResponse.ok) throw new Error(`timeline HTTP ${timelineResponse.status}`);
-				if (item.geometry && item.geometry.type === "Point") features.push({ type: "Feature", geometry: item.geometry, properties: Object.assign({}, props, { eventid: eventId, episodeid: episodeId, _current: true, _mapAnchor: true }) });
-				const pointMetadata = item._gdacsPointMetadata || [];
-				const track = gdacsTimelineItems(await timelineResponse.json()).map(point => ({ point, coordinates: gdacsCoordinates(point.coordinates || point.coordinate || point.position) })).filter(entry => entry.coordinates && entry.coordinates.every(Number.isFinite));
-				const history = track.filter(entry => String(entry.point.actual || "").toLowerCase() === "true").map(entry => entry.coordinates);
-				const forecast = track.filter(entry => String(entry.point.actual || "").toLowerCase() !== "true").map(entry => entry.coordinates);
-				const currentCoordinates = track.find(entry => String(entry.point.current || "").toLowerCase() === "true")?.coordinates || (item.geometry && item.geometry.type === "Point" ? item.geometry.coordinates : null);
-				if (currentCoordinates && (!forecast.length || forecast[0][0] !== currentCoordinates[0] || forecast[0][1] !== currentCoordinates[1])) forecast.unshift(currentCoordinates);
-				track.forEach(entry => {
-					const pointProperties = Object.assign({}, props, entry.point, { eventid: eventId, episodeid: episodeId, _current: String(entry.point.current || "").toLowerCase() === "true" });
-					delete pointProperties.polygonlabel;
-					delete pointProperties.polygon_label;
-					delete pointProperties.severitydata;
-					let nearestMetadata = null;
-					let nearestDistance = Infinity;
-					pointMetadata.forEach(metadata => {
-						const distance = Math.hypot(metadata.coordinates[0] - entry.coordinates[0], metadata.coordinates[1] - entry.coordinates[1]);
-						if (distance < nearestDistance) { nearestDistance = distance; nearestMetadata = metadata; }
-					});
-					if (nearestMetadata && nearestDistance < 0.25) Object.assign(pointProperties, { polygonlabel: nearestMetadata.polygonlabel, severitydata: nearestMetadata.severitydata });
-					features.push({ type: "Feature", geometry: { type: "Point", coordinates: entry.coordinates }, properties: pointProperties });
-				});
-				if (history.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: history }, properties: Object.assign({}, props, { eventid: eventId, _trackType: "historical" }) });
-				if (forecast.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: forecast }, properties: Object.assign({}, props, { eventid: eventId, _trackType: "forecast" }) });
-				(item._gdacsGeometries || []).forEach(geometry => {
-					if (["Polygon", "MultiPolygon"].includes(geometry.type)) features.push({ type: "Feature", geometry, properties: Object.assign({}, props, { eventid: eventId }) });
-				});
-			} catch (error) { console.warn(`Map ${widgetID}: Failed to load GDACS timeline for ${eventId}:`, error.message); }
-		}));
-		console.debug(`Map ${widgetID}: GDACS produced ${features.length} hurricane feature(s)`);
-		return { type: "FeatureCollection", features };
+			const key = String(gdacsValue(props, ["eventid", "event_id"]));
+			hurricaneTrackLoaders.set(key, () => hurricaneLoadStormFeatures(item));
+		});
+		hurricaneTracksLoading = false;
+		return { type: "FeatureCollection", features: initialFeatures };
 	}
 
 	async function addWeatherLayer() {
@@ -6145,8 +6184,7 @@ if (window.RProfiler) {
 			if (optionalMapType == "hurricanes") {
 				try {
 					const hurricaneData = await loadHurricanesFromGdacsApi();
-					clearOverlayState();
-					plotHurricanes(hurricaneData);
+					if (hurricaneData.features.length) console.debug(`Map ${widgetID}: Hurricane markers ready; tracks load on selection`);
 				} catch (error) { console.error(`Map ${widgetID}: Failed to fetch hurricane data:`, error); }
 			// Look to see if we should add wildfire into the map...
 			} else if (optionalMapType == "wildfires") {

@@ -2622,6 +2622,11 @@ var hurricaneMarkers = [];
 var hurricaneTrackPointMarkers = [];
 var hurricanePathOverlays = [];
 var hurricaneConeOverlays = [];
+var hurricaneTracksLoading = false;
+var hurricaneSelectedStormId = null;
+var hurricaneBaseFeatures = [];
+var hurricaneTrackLoaders = new Map();
+var hurricaneLoadedTrackFeatures = new Map();
 
 // Track map initialization state...
 var mapInitialized = false;
@@ -5043,18 +5048,27 @@ function hurricaneInfoHtml(storm) {
 	const properties = storm.properties || {};
 	const severity = properties.severitydata && typeof properties.severitydata === "object" ? properties.severitydata.severitytext : "";
 	const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="80" height="80"');
-	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(hurricaneDisplayName(properties))}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`;
+	const loadingStatus = hurricaneTracksLoading ? `<div style="border-top:1px solid #eee;padding:6px 0;color:#666;font-style:italic;display:flex;align-items:center;gap:4px;">${loadingSpinner}<span>Getting storm tracks</span></div>` : "";
+	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(hurricaneDisplayName(properties))}</div>${loadingStatus}<div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`;
 }
 
 function hideHurricaneTracks() {
+	hurricaneSelectedStormId = null;
 	hurricanePathOverlays.forEach(overlay => overlay.setMap(null));
 	hurricaneConeOverlays.forEach(overlay => overlay.setMap(null));
 	hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
 	hurricaneMarkers.forEach(marker => { if (marker.content) marker.content.style.filter = "none"; });
 }
 
+function hurricaneReplotLoadedTracks() {
+	const loadedFeatures = hurricaneBaseFeatures.concat(...hurricaneLoadedTrackFeatures.values());
+	clearOverlayState();
+	plotHurricanes({ type: "FeatureCollection", features: loadedFeatures });
+}
+
 function plotHurricanes(geojson) {
 	const storms = new Map();
+	const plottedStorms = new Map();
 	(geojson.features || []).forEach((feature, index) => {
 		const groupId = hurricaneFeatureGroupId(feature, index);
 		if (!storms.has(groupId)) storms.set(groupId, { properties: {}, points: [], historical: [], forecast: [], cones: [], pathOverlays: [], coneOverlays: [], trackPointMarkers: [] });
@@ -5069,13 +5083,15 @@ function plotHurricanes(geojson) {
 		}
 	});
 
-	storms.forEach(storm => {
+	storms.forEach((storm, groupId) => {
 		const point = storm.points.find(item => item.current) || storm.points[0];
 		if (!point || !point.feature.geometry || point.feature.geometry.coordinates.length < 2) return;
 		const position = { lat: Number(point.feature.geometry.coordinates[1]), lng: Number(point.feature.geometry.coordinates[0]) };
 		if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
 		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: hurricaneMarkerContent("#d62d24"), anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), zIndex: 1000 });
+		plottedStorms.set(groupId, { storm, marker, position });
 		marker.addListener("gmp-click", () => {
+			hurricaneSelectedStormId = groupId;
 			hurricaneMarkers.forEach(otherMarker => { if (otherMarker.content) otherMarker.content.style.filter = "none"; });
 			if (marker.content) marker.content.style.filter = "drop-shadow(white 0px 0px 3px)";
 			hurricanePathOverlays.forEach(overlay => overlay.setMap(null));
@@ -5089,6 +5105,20 @@ function plotHurricanes(geojson) {
 			overlayInfoWindow.setPosition(position);
 			overlayInfoWindow.open(map);
 			if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px";
+			const trackLoader = hurricaneTrackLoaders.get(groupId);
+			if (trackLoader && !hurricaneLoadedTrackFeatures.has(groupId)) {
+				hurricaneTracksLoading = true;
+				overlayInfoWindow.setContent(hurricaneInfoHtml(storm));
+				trackLoader().then(features => {
+					hurricaneLoadedTrackFeatures.set(groupId, features);
+					hurricaneTracksLoading = false;
+					hurricaneReplotLoadedTracks();
+				}).catch(error => {
+					hurricaneTracksLoading = false;
+					console.warn(`Map ${widgetID}: Failed to load tracks for ${hurricaneDisplayName(storm.properties)}:`, error.message);
+					overlayInfoWindow.setContent(hurricaneInfoHtml(storm));
+				});
+			}
 		});
 		hurricaneMarkers.push(marker);
 		storm.points.filter(item => item !== point).forEach(trackPoint => {
@@ -5111,6 +5141,20 @@ function plotHurricanes(geojson) {
 		});
 		hurricanePathOverlays.push(...storm.pathOverlays);
 	});
+	const selected = !hurricaneTracksLoading && hurricaneSelectedStormId ? plottedStorms.get(hurricaneSelectedStormId) : null;
+	if (selected) {
+		hurricanePathOverlays.forEach(overlay => overlay.setMap(null));
+		hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
+		selected.storm.pathOverlays.forEach(overlay => overlay.setMap(map));
+		selected.storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; });
+		hurricaneMarkers.forEach(otherMarker => { if (otherMarker.content) otherMarker.content.style.filter = "none"; });
+		if (selected.marker.content) selected.marker.content.style.filter = "drop-shadow(white 0px 0px 3px)";
+		closeAllInfoWindows();
+		overlayInfoWindow.setContent(hurricaneInfoHtml(selected.storm));
+		overlayInfoWindow.setPosition(selected.position);
+		overlayInfoWindow.open(map);
+		if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px";
+	}
 	console.debug(`Map ${widgetID}: Plotted ${hurricaneMarkers.length} active tropical cyclone(s) with ${hurricanePathOverlays.filter(overlay => overlay instanceof google.maps.Polygon).length} uncertainty cone(s)`);
 }
 
@@ -5159,11 +5203,69 @@ function gdacsTimelineCoordinates(value) {
 	return values && values.length >= 2 ? [Number(values[0]), Number(values[1])] : null;
 }
 
+const HURRICANE_JSON_CACHE = new Map();
+async function hurricaneFetchJson(url) {
+	const cached = HURRICANE_JSON_CACHE.get(url);
+	if (cached && Date.now() - cached.timestamp < 600000) return cached.promise;
+	const promise = fetch(url, { cache: "no-store" }).then(async response => {
+		if (!response.ok) throw new Error(`GDACS request failed: ${response.status}`);
+		return response.json();
+	}).catch(error => {
+		HURRICANE_JSON_CACHE.delete(url);
+		throw error;
+	});
+	HURRICANE_JSON_CACHE.set(url, { timestamp: Date.now(), promise });
+	return promise;
+}
+
+async function hurricaneLoadStormFeatures(item) {
+	const properties = gdacsStormProperties(item);
+	const eventId = gdacsValue(properties, ["eventid", "event_id"]);
+	const episodeId = gdacsValue(properties, ["episodeid", "episode_id"]);
+	if (!eventId) return [];
+	let episodeData = item;
+	let timelineUrl = gdacsFindTimelineUrl(item);
+	if (!timelineUrl && episodeId) {
+		const episodeUrl = `https://www.gdacs.org/gdacsapi/api/events/getepisodedata?eventtype=TC&eventid=${encodeURIComponent(eventId)}&episodeid=${encodeURIComponent(episodeId)}`;
+		episodeData = await hurricaneFetchJson(episodeUrl);
+		timelineUrl = gdacsFindTimelineUrl(episodeData);
+	}
+	if (!timelineUrl) return [];
+	const timelineItems = gdacsTimelineItems(await hurricaneFetchJson(timelineUrl));
+	const storm = { properties: Object.assign({}, properties, { eventid: eventId, episodeid: episodeId }), timelineItems, geometries: item._gdacsGeometries || [], pointMetadata: item._gdacsPointMetadata || [], anchorGeometry: item.geometry };
+	const features = [];
+	const track = [];
+	storm.timelineItems.forEach(timelineItem => {
+		const coordinates = gdacsTimelineCoordinates(timelineItem.coordinates || timelineItem.coordinate || timelineItem.position);
+		if (!coordinates || !coordinates.every(Number.isFinite)) return;
+		const pointProperties = Object.assign({}, storm.properties, timelineItem);
+		delete pointProperties.polygonlabel;
+		delete pointProperties.polygon_label;
+		delete pointProperties.severitydata;
+		let nearestMetadata = null;
+		let nearestDistance = Infinity;
+		storm.pointMetadata.forEach(metadata => {
+			const distance = Math.hypot(metadata.coordinates[0] - coordinates[0], metadata.coordinates[1] - coordinates[1]);
+			if (distance < nearestDistance) { nearestDistance = distance; nearestMetadata = metadata; }
+		});
+		if (nearestMetadata && nearestDistance < 0.25) Object.assign(pointProperties, { polygonlabel: nearestMetadata.polygonlabel, severitydata: nearestMetadata.severitydata });
+		const actual = String(timelineItem.actual || "").toLowerCase() === "true";
+		const current = String(timelineItem.current || "").toLowerCase() === "true";
+		track.push({ coordinates, actual, current });
+		features.push({ type: "Feature", geometry: { type: "Point", coordinates }, properties: Object.assign({}, pointProperties, { _current: current, _actual: actual }) });
+	});
+	const history = track.filter(point => point.actual).map(point => point.coordinates);
+	const forecast = track.filter(point => !point.actual).map(point => point.coordinates);
+	const currentCoordinates = track.find(point => point.current)?.coordinates || (storm.anchorGeometry && storm.anchorGeometry.type === "Point" ? storm.anchorGeometry.coordinates : null);
+	if (currentCoordinates && (!forecast.length || forecast[0][0] !== currentCoordinates[0] || forecast[0][1] !== currentCoordinates[1])) forecast.unshift(currentCoordinates);
+	if (history.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: history }, properties: Object.assign({}, storm.properties, { _trackType: "historical" }) });
+	if (forecast.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: forecast }, properties: Object.assign({}, storm.properties, { _trackType: "forecast" }) });
+	return features;
+}
+
 async function loadHurricanesFromGdacsApi() {
-	const listUrl = `https://www.gdacs.org/gdacsapi/api/events/geteventlist/map?eventtype=TC&ts=${Date.now()}`;
-	const listResponse = await fetch(listUrl, { cache: "no-store" });
-	if (!listResponse.ok) throw new Error(`GDACS tropical cyclone map error: ${listResponse.status}`);
-	const listData = await listResponse.json();
+	const listUrl = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/map?eventtype=TC";
+	const listData = await hurricaneFetchJson(listUrl);
 	const allMapFeatures = gdacsItems(listData);
 	const eventGroups = new Map();
 	allMapFeatures.forEach(item => {
@@ -5202,72 +5304,16 @@ async function loadHurricanesFromGdacsApi() {
 	});
 	clearOverlayState();
 	plotHurricanes({ type: "FeatureCollection", features: initialFeatures });
-
-	const storms = await Promise.all(eventItems.map(async item => {
+	hurricaneBaseFeatures = initialFeatures;
+	hurricaneTrackLoaders = new Map();
+	hurricaneLoadedTrackFeatures = new Map();
+	eventItems.forEach(item => {
 		const properties = gdacsStormProperties(item);
-		const eventId = gdacsValue(properties, ["eventid", "event_id"]);
-		const episodeId = gdacsValue(properties, ["episodeid", "episode_id"]);
-		if (!eventId) return null;
-		let episodeData = item;
-		if (episodeId) {
-			const episodeUrl = `https://www.gdacs.org/gdacsapi/api/events/getepisodedata?eventtype=TC&eventid=${encodeURIComponent(eventId)}&episodeid=${encodeURIComponent(episodeId)}`;
-			try {
-				const episodeResponse = await fetch(episodeUrl, { cache: "no-store" });
-				if (episodeResponse.ok) episodeData = await episodeResponse.json();
-			} catch (error) {
-				console.warn(`Map ${widgetID}: Failed to load GDACS episode ${eventId}/${episodeId}:`, error.message);
-			}
-		}
-		const timelineUrl = gdacsFindTimelineUrl(episodeData) || gdacsFindTimelineUrl(item);
-		if (!timelineUrl) return null;
-		try {
-			const timelineResponse = await fetch(timelineUrl, { cache: "no-store" });
-			if (!timelineResponse.ok) throw new Error(`timeline HTTP ${timelineResponse.status}`);
-			const timelineItems = gdacsTimelineItems(await timelineResponse.json());
-			return { properties: Object.assign({}, properties, { eventid: eventId, episodeid: episodeId }), timelineItems, geometries: item._gdacsGeometries || [], pointMetadata: item._gdacsPointMetadata || [], anchorGeometry: item.geometry };
-		} catch (error) {
-			console.warn(`Map ${widgetID}: Failed to load GDACS timeline for ${eventId}:`, error.message);
-			return null;
-		}
-	}));
-
-	const features = [];
-	storms.filter(Boolean).forEach(storm => {
-		const track = [];
-		if (storm.anchorGeometry && storm.anchorGeometry.type === "Point") {
-			features.push({ type: "Feature", geometry: storm.anchorGeometry, properties: Object.assign({}, storm.properties, { _current: true, _mapAnchor: true }) });
-		}
-		storm.timelineItems.forEach(item => {
-			const coordinates = gdacsTimelineCoordinates(item.coordinates || item.coordinate || item.position);
-			if (!coordinates || !coordinates.every(Number.isFinite)) return;
-			const props = Object.assign({}, storm.properties, item);
-			delete props.polygonlabel;
-			delete props.polygon_label;
-			delete props.severitydata;
-			let nearestMetadata = null;
-			let nearestDistance = Infinity;
-			storm.pointMetadata.forEach(metadata => {
-				const distance = Math.hypot(metadata.coordinates[0] - coordinates[0], metadata.coordinates[1] - coordinates[1]);
-				if (distance < nearestDistance) { nearestDistance = distance; nearestMetadata = metadata; }
-			});
-			if (nearestMetadata && nearestDistance < 0.25) Object.assign(props, { polygonlabel: nearestMetadata.polygonlabel, severitydata: nearestMetadata.severitydata });
-			const actual = String(item.actual || "").toLowerCase() === "true";
-			const current = String(item.current || "").toLowerCase() === "true";
-			track.push({ coordinates, actual, current });
-			features.push({ type: "Feature", geometry: { type: "Point", coordinates }, properties: Object.assign({}, props, { _current: current, _actual: actual }) });
-		});
-		const history = track.filter(point => point.actual).map(point => point.coordinates);
-		const forecast = track.filter(point => !point.actual).map(point => point.coordinates);
-		const currentCoordinates = track.find(point => point.current)?.coordinates || (storm.anchorGeometry && storm.anchorGeometry.type === "Point" ? storm.anchorGeometry.coordinates : null);
-		if (currentCoordinates && (!forecast.length || forecast[0][0] !== currentCoordinates[0] || forecast[0][1] !== currentCoordinates[1])) forecast.unshift(currentCoordinates);
-		if (history.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: history }, properties: Object.assign({}, storm.properties, { _trackType: "historical" }) });
-		if (forecast.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: forecast }, properties: Object.assign({}, storm.properties, { _trackType: "forecast" }) });
-		(storm.geometries || []).forEach(geometry => {
-			if (["Polygon", "MultiPolygon"].includes(geometry.type)) features.push({ type: "Feature", geometry, properties: storm.properties });
-		});
+		const key = String(gdacsValue(properties, ["eventid", "event_id"]));
+		hurricaneTrackLoaders.set(key, () => hurricaneLoadStormFeatures(item));
 	});
-	console.debug(`Map ${widgetID}: GDACS produced ${features.length} hurricane feature(s)`);
-	return { type: "FeatureCollection", features };
+	hurricaneTracksLoading = false;
+	return { type: "FeatureCollection", features: initialFeatures };
 }
 
 async function addWeatherLayer() {
@@ -5326,8 +5372,7 @@ async function addWeatherLayer() {
 		if (optionalMapType == "hurricanes") {
 			try {
 				const hurricaneData = await loadHurricanesFromGdacsApi();
-				clearOverlayState();
-				plotHurricanes(hurricaneData);
+				if (hurricaneData.features.length) console.debug(`Map ${widgetID}: Hurricane markers ready; tracks load on selection`);
 			} catch (error) {
 				console.error(`Map ${widgetID}: Failed to fetch GDACS hurricane API data:`, error);
 			}
