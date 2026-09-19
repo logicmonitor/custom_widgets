@@ -72,7 +72,7 @@
 			<h3>Version 3.73</h3>
 			<ul>
 				<li>Clicking an empty part of the map now hides any visible storm tracks.</li>
-				<li>Improved loading of storm track data.</li>
+				<li>Improved loading of storm track data. Track data will be cached for 10 minutes.</li>
 			</ul>
 			<h3>Version 3.72</h3>
 			<ul>
@@ -4088,7 +4088,7 @@ if (window.RProfiler) {
 
 		// Redraw polylines after zoom/pan/drag completes...
 		map.addListener("idle", () => schedulePolylineEndpointUpdate());
-		map.addListener("click", () => hideHurricaneTracks());
+		map.addListener("click", () => { hideHurricaneTracks(); hideEarthquakeImpactOutlines(); });
 
 		// Vector maps are nicer but sometimes don't load right away. Plus they're mainly useful if tilt controls are enabled, so use the normal raster map by default...
 		// if (showMapTiltControls) {
@@ -5924,6 +5924,7 @@ if (window.RProfiler) {
 	function hurricaneIconSvg(color) { return HURRICANE_ICON_SVG.replace('fill="#d62d24"', `fill="${color || "#d62d24"}"`); }
 	function hurricaneInfoHtml(storm) { const properties = storm.properties || {}; const severity = properties.severitydata && typeof properties.severitydata === "object" ? properties.severitydata.severitytext : ""; const loadingStatus = hurricaneTracksLoading ? `<div style="border-top:1px solid #eee;padding:6px 0;color:#666;font-style:italic;display:flex;align-items:center;gap:4px;">${loadingSpinner}<span>Getting storm tracks</span></div>` : ""; const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="80" height="80"'); return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(properties.name || properties.title || "Tropical cyclone")}</div>${loadingStatus}<div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`; }
 	function hideHurricaneTracks() { hurricaneSelectedStormId = null; hurricanePathOverlays.forEach(overlay => overlay.setMap(null)); hurricaneConeOverlays.forEach(overlay => overlay.setMap(null)); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); hurricaneMarkers.forEach(marker => { if (marker.content) marker.content.style.filter = "none"; }); }
+	function hideEarthquakeImpactOutlines() { if (mmiContourLines) { mmiContourLines.forEach(line => line.setMap(null)); mmiContourLines = []; } }
 	function hurricaneReplotLoadedTracks() { clearOverlayState(); plotHurricanes({ type: "FeatureCollection", features: hurricaneBaseFeatures.concat(...hurricaneLoadedTrackFeatures.values()) }); }
 
 	function plotHurricanes(geojson) {

@@ -21,7 +21,7 @@ var releaseNotes = `
 	<h3>Version 3.73</h3>
 	<ul>
 		<li>Clicking an empty part of the map now hides any visible storm tracks.</li>
-		<li>Improved loading of storm track data.</li>
+		<li>Improved loading of storm track data. Track data will be cached for 10 minutes.</li>
 	</ul>
 	<h3>Version 3.72</h3>
 	<ul>
@@ -3127,7 +3127,7 @@ async function initMap() {
 
 	// Redraw polylines after zoom/pan/drag completes...
 	map.addListener("idle", () => schedulePolylineEndpointUpdate());
-	map.addListener("click", () => hideHurricaneTracks());
+	map.addListener("click", () => { hideHurricaneTracks(); hideEarthquakeImpactOutlines(); });
 
 	// Vector maps are nicer but sometimes don't load right away. Plus they're mainly useful if tilt controls are enabled, so use the normal raster map by default...
 	// if (showMapTiltControls) {
@@ -5063,6 +5063,13 @@ function hideHurricaneTracks() {
 	hurricaneConeOverlays.forEach(overlay => overlay.setMap(null));
 	hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
 	hurricaneMarkers.forEach(marker => { if (marker.content) marker.content.style.filter = "none"; });
+}
+
+function hideEarthquakeImpactOutlines() {
+	if (mmiContourLines) {
+		mmiContourLines.forEach(line => line.setMap(null));
+		mmiContourLines = [];
+	}
 }
 
 function hurricaneReplotLoadedTracks() {
