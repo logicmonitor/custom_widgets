@@ -3575,6 +3575,7 @@ if (window.RProfiler) {
 	let hurricaneConeOverlays = [];
 	let hurricaneTracksLoading = false;
 	let hurricaneSelectedStormId = null;
+	let hurricaneRestoreInfoWindow = false;
 	let hurricaneBaseFeatures = [];
 	let hurricaneTrackLoaders = new Map();
 	let hurricaneLoadedTrackFeatures = new Map();
@@ -5937,7 +5938,7 @@ if (window.RProfiler) {
 	// Hides the earthquake ShakeMap impact contour overlays.
 	function hideEarthquakeImpactOutlines() { setOverlayCollectionMap(mmiContourLines, null); mmiContourLines = []; }
 	// Rebuilds the hurricane layer with the tracks loaded so far.
-	function hurricaneReplotLoadedTracks() { clearOverlayState(); plotHurricanes({ type: "FeatureCollection", features: hurricaneBaseFeatures.concat(...hurricaneLoadedTrackFeatures.values()) }); }
+	function hurricaneReplotLoadedTracks() { hurricaneRestoreInfoWindow = Boolean(overlayInfoWindow && overlayInfoWindow.isOpen); clearOverlayState(); plotHurricanes({ type: "FeatureCollection", features: hurricaneBaseFeatures.concat(...hurricaneLoadedTrackFeatures.values()) }); }
 
 	// Hurricane core rendering and lazy track loading.
 	function plotHurricanes(geojson) {
@@ -6002,12 +6003,15 @@ if (window.RProfiler) {
 			selected.storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; });
 			hurricaneMarkers.forEach(otherMarker => { if (otherMarker.content) otherMarker.content.style.filter = "none"; });
 			if (selected.marker.content) selected.marker.content.style.filter = "drop-shadow(white 0px 0px 3px)";
-			closeAllInfoWindows();
-			overlayInfoWindow.setContent(hurricaneInfoHtml(selected.storm));
-			overlayInfoWindow.setPosition(selected.position);
-			overlayInfoWindow.open(map);
-			if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px";
+			if (hurricaneRestoreInfoWindow) {
+				closeAllInfoWindows();
+				overlayInfoWindow.setContent(hurricaneInfoHtml(selected.storm));
+				overlayInfoWindow.setPosition(selected.position);
+				overlayInfoWindow.open(map);
+				if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px";
+			}
 		}
+		hurricaneRestoreInfoWindow = false;
 		console.debug(`Map ${widgetID}: Plotted ${hurricaneMarkers.length} active tropical cyclone(s) with ${hurricaneConeOverlays.length} uncertainty cone(s)`);
 	}
 
@@ -6142,17 +6146,20 @@ if (window.RProfiler) {
 			if (item.geometry && item.geometry.type === "Point") initialFeatures.push({ type: "Feature", geometry: item.geometry, properties: Object.assign({}, props, { _current: true, _mapAnchor: true }) });
 			(item._gdacsGeometries || []).forEach(geometry => initialFeatures.push({ type: "Feature", geometry, properties: props }));
 		});
-		clearOverlayState();
-		plotHurricanes({ type: "FeatureCollection", features: initialFeatures });
+		const activeStormIds = new Set(list.map(item => String(gdacsValue(gdacsProperties(item), ["eventid", "event_id"]))));
+		const previousLoadedTrackFeatures = hurricaneLoadedTrackFeatures;
 		hurricaneBaseFeatures = initialFeatures;
 		hurricaneTrackLoaders = new Map();
-		hurricaneLoadedTrackFeatures = new Map();
+		hurricaneLoadedTrackFeatures = new Map([...previousLoadedTrackFeatures.entries()].filter(([key]) => activeStormIds.has(String(key))));
 		list.forEach(item => {
 			const props = gdacsProperties(item);
 			const key = String(gdacsValue(props, ["eventid", "event_id"]));
 			hurricaneTrackLoaders.set(key, () => hurricaneLoadStormFeatures(item));
 		});
 		hurricaneTracksLoading = false;
+		hurricaneRestoreInfoWindow = Boolean(overlayInfoWindow && overlayInfoWindow.isOpen);
+		clearOverlayState();
+		plotHurricanes({ type: "FeatureCollection", features: initialFeatures.concat(...hurricaneLoadedTrackFeatures.values()) });
 		return { type: "FeatureCollection", features: initialFeatures };
 	}
 
