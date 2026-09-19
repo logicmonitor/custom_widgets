@@ -14,10 +14,15 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
 
 // ------------------------------------------------------------
-var version = "3.72 CDN";
+var version = "3.73 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.73</h3>
+	<ul>
+		<li>Clicking an empty part of the map now hides any visible storm tracks.</li>
+		<li>Improved loading of storm track data.</li>
+	</ul>
 	<h3>Version 3.72</h3>
 	<ul>
 		<li>Added an optional overlay for active hurricanes/cyclones.</li>
