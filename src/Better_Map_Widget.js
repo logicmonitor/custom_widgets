@@ -5032,15 +5032,33 @@ function hurricaneMarkerContent(color) {
 }
 
 function hurricaneSeverityText(properties) {
-	const severity = properties && properties.severitydata;
+	const severityKey = Object.keys(properties || {}).find(key => key.toLowerCase() === "severitydata");
+	const severity = severityKey ? properties[severityKey] : null;
 	if (severity && typeof severity === "object" && severity.severitytext) return String(severity.severitytext);
-	return String((properties && (properties.severitytext || properties.severity_text)) || "");
+	const textKey = Object.keys(properties || {}).find(key => ["severitytext", "severity_text"].includes(key.toLowerCase()));
+	return String((textKey && properties[textKey]) || "");
+}
+
+// Parses GDACS polygon labels such as "15/09 18:00 UTC" into a Date.
+function parseHurricanePolygonLabelDate(value) {
+	const text = String(value || "").trim();
+	const match = text.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})\s+UTC$/i);
+	if (match) {
+		const [, day, month, hour, minute] = match.map(Number);
+		const date = new Date(Date.UTC(new Date().getUTCFullYear(), month - 1, day, hour, minute));
+		if (date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute) return date;
+	}
+	const parsed = text ? new Date(text) : null;
+	return parsed && Number.isFinite(parsed.getTime()) ? parsed : null;
 }
 
 function hurricaneTrackPointTooltip(properties) {
-	const label = String((properties && (properties.polygonlabel || properties.polygon_label)) || "").trim();
+	const dateKey = Object.keys(properties || {}).find(key => ["polygonlabel", "polygon_label"].includes(key.toLowerCase()));
+	const rawDate = dateKey ? properties[dateKey] : "";
+	const parsedDate = parseHurricanePolygonLabelDate(rawDate);
+	const localDate = parsedDate ? parsedDate.toLocaleString() : String(rawDate || "").trim();
 	const severity = hurricaneSeverityText(properties);
-	return [label, severity].filter(Boolean).join("\n") || "Track point";
+	return [localDate, severity].filter(Boolean).join("\n") || "Track point";
 }
 
 function hurricaneTrackPointContent(severityText, color) {
@@ -5267,20 +5285,30 @@ async function hurricaneLoadStormFeatures(item) {
 	const storm = { properties: Object.assign({}, properties, { eventid: eventId, episodeid: episodeId }), timelineItems, geometries: item._gdacsGeometries || [], pointMetadata: item._gdacsPointMetadata || [], anchorGeometry: item.geometry };
 	const features = [];
 	const track = [];
+	let pointMetadataIndex = 0;
 	storm.timelineItems.forEach(timelineItem => {
 		const coordinates = gdacsTimelineCoordinates(timelineItem.coordinates || timelineItem.coordinate || timelineItem.position);
 		if (!coordinates || !coordinates.every(Number.isFinite)) return;
-		const pointProperties = Object.assign({}, storm.properties, timelineItem);
+		const pointProperties = Object.assign({}, storm.properties);
 		delete pointProperties.polygonlabel;
 		delete pointProperties.polygon_label;
+		delete pointProperties.polygondate;
+		delete pointProperties.polygon_date;
 		delete pointProperties.severitydata;
-		let nearestMetadata = null;
+		delete pointProperties.severitytext;
+		delete pointProperties.severity_text;
+		Object.assign(pointProperties, timelineItem);
+		const orderedMetadata = storm.pointMetadata[pointMetadataIndex++];
+		let nearestMetadata = orderedMetadata || null;
 		let nearestDistance = Infinity;
-		storm.pointMetadata.forEach(metadata => {
+		if (!nearestMetadata) storm.pointMetadata.forEach(metadata => {
 			const distance = Math.hypot(metadata.coordinates[0] - coordinates[0], metadata.coordinates[1] - coordinates[1]);
 			if (distance < nearestDistance) { nearestDistance = distance; nearestMetadata = metadata; }
 		});
-		if (nearestMetadata && nearestDistance < 0.25) Object.assign(pointProperties, { polygonlabel: nearestMetadata.polygonlabel, severitydata: nearestMetadata.severitydata });
+		if (nearestMetadata && (orderedMetadata || nearestDistance < 0.25)) {
+			if (nearestMetadata.polygonlabel) pointProperties.polygonlabel = nearestMetadata.polygonlabel;
+			if (nearestMetadata.severitydata) pointProperties.severitydata = nearestMetadata.severitydata;
+		}
 		const actual = String(timelineItem.actual || "").toLowerCase() === "true";
 		const current = String(timelineItem.current || "").toLowerCase() === "true";
 		track.push({ coordinates, actual, current });

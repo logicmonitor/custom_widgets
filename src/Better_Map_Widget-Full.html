@@ -5926,6 +5926,11 @@ if (window.RProfiler) {
 	function setOverlayCollectionMap(overlays, targetMap) { (overlays || []).forEach(overlay => { try { overlay.setMap(targetMap); } catch (error) {} }); }
 	// Builds the hurricane infowindow contents for a storm.
 	function hurricaneInfoHtml(storm) { const properties = storm.properties || {}; const severity = properties.severitydata && typeof properties.severitydata === "object" ? properties.severitydata.severitytext : ""; const loadingStatus = hurricaneTracksLoading ? `<div style="border-top:1px solid #eee;padding:6px 0;color:#666;font-style:italic;display:flex;align-items:center;gap:4px;">${loadingSpinner}<span>Getting storm tracks</span></div>` : ""; const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="80" height="80"'); return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(properties.name || properties.title || "Tropical cyclone")}</div>${loadingStatus}<div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`; }
+	// Formats a storm track point's GDACS polygon date in the user's local format.
+	// Parses GDACS polygon labels such as "15/09 18:00 UTC" into a Date.
+	function parseHurricanePolygonLabelDate(value) { const text = String(value || "").trim(); const match = text.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})\s+UTC$/i); if (match) { const [, day, month, hour, minute] = match.map(Number); const date = new Date(Date.UTC(new Date().getUTCFullYear(), month - 1, day, hour, minute)); if (date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute) return date; } const parsed = text ? new Date(text) : null; return parsed && Number.isFinite(parsed.getTime()) ? parsed : null; }
+	// Formats a storm track point's GDACS polygon date and severity in the user's local format.
+	function hurricaneTrackPointTooltip(properties) { const dateKey = Object.keys(properties || {}).find(key => ["polygonlabel", "polygon_label"].includes(key.toLowerCase())); const rawDate = dateKey ? properties[dateKey] : ""; const parsedDate = parseHurricanePolygonLabelDate(rawDate); const localDate = parsedDate ? parsedDate.toLocaleString() : String(rawDate || "").trim(); const severityKey = Object.keys(properties || {}).find(key => key.toLowerCase() === "severitydata"); const severity = severityKey ? properties[severityKey] : null; const severityTextKey = Object.keys(properties || {}).find(key => ["severitytext", "severity_text"].includes(key.toLowerCase())); const severityText = severity && typeof severity === "object" ? String(severity.severitytext || "") : String((severityTextKey && properties[severityTextKey]) || ""); return [localDate, severityText].filter(Boolean).join("\n") || "Track point"; }
 	// Hides all hurricane paths, dots, cones, and selection highlighting.
 	function hideHurricaneTracks() { hurricaneSelectedStormId = null; setOverlayCollectionMap(hurricanePathOverlays, null); setOverlayCollectionMap(hurricaneConeOverlays, null); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); hurricaneMarkers.forEach(marker => { if (marker.content) marker.content.style.filter = "none"; }); }
 	// Hides the earthquake ShakeMap impact contour overlays.
@@ -5973,10 +5978,7 @@ if (window.RProfiler) {
 				const coordinates = trackPoint.feature.geometry.coordinates;
 				const trackPosition = { lat: Number(coordinates[1]), lng: Number(coordinates[0]) };
 				if (!Number.isFinite(trackPosition.lat) || !Number.isFinite(trackPosition.lng)) return;
-				const severity = trackPoint.feature.properties && trackPoint.feature.properties.severitydata;
-				const severityText = severity && typeof severity === "object" ? String(severity.severitytext || "") : String((trackPoint.feature.properties && (trackPoint.feature.properties.severitytext || trackPoint.feature.properties.severity_text)) || "");
-				const polygonLabel = String((trackPoint.feature.properties && (trackPoint.feature.properties.polygonlabel || trackPoint.feature.properties.polygon_label)) || "").trim();
-				const tooltipText = [polygonLabel, severityText].filter(Boolean).join("\n") || "Track point";
+				const tooltipText = hurricaneTrackPointTooltip(trackPoint.feature.properties || {});
 				const content = document.createElement("div");
 				const trackColor = String(trackPoint.feature.properties && trackPoint.feature.properties.actual || "").toLowerCase() === "true" ? HURRICANE_HISTORICAL_COLOR : HURRICANE_PROJECTED_COLOR;
 				content.style.cssText = `width:8px;height:8px;border-radius:50%;background:${trackColor};border:1px solid white;`;
@@ -6070,17 +6072,24 @@ if (window.RProfiler) {
 		const features = [];
 		const track = [];
 		const pointMetadata = item._gdacsPointMetadata || [];
+		let pointMetadataIndex = 0;
 		timelineItems.forEach(timelineItem => {
 			const coordinates = gdacsCoordinates(timelineItem.coordinates || timelineItem.coordinate || timelineItem.position);
 			if (!coordinates || !coordinates.every(Number.isFinite)) return;
-			const pointProperties = Object.assign({}, properties, timelineItem);
+			const pointProperties = Object.assign({}, properties);
 			delete pointProperties.polygonlabel;
 			delete pointProperties.polygon_label;
+			delete pointProperties.polygondate;
+			delete pointProperties.polygon_date;
 			delete pointProperties.severitydata;
-			let nearestMetadata = null;
+			delete pointProperties.severitytext;
+			delete pointProperties.severity_text;
+			Object.assign(pointProperties, timelineItem);
+			const orderedMetadata = pointMetadata[pointMetadataIndex++];
+			let nearestMetadata = orderedMetadata || null;
 			let nearestDistance = Infinity;
-			pointMetadata.forEach(metadata => { const distance = Math.hypot(metadata.coordinates[0] - coordinates[0], metadata.coordinates[1] - coordinates[1]); if (distance < nearestDistance) { nearestDistance = distance; nearestMetadata = metadata; } });
-			if (nearestMetadata && nearestDistance < 0.25) Object.assign(pointProperties, { polygonlabel: nearestMetadata.polygonlabel, severitydata: nearestMetadata.severitydata });
+			if (!nearestMetadata) pointMetadata.forEach(metadata => { const distance = Math.hypot(metadata.coordinates[0] - coordinates[0], metadata.coordinates[1] - coordinates[1]); if (distance < nearestDistance) { nearestDistance = distance; nearestMetadata = metadata; } });
+			if (nearestMetadata && (orderedMetadata || nearestDistance < 0.25)) { if (nearestMetadata.polygonlabel) pointProperties.polygonlabel = nearestMetadata.polygonlabel; if (nearestMetadata.severitydata) pointProperties.severitydata = nearestMetadata.severitydata; }
 			const actual = String(timelineItem.actual || "").toLowerCase() === "true";
 			const current = String(timelineItem.current || "").toLowerCase() === "true";
 			track.push({ coordinates, actual, current });
