@@ -26,7 +26,7 @@ A fully custom-made widget to overcome some limitations of LogicMonitor's core M
 - Marker clustering to group adjacent pins together until zoomed in (along with a button to easily reset the zoom)
 - Donut charts to represent the severities of clustered markers
 - Quick & easy filtering by path and severities
-- Layers for weather, earthquakes, hurricanes/tropical cyclones, wildfires (US & Australia), power outages (US), and flooding (US)
+- Layers for weather, earthquakes, hurricanes/tropical cyclones, wildfires (US & Australia), power outages (US), and river/lake flooding (US)
 - More informative tips when clicking a marker, with the ability to include custom properties
 - The ability to show colored lines representing status of connections between locations
 
@@ -83,12 +83,12 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapGroupPathFilter**: Allows setting a default group path to start. Default is "\*".
 - **MapShowWeather**: If weather should be shown by default. Options are "global", "nexrad", "xweather" or "openweather". Default is "global". (see below for more info about weather options)
 - **MapOverlayOption**: Which optional overlay to default to when weather is shown. Options are:
+	- "**none**": Shows weather with no additional overlay (no earthquakes, hurricanes, wildfires, power outages, or flooding).
 	- "**earthquakes**" _(the default)_: Displays significant earthquakes. By default it shows quakes from the past 7 days and the icons fade based on age. There's an option to instead show quakes from the past 24 hours, which case the icon's boldness indicates the earthquake's magnitude. Clicking an earthquake's icon display more details.
-	- "**none**": Shows weather with no additional overlay (no earthquakes, wildfires, power outages, or flooding).
+	- "**hurricanes**": Plots active tropical cyclones from GDACS. Clicking a storm displays details and shows its historical track, forecast track, and uncertainty cone.
  	- "**wildfires**": Displays active wildfires in the US and Australia. Clicking a wildfire displays additional info.
   	- "**us-poweroutages**" (or just "outages" for short): Color-codes US counties by current number of customers without power (darker colors = higher % of customers affected). Clicking a county displays more info.
   	- "**us-flooding**": Plots blue dots for areas with active US flood alerts. Clicking a dot displays more details about the flooding.
-	- "**hurricanes**": Plots active tropical cyclones from GDACS. Clicking a storm displays details and shows its historical track, forecast track, and uncertainty cone.
 - **HideMapOptions**: If "true" then will hide the options bar by default. Default is "false".
 - **ShowMapSidebar**: If "true" then will show the sidebar by default. Default is "false".
 - **MapIgnoreCleared**: If "true" then will only show items currently alerting (useful for maps with thousands of markers). Default is "false".
@@ -149,6 +149,7 @@ Below is a domain list for external APIs used by Better Map Widget for various d
 - `tile.openweathermap.org` — OpenWeather radar tiles
 - `maps.aerisapi.com` — Xweather radar tiles
 - `earthquake.usgs.gov` — earthquake GeoJSON data
+- `www.gdacs.org` — active tropical cyclone event, timeline, and storm-track data
 - `api.waterdata.usgs.gov` — US flooding data
 - `services9.arcgis.com` — US wildfire data
 - `services-ap1.arcgis.com` — Australian bushfire data

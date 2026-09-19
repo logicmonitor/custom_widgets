@@ -14,10 +14,15 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
 
 // ------------------------------------------------------------
-var version = "3.72 CDN";
+var version = "3.73 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.73</h3>
+	<ul>
+		<li>Clicking an empty part of the map now hides any visible storm tracks.</li>
+		<li>Improved loading of storm track data. Track data will be cached for 10 minutes.</li>
+	</ul>
 	<h3>Version 3.72</h3>
 	<ul>
 		<li>Added an optional overlay for active hurricanes/cyclones.</li>
@@ -2244,6 +2249,7 @@ function clearOverlayState() {
 		});
 		hurricanePathOverlays = [];
 	}
+	hurricaneConeOverlays = [];
 }
 
 // Function to close all open InfoWindows...
@@ -2620,6 +2626,12 @@ var mmiContourLines = [];
 var hurricaneMarkers = [];
 var hurricaneTrackPointMarkers = [];
 var hurricanePathOverlays = [];
+var hurricaneConeOverlays = [];
+var hurricaneTracksLoading = false;
+var hurricaneSelectedStormId = null;
+var hurricaneBaseFeatures = [];
+var hurricaneTrackLoaders = new Map();
+var hurricaneLoadedTrackFeatures = new Map();
 
 // Track map initialization state...
 var mapInitialized = false;
@@ -3115,6 +3127,7 @@ async function initMap() {
 
 	// Redraw polylines after zoom/pan/drag completes...
 	map.addListener("idle", () => schedulePolylineEndpointUpdate());
+	map.addListener("click", () => { hideHurricaneTracks(); hideEarthquakeImpactOutlines(); });
 
 	// Vector maps are nicer but sometimes don't load right away. Plus they're mainly useful if tilt controls are enabled, so use the normal raster map by default...
 	// if (showMapTiltControls) {
@@ -4963,7 +4976,7 @@ function createWeatherTileLayer(name, getTileUrl, opts = {}) {
 	};
 }
 
-// Function to add weather & other optional overlays to the map...
+// Optional overlay helpers: shared parsing, formatting, and overlay primitives.
 function hurricanePropertyText(properties) {
 	return Object.keys(properties || {}).map(key => String(properties[key] == null ? "" : properties[key])).join(" ").toLowerCase();
 }
@@ -4995,7 +5008,16 @@ function hurricaneAddGeometry(geometry, group, kind) {
 	}
 }
 
+// Applies a Google Maps instance to every overlay in a collection.
+function setOverlayCollectionMap(overlays, targetMap) {
+	(overlays || []).forEach(overlay => {
+		try { overlay.setMap(targetMap); } catch (error) {}
+	});
+}
+
 const HURRICANE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="30" height="30" fill="#d62d24" role="img" aria-label="Tropical cyclone"><path d="M128 272C128 168.4 203.7 82.5 302.9 66.6C312 65.2 320 72.6 320 81.9L320 145.2C320 153.6 326.5 160.5 334.7 161.7C435 176.6 512 263 512 367.4C512 471 436.3 556.9 337.1 572.8C327.9 574.3 320 566.9 320 557.6L320 494.3C320 485.9 313.5 479 305.3 477.7C205 462.9 128 376.4 128 272zM416 320C416 267 373 224 320 224C267 224 224 267 224 320C224 373 267 416 320 416C373 416 416 373 416 320zM320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320C288 302.3 302.3 288 320 288z"/></svg>';
+const HURRICANE_HISTORICAL_COLOR = "rgb(170 170 170)";
+const HURRICANE_PROJECTED_COLOR = "rgb(239 108 100)";
 
 function hurricaneIconSvg(color) {
 	return HURRICANE_ICON_SVG.replace('fill="#d62d24"', `fill="${color || "#d62d24"}"`);
@@ -5010,20 +5032,38 @@ function hurricaneMarkerContent(color) {
 }
 
 function hurricaneSeverityText(properties) {
-	const severity = properties && properties.severitydata;
+	const severityKey = Object.keys(properties || {}).find(key => key.toLowerCase() === "severitydata");
+	const severity = severityKey ? properties[severityKey] : null;
 	if (severity && typeof severity === "object" && severity.severitytext) return String(severity.severitytext);
-	return String((properties && (properties.severitytext || properties.severity_text)) || "");
+	const textKey = Object.keys(properties || {}).find(key => ["severitytext", "severity_text"].includes(key.toLowerCase()));
+	return String((textKey && properties[textKey]) || "");
+}
+
+// Parses GDACS polygon labels such as "15/09 18:00 UTC" into a Date.
+function parseHurricanePolygonLabelDate(value) {
+	const text = String(value || "").trim();
+	const match = text.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})\s+UTC$/i);
+	if (match) {
+		const [, day, month, hour, minute] = match.map(Number);
+		const date = new Date(Date.UTC(new Date().getUTCFullYear(), month - 1, day, hour, minute));
+		if (date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute) return date;
+	}
+	const parsed = text ? new Date(text) : null;
+	return parsed && Number.isFinite(parsed.getTime()) ? parsed : null;
 }
 
 function hurricaneTrackPointTooltip(properties) {
-	const label = String((properties && (properties.polygonlabel || properties.polygon_label)) || "").trim();
+	const dateKey = Object.keys(properties || {}).find(key => ["polygonlabel", "polygon_label"].includes(key.toLowerCase()));
+	const rawDate = dateKey ? properties[dateKey] : "";
+	const parsedDate = parseHurricanePolygonLabelDate(rawDate);
+	const localDate = parsedDate ? parsedDate.toLocaleString() : String(rawDate || "").trim();
 	const severity = hurricaneSeverityText(properties);
-	return [label, severity].filter(Boolean).join("\n") || "Track point";
+	return [localDate, severity].filter(Boolean).join("\n") || "Track point";
 }
 
 function hurricaneTrackPointContent(severityText, color) {
 	const content = document.createElement("div");
-	content.style.cssText = `width:8px;height:8px;border-radius:50%;background:${color || "#263238"};border:1px solid white;box-shadow:0 1px 3px rgba(0,0,0,.65);`;
+	content.style.cssText = `width:8px;height:8px;border-radius:50%;background:${color || "#263238"};border:1px solid white;`;
 	content.title = severityText || "Track point";
 	content.setAttribute("aria-label", severityText || "Track point");
 	return content;
@@ -5034,18 +5074,47 @@ function hurricaneDisplayName(properties) {
 	return value ? String(properties[value]) : "Tropical cyclone";
 }
 
+// Builds the hurricane infowindow contents for a storm.
 function hurricaneInfoHtml(storm) {
 	const properties = storm.properties || {};
 	const severity = properties.severitydata && typeof properties.severitydata === "object" ? properties.severitydata.severitytext : "";
-	const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="100" height="100"');
-	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 108px 4px 0;"><div style="position:absolute;top:0;right:0;width:100px;height:100px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(hurricaneDisplayName(properties))}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`;
+	const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="80" height="80"');
+	const loadingStatus = hurricaneTracksLoading ? `<div style="border-top:1px solid #eee;padding:6px 0;color:#666;font-style:italic;display:flex;align-items:center;gap:4px;">${loadingSpinner}<span>Getting storm tracks</span></div>` : "";
+	const reportUrl = properties.url && typeof properties.url === "object" ? properties.url.report : properties["url.report"];
+	const reportLink = /^https?:\/\//i.test(String(reportUrl || "")) ? `<div style="border-top:1px solid #eee;padding:6px 0;"><a href="${escapeHtml(reportUrl)}" target="_blank" rel="noopener noreferrer">Storm Report</a></div>` : "";
+	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(hurricaneDisplayName(properties))}</div>${loadingStatus}<div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div>${reportLink}</div>`;
 }
 
+// Hides all hurricane paths, dots, cones, and selection highlighting.
+function hideHurricaneTracks() {
+	hurricaneSelectedStormId = null;
+	setOverlayCollectionMap(hurricanePathOverlays, null);
+	setOverlayCollectionMap(hurricaneConeOverlays, null);
+	hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
+	hurricaneMarkers.forEach(marker => { if (marker.content) marker.content.style.filter = "none"; });
+}
+
+// Hides the earthquake ShakeMap impact contour overlays.
+function hideEarthquakeImpactOutlines() {
+	setOverlayCollectionMap(mmiContourLines, null);
+	mmiContourLines = [];
+}
+
+// Rebuilds the hurricane layer with the tracks loaded so far.
+function hurricaneReplotLoadedTracks() {
+	const loadedFeatures = hurricaneBaseFeatures.concat(...hurricaneLoadedTrackFeatures.values());
+	clearOverlayState();
+	plotHurricanes({ type: "FeatureCollection", features: loadedFeatures });
+}
+
+// Hurricane core rendering and lazy track loading.
+// Plots hurricane markers, paths, cones, and track-point overlays.
 function plotHurricanes(geojson) {
 	const storms = new Map();
+	const plottedStorms = new Map();
 	(geojson.features || []).forEach((feature, index) => {
 		const groupId = hurricaneFeatureGroupId(feature, index);
-		if (!storms.has(groupId)) storms.set(groupId, { properties: {}, points: [], historical: [], forecast: [], cones: [], pathOverlays: [], trackPointMarkers: [] });
+		if (!storms.has(groupId)) storms.set(groupId, { properties: {}, points: [], historical: [], forecast: [], cones: [], pathOverlays: [], coneOverlays: [], trackPointMarkers: [] });
 		const storm = storms.get(groupId);
 		storm.properties = Object.assign({}, storm.properties, feature.properties || {});
 		const text = hurricanePropertyText(feature.properties);
@@ -5057,22 +5126,42 @@ function plotHurricanes(geojson) {
 		}
 	});
 
-	storms.forEach(storm => {
+	storms.forEach((storm, groupId) => {
 		const point = storm.points.find(item => item.current) || storm.points[0];
 		if (!point || !point.feature.geometry || point.feature.geometry.coordinates.length < 2) return;
 		const position = { lat: Number(point.feature.geometry.coordinates[1]), lng: Number(point.feature.geometry.coordinates[0]) };
 		if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
 		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: hurricaneMarkerContent("#d62d24"), anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), zIndex: 1000 });
+		plottedStorms.set(groupId, { storm, marker, position });
 		marker.addListener("gmp-click", () => {
+			hurricaneSelectedStormId = groupId;
+			hurricaneMarkers.forEach(otherMarker => { if (otherMarker.content) otherMarker.content.style.filter = "none"; });
+			if (marker.content) marker.content.style.filter = "drop-shadow(white 0px 0px 3px)";
 			hurricanePathOverlays.forEach(overlay => overlay.setMap(null));
+			hurricaneConeOverlays.forEach(overlay => overlay.setMap(null));
 			hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
 			storm.pathOverlays.forEach(overlay => overlay.setMap(map));
+			storm.coneOverlays.forEach(overlay => overlay.setMap(map));
 			storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; });
 			closeAllInfoWindows();
 			overlayInfoWindow.setContent(hurricaneInfoHtml(storm));
 			overlayInfoWindow.setPosition(position);
 			overlayInfoWindow.open(map);
 			if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px";
+			const trackLoader = hurricaneTrackLoaders.get(groupId);
+			if (trackLoader && !hurricaneLoadedTrackFeatures.has(groupId)) {
+				hurricaneTracksLoading = true;
+				overlayInfoWindow.setContent(hurricaneInfoHtml(storm));
+				trackLoader().then(features => {
+					hurricaneLoadedTrackFeatures.set(groupId, features);
+					hurricaneTracksLoading = false;
+					hurricaneReplotLoadedTracks();
+				}).catch(error => {
+					hurricaneTracksLoading = false;
+					console.warn(`Map ${widgetID}: Failed to load tracks for ${hurricaneDisplayName(storm.properties)}:`, error.message);
+					overlayInfoWindow.setContent(hurricaneInfoHtml(storm));
+				});
+			}
 		});
 		hurricaneMarkers.push(marker);
 		storm.points.filter(item => item !== point).forEach(trackPoint => {
@@ -5080,19 +5169,40 @@ function plotHurricanes(geojson) {
 			const trackPosition = { lat: Number(coordinates[1]), lng: Number(coordinates[0]) };
 			if (!Number.isFinite(trackPosition.lat) || !Number.isFinite(trackPosition.lng)) return;
 			const severityText = hurricaneTrackPointTooltip(trackPoint.feature.properties || {});
-			const trackColor = String(trackPoint.feature.properties && trackPoint.feature.properties.actual || "").toLowerCase() === "true" ? "rgb(130 130 130)" : "#d32f2f";
+			const trackColor = String(trackPoint.feature.properties && trackPoint.feature.properties.actual || "").toLowerCase() === "true" ? HURRICANE_HISTORICAL_COLOR : HURRICANE_PROJECTED_COLOR;
 			const trackMarker = new google.maps.marker.AdvancedMarkerElement({ map: null, position: trackPosition, content: hurricaneTrackPointContent(severityText, trackColor), anchorLeft: "-50%", anchorTop: "-50%", title: severityText || "Track point", zIndex: 999 });
 			storm.trackPointMarkers.push(trackMarker);
 			hurricaneTrackPointMarkers.push(trackMarker);
 		});
-		storm.historical.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: "rgb(130 130 130)", strokeOpacity: .85, strokeWeight: 2 })));
-		storm.forecast.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: "#d32f2f", strokeOpacity: .95, strokeWeight: 2, icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 2 }, offset: "0", repeat: "12px" }] })));
-		storm.cones.forEach(paths => storm.pathOverlays.push(new google.maps.Polygon({ map: null, paths, fillColor: "#f6b44b", fillOpacity: .24, strokeColor: "#d98b1e", strokeOpacity: .7, strokeWeight: 1 })));
+		storm.historical.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: HURRICANE_HISTORICAL_COLOR, strokeOpacity: .9, strokeWeight: 2 })));
+		storm.forecast.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: HURRICANE_PROJECTED_COLOR, strokeOpacity: .95, strokeWeight: 2, icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 2 }, offset: "0", repeat: "12px" }] })));
+		storm.cones.forEach(paths => {
+			const cone = new google.maps.Polygon({ map: null, paths, fillColor: "#f6b44b", fillOpacity: .24, strokeColor: "#d98b1e", strokeOpacity: .7, strokeWeight: 1 });
+			storm.coneOverlays.push(cone);
+			storm.pathOverlays.push(cone);
+			hurricaneConeOverlays.push(cone);
+		});
 		hurricanePathOverlays.push(...storm.pathOverlays);
 	});
-	console.debug(`Map ${widgetID}: Plotted ${hurricaneMarkers.length} active tropical cyclone(s)`);
+	const selected = !hurricaneTracksLoading && hurricaneSelectedStormId ? plottedStorms.get(hurricaneSelectedStormId) : null;
+	if (selected) {
+		hurricanePathOverlays.forEach(overlay => overlay.setMap(null));
+		hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
+		selected.storm.pathOverlays.forEach(overlay => overlay.setMap(map));
+		selected.storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; });
+		hurricaneMarkers.forEach(otherMarker => { if (otherMarker.content) otherMarker.content.style.filter = "none"; });
+		if (selected.marker.content) selected.marker.content.style.filter = "drop-shadow(white 0px 0px 3px)";
+		closeAllInfoWindows();
+		overlayInfoWindow.setContent(hurricaneInfoHtml(selected.storm));
+		overlayInfoWindow.setPosition(selected.position);
+		overlayInfoWindow.open(map);
+		if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px";
+	}
+	console.debug(`Map ${widgetID}: Plotted ${hurricaneMarkers.length} active tropical cyclone(s) with ${hurricanePathOverlays.filter(overlay => overlay instanceof google.maps.Polygon).length} uncertainty cone(s)`);
 }
 
+// GDACS helpers: response normalization, URL discovery, caching, and track shaping.
+// Extracts event items from the supported GDACS response shapes.
 function gdacsItems(data) {
 	if (!data || typeof data !== "object") return [];
 	if (Array.isArray(data)) return data;
@@ -5106,15 +5216,18 @@ function gdacsItems(data) {
 	return [];
 }
 
+// Normalizes a GDACS item into its property object.
 function gdacsStormProperties(item) {
 	return Object.assign({}, item.properties || item);
 }
 
+// Reads a property using case-insensitive candidate names.
 function gdacsValue(properties, names) {
 	const key = Object.keys(properties || {}).find(name => names.some(candidate => name.toLowerCase() === candidate));
 	return key ? properties[key] : "";
 }
 
+// Recursively finds a timeline URL in a GDACS response object.
 function gdacsFindTimelineUrl(value) {
 	if (!value || typeof value !== "object") return "";
 	for (const [key, child] of Object.entries(value)) {
@@ -5125,6 +5238,7 @@ function gdacsFindTimelineUrl(value) {
 	return "";
 }
 
+// Extracts timeline records from the supported GDACS response shapes.
 function gdacsTimelineItems(data) {
 	if (data && data.channel && Array.isArray(data.channel.item)) return data.channel.item;
 	if (Array.isArray(data && data.item)) return data.item;
@@ -5132,17 +5246,90 @@ function gdacsTimelineItems(data) {
 	return [];
 }
 
+// Normalizes a GDACS coordinate value into a numeric longitude/latitude pair.
 function gdacsTimelineCoordinates(value) {
 	if (Array.isArray(value) && value.length >= 2) return [Number(value[0]), Number(value[1])];
 	const values = String(value || "").match(/-?\d+(?:\.\d+)?/g);
 	return values && values.length >= 2 ? [Number(values[0]), Number(values[1])] : null;
 }
 
+const HURRICANE_JSON_CACHE = new Map();
+// Fetches and briefly caches a GDACS JSON response, including in-flight requests.
+async function hurricaneFetchJson(url) {
+	const cached = HURRICANE_JSON_CACHE.get(url);
+	if (cached && Date.now() - cached.timestamp < 600000) return cached.promise;
+	const promise = fetch(url, { cache: "no-store" }).then(async response => {
+		if (!response.ok) throw new Error(`GDACS request failed: ${response.status}`);
+		return response.json();
+	}).catch(error => {
+		HURRICANE_JSON_CACHE.delete(url);
+		throw error;
+	});
+	HURRICANE_JSON_CACHE.set(url, { timestamp: Date.now(), promise });
+	return promise;
+}
+
+// Loads and converts one storm timeline into plottable GeoJSON features.
+async function hurricaneLoadStormFeatures(item) {
+	const properties = gdacsStormProperties(item);
+	const eventId = gdacsValue(properties, ["eventid", "event_id"]);
+	const episodeId = gdacsValue(properties, ["episodeid", "episode_id"]);
+	if (!eventId) return [];
+	let episodeData = item;
+	let timelineUrl = gdacsFindTimelineUrl(item);
+	if (!timelineUrl && episodeId) {
+		const episodeUrl = `https://www.gdacs.org/gdacsapi/api/events/getepisodedata?eventtype=TC&eventid=${encodeURIComponent(eventId)}&episodeid=${encodeURIComponent(episodeId)}`;
+		episodeData = await hurricaneFetchJson(episodeUrl);
+		timelineUrl = gdacsFindTimelineUrl(episodeData);
+	}
+	if (!timelineUrl) return [];
+	const timelineItems = gdacsTimelineItems(await hurricaneFetchJson(timelineUrl));
+	const storm = { properties: Object.assign({}, properties, { eventid: eventId, episodeid: episodeId }), timelineItems, geometries: item._gdacsGeometries || [], pointMetadata: item._gdacsPointMetadata || [], anchorGeometry: item.geometry };
+	const features = [];
+	const track = [];
+	let pointMetadataIndex = 0;
+	storm.timelineItems.forEach(timelineItem => {
+		const coordinates = gdacsTimelineCoordinates(timelineItem.coordinates || timelineItem.coordinate || timelineItem.position);
+		if (!coordinates || !coordinates.every(Number.isFinite)) return;
+		const pointProperties = Object.assign({}, storm.properties);
+		delete pointProperties.polygonlabel;
+		delete pointProperties.polygon_label;
+		delete pointProperties.polygondate;
+		delete pointProperties.polygon_date;
+		delete pointProperties.severitydata;
+		delete pointProperties.severitytext;
+		delete pointProperties.severity_text;
+		Object.assign(pointProperties, timelineItem);
+		const orderedMetadata = storm.pointMetadata[pointMetadataIndex++];
+		let nearestMetadata = orderedMetadata || null;
+		let nearestDistance = Infinity;
+		if (!nearestMetadata) storm.pointMetadata.forEach(metadata => {
+			const distance = Math.hypot(metadata.coordinates[0] - coordinates[0], metadata.coordinates[1] - coordinates[1]);
+			if (distance < nearestDistance) { nearestDistance = distance; nearestMetadata = metadata; }
+		});
+		if (nearestMetadata && (orderedMetadata || nearestDistance < 0.25)) {
+			if (nearestMetadata.polygonlabel) pointProperties.polygonlabel = nearestMetadata.polygonlabel;
+			if (nearestMetadata.severitydata) pointProperties.severitydata = nearestMetadata.severitydata;
+		}
+		const actual = String(timelineItem.actual || "").toLowerCase() === "true";
+		const current = String(timelineItem.current || "").toLowerCase() === "true";
+		track.push({ coordinates, actual, current });
+		features.push({ type: "Feature", geometry: { type: "Point", coordinates }, properties: Object.assign({}, pointProperties, { _current: current, _actual: actual }) });
+	});
+	const history = track.filter(point => point.actual).map(point => point.coordinates);
+	const forecast = track.filter(point => !point.actual).map(point => point.coordinates);
+	const currentCoordinates = track.find(point => point.current)?.coordinates || (storm.anchorGeometry && storm.anchorGeometry.type === "Point" ? storm.anchorGeometry.coordinates : null);
+	if (currentCoordinates && (!forecast.length || forecast[0][0] !== currentCoordinates[0] || forecast[0][1] !== currentCoordinates[1])) forecast.unshift(currentCoordinates);
+	if (history.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: history }, properties: Object.assign({}, storm.properties, { _trackType: "historical" }) });
+	if (forecast.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: forecast }, properties: Object.assign({}, storm.properties, { _trackType: "forecast" }) });
+	return features;
+}
+
+// Hurricane data loading core: fetch the active-event index now; fetch timelines on demand.
+// Loads active storm markers immediately and registers lazy timeline loaders.
 async function loadHurricanesFromGdacsApi() {
-	const listUrl = `https://www.gdacs.org/gdacsapi/api/events/geteventlist/map?eventtype=TC&ts=${Date.now()}`;
-	const listResponse = await fetch(listUrl, { cache: "no-store" });
-	if (!listResponse.ok) throw new Error(`GDACS tropical cyclone map error: ${listResponse.status}`);
-	const listData = await listResponse.json();
+	const listUrl = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/map?eventtype=TC";
+	const listData = await hurricaneFetchJson(listUrl);
 	const allMapFeatures = gdacsItems(listData);
 	const eventGroups = new Map();
 	allMapFeatures.forEach(item => {
@@ -5162,7 +5349,7 @@ async function loadHurricanesFromGdacsApi() {
 		if (/^Point_Polygon_Point_/i.test(polygonClass) && Array.isArray(item.bbox) && item.bbox.length >= 4) {
 			group.pointMetadata.push({ coordinates: [(Number(item.bbox[0]) + Number(item.bbox[2])) / 2, (Number(item.bbox[1]) + Number(item.bbox[3])) / 2], polygonlabel: polygonLabel, severitydata: properties.severitydata });
 		}
-		if (item.geometry && ["Polygon", "MultiPolygon"].includes(item.geometry.type) && (/uncertainty\s+cones/i.test(polygonLabel) || /poly_cones/i.test(polygonClass))) {
+		if (item.geometry && ["Polygon", "MultiPolygon"].includes(item.geometry.type) && (/uncertainty\s+cone/i.test(polygonLabel) || /poly[_\s-]*cones?/i.test(polygonClass))) {
 			group.geometries.push(item.geometry);
 		}
 		if (!group.item || item.geometry?.type === "Point") group.item = item;
@@ -5181,74 +5368,19 @@ async function loadHurricanesFromGdacsApi() {
 	});
 	clearOverlayState();
 	plotHurricanes({ type: "FeatureCollection", features: initialFeatures });
-
-	const storms = await Promise.all(eventItems.map(async item => {
+	hurricaneBaseFeatures = initialFeatures;
+	hurricaneTrackLoaders = new Map();
+	hurricaneLoadedTrackFeatures = new Map();
+	eventItems.forEach(item => {
 		const properties = gdacsStormProperties(item);
-		const eventId = gdacsValue(properties, ["eventid", "event_id"]);
-		const episodeId = gdacsValue(properties, ["episodeid", "episode_id"]);
-		if (!eventId) return null;
-		let episodeData = item;
-		if (episodeId) {
-			const episodeUrl = `https://www.gdacs.org/gdacsapi/api/events/getepisodedata?eventtype=TC&eventid=${encodeURIComponent(eventId)}&episodeid=${encodeURIComponent(episodeId)}`;
-			try {
-				const episodeResponse = await fetch(episodeUrl, { cache: "no-store" });
-				if (episodeResponse.ok) episodeData = await episodeResponse.json();
-			} catch (error) {
-				console.warn(`Map ${widgetID}: Failed to load GDACS episode ${eventId}/${episodeId}:`, error.message);
-			}
-		}
-		const timelineUrl = gdacsFindTimelineUrl(episodeData) || gdacsFindTimelineUrl(item);
-		if (!timelineUrl) return null;
-		try {
-			const timelineResponse = await fetch(timelineUrl, { cache: "no-store" });
-			if (!timelineResponse.ok) throw new Error(`timeline HTTP ${timelineResponse.status}`);
-			const timelineItems = gdacsTimelineItems(await timelineResponse.json());
-			return { properties: Object.assign({}, properties, { eventid: eventId, episodeid: episodeId }), timelineItems, geometries: item._gdacsGeometries || [], pointMetadata: item._gdacsPointMetadata || [], anchorGeometry: item.geometry };
-		} catch (error) {
-			console.warn(`Map ${widgetID}: Failed to load GDACS timeline for ${eventId}:`, error.message);
-			return null;
-		}
-	}));
-
-	const features = [];
-	storms.filter(Boolean).forEach(storm => {
-		const track = [];
-		if (storm.anchorGeometry && storm.anchorGeometry.type === "Point") {
-			features.push({ type: "Feature", geometry: storm.anchorGeometry, properties: Object.assign({}, storm.properties, { _current: true, _mapAnchor: true }) });
-		}
-		storm.timelineItems.forEach(item => {
-			const coordinates = gdacsTimelineCoordinates(item.coordinates || item.coordinate || item.position);
-			if (!coordinates || !coordinates.every(Number.isFinite)) return;
-			const props = Object.assign({}, storm.properties, item);
-			delete props.polygonlabel;
-			delete props.polygon_label;
-			delete props.severitydata;
-			let nearestMetadata = null;
-			let nearestDistance = Infinity;
-			storm.pointMetadata.forEach(metadata => {
-				const distance = Math.hypot(metadata.coordinates[0] - coordinates[0], metadata.coordinates[1] - coordinates[1]);
-				if (distance < nearestDistance) { nearestDistance = distance; nearestMetadata = metadata; }
-			});
-			if (nearestMetadata && nearestDistance < 0.25) Object.assign(props, { polygonlabel: nearestMetadata.polygonlabel, severitydata: nearestMetadata.severitydata });
-			const actual = String(item.actual || "").toLowerCase() === "true";
-			const current = String(item.current || "").toLowerCase() === "true";
-			track.push({ coordinates, actual, current });
-			features.push({ type: "Feature", geometry: { type: "Point", coordinates }, properties: Object.assign({}, props, { _current: current, _actual: actual }) });
-		});
-		const history = track.filter(point => point.actual).map(point => point.coordinates);
-		const forecast = track.filter(point => !point.actual).map(point => point.coordinates);
-		const currentCoordinates = track.find(point => point.current)?.coordinates || (storm.anchorGeometry && storm.anchorGeometry.type === "Point" ? storm.anchorGeometry.coordinates : null);
-		if (currentCoordinates && (!forecast.length || forecast[0][0] !== currentCoordinates[0] || forecast[0][1] !== currentCoordinates[1])) forecast.unshift(currentCoordinates);
-		if (history.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: history }, properties: Object.assign({}, storm.properties, { _trackType: "historical" }) });
-		if (forecast.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: forecast }, properties: Object.assign({}, storm.properties, { _trackType: "forecast" }) });
-		(storm.geometries || []).forEach(geometry => {
-			if (["Polygon", "MultiPolygon"].includes(geometry.type)) features.push({ type: "Feature", geometry, properties: storm.properties });
-		});
+		const key = String(gdacsValue(properties, ["eventid", "event_id"]));
+		hurricaneTrackLoaders.set(key, () => hurricaneLoadStormFeatures(item));
 	});
-	console.debug(`Map ${widgetID}: GDACS produced ${features.length} hurricane feature(s)`);
-	return { type: "FeatureCollection", features };
+	hurricaneTracksLoading = false;
+	return { type: "FeatureCollection", features: initialFeatures };
 }
 
+// Optional weather/overlay orchestration.
 async function addWeatherLayer() {
 	console.debug(`Map ${widgetID}: addWeatherLayer() checked=${_dom.weather.checked} weatherType=${_dom.weatherType.value} optionalOverlay=${_dom.otherWeatherOverlays.value}`);
 	if (_dom.weather.checked) {
@@ -5305,8 +5437,7 @@ async function addWeatherLayer() {
 		if (optionalMapType == "hurricanes") {
 			try {
 				const hurricaneData = await loadHurricanesFromGdacsApi();
-				clearOverlayState();
-				plotHurricanes(hurricaneData);
+				if (hurricaneData.features.length) console.debug(`Map ${widgetID}: Hurricane markers ready; tracks load on selection`);
 			} catch (error) {
 				console.error(`Map ${widgetID}: Failed to fetch GDACS hurricane API data:`, error);
 			}
