@@ -65,13 +65,18 @@
 		registry.pendingDefaults = registry.pendingDefaults || [];
 		var defaults = {};
 
-		defaults.version = "3.71";
+		defaults.version = "3.72";
 		defaults.releaseNotes = `
 			<h2>Release Notes</h2>
 			<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+			<h3>Version 3.72</h3>
+			<ul>
+				<li>Added an optional overlay for active hurricanes/cyclones.</li>
+			</ul>
 			<h3>Version 3.71</h3>
 			<ul>
 				<li>If all items in a cluster are at the same location then the cluster's popup now displays a message to that fact explaining why the cluster cannot be zoomed in.</li>
+				<li>Changed the clustering algorithm to keep clusters together at all zoom levels so items with the same coordinates won't overlap each other.</li>
 			</ul>
 			<h3>Version 3.70</h3>
 			<ul>
@@ -1615,9 +1620,10 @@
 									<select id="otherWeatherOverlays" data-bmw-action="enableWeather" data-bmw-event="change">
 										<option value="none">None</option>
 										<option value="earthquakes" selected>Earthquakes (mag 6+, 7d)</option>
+										<option value="hurricanes">Hurricanes</option>
 										<option value="us-flooding">US Flooding</option>
 										<option value="us-poweroutages">US Power Outages</option>
-										<option value="wildfires">Wildfires</option>
+									<option value="wildfires">Wildfires</option>
 									</select>
 								</span>
 							</span>
@@ -1881,7 +1887,7 @@ if (window.RProfiler) {
 
 	const __LMBMW_MAPOPTS_COOKIE_BASE = "lm_bmw_mapOpts_v1";
 	const __LMBMW_MAPOPTS_MAX_AGE = 60 * 60 * 24 * 400;
-	const __LMBMW_ALLOWED_OVERLAY_VALUES = ["none", "wildfires", "us-poweroutages", "earthquakes", "us-flooding"];
+	const __LMBMW_ALLOWED_OVERLAY_VALUES = ["none", "wildfires", "us-poweroutages", "earthquakes", "us-flooding", "hurricanes"];
 	const __LMBMW_ALLOWED_WEATHER_TYPES = ["radar", "nexrad-n0q-900913", "xweather", "openweather"];
 	const __LMBMW_ALLOWED_SOURCE_TYPES = ["groups", "resources", "services"];
 	const __LMBMW_MAPOPTS_ELEMENT_TO_KEY = {
@@ -2014,6 +2020,7 @@ if (window.RProfiler) {
 		else if (v === "us-poweroutages") additionalOverlayOption = "us-poweroutages";
 		else if (v === "earthquakes") additionalOverlayOption = "earthquakes";
 		else if (v === "us-flooding") additionalOverlayOption = "us-flooding";
+		else if (v === "hurricanes") additionalOverlayOption = "hurricanes";
 	}
 
 	// Function to apply saved toolbar options from the dashboard cookie...
@@ -2593,7 +2600,7 @@ if (window.RProfiler) {
 		xweatherAPIKey = xweatherAPIKeyToken.trim();
 	}
 	let dashboardAddlOverlayToken = "##MapOverlayOption##".toLowerCase();
-	if (dashboardAddlOverlayToken == "none" || dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding") {
+	if (dashboardAddlOverlayToken == "none" || dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding" || dashboardAddlOverlayToken == "hurricanes") {
 		additionalOverlayOption = dashboardAddlOverlayToken;
 		if (additionalOverlayOption == "us-wildfires") {
 			additionalOverlayOption = "wildfires";
@@ -2749,6 +2756,8 @@ if (window.RProfiler) {
 		_dom.otherWeatherOverlays.value = "earthquakes";
 	} else if (additionalOverlayOption == "us-flooding") {
 		_dom.otherWeatherOverlays.value = "us-flooding";
+	} else if (additionalOverlayOption == "hurricanes") {
+		_dom.otherWeatherOverlays.value = "hurricanes";
 	}
 
 	_dom.markerStyleSelect.value = markerStyle === "circles" ? "circles" : "pins";
@@ -2768,6 +2777,9 @@ if (window.RProfiler) {
 	const defaultMapHeading = mapHeading;
 	// Zoom the map opens at, and what resetZoom falls back to when the bounds have no area to fit...
 	const defaultMapZoom = 3;
+	// Deepest zoom Google Maps supports. Clustering is capped at this so that pins sharing a coordinate
+	// stay grouped in a donut instead of splitting into markers stacked on top of each other...
+	const googleMapsMaxZoom = 22;
 
 	// SVG icon definitions for our different alert severities...
 	const warningIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 1024 1024" data-tooltip="Warning"><path fill="#f5ca1d" d="M118.154 118.154h787.692c43.323 0 78.769 35.446 78.769 78.769v630.154c0 43.323-35.446 78.769-78.769 78.769h-787.692c-43.323 0-78.769-35.446-78.769-78.769v-630.154c0-43.323 35.446-78.769 78.769-78.769v0 0z"></path> <path fill="white" d="M866.462 669.538l-275.692-433.231c-43.323-70.892-114.215-70.892-157.538 0l-275.692 433.231c-43.323 70.892-3.938 157.538 78.769 157.538h551.385c82.708 0 122.092-86.646 78.769-157.538v0 0z"></path> <path fill="#f5ca1d" d="M551.385 748.308h-78.769v-78.769h78.769v78.769zM551.385 630.154h-78.769v-275.692h78.769v275.692z"></path> </svg>';
@@ -2835,6 +2847,28 @@ if (window.RProfiler) {
 				return await res.text();
 			} finally { clearTimeout(timer); }
 		}
+	}
+
+	// Public CORS fallbacks used by overlays whose data source does not send browser CORS headers...
+	let betterMapCorsProxies = [
+		{ url: "https://api.allorigins.win/raw?url=", encode: true },
+		{ url: "https://api.codetabs.com/v1/proxy?quest=", encode: false }
+	];
+	async function fetchWithBetterMapCorsProxy(targetUrl, dataLabel) {
+		const separator = targetUrl.includes("?") ? "&" : "?";
+		const urlWithCacheBust = targetUrl + separator + "v=" + Date.now();
+		for (let i = 0; i < betterMapCorsProxies.length; i++) {
+			const proxy = betterMapCorsProxies[i];
+			const proxyUrl = proxy.url + (proxy.encode ? encodeURIComponent(urlWithCacheBust) : urlWithCacheBust);
+			try {
+				const response = await fetch(proxyUrl, { cache: "no-store" });
+				if (response.ok) return response;
+				console.warn(`Map ${widgetID}: CORS proxy ${i + 1} returned ${response.status}, trying next...`);
+			} catch (error) {
+				console.warn(`Map ${widgetID}: CORS proxy ${i + 1} failed: ${error.message}, trying next...`);
+			}
+		}
+		throw new Error(`All CORS proxies failed to fetch ${dataLabel || "overlay data"}`);
 	}
 
 	// Batch builder to avoid jank when (re)building many markers...
@@ -3147,6 +3181,18 @@ if (window.RProfiler) {
 		if (mmiContourLines) {
 			mmiContourLines.forEach(line => line.setMap(null));
 			mmiContourLines = [];
+		}
+		if (hurricaneMarkers) {
+			hurricaneMarkers.forEach(marker => { try { marker.map = null; } catch (error) {} });
+			hurricaneMarkers = [];
+		}
+		if (hurricaneTrackPointMarkers) {
+			hurricaneTrackPointMarkers.forEach(marker => { try { marker.map = null; } catch (error) {} });
+			hurricaneTrackPointMarkers = [];
+		}
+		if (hurricanePathOverlays) {
+			hurricanePathOverlays.forEach(overlay => { try { overlay.setMap(null); } catch (error) {} });
+			hurricanePathOverlays = [];
 		}
 	}
 
@@ -3517,6 +3563,9 @@ if (window.RProfiler) {
 	// Every map.data listener the current overlay installed, so teardown can remove all of them...
 	let overlayDataListenerHandles = [];
 	let mmiContourLines = [];
+	let hurricaneMarkers = [];
+	let hurricaneTrackPointMarkers = [];
+	let hurricanePathOverlays = [];
 
 	// Function to apply the selected marker style to existing markers...
 	function applyMarkerStyleFromSelect() {
@@ -4803,7 +4852,9 @@ if (window.RProfiler) {
 							google.maps.event.clearInstanceListeners(clusterer);
 							clusterer.setMap(null);
 						}
-						const algorithm = new markerClusterer.SuperClusterAlgorithm({radius: 120});
+						// Without maxZoom the library stops clustering at zoom 16 and overlapping pins end up
+						// hidden behind each other...
+						const algorithm = new markerClusterer.SuperClusterAlgorithm({radius: 120, maxZoom: googleMapsMaxZoom});
 						clusterer = new markerClusterer.MarkerClusterer({
 							markers,
 							map,
@@ -5671,12 +5722,14 @@ if (window.RProfiler) {
 					clusterBounds.extend(device.position);
 				});
 
-				// When every clustered item sits on the exact same point the bounds collapse to that point,
-				// so zooming in can never break the cluster apart. Flag it so the popup can disable the zoom
-				// button and call out why the cluster will not split...
+				// When every clustered item sits on the exact same point the bounds collapse to that point.
+				// Zooming in is still useful until street-ish detail, so only disable the button once the
+				// map is already at zoom 18 or closer...
 				const allSameLocation = clusterBounds.getSouthWest().equals(clusterBounds.getNorthEast());
+				const currentZoom = (map && map.getZoom && map.getZoom()) || 0;
+				const disableSameLocationZoom = allSameLocation && currentZoom >= 18;
 
-				const zoomBtnInner = allSameLocation ? `All have same location` : `
+				const zoomBtnInner = disableSameLocationZoom ? `All have same location` : `
 								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
 									<circle cx="11" cy="11" r="8"/>
 									<line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -5689,7 +5742,7 @@ if (window.RProfiler) {
 					<div class="mapInfoPopupWindow">
 						<div class="cluster-header">
 							<div class="cluster-title">Cluster Summary</div>
-							<button class="cluster-zoom-btn"${allSameLocation ? ' disabled' : ''} data-sw-lat="${clusterBounds.getSouthWest().lat()}" data-sw-lng="${clusterBounds.getSouthWest().lng()}" data-ne-lat="${clusterBounds.getNorthEast().lat()}" data-ne-lng="${clusterBounds.getNorthEast().lng()}">
+							<button class="cluster-zoom-btn"${disableSameLocationZoom ? ' disabled' : ''} data-sw-lat="${clusterBounds.getSouthWest().lat()}" data-sw-lng="${clusterBounds.getSouthWest().lng()}" data-ne-lat="${clusterBounds.getNorthEast().lat()}" data-ne-lng="${clusterBounds.getNorthEast().lng()}">
 								${zoomBtnInner}
 							</button>
 						</div>
@@ -5759,6 +5812,7 @@ if (window.RProfiler) {
 
 	// Function to enable the weather overlays when the appropriate checkbox is selected...
 	function enableWeather() {
+		console.debug(`Map ${widgetID}: enableWeather() checked=${_dom.weather.checked} weatherType=${_dom.weatherType.value} optionalOverlay=${_dom.otherWeatherOverlays.value}`);
 		if (_dom.weather.checked) {
 			_dom.weatherOptions.style.display = "inline-flex";
 			initWeather();
@@ -5851,7 +5905,184 @@ if (window.RProfiler) {
 	}
 
 	// Function to add weather & other optional overlays to the map...
+	const HURRICANE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="30" height="30" fill="#d62d24" role="img" aria-label="Tropical cyclone"><path d="M128 272C128 168.4 203.7 82.5 302.9 66.6C312 65.2 320 72.6 320 81.9L320 145.2C320 153.6 326.5 160.5 334.7 161.7C435 176.6 512 263 512 367.4C512 471 436.3 556.9 337.1 572.8C327.9 574.3 320 566.9 320 557.6L320 494.3C320 485.9 313.5 479 305.3 477.7C205 462.9 128 376.4 128 272zM416 320C416 267 373 224 320 224C267 224 224 267 224 320C224 373 267 416 320 416C373 416 416 373 416 320zM320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320C288 302.3 302.3 288 320 288z"/></svg>';
+	function hurricaneIconSvg(color) { return HURRICANE_ICON_SVG.replace('fill="#d62d24"', `fill="${color || "#d62d24"}"`); }
+
+	function plotHurricanes(geojson) {
+		const storms = new Map();
+		const pathFor = coordinates => (coordinates || []).map(c => ({ lat: Number(c[1]), lng: Number(c[0]) })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+		(geojson.features || []).forEach((feature, index) => {
+			const props = feature.properties || {};
+			const idKey = Object.keys(props).find(key => /event.?id|episode.?id|cyclone.?id|storm.?id|alert.?id/i.test(key));
+			const id = String((idKey && props[idKey]) || feature.id || props.name || `storm-${index}`);
+			if (!storms.has(id)) storms.set(id, { properties: {}, points: [], historical: [], forecast: [], cones: [], pathOverlays: [], trackPointMarkers: [] });
+			const storm = storms.get(id);
+			storm.properties = Object.assign({}, storm.properties, props);
+			const text = JSON.stringify(props).toLowerCase();
+			if (feature.geometry && feature.geometry.type === "Point") storm.points.push({ feature, current: /current|observed|analysis|now/.test(text) && !/forecast|predicted|projected/.test(text) });
+			if (!feature.geometry) return;
+			const kind = /forecast|predicted|projected|fcst|outlook/.test(text) ? "forecast" : "historical";
+			if (feature.geometry.type === "LineString") storm[kind].push(pathFor(feature.geometry.coordinates));
+			if (feature.geometry.type === "Polygon") storm.cones.push(feature.geometry.coordinates.map(pathFor));
+		});
+		storms.forEach(storm => {
+			const point = storm.points.find(item => item.current) || storm.points[0];
+			if (!point) return;
+			const c = point.feature.geometry.coordinates;
+			const position = { lat: Number(c[1]), lng: Number(c[0]) };
+			if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
+			const content = document.createElement("div");
+			content.style.cssText = "display:flex;align-items:center;justify-content:center;";
+			content.innerHTML = hurricaneIconSvg("#d62d24");
+			const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content, anchorLeft: "-50%", anchorTop: "-50%", title: String(storm.properties.name || storm.properties.title || "Tropical cyclone"), zIndex: 1000 });
+			marker.addListener("gmp-click", () => { hurricanePathOverlays.forEach(overlay => overlay.setMap(null)); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); storm.pathOverlays.forEach(overlay => overlay.setMap(map)); storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; }); closeAllInfoWindows(); const severity = storm.properties.severitydata && typeof storm.properties.severitydata === "object" ? storm.properties.severitydata.severitytext : ""; const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="100" height="100"'); overlayInfoWindow.setContent(`<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 108px 4px 0;"><div style="position:absolute;top:0;right:0;width:100px;height:100px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(storm.properties.name || storm.properties.title || "Tropical cyclone")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(storm.properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(storm.properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`); overlayInfoWindow.setPosition(position); overlayInfoWindow.open(map); if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px"; });
+			hurricaneMarkers.push(marker);
+			storm.points.filter(item => item !== point).forEach(trackPoint => {
+				const coordinates = trackPoint.feature.geometry.coordinates;
+				const trackPosition = { lat: Number(coordinates[1]), lng: Number(coordinates[0]) };
+				if (!Number.isFinite(trackPosition.lat) || !Number.isFinite(trackPosition.lng)) return;
+				const severity = trackPoint.feature.properties && trackPoint.feature.properties.severitydata;
+				const severityText = severity && typeof severity === "object" ? String(severity.severitytext || "") : String((trackPoint.feature.properties && (trackPoint.feature.properties.severitytext || trackPoint.feature.properties.severity_text)) || "");
+				const polygonLabel = String((trackPoint.feature.properties && (trackPoint.feature.properties.polygonlabel || trackPoint.feature.properties.polygon_label)) || "").trim();
+				const tooltipText = [polygonLabel, severityText].filter(Boolean).join("\n") || "Track point";
+				const content = document.createElement("div");
+				const trackColor = String(trackPoint.feature.properties && trackPoint.feature.properties.actual || "").toLowerCase() === "true" ? "rgb(130 130 130)" : "#d32f2f";
+				content.style.cssText = `width:8px;height:8px;border-radius:50%;background:${trackColor};border:1px solid white;box-shadow:0 1px 3px rgba(0,0,0,.65);`;
+				content.title = tooltipText;
+				content.setAttribute("aria-label", tooltipText);
+				const trackMarker = new google.maps.marker.AdvancedMarkerElement({ map: null, position: trackPosition, content, anchorLeft: "-50%", anchorTop: "-50%", title: tooltipText, zIndex: 999 });
+				storm.trackPointMarkers.push(trackMarker);
+				hurricaneTrackPointMarkers.push(trackMarker);
+			});
+			storm.historical.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: "rgb(130 130 130)", strokeOpacity: .85, strokeWeight: 2 })));
+			storm.forecast.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: "#d32f2f", strokeOpacity: .95, strokeWeight: 2 })));
+			storm.cones.forEach(paths => storm.pathOverlays.push(new google.maps.Polygon({ map: null, paths, fillColor: "#f6b44b", fillOpacity: .24, strokeColor: "#d98b1e", strokeOpacity: .7, strokeWeight: 1 })));
+			hurricanePathOverlays.push(...storm.pathOverlays);
+		});
+	}
+
+	function gdacsItems(data) {
+		if (!data || typeof data !== "object") return [];
+		if (Array.isArray(data)) return data;
+		if (Array.isArray(data.features)) return data.features;
+		if (Array.isArray(data.events)) return data.events;
+		if (Array.isArray(data.items)) return data.items;
+		if (Array.isArray(data.results)) return data.results;
+		if (Array.isArray(data.result)) return data.result;
+		if (data.channel && Array.isArray(data.channel.item)) return data.channel.item;
+		if (data.data) return gdacsItems(data.data);
+		return [];
+	}
+	function gdacsProperties(item) { return Object.assign({}, item.properties || item); }
+	function gdacsValue(properties, names) {
+		const key = Object.keys(properties || {}).find(name => names.includes(name.toLowerCase()));
+		return key ? properties[key] : "";
+	}
+	function gdacsTimelineUrl(value) {
+		if (!value || typeof value !== "object") return "";
+		for (const [key, child] of Object.entries(value)) {
+			if (key.toLowerCase() === "timeline" && typeof child === "string" && /^https?:\/\//i.test(child)) return child;
+			const nested = gdacsTimelineUrl(child);
+			if (nested) return nested;
+		}
+		return "";
+	}
+	function gdacsTimelineItems(data) { return (data && data.channel && data.channel.item) || (data && data.item) || (Array.isArray(data) ? data : []); }
+	function gdacsCoordinates(value) {
+		if (Array.isArray(value) && value.length >= 2) return [Number(value[0]), Number(value[1])];
+		const values = String(value || "").match(/-?\d+(?:\.\d+)?/g);
+		return values && values.length >= 2 ? [Number(values[0]), Number(values[1])] : null;
+	}
+	async function loadHurricanesFromGdacsApi() {
+		const listResponse = await fetch(`https://www.gdacs.org/gdacsapi/api/events/geteventlist/map?eventtype=TC&ts=${Date.now()}`, { cache: "no-store" });
+		if (!listResponse.ok) throw new Error(`GDACS tropical cyclone map error: ${listResponse.status}`);
+		const listData = await listResponse.json();
+		const allMapFeatures = gdacsItems(listData);
+		const eventGroups = new Map();
+		allMapFeatures.forEach(item => {
+			const props = gdacsProperties(item);
+			const type = String(gdacsValue(props, ["eventtype", "event_type"]) || "").toUpperCase();
+			const isCurrent = String(gdacsValue(props, ["iscurrent", "is_current"]) || "").toLowerCase() === "true";
+			const toDateTimestamp = Date.parse(gdacsValue(props, ["todate", "to_date", "enddate", "end_date"]) || "");
+			const isStale = Number.isFinite(toDateTimestamp) && Date.now() - toDateTimestamp > 24 * 60 * 60 * 1000;
+			const eventId = gdacsValue(props, ["eventid", "event_id"]);
+			const episodeId = gdacsValue(props, ["episodeid", "episode_id"]);
+			if (type !== "TC" || !isCurrent || isStale || !eventId) return;
+			const key = `${eventId}/${episodeId || ""}`;
+			if (!eventGroups.has(key)) eventGroups.set(key, { item: null, geometries: [], pointMetadata: [] });
+			const group = eventGroups.get(key);
+			const polygonLabel = String(gdacsValue(props, ["polygonlabel", "polygon_label"]));
+			const polygonClass = String(gdacsValue(props, ["class"]));
+			if (/^Point_Polygon_Point_/i.test(polygonClass) && Array.isArray(item.bbox) && item.bbox.length >= 4) group.pointMetadata.push({ coordinates: [(Number(item.bbox[0]) + Number(item.bbox[2])) / 2, (Number(item.bbox[1]) + Number(item.bbox[3])) / 2], polygonlabel: polygonLabel, severitydata: props.severitydata });
+			if (item.geometry && ["Polygon", "MultiPolygon"].includes(item.geometry.type) && (/uncertainty\s+cones/i.test(polygonLabel) || /poly_cones/i.test(polygonClass))) group.geometries.push(item.geometry);
+			if (!group.item || item.geometry?.type === "Point") group.item = item;
+		});
+		const list = Array.from(eventGroups.values()).filter(group => group.item).map(group => {
+			group.item._gdacsGeometries = group.geometries;
+			group.item._gdacsPointMetadata = group.pointMetadata;
+			return group.item;
+		});
+		console.debug(`Map ${widgetID}: GDACS map returned ${allMapFeatures.length} feature(s), ${list.length} active tropical cyclone(s)`);
+		const initialFeatures = [];
+		list.forEach(item => {
+			const props = gdacsProperties(item);
+			if (item.geometry && item.geometry.type === "Point") initialFeatures.push({ type: "Feature", geometry: item.geometry, properties: Object.assign({}, props, { _current: true, _mapAnchor: true }) });
+			(item._gdacsGeometries || []).forEach(geometry => initialFeatures.push({ type: "Feature", geometry, properties: props }));
+		});
+		clearOverlayState();
+		plotHurricanes({ type: "FeatureCollection", features: initialFeatures });
+		const features = [];
+		await Promise.all(list.map(async item => {
+			const props = gdacsProperties(item);
+			const eventId = gdacsValue(props, ["eventid", "event_id"]);
+			const episodeId = gdacsValue(props, ["episodeid", "episode_id"]);
+			if (!eventId) return;
+			let episode = item;
+			if (episodeId) {
+				try {
+					const episodeResponse = await fetch(`https://www.gdacs.org/gdacsapi/api/events/getepisodedata?eventtype=TC&eventid=${encodeURIComponent(eventId)}&episodeid=${encodeURIComponent(episodeId)}`, { cache: "no-store" });
+					if (episodeResponse.ok) episode = await episodeResponse.json();
+				} catch (error) { console.warn(`Map ${widgetID}: Failed to load GDACS episode ${eventId}/${episodeId}:`, error.message); }
+			}
+			const timelineUrl = gdacsTimelineUrl(episode) || gdacsTimelineUrl(item);
+			if (!timelineUrl) return;
+			try {
+				const timelineResponse = await fetch(timelineUrl, { cache: "no-store" });
+				if (!timelineResponse.ok) throw new Error(`timeline HTTP ${timelineResponse.status}`);
+				if (item.geometry && item.geometry.type === "Point") features.push({ type: "Feature", geometry: item.geometry, properties: Object.assign({}, props, { eventid: eventId, episodeid: episodeId, _current: true, _mapAnchor: true }) });
+				const pointMetadata = item._gdacsPointMetadata || [];
+				const track = gdacsTimelineItems(await timelineResponse.json()).map(point => ({ point, coordinates: gdacsCoordinates(point.coordinates || point.coordinate || point.position) })).filter(entry => entry.coordinates && entry.coordinates.every(Number.isFinite));
+				const history = track.filter(entry => String(entry.point.actual || "").toLowerCase() === "true").map(entry => entry.coordinates);
+				const forecast = track.filter(entry => String(entry.point.actual || "").toLowerCase() !== "true").map(entry => entry.coordinates);
+				const currentCoordinates = track.find(entry => String(entry.point.current || "").toLowerCase() === "true")?.coordinates || (item.geometry && item.geometry.type === "Point" ? item.geometry.coordinates : null);
+				if (currentCoordinates && (!forecast.length || forecast[0][0] !== currentCoordinates[0] || forecast[0][1] !== currentCoordinates[1])) forecast.unshift(currentCoordinates);
+				track.forEach(entry => {
+					const pointProperties = Object.assign({}, props, entry.point, { eventid: eventId, episodeid: episodeId, _current: String(entry.point.current || "").toLowerCase() === "true" });
+					delete pointProperties.polygonlabel;
+					delete pointProperties.polygon_label;
+					delete pointProperties.severitydata;
+					let nearestMetadata = null;
+					let nearestDistance = Infinity;
+					pointMetadata.forEach(metadata => {
+						const distance = Math.hypot(metadata.coordinates[0] - entry.coordinates[0], metadata.coordinates[1] - entry.coordinates[1]);
+						if (distance < nearestDistance) { nearestDistance = distance; nearestMetadata = metadata; }
+					});
+					if (nearestMetadata && nearestDistance < 0.25) Object.assign(pointProperties, { polygonlabel: nearestMetadata.polygonlabel, severitydata: nearestMetadata.severitydata });
+					features.push({ type: "Feature", geometry: { type: "Point", coordinates: entry.coordinates }, properties: pointProperties });
+				});
+				if (history.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: history }, properties: Object.assign({}, props, { eventid: eventId, _trackType: "historical" }) });
+				if (forecast.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: forecast }, properties: Object.assign({}, props, { eventid: eventId, _trackType: "forecast" }) });
+				(item._gdacsGeometries || []).forEach(geometry => {
+					if (["Polygon", "MultiPolygon"].includes(geometry.type)) features.push({ type: "Feature", geometry, properties: Object.assign({}, props, { eventid: eventId }) });
+				});
+			} catch (error) { console.warn(`Map ${widgetID}: Failed to load GDACS timeline for ${eventId}:`, error.message); }
+		}));
+		console.debug(`Map ${widgetID}: GDACS produced ${features.length} hurricane feature(s)`);
+		return { type: "FeatureCollection", features };
+	}
+
 	async function addWeatherLayer() {
+		console.debug(`Map ${widgetID}: addWeatherLayer() checked=${_dom.weather.checked} weatherType=${_dom.weatherType.value} optionalOverlay=${_dom.otherWeatherOverlays.value}`);
 		if (_dom.weather.checked) {
 			const mapType = _dom.weatherType.value;
 			const optionalMapType = _dom.otherWeatherOverlays.value;
@@ -5902,8 +6133,15 @@ if (window.RProfiler) {
 				console.error(`Map ${widgetID}: Error adding weather layer:`, error);
 			}
 
+			// Look to see if we should add hurricanes into the map...
+			if (optionalMapType == "hurricanes") {
+				try {
+					const hurricaneData = await loadHurricanesFromGdacsApi();
+					clearOverlayState();
+					plotHurricanes(hurricaneData);
+				} catch (error) { console.error(`Map ${widgetID}: Failed to fetch hurricane data:`, error); }
 			// Look to see if we should add wildfire into the map...
-			if (optionalMapType == "wildfires") {
+			} else if (optionalMapType == "wildfires") {
 				clearOverlayState();
 
 				// Load the wildfire data from the ArcGIS site...
@@ -6140,10 +6378,6 @@ if (window.RProfiler) {
 				const odinOutageApiURL = 'https://openenergyhub.ornl.gov/api/explore/v2.1/catalog/datasets/odin-real-time-outages-county/records?select=communitydescriptor,county,state,sum(metersaffected)&group_by=communitydescriptor,county,state&limit=-1';
 				// USA Today fallback (requires CORS proxy; often fails with 522 on large payload)...
 				const usaTodayDataURL = `https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_data.js`;
-				const corsProxies = [
-					{ url: 'https://api.allorigins.win/raw?url=', encode: true },
-					{ url: 'https://api.codetabs.com/v1/proxy?quest=', encode: false }
-				];
 				// US Counties GeoJSON with FIPS codes (from plotly datasets)...
 				const countiesGeoJsonURL = 'https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json';
 				const countyCustomersUsaTodayURL = getBetterMapWidgetAssetBase() + 'data/county-electric-customers-usatoday.json';
@@ -6298,26 +6532,6 @@ if (window.RProfiler) {
 					return applied;
 				}
 
-				// Function to try fetching with fallback proxies...
-				async function fetchWithCorsProxy(targetUrl) {
-					const urlWithCacheBust = targetUrl + `?v=${Date.now()}`;
-					for (let i = 0; i < corsProxies.length; i++) {
-						const proxy = corsProxies[i];
-						const proxyUrl = proxy.url + (proxy.encode ? encodeURIComponent(urlWithCacheBust) : urlWithCacheBust);
-						try {
-							const response = await fetch(proxyUrl);
-							if (response.ok) {
-								console.debug(`Power outage data fetched successfully using proxy ${i + 1}`);
-								return response;
-							}
-							console.warn(`Map ${widgetID}: CORS proxy ${i + 1} returned ${response.status}, trying next...`);
-						} catch (err) {
-							console.warn(`Map ${widgetID}: CORS proxy ${i + 1} failed: ${err.message}, trying next...`);
-						}
-					}
-					throw new Error(`All CORS proxies failed to fetch power outage data`);
-				}
-
 				// Parse ODIN aggregated county outage records...
 				function parseOdinOutageData(data) {
 					const outageDataByFips = {};
@@ -6350,7 +6564,7 @@ if (window.RProfiler) {
 					} catch (odinErr) {
 						console.warn(`Map ${widgetID}: ODIN outage fetch failed, falling back to USA Today via CORS proxy:`, odinErr.message);
 					}
-					const outageResponse = await fetchWithCorsProxy(usaTodayDataURL);
+					const outageResponse = await fetchWithBetterMapCorsProxy(usaTodayDataURL, "Power outage data");
 					const outageText = await outageResponse.text();
 					console.debug('Power outage data fetched from USA Today via CORS proxy');
 					return Object.assign({ dataSource: 'usatoday' }, parseOutageData(outageText));
@@ -6902,10 +7116,18 @@ if (window.RProfiler) {
 	function fitClusterBounds(south, west, north, east) {
 		if (!isMapReady()) return;
 		closeAllInfoWindows();
-		map.fitBounds(new google.maps.LatLngBounds(
+		const clusterBounds = new google.maps.LatLngBounds(
 			new google.maps.LatLng(south, west),
 			new google.maps.LatLng(north, east)
-		), {
+		);
+		// A cluster of pins on the same point has no area, so fitBounds would zoom all the way to
+		// street level. Cap that case at zoom 18 so the user can still inspect the area...
+		if (clusterBounds.getSouthWest().equals(clusterBounds.getNorthEast())) {
+			map.setCenter(clusterBounds.getCenter());
+			map.setZoom(18);
+			return;
+		}
+		map.fitBounds(clusterBounds, {
 			top: 70,
 			right: 70,
 			bottom: 70,

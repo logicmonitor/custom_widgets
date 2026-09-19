@@ -26,7 +26,7 @@ A fully custom-made widget to overcome some limitations of LogicMonitor's core M
 - Marker clustering to group adjacent pins together until zoomed in (along with a button to easily reset the zoom)
 - Donut charts to represent the severities of clustered markers
 - Quick & easy filtering by path and severities
-- Layers for weather, earthquakes, wildfires (US & Australia), power outages (US), and flooding (US)
+- Layers for weather, earthquakes, hurricanes/tropical cyclones, wildfires (US & Australia), power outages (US), and flooding (US)
 - More informative tips when clicking a marker, with the ability to include custom properties
 - The ability to show colored lines representing status of connections between locations
 
@@ -88,6 +88,7 @@ Behavior of the widget can be customized using the following optional dashboard 
  	- "**wildfires**": Displays active wildfires in the US and Australia. Clicking a wildfire displays additional info.
   	- "**us-poweroutages**" (or just "outages" for short): Color-codes US counties by current number of customers without power (darker colors = higher % of customers affected). Clicking a county displays more info.
   	- "**us-flooding**": Plots blue dots for areas with active US flood alerts. Clicking a dot displays more details about the flooding.
+	- "**hurricanes**": Plots active tropical cyclones from GDACS. Clicking a storm displays details and shows its historical track, forecast track, and uncertainty cone.
 - **HideMapOptions**: If "true" then will hide the options bar by default. Default is "false".
 - **ShowMapSidebar**: If "true" then will show the sidebar by default. Default is "false".
 - **MapIgnoreCleared**: If "true" then will only show items currently alerting (useful for maps with thousands of markers). Default is "false".
