@@ -4998,12 +4998,6 @@ function hurricaneIconSvg(color) {
 	return HURRICANE_ICON_SVG.replace('fill="#d62d24"', `fill="${color || "#d62d24"}"`);
 }
 
-function hurricaneIsStale(properties) {
-	const toDate = properties && (properties.todate || properties.to_date || properties.enddate || properties.end_date);
-	const timestamp = Date.parse(toDate || "");
-	return Number.isFinite(timestamp) && Date.now() - timestamp > 24 * 60 * 60 * 1000;
-}
-
 function hurricaneMarkerContent(color) {
 	const content = document.createElement("div");
 	content.style.cssText = "display:flex;align-items:center;justify-content:center;";
@@ -5040,7 +5034,7 @@ function hurricaneDisplayName(properties) {
 function hurricaneInfoHtml(storm) {
 	const properties = storm.properties || {};
 	const severity = properties.severitydata && typeof properties.severitydata === "object" ? properties.severitydata.severitytext : "";
-	const infoIcon = hurricaneIconSvg(hurricaneIsStale(properties) ? "#888888d4" : "#d62d24").replace('width="30" height="30"', 'width="100" height="100"');
+	const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="100" height="100"');
 	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 108px 4px 0;"><div style="position:absolute;top:0;right:0;width:100px;height:100px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(hurricaneDisplayName(properties))}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`;
 }
 
@@ -5065,7 +5059,7 @@ function plotHurricanes(geojson) {
 		if (!point || !point.feature.geometry || point.feature.geometry.coordinates.length < 2) return;
 		const position = { lat: Number(point.feature.geometry.coordinates[1]), lng: Number(point.feature.geometry.coordinates[0]) };
 		if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
-		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: hurricaneMarkerContent(hurricaneIsStale(storm.properties) ? "#888888d4" : "#d62d24"), anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), zIndex: 1000 });
+		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: hurricaneMarkerContent("#d62d24"), anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), zIndex: 1000 });
 		marker.addListener("gmp-click", () => {
 			hurricanePathOverlays.forEach(overlay => overlay.setMap(null));
 			hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
@@ -5152,9 +5146,11 @@ async function loadHurricanesFromGdacsApi() {
 		const properties = gdacsStormProperties(item);
 		const eventType = String(gdacsValue(properties, ["eventtype", "event_type"]) || "").toUpperCase();
 		const isCurrent = String(gdacsValue(properties, ["iscurrent", "is_current"]) || "").toLowerCase() === "true";
+		const toDateTimestamp = Date.parse(gdacsValue(properties, ["todate", "to_date", "enddate", "end_date"]) || "");
+		const isStale = Number.isFinite(toDateTimestamp) && Date.now() - toDateTimestamp > 24 * 60 * 60 * 1000;
 		const eventId = gdacsValue(properties, ["eventid", "event_id"]);
 		const episodeId = gdacsValue(properties, ["episodeid", "episode_id"]);
-		if (eventType !== "TC" || !isCurrent || !eventId) return;
+		if (eventType !== "TC" || !isCurrent || isStale || !eventId) return;
 		const key = `${eventId}/${episodeId || ""}`;
 		if (!eventGroups.has(key)) eventGroups.set(key, { item: null, geometries: [], pointMetadata: [] });
 		const group = eventGroups.get(key);

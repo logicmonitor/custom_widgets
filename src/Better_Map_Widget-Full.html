@@ -5903,11 +5903,6 @@ if (window.RProfiler) {
 	// Function to add weather & other optional overlays to the map...
 	const HURRICANE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="30" height="30" fill="#d62d24" role="img" aria-label="Tropical cyclone"><path d="M128 272C128 168.4 203.7 82.5 302.9 66.6C312 65.2 320 72.6 320 81.9L320 145.2C320 153.6 326.5 160.5 334.7 161.7C435 176.6 512 263 512 367.4C512 471 436.3 556.9 337.1 572.8C327.9 574.3 320 566.9 320 557.6L320 494.3C320 485.9 313.5 479 305.3 477.7C205 462.9 128 376.4 128 272zM416 320C416 267 373 224 320 224C267 224 224 267 224 320C224 373 267 416 320 416C373 416 416 373 416 320zM320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320C288 302.3 302.3 288 320 288z"/></svg>';
 	function hurricaneIconSvg(color) { return HURRICANE_ICON_SVG.replace('fill="#d62d24"', `fill="${color || "#d62d24"}"`); }
-	function hurricaneIsStale(properties) {
-		const toDate = properties && (properties.todate || properties.to_date || properties.enddate || properties.end_date);
-		const timestamp = Date.parse(toDate || "");
-		return Number.isFinite(timestamp) && Date.now() - timestamp > 24 * 60 * 60 * 1000;
-	}
 
 	function plotHurricanes(geojson) {
 		const storms = new Map();
@@ -5934,9 +5929,9 @@ if (window.RProfiler) {
 			if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
 			const content = document.createElement("div");
 			content.style.cssText = "display:flex;align-items:center;justify-content:center;";
-			content.innerHTML = hurricaneIconSvg(hurricaneIsStale(storm.properties) ? "#888888d4" : "#d62d24");
+			content.innerHTML = hurricaneIconSvg("#d62d24");
 			const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content, anchorLeft: "-50%", anchorTop: "-50%", title: String(storm.properties.name || storm.properties.title || "Tropical cyclone"), zIndex: 1000 });
-			marker.addListener("gmp-click", () => { hurricanePathOverlays.forEach(overlay => overlay.setMap(null)); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); storm.pathOverlays.forEach(overlay => overlay.setMap(map)); storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; }); closeAllInfoWindows(); const severity = storm.properties.severitydata && typeof storm.properties.severitydata === "object" ? storm.properties.severitydata.severitytext : ""; const infoIcon = hurricaneIconSvg(hurricaneIsStale(storm.properties) ? "#888888d4" : "#d62d24").replace('width="30" height="30"', 'width="100" height="100"'); overlayInfoWindow.setContent(`<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 108px 4px 0;"><div style="position:absolute;top:0;right:0;width:100px;height:100px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(storm.properties.name || storm.properties.title || "Tropical cyclone")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(storm.properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(storm.properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`); overlayInfoWindow.setPosition(position); overlayInfoWindow.open(map); if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px"; });
+			marker.addListener("gmp-click", () => { hurricanePathOverlays.forEach(overlay => overlay.setMap(null)); hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; }); storm.pathOverlays.forEach(overlay => overlay.setMap(map)); storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; }); closeAllInfoWindows(); const severity = storm.properties.severitydata && typeof storm.properties.severitydata === "object" ? storm.properties.severitydata.severitytext : ""; const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="100" height="100"'); overlayInfoWindow.setContent(`<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 108px 4px 0;"><div style="position:absolute;top:0;right:0;width:100px;height:100px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(storm.properties.name || storm.properties.title || "Tropical cyclone")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Description</b><br>${escapeHtml(storm.properties.htmldescription || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Alert level</b><br>${escapeHtml(storm.properties.alertlevel || "")}</div><div style="border-top:1px solid #eee;padding:6px 0;"><b>Severity</b><br>${escapeHtml(severity || "")}</div></div>`); overlayInfoWindow.setPosition(position); overlayInfoWindow.open(map); if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px"; });
 			hurricaneMarkers.push(marker);
 			storm.points.filter(item => item !== point).forEach(trackPoint => {
 				const coordinates = trackPoint.feature.geometry.coordinates;
@@ -6004,9 +5999,11 @@ if (window.RProfiler) {
 			const props = gdacsProperties(item);
 			const type = String(gdacsValue(props, ["eventtype", "event_type"]) || "").toUpperCase();
 			const isCurrent = String(gdacsValue(props, ["iscurrent", "is_current"]) || "").toLowerCase() === "true";
+			const toDateTimestamp = Date.parse(gdacsValue(props, ["todate", "to_date", "enddate", "end_date"]) || "");
+			const isStale = Number.isFinite(toDateTimestamp) && Date.now() - toDateTimestamp > 24 * 60 * 60 * 1000;
 			const eventId = gdacsValue(props, ["eventid", "event_id"]);
 			const episodeId = gdacsValue(props, ["episodeid", "episode_id"]);
-			if (type !== "TC" || !isCurrent || !eventId) return;
+			if (type !== "TC" || !isCurrent || isStale || !eventId) return;
 			const key = `${eventId}/${episodeId || ""}`;
 			if (!eventGroups.has(key)) eventGroups.set(key, { item: null, geometries: [], pointMetadata: [] });
 			const group = eventGroups.get(key);
