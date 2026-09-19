@@ -14,15 +14,18 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
 
 // ------------------------------------------------------------
-var version = "3.71a CDN";
+var version = "3.72 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-	<h3>Version 3.71a</h3>
+	<h3>Version 3.72</h3>
 	<ul>
-		<li>Added an optional hurricanes overlay that plots active tropical cyclones, historical and forecast tracks, and the GDACS uncertainty cone.</li>
+		<li>Added an optional overlay for active hurricanes/cyclones.</li>
+	</ul>
+	<h3>Version 3.71</h3>
+	<ul>
 		<li>If all items in a cluster are at the same location then the cluster's popup now displays a message to that fact explaining why the cluster cannot be zoomed in.</li>
-		<li>(a) Changed the clustering algorithm to keep clusters together at all zoom levels so items with the same coordinates won't overlap each other.</li>
+		<li>Changed the clustering algorithm to keep clusters together at all zoom levels so items with the same coordinates won't overlap each other.</li>
 	</ul>
 	<h3>Version 3.70</h3>
 	<ul>
