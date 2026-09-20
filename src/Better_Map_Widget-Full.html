@@ -6110,8 +6110,8 @@ if (window.RProfiler) {
 		if (forecast.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: forecast }, properties: Object.assign({}, stormProperties, { _trackType: "forecast" }) });
 		return features;
 	}
-	// Hurricane data loading core: fetch the active-event index now; fetch timelines on demand.
-	// Loads active storm markers immediately and registers lazy timeline loaders.
+	// Hurricane data loading core: fetches all storm geometry from the active-event map response.
+	// Loads active storm markers, path points, paths, and uncertainty cones without follow-up requests.
 	async function loadHurricanesFromGdacsApi() {
 		const listData = await hurricaneFetchJson("https://www.gdacs.org/gdacsapi/api/events/geteventlist/map?eventtype=TC");
 		const allMapFeatures = gdacsItems(listData);
@@ -6126,17 +6126,19 @@ if (window.RProfiler) {
 			const episodeId = gdacsValue(props, ["episodeid", "episode_id"]);
 			if (type !== "TC" || !isCurrent || isStale || !eventId) return;
 			const key = `${eventId}/${episodeId || ""}`;
-			if (!eventGroups.has(key)) eventGroups.set(key, { item: null, geometries: [], pointMetadata: [] });
+			if (!eventGroups.has(key)) eventGroups.set(key, { item: null, geometries: [], pointMetadata: [], trackLines: [] });
 			const group = eventGroups.get(key);
 			const polygonLabel = String(gdacsValue(props, ["polygonlabel", "polygon_label"]));
 			const polygonClass = String(gdacsValue(props, ["class"]));
-			if (/^Point_Polygon_Point_/i.test(polygonClass) && Array.isArray(item.bbox) && item.bbox.length >= 4) group.pointMetadata.push({ coordinates: [(Number(item.bbox[0]) + Number(item.bbox[2])) / 2, (Number(item.bbox[1]) + Number(item.bbox[3])) / 2], polygonlabel: polygonLabel, severitydata: props.severitydata });
+			if (/^Point_Polygon_Point_/i.test(polygonClass) && Array.isArray(item.bbox) && item.bbox.length >= 4) group.pointMetadata.push({ coordinates: [(Number(item.bbox[0]) + Number(item.bbox[2])) / 2, (Number(item.bbox[1]) + Number(item.bbox[3])) / 2], polygonlabel: polygonLabel, severitydata: props.severitydata, properties: props });
+			if (item.geometry && item.geometry.type === "LineString") group.trackLines.push({ geometry: item.geometry, properties: props });
 			if (item.geometry && ["Polygon", "MultiPolygon"].includes(item.geometry.type) && (/uncertainty\s+cone/i.test(polygonLabel) || /poly[_\s-]*cones?/i.test(polygonClass))) group.geometries.push(item.geometry);
 			if (!group.item || item.geometry?.type === "Point") group.item = item;
 		});
 		const list = Array.from(eventGroups.values()).filter(group => group.item).map(group => {
 			group.item._gdacsGeometries = group.geometries;
 			group.item._gdacsPointMetadata = group.pointMetadata;
+			group.item._gdacsTrackLines = group.trackLines;
 			return group.item;
 		});
 		console.debug(`Map ${widgetID}: GDACS map returned ${allMapFeatures.length} feature(s), ${list.length} active tropical cyclone(s)`);
@@ -6144,18 +6146,25 @@ if (window.RProfiler) {
 		list.forEach(item => {
 			const props = gdacsProperties(item);
 			if (item.geometry && item.geometry.type === "Point") initialFeatures.push({ type: "Feature", geometry: item.geometry, properties: Object.assign({}, props, { _current: true, _mapAnchor: true }) });
+			const trackPoints = item._gdacsPointMetadata || [];
+			let currentPointIndex = trackPoints.length - 1;
+			if (item.geometry && item.geometry.type === "Point" && trackPoints.length) {
+				currentPointIndex = trackPoints.reduce((bestIndex, point, index) => {
+					const bestDistance = Math.hypot(trackPoints[bestIndex].coordinates[0] - item.geometry.coordinates[0], trackPoints[bestIndex].coordinates[1] - item.geometry.coordinates[1]);
+					const distance = Math.hypot(point.coordinates[0] - item.geometry.coordinates[0], point.coordinates[1] - item.geometry.coordinates[1]);
+					return distance < bestDistance ? index : bestIndex;
+				}, currentPointIndex);
+			}
+			trackPoints.forEach((point, index) => {
+				if (index === currentPointIndex) return;
+				initialFeatures.push({ type: "Feature", geometry: { type: "Point", coordinates: point.coordinates }, properties: Object.assign({}, props, point.properties || {}, { polygonlabel: point.polygonlabel, severitydata: point.severitydata, _actual: index < currentPointIndex, _current: false, _trackPoint: true }) });
+			});
+			(item._gdacsTrackLines || []).forEach((line, index) => initialFeatures.push({ type: "Feature", geometry: line.geometry, properties: Object.assign({}, props, line.properties || {}, { _trackType: index >= currentPointIndex ? "forecast" : "historical" }) }));
 			(item._gdacsGeometries || []).forEach(geometry => initialFeatures.push({ type: "Feature", geometry, properties: props }));
 		});
-		const activeStormIds = new Set(list.map(item => String(gdacsValue(gdacsProperties(item), ["eventid", "event_id"]))));
-		const previousLoadedTrackFeatures = hurricaneLoadedTrackFeatures;
 		hurricaneBaseFeatures = initialFeatures;
 		hurricaneTrackLoaders = new Map();
-		hurricaneLoadedTrackFeatures = new Map([...previousLoadedTrackFeatures.entries()].filter(([key]) => activeStormIds.has(String(key))));
-		list.forEach(item => {
-			const props = gdacsProperties(item);
-			const key = String(gdacsValue(props, ["eventid", "event_id"]));
-			hurricaneTrackLoaders.set(key, () => hurricaneLoadStormFeatures(item));
-		});
+		hurricaneLoadedTrackFeatures = new Map();
 		hurricaneTracksLoading = false;
 		hurricaneRestoreInfoWindow = Boolean(overlayInfoWindow && overlayInfoWindow.isOpen);
 		clearOverlayState();
