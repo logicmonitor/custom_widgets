@@ -5123,7 +5123,8 @@ function plotHurricanes(geojson) {
 		if (feature.geometry && feature.geometry.type === "Point") {
 			storm.points.push({ feature, current: /current|observed|analysis|now/.test(text) && !/forecast|predicted|projected/.test(text) });
 		} else {
-			const kind = /forecast|predicted|projected|fcst|outlook/.test(text) ? "forecast" : "historical";
+			const explicitTrackType = String(feature.properties && feature.properties._trackType || "").toLowerCase();
+			const kind = explicitTrackType === "forecast" || explicitTrackType === "projected" ? "forecast" : explicitTrackType === "historical" ? "historical" : /forecast|predicted|projected|fcst|outlook/.test(text) ? "forecast" : "historical";
 			hurricaneAddGeometry(feature.geometry, storm, kind);
 		}
 	});
@@ -5171,7 +5172,8 @@ function plotHurricanes(geojson) {
 			const trackPosition = { lat: Number(coordinates[1]), lng: Number(coordinates[0]) };
 			if (!Number.isFinite(trackPosition.lat) || !Number.isFinite(trackPosition.lng)) return;
 			const severityText = hurricaneTrackPointTooltip(trackPoint.feature.properties || {});
-			const trackColor = String(trackPoint.feature.properties && trackPoint.feature.properties.actual || "").toLowerCase() === "true" ? HURRICANE_HISTORICAL_COLOR : HURRICANE_PROJECTED_COLOR;
+			const trackPointIsActual = trackPoint.feature.properties && (trackPoint.feature.properties._actual === true || String(trackPoint.feature.properties.actual || "").toLowerCase() === "true");
+			const trackColor = trackPointIsActual ? HURRICANE_HISTORICAL_COLOR : HURRICANE_PROJECTED_COLOR;
 			const trackMarker = new google.maps.marker.AdvancedMarkerElement({ map: null, position: trackPosition, content: hurricaneTrackPointContent(severityText, trackColor), anchorLeft: "-50%", anchorTop: "-50%", title: severityText || "Track point", zIndex: 999 });
 			storm.trackPointMarkers.push(trackMarker);
 			hurricaneTrackPointMarkers.push(trackMarker);
@@ -5302,7 +5304,17 @@ async function loadHurricanesFromGdacsApi() {
 			if (index === currentPointIndex) return;
 			initialFeatures.push({ type: "Feature", geometry: { type: "Point", coordinates: point.coordinates }, properties: Object.assign({}, properties, point.properties || {}, { polygonlabel: point.polygonlabel, severitydata: point.severitydata, _actual: index < currentPointIndex, _current: false, _trackPoint: true }) });
 		});
-		(item._gdacsTrackLines || []).forEach((line, index) => initialFeatures.push({ type: "Feature", geometry: line.geometry, properties: Object.assign({}, properties, line.properties || {}, { _trackType: index >= currentPointIndex ? "forecast" : "historical" }) }));
+		(item._gdacsTrackLines || []).forEach(line => {
+			const coordinates = line.geometry && Array.isArray(line.geometry.coordinates) ? line.geometry.coordinates : [];
+			const endpoints = [coordinates[0], coordinates[coordinates.length - 1]].filter(coordinate => Array.isArray(coordinate) && coordinate.length >= 2);
+			const endpointIndexes = trackPoints.length ? endpoints.map(endpoint => trackPoints.reduce((nearestIndex, point, index) => {
+				const nearestDistance = Math.hypot(trackPoints[nearestIndex].coordinates[0] - endpoint[0], trackPoints[nearestIndex].coordinates[1] - endpoint[1]);
+				const distance = Math.hypot(point.coordinates[0] - endpoint[0], point.coordinates[1] - endpoint[1]);
+				return distance < nearestDistance ? index : nearestIndex;
+			}, currentPointIndex)) : [];
+			const lineStartsInForecast = endpointIndexes.length > 0 && Math.min(...endpointIndexes) >= currentPointIndex;
+			initialFeatures.push({ type: "Feature", geometry: line.geometry, properties: Object.assign({}, properties, line.properties || {}, { _trackType: lineStartsInForecast ? "forecast" : "historical" }) });
+		});
 		(item._gdacsGeometries || []).forEach(geometry => initialFeatures.push({ type: "Feature", geometry, properties }));
 	});
 	hurricaneBaseFeatures = initialFeatures;
