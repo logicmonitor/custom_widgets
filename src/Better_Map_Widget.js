@@ -5300,9 +5300,15 @@ async function loadHurricanesFromGdacsApi() {
 				return distance < bestDistance ? index : bestIndex;
 			}, currentPointIndex);
 		}
+		const pointTimestamps = trackPoints.map(point => {
+			const parsed = parseHurricanePolygonLabelDate(point.polygonlabel);
+			return parsed ? parsed.getTime() : NaN;
+		});
+		const currentTimestamp = Number.isFinite(pointTimestamps[currentPointIndex]) ? pointTimestamps[currentPointIndex] : NaN;
 		trackPoints.forEach((point, index) => {
 			if (index === currentPointIndex) return;
-			initialFeatures.push({ type: "Feature", geometry: { type: "Point", coordinates: point.coordinates }, properties: Object.assign({}, properties, point.properties || {}, { polygonlabel: point.polygonlabel, severitydata: point.severitydata, _actual: index < currentPointIndex, _current: false, _trackPoint: true }) });
+			const pointIsHistorical = Number.isFinite(currentTimestamp) && Number.isFinite(pointTimestamps[index]) ? pointTimestamps[index] <= currentTimestamp : index < currentPointIndex;
+			initialFeatures.push({ type: "Feature", geometry: { type: "Point", coordinates: point.coordinates }, properties: Object.assign({}, properties, point.properties || {}, { polygonlabel: point.polygonlabel, severitydata: point.severitydata, _actual: pointIsHistorical, _current: false, _trackPoint: true }) });
 		});
 		(item._gdacsTrackLines || []).forEach(line => {
 			const coordinates = line.geometry && Array.isArray(line.geometry.coordinates) ? line.geometry.coordinates : [];
@@ -5312,7 +5318,8 @@ async function loadHurricanesFromGdacsApi() {
 				const distance = Math.hypot(point.coordinates[0] - endpoint[0], point.coordinates[1] - endpoint[1]);
 				return distance < nearestDistance ? index : nearestIndex;
 			}, currentPointIndex)) : [];
-			const lineStartsInForecast = endpointIndexes.length > 0 && Math.min(...endpointIndexes) >= currentPointIndex;
+			const endpointTimestamps = endpointIndexes.map(index => pointTimestamps[index]).filter(timestamp => Number.isFinite(timestamp));
+			const lineStartsInForecast = endpointTimestamps.length > 0 && Number.isFinite(currentTimestamp) ? Math.min(...endpointTimestamps) >= currentTimestamp : endpointIndexes.length > 0 && Math.min(...endpointIndexes) >= currentPointIndex;
 			initialFeatures.push({ type: "Feature", geometry: line.geometry, properties: Object.assign({}, properties, line.properties || {}, { _trackType: lineStartsInForecast ? "forecast" : "historical" }) });
 		});
 		(item._gdacsGeometries || []).forEach(geometry => initialFeatures.push({ type: "Feature", geometry, properties }));
