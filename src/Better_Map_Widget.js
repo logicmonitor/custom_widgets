@@ -5232,32 +5232,6 @@ function gdacsValue(properties, names) {
 	return key ? properties[key] : "";
 }
 
-// Recursively finds a timeline URL in a GDACS response object.
-function gdacsFindTimelineUrl(value) {
-	if (!value || typeof value !== "object") return "";
-	for (const [key, child] of Object.entries(value)) {
-		if (key.toLowerCase() === "timeline" && typeof child === "string" && /^https?:\/\//i.test(child)) return child;
-		const nested = gdacsFindTimelineUrl(child);
-		if (nested) return nested;
-	}
-	return "";
-}
-
-// Extracts timeline records from the supported GDACS response shapes.
-function gdacsTimelineItems(data) {
-	if (data && data.channel && Array.isArray(data.channel.item)) return data.channel.item;
-	if (Array.isArray(data && data.item)) return data.item;
-	if (Array.isArray(data)) return data;
-	return [];
-}
-
-// Normalizes a GDACS coordinate value into a numeric longitude/latitude pair.
-function gdacsTimelineCoordinates(value) {
-	if (Array.isArray(value) && value.length >= 2) return [Number(value[0]), Number(value[1])];
-	const values = String(value || "").match(/-?\d+(?:\.\d+)?/g);
-	return values && values.length >= 2 ? [Number(values[0]), Number(values[1])] : null;
-}
-
 const HURRICANE_JSON_CACHE = new Map();
 // Fetches and briefly caches a GDACS JSON response, including in-flight requests.
 async function hurricaneFetchJson(url) {
@@ -5274,64 +5248,8 @@ async function hurricaneFetchJson(url) {
 	return promise;
 }
 
-// Loads and converts one storm timeline into plottable GeoJSON features.
-async function hurricaneLoadStormFeatures(item) {
-	const properties = gdacsStormProperties(item);
-	const eventId = gdacsValue(properties, ["eventid", "event_id"]);
-	const episodeId = gdacsValue(properties, ["episodeid", "episode_id"]);
-	if (!eventId) return [];
-	let episodeData = item;
-	let timelineUrl = gdacsFindTimelineUrl(item);
-	if (!timelineUrl && episodeId) {
-		const episodeUrl = `https://www.gdacs.org/gdacsapi/api/events/getepisodedata?eventtype=TC&eventid=${encodeURIComponent(eventId)}&episodeid=${encodeURIComponent(episodeId)}`;
-		episodeData = await hurricaneFetchJson(episodeUrl);
-		timelineUrl = gdacsFindTimelineUrl(episodeData);
-	}
-	if (!timelineUrl) return [];
-	const timelineItems = gdacsTimelineItems(await hurricaneFetchJson(timelineUrl));
-	const storm = { properties: Object.assign({}, properties, { eventid: eventId, episodeid: episodeId }), timelineItems, geometries: item._gdacsGeometries || [], pointMetadata: item._gdacsPointMetadata || [], anchorGeometry: item.geometry };
-	const features = [];
-	const track = [];
-	let pointMetadataIndex = 0;
-	storm.timelineItems.forEach(timelineItem => {
-		const coordinates = gdacsTimelineCoordinates(timelineItem.coordinates || timelineItem.coordinate || timelineItem.position);
-		if (!coordinates || !coordinates.every(Number.isFinite)) return;
-		const pointProperties = Object.assign({}, storm.properties);
-		delete pointProperties.polygonlabel;
-		delete pointProperties.polygon_label;
-		delete pointProperties.polygondate;
-		delete pointProperties.polygon_date;
-		delete pointProperties.severitydata;
-		delete pointProperties.severitytext;
-		delete pointProperties.severity_text;
-		Object.assign(pointProperties, timelineItem);
-		const orderedMetadata = storm.pointMetadata[pointMetadataIndex++];
-		let nearestMetadata = orderedMetadata || null;
-		let nearestDistance = Infinity;
-		if (!nearestMetadata) storm.pointMetadata.forEach(metadata => {
-			const distance = Math.hypot(metadata.coordinates[0] - coordinates[0], metadata.coordinates[1] - coordinates[1]);
-			if (distance < nearestDistance) { nearestDistance = distance; nearestMetadata = metadata; }
-		});
-		if (nearestMetadata && (orderedMetadata || nearestDistance < 0.25)) {
-			if (nearestMetadata.polygonlabel) pointProperties.polygonlabel = nearestMetadata.polygonlabel;
-			if (nearestMetadata.severitydata) pointProperties.severitydata = nearestMetadata.severitydata;
-		}
-		const actual = String(timelineItem.actual || "").toLowerCase() === "true";
-		const current = String(timelineItem.current || "").toLowerCase() === "true";
-		track.push({ coordinates, actual, current });
-		features.push({ type: "Feature", geometry: { type: "Point", coordinates }, properties: Object.assign({}, pointProperties, { _current: current, _actual: actual }) });
-	});
-	const history = track.filter(point => point.actual).map(point => point.coordinates);
-	const forecast = track.filter(point => !point.actual).map(point => point.coordinates);
-	const currentCoordinates = track.find(point => point.current)?.coordinates || (storm.anchorGeometry && storm.anchorGeometry.type === "Point" ? storm.anchorGeometry.coordinates : null);
-	if (currentCoordinates && (!forecast.length || forecast[0][0] !== currentCoordinates[0] || forecast[0][1] !== currentCoordinates[1])) forecast.unshift(currentCoordinates);
-	if (history.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: history }, properties: Object.assign({}, storm.properties, { _trackType: "historical" }) });
-	if (forecast.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: forecast }, properties: Object.assign({}, storm.properties, { _trackType: "forecast" }) });
-	return features;
-}
-
-// Hurricane data loading core: fetch the active-event index now; fetch timelines on demand.
-// Loads active storm markers immediately and registers lazy timeline loaders.
+// Hurricane data loading core: fetches all storm geometry from the active-event map response.
+// Loads active storm markers, path points, paths, and uncertainty cones without follow-up requests.
 async function loadHurricanesFromGdacsApi() {
 	const listUrl = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/map?eventtype=TC";
 	const listData = await hurricaneFetchJson(listUrl);
@@ -5347,40 +5265,49 @@ async function loadHurricanesFromGdacsApi() {
 		const episodeId = gdacsValue(properties, ["episodeid", "episode_id"]);
 		if (eventType !== "TC" || !isCurrent || isStale || !eventId) return;
 		const key = `${eventId}/${episodeId || ""}`;
-		if (!eventGroups.has(key)) eventGroups.set(key, { item: null, geometries: [], pointMetadata: [] });
+	if (!eventGroups.has(key)) eventGroups.set(key, { item: null, geometries: [], pointMetadata: [], trackLines: [] });
 		const group = eventGroups.get(key);
 		const polygonLabel = String(gdacsValue(properties, ["polygonlabel", "polygon_label"]));
 		const polygonClass = String(gdacsValue(properties, ["class"]));
 		if (/^Point_Polygon_Point_/i.test(polygonClass) && Array.isArray(item.bbox) && item.bbox.length >= 4) {
-			group.pointMetadata.push({ coordinates: [(Number(item.bbox[0]) + Number(item.bbox[2])) / 2, (Number(item.bbox[1]) + Number(item.bbox[3])) / 2], polygonlabel: polygonLabel, severitydata: properties.severitydata });
+			group.pointMetadata.push({ coordinates: [(Number(item.bbox[0]) + Number(item.bbox[2])) / 2, (Number(item.bbox[1]) + Number(item.bbox[3])) / 2], polygonlabel: polygonLabel, severitydata: properties.severitydata, properties });
 		}
+		if (item.geometry && item.geometry.type === "LineString") group.trackLines.push({ geometry: item.geometry, properties });
 		if (item.geometry && ["Polygon", "MultiPolygon"].includes(item.geometry.type) && (/uncertainty\s+cone/i.test(polygonLabel) || /poly[_\s-]*cones?/i.test(polygonClass))) {
 			group.geometries.push(item.geometry);
 		}
 		if (!group.item || item.geometry?.type === "Point") group.item = item;
 	});
 	const eventItems = Array.from(eventGroups.values()).filter(group => group.item).map(group => {
-		group.item._gdacsGeometries = group.geometries;
-		group.item._gdacsPointMetadata = group.pointMetadata;
-		return group.item;
+	group.item._gdacsGeometries = group.geometries;
+	group.item._gdacsPointMetadata = group.pointMetadata;
+	group.item._gdacsTrackLines = group.trackLines;
+	return group.item;
 	});
 	console.debug(`Map ${widgetID}: GDACS map returned ${allMapFeatures.length} feature(s), ${eventItems.length} active tropical cyclone(s)`);
 	const initialFeatures = [];
 	eventItems.forEach(item => {
 		const properties = gdacsStormProperties(item);
 		if (item.geometry && item.geometry.type === "Point") initialFeatures.push({ type: "Feature", geometry: item.geometry, properties: Object.assign({}, properties, { _current: true, _mapAnchor: true }) });
+		const trackPoints = item._gdacsPointMetadata || [];
+		let currentPointIndex = trackPoints.length - 1;
+		if (item.geometry && item.geometry.type === "Point" && trackPoints.length) {
+			currentPointIndex = trackPoints.reduce((bestIndex, point, index) => {
+				const bestDistance = Math.hypot(trackPoints[bestIndex].coordinates[0] - item.geometry.coordinates[0], trackPoints[bestIndex].coordinates[1] - item.geometry.coordinates[1]);
+				const distance = Math.hypot(point.coordinates[0] - item.geometry.coordinates[0], point.coordinates[1] - item.geometry.coordinates[1]);
+				return distance < bestDistance ? index : bestIndex;
+			}, currentPointIndex);
+		}
+		trackPoints.forEach((point, index) => {
+			if (index === currentPointIndex) return;
+			initialFeatures.push({ type: "Feature", geometry: { type: "Point", coordinates: point.coordinates }, properties: Object.assign({}, properties, point.properties || {}, { polygonlabel: point.polygonlabel, severitydata: point.severitydata, _actual: index < currentPointIndex, _current: false, _trackPoint: true }) });
+		});
+		(item._gdacsTrackLines || []).forEach((line, index) => initialFeatures.push({ type: "Feature", geometry: line.geometry, properties: Object.assign({}, properties, line.properties || {}, { _trackType: index >= currentPointIndex ? "forecast" : "historical" }) }));
 		(item._gdacsGeometries || []).forEach(geometry => initialFeatures.push({ type: "Feature", geometry, properties }));
 	});
-	const activeStormIds = new Set(eventItems.map(item => String(gdacsValue(gdacsStormProperties(item), ["eventid", "event_id"]))));
-	const previousLoadedTrackFeatures = hurricaneLoadedTrackFeatures;
 	hurricaneBaseFeatures = initialFeatures;
 	hurricaneTrackLoaders = new Map();
-	hurricaneLoadedTrackFeatures = new Map([...previousLoadedTrackFeatures.entries()].filter(([key]) => activeStormIds.has(String(key))));
-	eventItems.forEach(item => {
-		const properties = gdacsStormProperties(item);
-		const key = String(gdacsValue(properties, ["eventid", "event_id"]));
-		hurricaneTrackLoaders.set(key, () => hurricaneLoadStormFeatures(item));
-	});
+	hurricaneLoadedTrackFeatures = new Map();
 	hurricaneTracksLoading = false;
 	hurricaneRestoreInfoWindow = Boolean(overlayInfoWindow && overlayInfoWindow.isOpen);
 	clearOverlayState();
