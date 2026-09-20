@@ -5070,6 +5070,27 @@ function hurricaneArcgisSeverityText(properties) {
 	return String(properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || properties.STORMTYPE || "");
 }
 
+// Returns an ordered intensity level for an ArcGIS storm classification.
+function hurricaneClassificationLevel(properties) {
+	const classification = hurricaneArcgisSeverityText(properties).toLowerCase();
+	if (/major hurricane|category\s*[3-5]|super typhoon/.test(classification)) return 4;
+	if (/hurricane|typhoon/.test(classification)) return 3;
+	if (/tropical storm|subtropical storm/.test(classification)) return 2;
+	if (/depression/.test(classification)) return 1;
+	return 0;
+}
+
+// Returns the point content size for an ArcGIS storm classification.
+function hurricaneTrackPointSize(properties) {
+	return 6 + (hurricaneClassificationLevel(properties) * 2);
+}
+
+// Returns the fixed historical or projected point color.
+function hurricaneTrackPointColor(properties) {
+	const actual = properties && (properties._actual === true || String(properties.actual || "").toLowerCase() === "true");
+	return actual ? HURRICANE_HISTORICAL_COLOR : HURRICANE_PROJECTED_COLOR;
+}
+
 // Parses GDACS polygon labels such as "15/09 18:00 UTC" into a Date.
 function parseHurricanePolygonLabelDate(value) {
 	const text = String(value || "").trim();
@@ -5092,9 +5113,10 @@ function hurricaneTrackPointTooltip(properties) {
 	return [localDate, severity, intensity].filter(Boolean).join("\n") || "Track point";
 }
 
-function hurricaneTrackPointContent(severityText, color) {
+function hurricaneTrackPointContent(severityText, color, size) {
 	const content = document.createElement("div");
-	content.style.cssText = `width:8px;height:8px;border-radius:50%;background:${color || "#263238"};border:1px solid white;`;
+	const pointSize = Number.isFinite(Number(size)) ? Number(size) : 8;
+	content.style.cssText = `width:${pointSize}px;height:${pointSize}px;border-radius:50%;background:${color || "#263238"};border:1px solid white;`;
 	content.title = severityText || "Track point";
 	content.setAttribute("aria-label", severityText || "Track point");
 	return content;
@@ -5207,9 +5229,9 @@ function plotHurricanes(geojson) {
 			const trackPosition = { lat: Number(coordinates[1]), lng: Number(coordinates[0]) };
 			if (!Number.isFinite(trackPosition.lat) || !Number.isFinite(trackPosition.lng)) return;
 			const severityText = hurricaneTrackPointTooltip(trackPoint.feature.properties || {});
-			const trackPointIsActual = trackPoint.feature.properties && (trackPoint.feature.properties._actual === true || String(trackPoint.feature.properties.actual || "").toLowerCase() === "true");
-			const trackColor = trackPointIsActual ? HURRICANE_HISTORICAL_COLOR : HURRICANE_PROJECTED_COLOR;
-			const trackMarker = new google.maps.marker.AdvancedMarkerElement({ map: null, position: trackPosition, content: hurricaneTrackPointContent(severityText, trackColor), anchorLeft: "-50%", anchorTop: "-50%", title: severityText || "Track point", zIndex: 999 });
+			const trackProperties = trackPoint.feature.properties || {};
+			const trackColor = hurricaneTrackPointColor(trackProperties);
+			const trackMarker = new google.maps.marker.AdvancedMarkerElement({ map: null, position: trackPosition, content: hurricaneTrackPointContent(severityText, trackColor, hurricaneTrackPointSize(trackProperties)), anchorLeft: "-50%", anchorTop: "-50%", title: severityText || "Track point", zIndex: 999 });
 			storm.trackPointMarkers.push(trackMarker);
 			hurricaneTrackPointMarkers.push(trackMarker);
 		});
