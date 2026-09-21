@@ -4978,11 +4978,13 @@ function createWeatherTileLayer(name, getTileUrl, opts = {}) {
 	};
 }
 
-// Optional overlay helpers: shared parsing, formatting, and overlay primitives.
+// Groups shared parsing, formatting, and overlay primitives for optional overlays...
+// Converts GeoJSON properties into searchable lowercase text...
 function hurricanePropertyText(properties) {
 	return Object.keys(properties || {}).map(key => String(properties[key] == null ? "" : properties[key])).join(" ").toLowerCase();
 }
 
+// Returns the stable group identifier used to associate hurricane features...
 function hurricaneFeatureGroupId(feature, index) {
 	const properties = feature.properties || {};
 	const preferredKeys = ["_stormKey", "eventid", "episodeid", "event_id", "episode_id", "cycloneid", "stormid", "alertid", "id"];
@@ -4990,11 +4992,13 @@ function hurricaneFeatureGroupId(feature, index) {
 	return String((key && properties[key]) || feature.id || properties.name || `storm-${index}`);
 }
 
+// Converts GeoJSON coordinate pairs into valid Google Maps latitude/longitude objects...
 function hurricaneLatLngPath(coordinates) {
 	return (coordinates || []).map(coordinate => ({ lat: Number(coordinate[1]), lng: Number(coordinate[0]) }))
 		.filter(point => Number.isFinite(point.lat) && Number.isFinite(point.lng));
 }
 
+// Adds line and polygon geometries to the appropriate hurricane overlay collection...
 function hurricaneAddGeometry(geometry, group, kind) {
 	if (!geometry) return;
 	if (geometry.type === "LineString") {
@@ -5010,48 +5014,33 @@ function hurricaneAddGeometry(geometry, group, kind) {
 	}
 }
 
-// Applies a Google Maps instance to every overlay in a collection.
+// Applies a Google Maps instance to every overlay in a collection...
 function setOverlayCollectionMap(overlays, targetMap) {
 	(overlays || []).forEach(overlay => {
 		try { overlay.setMap(targetMap); } catch (error) {}
 	});
 }
 
-const HURRICANE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="30" height="30" fill="#d62d24" role="img" aria-label="Tropical cyclone"><path stroke="white" stroke-width="14" stroke-linejoin="round" d="M128 272C128 168.4 203.7 82.5 302.9 66.6C312 65.2 320 72.6 320 81.9L320 145.2C320 153.6 326.5 160.5 334.7 161.7C435 176.6 512 263 512 367.4C512 471 436.3 556.9 337.1 572.8C327.9 574.3 320 566.9 320 557.6L320 494.3C320 485.9 313.5 479 305.3 477.7C205 462.9 128 376.4 128 272zM416 320C416 267 373 224 320 224C267 224 224 267 224 320C224 373 267 416 320 416C373 416 416 373 416 320zM320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320C288 302.3 302.3 288 320 288z"/></svg>';
+const HURRICANE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="30" height="30" fill="#FF0000" role="img" aria-label="Tropical cyclone"><path stroke="white" stroke-width="14" stroke-linejoin="round" d="M128 272C128 168.4 203.7 82.5 302.9 66.6C312 65.2 320 72.6 320 81.9L320 145.2C320 153.6 326.5 160.5 334.7 161.7C435 176.6 512 263 512 367.4C512 471 436.3 556.9 337.1 572.8C327.9 574.3 320 566.9 320 557.6L320 494.3C320 485.9 313.5 479 305.3 477.7C205 462.9 128 376.4 128 272zM416 320C416 267 373 224 320 224C267 224 224 267 224 320C224 373 267 416 320 416C373 416 416 373 416 320zM320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320C288 302.3 302.3 288 320 288z"/></svg>';
 const HURRICANE_HISTORICAL_COLOR = "rgb(170 170 170)";
 const HURRICANE_PROJECTED_COLOR = "#e2a957";
 
-function hurricaneIconSvg(color) {
-	return HURRICANE_ICON_SVG.replace('fill="#d62d24"', `fill="${color || "#d62d24"}"`);
+// Returns the reusable red hurricane SVG...
+function hurricaneIconSvg() {
+	return HURRICANE_ICON_SVG;
 }
 
-function hurricaneMarkerContent(color) {
+// Creates map marker content with opacity scaled to storm intensity...
+function hurricaneMarkerContent(opacity) {
 	const content = document.createElement("div");
-	content.style.cssText = "display:flex;align-items:center;justify-content:center;";
-	content.innerHTML = hurricaneIconSvg(color);
+	content.style.cssText = "display:flex;align-items:center;justify-content:center;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);";
+	content.innerHTML = hurricaneIconSvg();
+	content.firstElementChild.setAttribute("opacity", String(opacity));
 	content.title = "Tropical cyclone";
 	return content;
 }
 
-function hurricaneSeverityText(properties) {
-	const severityKey = Object.keys(properties || {}).find(key => key.toLowerCase() === "severitydata");
-	const severity = severityKey ? properties[severityKey] : null;
-	if (severity && typeof severity === "object" && severity.severitytext) return String(severity.severitytext);
-	const textKey = Object.keys(properties || {}).find(key => ["severitytext", "severity_text"].includes(key.toLowerCase()));
-	return String((textKey && properties[textKey]) || properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || properties.STORMTYPE || "");
-}
-
-// Formats ArcGIS intensity fields for use in storm point tooltips and infowindows.
-function hurricaneArcgisIntensityText(properties) {
-	const parts = [];
-	const development = properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL;
-	const measurements = hurricaneArcgisMeasurementsText(properties);
-	if (development && String(development).trim()) parts.push(String(development).trim());
-	if (measurements) parts.push(measurements);
-	return parts.join(" · ");
-}
-
-// Formats ArcGIS wind, gust, and pressure values without repeating the storm classification.
+// Formats ArcGIS wind, gust, and pressure values without repeating the storm classification...
 function hurricaneArcgisMeasurementsText(properties) {
 	const parts = [];
 	const wind = Number(properties.MAXWIND);
@@ -5065,12 +5054,12 @@ function hurricaneArcgisMeasurementsText(properties) {
 	return parts.join(" · ");
 }
 
-// Returns the ArcGIS-only storm classification used in track-point tooltips.
+// Returns the ArcGIS-only storm classification used in track-point tooltips...
 function hurricaneArcgisSeverityText(properties) {
 	return String(properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || properties.STORMTYPE || "");
 }
 
-// Returns an ordered intensity level for an ArcGIS storm classification.
+// Returns an ordered intensity level for an ArcGIS storm classification...
 function hurricaneClassificationLevel(properties) {
 	const classification = hurricaneArcgisSeverityText(properties).toLowerCase();
 	if (/major hurricane|category\s*[3-5]|super typhoon/.test(classification)) return 4;
@@ -5080,30 +5069,50 @@ function hurricaneClassificationLevel(properties) {
 	return 0;
 }
 
-// Returns the point content size for an ArcGIS storm classification.
+// Returns the Saffir-Simpson category encoded by an ArcGIS storm record...
+function hurricaneSaffirSimpsonCategory(properties) {
+	const classification = hurricaneArcgisSeverityText(properties).toLowerCase();
+	const categoryMatch = classification.match(/category\s*([1-5])/);
+	const categoryValue = properties.SSNUM != null ? properties.SSNUM : properties.SS;
+	const category = categoryMatch ? Number(categoryMatch[1]) : Number(categoryValue);
+	if (Number.isFinite(category) && category >= 1 && category <= 5) return category;
+	if (/super typhoon/.test(classification)) return 5;
+	if (/major hurricane/.test(classification)) return 3;
+	if (/hurricane|typhoon/.test(classification)) {
+		const wind = Number(properties.MAXWIND || properties.INTENSITY);
+		if (Number.isFinite(wind) && wind >= 137) return 5;
+		if (Number.isFinite(wind) && wind >= 113) return 4;
+		if (Number.isFinite(wind) && wind >= 96) return 3;
+		if (Number.isFinite(wind) && wind >= 83) return 2;
+		return 1;
+	}
+	return 0;
+}
+
+// Returns map-icon opacity from 40 percent for the weakest storms to 100 percent for Category 3 and stronger...
+function hurricaneIconOpacity(properties) {
+	const classification = hurricaneArcgisSeverityText(properties).toLowerCase();
+	if (/depression/.test(classification)) return 0.4;
+	if (/tropical storm|subtropical storm/.test(classification)) return 0.55;
+	const category = hurricaneSaffirSimpsonCategory(properties);
+	if (category >= 3) return 1;
+	if (category === 2) return 0.85;
+	if (category === 1) return 0.7;
+	return 0.4;
+}
+
+// Returns the point content size for an ArcGIS storm classification...
 function hurricaneTrackPointSize(properties) {
 	return 6 + (hurricaneClassificationLevel(properties) * 2);
 }
 
-// Returns the fixed historical or projected point color.
+// Returns the fixed historical or projected point color...
 function hurricaneTrackPointColor(properties) {
 	const actual = properties && (properties._actual === true || String(properties.actual || "").toLowerCase() === "true");
 	return actual ? HURRICANE_HISTORICAL_COLOR : HURRICANE_PROJECTED_COLOR;
 }
 
-// Parses GDACS polygon labels such as "15/09 18:00 UTC" into a Date.
-function parseHurricanePolygonLabelDate(value) {
-	const text = String(value || "").trim();
-	const match = text.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})\s+UTC$/i);
-	if (match) {
-		const [, day, month, hour, minute] = match.map(Number);
-		const date = new Date(Date.UTC(new Date().getUTCFullYear(), month - 1, day, hour, minute));
-		if (date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute) return date;
-	}
-	const parsed = text ? new Date(text) : null;
-	return parsed && Number.isFinite(parsed.getTime()) ? parsed : null;
-}
-
+// Formats an ArcGIS storm point's timestamp, classification, and measurements for its tooltip...
 function hurricaneTrackPointTooltip(properties) {
 	const rawDate = properties.FLDATELBL || properties.fldatelbl || properties.DTG || properties.dtg || properties.VALIDTIME || properties.validtime || "";
 	const parsedDate = hurricaneArcgisDate(properties);
@@ -5113,6 +5122,7 @@ function hurricaneTrackPointTooltip(properties) {
 	return [localDate, severity, intensity].filter(Boolean).join("\n") || "Track point";
 }
 
+// Creates a styled storm-track point marker with accessible hover text...
 function hurricaneTrackPointContent(severityText, color, size) {
 	const content = document.createElement("div");
 	const pointSize = Number.isFinite(Number(size)) ? Number(size) : 8;
@@ -5122,41 +5132,41 @@ function hurricaneTrackPointContent(severityText, color, size) {
 	return content;
 }
 
+// Returns the display name from an ArcGIS storm record...
 function hurricaneDisplayName(properties) {
 	const value = Object.keys(properties || {}).find(key => /name|title|storm/i.test(key) && properties[key]);
 	return value ? String(properties[value]) : "Tropical cyclone";
 }
 
-// Builds the hurricane infowindow contents for a storm.
+// Builds the hurricane infowindow contents for a storm...
 function hurricaneInfoHtml(storm) {
 	const properties = storm.properties || {};
 	const development = properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || "";
 	const measurements = hurricaneArcgisMeasurementsText(properties);
-	const infoIcon = hurricaneIconSvg("#d62d24").replace('width="30" height="30"', 'width="80" height="80"');
+	const infoIcon = hurricaneIconSvg().replace('width="30" height="30"', 'width="80" height="80"');
 	const loadingStatus = hurricaneTracksLoading ? `<div style="border-top:1px solid #eee;padding:6px 0;color:#666;font-style:italic;display:flex;align-items:center;gap:4px;">${loadingSpinner}<span>Getting storm tracks</span></div>` : "";
 	const reportUrl = properties.url && typeof properties.url === "object" ? properties.url.report : properties["url.report"];
 	const reportLink = /^https?:\/\//i.test(String(reportUrl || "")) ? `<div style="border-top:1px solid #eee;padding:6px 0;"><a href="${escapeHtml(reportUrl)}" target="_blank" rel="noopener noreferrer">Storm Report</a></div>` : "";
 	const developmentBlock = development ? `<div style="border-bottom:1px solid #eee;padding-bottom:6px;margin-bottom:0;">${escapeHtml(development)}</div>` : "";
 	const measurementsBlock = measurements ? `<div style="padding:6px 0;">${escapeHtml(measurements)}</div>` : "";
-	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(hurricaneDisplayName(properties))}</div>${developmentBlock}${loadingStatus}${measurementsBlock}${reportLink}</div>`;
+	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(hurricaneDisplayName(properties))}</div>${developmentBlock}${loadingStatus}${measurementsBlock}${reportLink}</div>`;
 }
 
-// Hides all hurricane paths, dots, cones, and selection highlighting.
+// Hides all hurricane paths, dots, and cones...
 function hideHurricaneTracks() {
 	hurricaneSelectedStormId = null;
 	setOverlayCollectionMap(hurricanePathOverlays, null);
 	setOverlayCollectionMap(hurricaneConeOverlays, null);
 	hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
-	hurricaneMarkers.forEach(marker => { if (marker.content) marker.content.style.filter = "none"; });
 }
 
-// Hides the earthquake ShakeMap impact contour overlays.
+// Hides the earthquake ShakeMap impact contour overlays...
 function hideEarthquakeImpactOutlines() {
 	setOverlayCollectionMap(mmiContourLines, null);
 	mmiContourLines = [];
 }
 
-// Rebuilds the hurricane layer with the tracks loaded so far.
+// Rebuilds the hurricane layer with the tracks loaded so far...
 function hurricaneReplotLoadedTracks() {
 	const loadedFeatures = hurricaneBaseFeatures.concat(...hurricaneLoadedTrackFeatures.values());
 	hurricaneRestoreInfoWindow = Boolean(overlayInfoWindow && overlayInfoWindow.isOpen);
@@ -5164,8 +5174,7 @@ function hurricaneReplotLoadedTracks() {
 	plotHurricanes({ type: "FeatureCollection", features: loadedFeatures });
 }
 
-// Hurricane core rendering and lazy track loading.
-// Plots hurricane markers, paths, cones, and track-point overlays.
+// Plots hurricane markers, paths, cones, and track-point overlays with lazy track loading...
 function plotHurricanes(geojson) {
 	const storms = new Map();
 	const plottedStorms = new Map();
@@ -5191,12 +5200,10 @@ function plotHurricanes(geojson) {
 		if (!point || !point.feature.geometry || point.feature.geometry.coordinates.length < 2) return;
 		const position = { lat: Number(point.feature.geometry.coordinates[1]), lng: Number(point.feature.geometry.coordinates[0]) };
 		if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
-		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: hurricaneMarkerContent("#d62d24"), anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), zIndex: 1000 });
+		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: hurricaneMarkerContent(hurricaneIconOpacity(storm.properties)), anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), zIndex: 1000 });
 		plottedStorms.set(groupId, { storm, marker, position });
 		marker.addListener("gmp-click", () => {
 			hurricaneSelectedStormId = groupId;
-			hurricaneMarkers.forEach(otherMarker => { if (otherMarker.content) otherMarker.content.style.filter = "none"; });
-			if (marker.content) marker.content.style.filter = "drop-shadow(white 0px 0px 3px)";
 			hurricanePathOverlays.forEach(overlay => overlay.setMap(null));
 			hurricaneConeOverlays.forEach(overlay => overlay.setMap(null));
 			hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
@@ -5251,8 +5258,6 @@ function plotHurricanes(geojson) {
 		hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
 		selected.storm.pathOverlays.forEach(overlay => overlay.setMap(map));
 		selected.storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; });
-		hurricaneMarkers.forEach(otherMarker => { if (otherMarker.content) otherMarker.content.style.filter = "none"; });
-		if (selected.marker.content) selected.marker.content.style.filter = "drop-shadow(white 0px 0px 3px)";
 		if (hurricaneRestoreInfoWindow) {
 			closeAllInfoWindows();
 			overlayInfoWindow.setContent(hurricaneInfoHtml(selected.storm));
@@ -5265,8 +5270,8 @@ function plotHurricanes(geojson) {
 	console.debug(`Map ${widgetID}: Plotted ${hurricaneMarkers.length} active tropical cyclone(s) with ${hurricanePathOverlays.filter(overlay => overlay instanceof google.maps.Polygon).length} uncertainty cone(s)`);
 }
 
-// GDACS helpers: response normalization and metadata enrichment.
-// Extracts event items from the supported GDACS response shapes.
+// Groups GDACS response normalization and metadata-enrichment helpers...
+// Extracts event items from the supported GDACS response shapes...
 function gdacsItems(data) {
 	if (!data || typeof data !== "object") return [];
 	if (Array.isArray(data)) return data;
@@ -5280,12 +5285,12 @@ function gdacsItems(data) {
 	return [];
 }
 
-// Normalizes a GDACS item into its property object.
+// Normalizes a GDACS item into its property object...
 function gdacsStormProperties(item) {
 	return Object.assign({}, item.properties || item);
 }
 
-// Reads a property using case-insensitive candidate names.
+// Reads a property using case-insensitive candidate names...
 function gdacsValue(properties, names) {
 	const key = Object.keys(properties || {}).find(name => names.some(candidate => name.toLowerCase() === candidate));
 	return key ? properties[key] : "";
@@ -5297,7 +5302,7 @@ const HURRICANE_GDACS_CACHE_MS = 600000;
 const HURRICANE_ARCGIS_BASE_URL = "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services/Active_Hurricanes_v1/FeatureServer";
 const HURRICANE_GDACS_EVENT_URL = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/map?eventtype=TC";
 
-// Fetches and caches a JSON response while sharing in-flight requests.
+// Fetches and caches a JSON response while sharing in-flight requests...
 async function hurricaneFetchJson(url, cacheDurationMs = HURRICANE_GDACS_CACHE_MS) {
 	const cached = HURRICANE_JSON_CACHE.get(url);
 	if (cached && Date.now() - cached.timestamp < cacheDurationMs) return cached.promise;
@@ -5314,12 +5319,12 @@ async function hurricaneFetchJson(url, cacheDurationMs = HURRICANE_GDACS_CACHE_M
 	return promise;
 }
 
-// Normalizes a storm name so ArcGIS names can be matched to GDACS names with season suffixes.
+// Normalizes a storm name so ArcGIS names can be matched to GDACS names with season suffixes...
 function hurricaneNormalizeStormName(value) {
 	return String(value || "").toUpperCase().replace(/\b(?:TROPICAL|CYCLONE|STORM|HURRICANE|TYPHOON)\b/g, "").replace(/\d{2,4}\s*$/, "").replace(/[^A-Z0-9]/g, "");
 }
 
-// Returns a stable ArcGIS storm key based on its name, basin, and storm number.
+// Returns a stable ArcGIS storm key based on its name, basin, and storm number...
 function hurricaneArcgisStormKey(properties) {
 	const name = hurricaneNormalizeStormName(properties.STORMNAME || properties.stormname);
 	const basin = String(properties.BASIN || properties.basin || "").trim().toUpperCase();
@@ -5327,7 +5332,7 @@ function hurricaneArcgisStormKey(properties) {
 	return [name, basin, number].filter(Boolean).join("|") || `storm-${Math.random().toString(36).slice(2)}`;
 }
 
-// Parses an ArcGIS date field into a timestamp for sorting and display.
+// Parses an ArcGIS date field into a timestamp for sorting and display...
 function hurricaneArcgisDate(properties) {
 	const epoch = Number(properties.DTG || properties.dtg);
 	if (Number.isFinite(epoch) && epoch > 100000000000) return new Date(epoch);
@@ -5354,18 +5359,18 @@ function hurricaneArcgisDate(properties) {
 	return null;
 }
 
-// Returns a clean ArcGIS point record with its source properties and timestamp.
-function hurricaneArcgisPoint(feature, actual) {
+// Returns a clean ArcGIS point record with its source properties and timestamp...
+function hurricaneArcgisPoint(feature) {
 	const properties = Object.assign({}, feature.properties || {});
-	return { coordinates: feature.geometry && feature.geometry.coordinates, properties, actual, timestamp: hurricaneArcgisDate(properties) };
+	return { coordinates: feature.geometry && feature.geometry.coordinates, properties, timestamp: hurricaneArcgisDate(properties) };
 }
 
-// Returns true when two longitude/latitude coordinate pairs represent the same point.
+// Returns true when two longitude/latitude coordinate pairs represent the same point...
 function hurricaneCoordinatesEqual(first, second) {
 	return Array.isArray(first) && Array.isArray(second) && first.length >= 2 && second.length >= 2 && Math.abs(Number(first[0]) - Number(second[0])) < 0.0001 && Math.abs(Number(first[1]) - Number(second[1])) < 0.0001;
 }
 
-// Merges an ArcGIS point with storm defaults without inheriting another point's timestamp.
+// Merges an ArcGIS point with storm defaults without inheriting another point's timestamp...
 function hurricaneArcgisPointProperties(baseProperties, pointProperties) {
 	const merged = Object.assign({}, baseProperties, pointProperties);
 	["FLDATELBL", "fldatelbl", "DTG", "dtg", "VALIDTIME", "validtime", "DATELBL", "datelbl", "MAXWIND", "maxwind", "GUST", "gust", "ITCDVLP", "itcdvlp", "TCDVLP", "tcdvlp", "IDVLBL", "idvlbl"].forEach(key => {
@@ -5374,9 +5379,10 @@ function hurricaneArcgisPointProperties(baseProperties, pointProperties) {
 	return merged;
 }
 
-// Builds the ArcGIS storm groups used to create markers, paths, points, and cones.
+// Builds the ArcGIS storm groups used to create markers, paths, points, and cones...
 function hurricaneGroupArcgisLayers(layers) {
 	const groups = new Map();
+	// Adds one ArcGIS feature to its storm group by geometry type...
 	const addGroupFeature = (feature, kind) => {
 		if (!feature || !feature.geometry) return;
 		const properties = feature.properties || {};
@@ -5384,8 +5390,8 @@ function hurricaneGroupArcgisLayers(layers) {
 		if (!groups.has(key)) groups.set(key, { key, properties: {}, observedPoints: [], forecastPoints: [], observedLines: [], forecastLines: [], cones: [] });
 		const group = groups.get(key);
 		group.properties = Object.assign({}, group.properties, properties);
-		if (kind === "observedPoint") group.observedPoints.push(hurricaneArcgisPoint(feature, true));
-		else if (kind === "forecastPoint") group.forecastPoints.push(hurricaneArcgisPoint(feature, false));
+		if (kind === "observedPoint") group.observedPoints.push(hurricaneArcgisPoint(feature));
+		else if (kind === "forecastPoint") group.forecastPoints.push(hurricaneArcgisPoint(feature));
 		else if (kind === "observedLine") group.observedLines.push(feature);
 		else if (kind === "forecastLine") group.forecastLines.push(feature);
 		else if (kind === "cone") group.cones.push(feature);
@@ -5398,7 +5404,7 @@ function hurricaneGroupArcgisLayers(layers) {
 	return groups;
 }
 
-// Creates the primary ArcGIS GeoJSON features used by the hurricane renderer.
+// Creates the primary ArcGIS GeoJSON features used by the hurricane renderer...
 function hurricaneBuildArcgisFeatures(layers) {
 	const features = [];
 	hurricaneGroupArcgisLayers(layers).forEach(group => {
@@ -5428,7 +5434,7 @@ function hurricaneBuildArcgisFeatures(layers) {
 	return features;
 }
 
-// Builds a compact GDACS index containing report and descriptive metadata for active storms.
+// Builds a compact GDACS index containing report and descriptive metadata for active storms...
 function hurricaneBuildGdacsIndex(data) {
 	const entries = new Map();
 	gdacsItems(data).forEach(item => {
@@ -5445,7 +5451,7 @@ function hurricaneBuildGdacsIndex(data) {
 	return Array.from(entries.values());
 }
 
-// Matches an ArcGIS storm to GDACS metadata by normalized name and, when available, position.
+// Matches an ArcGIS storm to GDACS metadata by normalized name and, when available, position...
 function hurricaneMatchGdacsMetadata(properties, entries, coordinates) {
 	const name = hurricaneNormalizeStormName(properties.STORMNAME || properties.stormname);
 	if (!name) return null;
@@ -5461,7 +5467,7 @@ function hurricaneMatchGdacsMetadata(properties, entries, coordinates) {
 	})[0].properties;
 }
 
-// Adds matched GDACS descriptions and report links without replacing ArcGIS storm fields.
+// Adds matched GDACS descriptions and report links without replacing ArcGIS storm fields...
 function hurricaneEnrichArcgisFeatures(features, gdacsEntries) {
 	const matchedProperties = new Map();
 	return features.map(feature => {
@@ -5473,9 +5479,10 @@ function hurricaneEnrichArcgisFeatures(features, gdacsEntries) {
 	});
 }
 
-// Hurricane data loading core: fetches ArcGIS geometry/intensity and enriches it with GDACS metadata.
+// Fetches ArcGIS hurricane geometry and enriches it with GDACS report metadata...
 async function loadHurricanesFromArcgisApi() {
 	const requestGeneration = ++hurricaneDataLoadGeneration;
+	// Builds the query URL for one ArcGIS hurricane layer...
 	const layerUrl = layer => `${HURRICANE_ARCGIS_BASE_URL}/${layer}/query?where=1%3D1&outFields=*&returnGeometry=true&f=geojson`;
 	const arcgisPromise = Promise.all([
 		hurricaneFetchJson(layerUrl(1), HURRICANE_ARCGIS_CACHE_MS),
@@ -5512,7 +5519,7 @@ async function loadHurricanesFromArcgisApi() {
 	return { type: "FeatureCollection", features: initialFeatures };
 }
 
-// Optional weather/overlay orchestration.
+// Orchestrates the selected weather and optional map overlays...
 async function addWeatherLayer() {
 	console.debug(`Map ${widgetID}: addWeatherLayer() checked=${_dom.weather.checked} weatherType=${_dom.weatherType.value} optionalOverlay=${_dom.otherWeatherOverlays.value}`);
 	if (_dom.weather.checked) {
