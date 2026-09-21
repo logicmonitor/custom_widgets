@@ -5061,6 +5061,7 @@ if (window.RProfiler) {
 							position: { lat: cachedAddresses[groupID].lat, lng: cachedAddresses[groupID].lng },
 							map: map,
 							content: content,
+							gmpClickable: true,
 							// content: glyphSvgPinElement.element,
 							title: thisItem.name,
 							zIndex: pinIndex,
@@ -5069,7 +5070,7 @@ if (window.RProfiler) {
 						marker.deviceID = thisItem.id;
 
 						// Open info window when marker is clicked...
-						marker.addListener("gmp-click", () => {
+						marker.addEventListener("gmp-click", () => {
 							toggleHighlight(marker, thisItem)
 						});
 
@@ -5612,6 +5613,7 @@ if (window.RProfiler) {
 			const marker = new google.maps.marker.AdvancedMarkerElement({
 				position,
 				content: clusterContent,
+				gmpClickable: true,
 				zIndex: 1000 + count,
 			});
 
@@ -5715,7 +5717,7 @@ if (window.RProfiler) {
 			}
 
 			// Add click listener
-			marker.addListener('gmp-click', () => {
+			marker.addEventListener('gmp-click', () => {
 				closeAllInfoWindows();
 				clusterInfoWindow = new CustomInfoWindow({
 					position: marker.position,
@@ -5840,7 +5842,7 @@ if (window.RProfiler) {
 	// Applies a Google Maps instance to every overlay in a collection...
 	function setOverlayCollectionMap(overlays, targetMap) { (overlays || []).forEach(overlay => { try { overlay.setMap(targetMap); } catch (error) {} }); }
 	// Formats ArcGIS wind, gust, and pressure values without repeating the storm classification...
-	function hurricaneArcgisMeasurementsText(properties) { const parts = []; const wind = Number(properties.MAXWIND); const observedIntensity = Number(properties.INTENSITY); const gust = Number(properties.GUST); const pressure = Number(properties.MSLP); if (Number.isFinite(wind) && wind > 0 && wind < 9999) parts.push(`Wind ${wind} kt`); else if (Number.isFinite(observedIntensity) && observedIntensity > 0 && observedIntensity < 9999) parts.push(`Wind ${observedIntensity} kt`); if (Number.isFinite(gust) && gust > 0 && gust < 9999) parts.push(`Gust ${gust} kt`); if (Number.isFinite(pressure) && pressure > 0 && pressure < 9999) parts.push(`Pressure ${pressure} mb`); return parts.join(" | "); }
+	function hurricaneArcgisMeasurementsText(properties) { const parts = []; const wind = Number(properties.MAXWIND); const observedIntensity = Number(properties.INTENSITY); const gust = Number(properties.GUST); const pressure = Number(properties.MSLP); if (Number.isFinite(wind) && wind > 0 && wind < 9999) parts.push(`Wind ${wind} kt`); else if (Number.isFinite(observedIntensity) && observedIntensity > 0 && observedIntensity < 9999) parts.push(`Wind ${observedIntensity} kt`); if (Number.isFinite(gust) && gust > 0 && gust < 9999) parts.push(`Gust ${gust} kt`); if (Number.isFinite(pressure) && pressure > 0 && pressure < 9999) parts.push(`Pressure ${pressure} mb`); return parts.join(" \u2022 "); }
 	// Returns the ArcGIS-only storm classification used in track-point tooltips...
 	function hurricaneArcgisSeverityText(properties) { return String(properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || properties.STORMTYPE || ""); }
 	// Returns an ordered intensity level for an ArcGIS storm classification...
@@ -5906,10 +5908,10 @@ if (window.RProfiler) {
 			content.style.cssText = "display:flex;align-items:center;justify-content:center;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);";
 			content.innerHTML = hurricaneIconSvg(hurricaneIsHurricaneClass(storm.properties) ? 35 : 30);
 			content.firstElementChild.setAttribute("opacity", String(hurricaneIconOpacity(storm.properties)));
-			const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content, anchorLeft: "-50%", anchorTop: "-50%", title: String(storm.properties.STORMNAME || storm.properties.stormname || storm.properties.name || storm.properties.title || "Tropical cyclone"), zIndex: 1000 });
+			const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content, anchorLeft: "-50%", anchorTop: "-50%", title: String(storm.properties.STORMNAME || storm.properties.stormname || storm.properties.name || storm.properties.title || "Tropical cyclone"), gmpClickable: true, zIndex: 1000 });
 			plottedStorms.set(id, { storm, marker, position });
 			content.addEventListener("dblclick", event => { event.stopPropagation(); hurricaneFitStormBounds(storm, position); });
-			marker.addListener("gmp-click", () => { hurricaneSelectedStormId = id; hurricaneShowStormTracks(storm); hurricaneOpenStormInfo(storm, position); });
+			marker.addEventListener("gmp-click", () => { hurricaneSelectedStormId = id; hurricaneShowStormTracks(storm); hurricaneOpenStormInfo(storm, position); });
 			hurricaneMarkers.push(marker);
 			storm.points.filter(item => item !== point).forEach(trackPoint => {
 				const coordinates = trackPoint.feature.geometry.coordinates;
