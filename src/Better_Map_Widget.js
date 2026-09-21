@@ -5089,16 +5089,16 @@ function hurricaneSaffirSimpsonCategory(properties) {
 	return 0;
 }
 
-// Returns map-icon opacity from 40 percent for the weakest storms to 100 percent for Category 3 and stronger...
+// Returns map-icon opacity from 30 percent for the weakest storms to 100 percent for Category 3 and stronger...
 function hurricaneIconOpacity(properties) {
 	const classification = hurricaneArcgisSeverityText(properties).toLowerCase();
-	if (/depression/.test(classification)) return 0.4;
-	if (/tropical storm|subtropical storm/.test(classification)) return 0.55;
+	if (/depression/.test(classification)) return 0.3;
+	if (/tropical storm|subtropical storm/.test(classification)) return 0.475;
 	const category = hurricaneSaffirSimpsonCategory(properties);
 	if (category >= 3) return 1;
-	if (category === 2) return 0.85;
-	if (category === 1) return 0.7;
-	return 0.4;
+	if (category === 2) return 0.825;
+	if (category === 1) return 0.65;
+	return 0.3;
 }
 
 // Returns the point content size for an ArcGIS storm classification...
@@ -5174,6 +5174,24 @@ function hurricaneReplotLoadedTracks() {
 	plotHurricanes({ type: "FeatureCollection", features: loadedFeatures });
 }
 
+// Fits the map to a storm's tracks, uncertainty cone, marker, and infowindow...
+function hurricaneFitStormBounds(storm, markerPosition) {
+	const coordinates = [];
+	storm.points.forEach(point => {
+		const coordinate = point.feature && point.feature.geometry && point.feature.geometry.coordinates;
+		if (Array.isArray(coordinate) && coordinate.length >= 2) coordinates.push({ lat: Number(coordinate[1]), lng: Number(coordinate[0]) });
+	});
+	storm.historical.forEach(path => coordinates.push(...path));
+	storm.forecast.forEach(path => coordinates.push(...path));
+	storm.cones.forEach(paths => paths.forEach(path => coordinates.push(...path)));
+	if (markerPosition) coordinates.push(markerPosition);
+	const validCoordinates = coordinates.filter(point => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+	if (!validCoordinates.length) return;
+	const bounds = new google.maps.LatLngBounds();
+	validCoordinates.forEach(point => bounds.extend(point));
+	map.fitBounds(bounds, { top: 100, right: 420, bottom: 100, left: 100 });
+}
+
 // Plots hurricane markers, paths, cones, and track-point overlays with lazy track loading...
 function plotHurricanes(geojson) {
 	const storms = new Map();
@@ -5200,8 +5218,10 @@ function plotHurricanes(geojson) {
 		if (!point || !point.feature.geometry || point.feature.geometry.coordinates.length < 2) return;
 		const position = { lat: Number(point.feature.geometry.coordinates[1]), lng: Number(point.feature.geometry.coordinates[0]) };
 		if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
-		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: hurricaneMarkerContent(hurricaneIconOpacity(storm.properties)), anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), zIndex: 1000 });
+		const markerContent = hurricaneMarkerContent(hurricaneIconOpacity(storm.properties));
+		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: markerContent, anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), zIndex: 1000 });
 		plottedStorms.set(groupId, { storm, marker, position });
+		markerContent.addEventListener("dblclick", event => { event.stopPropagation(); hurricaneFitStormBounds(storm, position); });
 		marker.addListener("gmp-click", () => {
 			hurricaneSelectedStormId = groupId;
 			hurricanePathOverlays.forEach(overlay => overlay.setMap(null));
