@@ -78,36 +78,36 @@ Visibility of the toolbar along the top of the widget can be toggled using the b
 
 Behavior of the widget can be customized using the following optional dashboard tokens:
 
-- **MapSourceType**: Whether to map "groups", "resources", or "services". Default is "groups". This sets which of the toolbar's map type options is selected on load. Users can switch between them at any time and their choice is remembered per widget until the "Clear cache" button is used.
-- **MapLocationProperty**: The property to use for the location of the items on the map. Default is "location".
-- **MapGroupPathFilter**: Allows setting a default group path to start. Default is "\*".
-- **MapShowWeather**: If weather should be shown by default. Options are "global", "nexrad", "xweather" or "openweather". Default is "global". (see below for more info about weather options)
+- **MapSourceType**: Whether to map "`groups`", "`resources`", or "`services`". Default is "`groups`". This sets which of the toolbar's map type options is selected on load. Users can switch between them at any time and their choice is remembered per widget until the "Clear cache" button is used.
+- **MapLocationProperty**: The property to use for the location of the items on the map. Default is "`location`".
+- **MapGroupPathFilter**: Allows setting a default group path to start. Default is "`\*`".
+- **MapShowWeather**: If weather should be shown by default. Options are "`global`", "`nexrad`", "`xweather`" or "`openweather`". Default is "`global`". (see below for more info about weather options)
 - **MapOverlayOption**: Which optional overlay to default to when weather is shown. Options are:
-	- "**none**": Shows weather with no additional overlay (no earthquakes, hurricanes, wildfires, power outages, or flooding).
-	- "**earthquakes**" _(the default)_: Displays significant earthquakes. By default it shows quakes from the past 7 days and the icons fade based on age. There's an option to instead show quakes from the past 24 hours, which case the icon's boldness indicates the earthquake's magnitude. Clicking an earthquake's icon display more details.
-	- "**hurricanes**": Plots active tropical cyclones from ArcGIS. Clicking a storm displays ArcGIS intensity details and GDACS report metadata along with its historical track, forecast track, and uncertainty cone.
- 	- "**wildfires**": Displays active wildfires in the US and Australia. Clicking a wildfire displays additional info.
-  	- "**us-poweroutages**" (or just "outages" for short): Color-codes US counties by current number of customers without power (darker colors = higher % of customers affected). Clicking a county displays more info.
-  	- "**us-flooding**": Plots blue dots for areas with active US flood alerts. Clicking a dot displays more details about the flooding.
-- **HideMapOptions**: If "true" then will hide the options bar by default. Default is "false".
-- **ShowMapSidebar**: If "true" then will show the sidebar by default. Default is "false".
-- **MapIgnoreCleared**: If "true" then will only show items currently alerting (useful for maps with thousands of markers). Default is "false".
-- **MapIgnoreWarnings**: If "true" then won't show items in "Warning" status. Default is "false".
-- **MapIgnoreErrors**: If "true" then won't show items in "Error" status. Default is "false".
-- **MapIgnoreCriticals**: If "true" then won't show items in "Critical" status. Default is "false".
-- **MapIgnoreSDT**: If "true" then won't show items in "SDT" status. Default is "false".
-- **MapOnlyShowConnectedItems**: If "true" then will only show items that participate in active map connections. Default is "false".
-- **MapShowConnectingLines**: If "false" then will hide status lines between connected endpoints. Default is "true".
-- **AutoResetMapOnRefresh**: If "true" then the map will automatically zoom to encompass all items on timed refreshes. Default is "false".
-- **MapDisableClustering**: If "true" then clustering of adjacent markers on the map will be disabled. Might be desirable if showing connections between locations since clustering might hide markers at certain zoom levels. Default is "false".
+	- **`none`**: Shows weather with no additional overlay (no earthquakes, hurricanes, wildfires, power outages, or flooding).
+	- **`earthquakes`** _(the default)_: Displays significant earthquakes. By default it shows quakes from the past 7 days and the icons fade based on age. There's an option to instead show quakes from the past 24 hours, which case the icon's boldness indicates the earthquake's magnitude. Clicking an earthquake's icon display more details.
+	- **`hurricanes`**: Plots active tropical cyclones from ArcGIS. Clicking a storm displays ArcGIS intensity details and GDACS report metadata along with its historical track, forecast track, and uncertainty cone.
+ 	- **`wildfires`**: Displays active wildfires in the US and Australia. Clicking a wildfire displays additional info.
+  	- **`us-poweroutages`** (or just "`outages`" for short): Color-codes US counties by current number of customers without power (darker colors = higher % of customers affected). Clicking a county displays more info.
+  	- **`us-flooding`**: Plots blue dots for areas with active US flood alerts. Clicking a dot displays more details about the flooding.
+- **HideMapOptions**: If "`true`" then will hide the options bar by default. Default is "`false`".
+- **ShowMapSidebar**: If "`true`" then will show the sidebar by default. Default is "`false`".
+- **MapIgnoreCleared**: If "`true`" then will only show items currently alerting (useful for maps with thousands of markers). Default is "`false`".
+- **MapIgnoreWarnings**: If "`true`" then won't show items in "Warning" status. Default is "`false`".
+- **MapIgnoreErrors**: If "`true`" then won't show items in "Error" status. Default is "`false`".
+- **MapIgnoreCriticals**: If "`true`" then won't show items in "Critical" status. Default is "`false`".
+- **MapIgnoreSDT**: If "`true`" then won't show items in "SDT" status. Default is "`false`".
+- **MapOnlyShowConnectedItems**: If "`true`" then will only show items that participate in active map connections. Default is "`false`".
+- **MapShowConnectingLines**: If "`false`" then will hide status lines between connected endpoints. Default is "`true`".
+- **AutoResetMapOnRefresh**: If "`true`" then the map will automatically zoom to encompass all items on timed refreshes. Default is "`false`".
+- **MapDisableClustering**: If "`true`" then clustering of adjacent markers on the map will be disabled. Might be desirable if showing connections between locations since clustering might hide markers at certain zoom levels. Default is "`false`".
 - **MapDisplayProperties**: An optional comma-delimited list of custom properties to show when viewing a group's/resource's details.
-- **MapStyle**: Allows one of the following available map style options: "silver", "standard", "dark", "aubergine", "satellite", "satellite-light", or "silverblue". Default is "silverblue".
-- **MapMarkerStyle**: Whether to use "pins" or "circles" as the style of markers for items on the map. Legacy values "default", "dot", and "dots" are also accepted. Default is "pins".
-- **MapShowRoadLabels**: If "true" then road labels will be shown on the map. Default is "false".
+- **MapStyle**: Allows one of the following available map style options: "`silver`", "`standard`", "`dark`", "`aubergine`", "`satellite`", "`satellite-light`", or "`silverblue`". Default is "`silverblue`".
+- **MapMarkerStyle**: Whether to use "`pins`" or "`circles`" as the style of markers for items on the map. Legacy values "`default`", "`dot`", and "`dots`" are also accepted. Default is "`pins`".
+- **MapShowRoadLabels**: If "`true`" then road labels will be shown on the map. Default is "`false`".
 - **apiBearerToken**, or **apiID** + **apiKey**: Optional LogicMonitor API bearer token or API ID & key to use for the widget (primarily useful if embedding the widget outside of an LM dashboard). If not specified then the widget will use integrated portal authentication.
 - **XweatherAPIID** & **XweatherAPIKey**: Optional Xweather API ID & key to enable showing Xweather weather data (requires API ID & key available from [https://www.xweather.com/weather-api](https://www.xweather.com/weather-api). Xweather is offers a great deal of optional details such as lightning strikes, hail, wind gusts, etc. Many personal weather stations such as Ecowitt provide free Xweather API access if you feed them your weather data.
 - **MapConnectionCurvature**: Screen-pixel offset used to separate parallel connection lines between the same endpoints. Set to 0 for straight lines. Default is 18.
-- **MapUseGeodesicLines**: If "false" then connection lines are drawn as straight Mercator lines instead of great circles. Default is "true".
+- **MapUseGeodesicLines**: If "`false`" then connection lines are drawn as straight Mercator lines instead of great circles. Default is "`true`".
 
 ## Widget Interface
 
