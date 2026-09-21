@@ -21,6 +21,8 @@ var releaseNotes = `
 	<h3>Version 3.74</h3>
 	<ul>
 		<li>Added ability to double-click a tropical storm's icon to zoom in to its track.</li>
+		<li>Changed Xweather option to use the 'global-radar' endpoint (instead of 'radar').</li>
+		<li>Code cleanup and other minor improvements.</li>
 	</ul>
 	<h3>Version 3.73</h3>
 	<ul>
@@ -4849,7 +4851,7 @@ function createWeatherTileLayer(name, getTileUrl, opts = {}) {
 			img.style.width = '100%';
 			img.style.height = '100%';
 			img.style.display = 'block';
-			img.style.opacity = weatherOpacity;
+			img.style.opacity = opts.opacity == null ? weatherOpacity : opts.opacity;
 			div.appendChild(img);
 			return div;
 		},
@@ -4906,11 +4908,17 @@ const HURRICANE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 const HURRICANE_HISTORICAL_COLOR = "rgb(170 170 170)";
 const HURRICANE_PROJECTED_COLOR = "#e2a957";
 
+// Returns the reusable red hurricane SVG at the requested size...
+function hurricaneIconSvg(size = 30) {
+	const iconSize = Number.isFinite(Number(size)) ? Number(size) : 30;
+	return HURRICANE_ICON_SVG.replace('width="30" height="30"', `width="${iconSize}" height="${iconSize}"`);
+}
+
 // Creates map marker content with opacity scaled to storm intensity...
-function hurricaneMarkerContent(opacity) {
+function hurricaneMarkerContent(opacity, size) {
 	const content = document.createElement("div");
 	content.style.cssText = "display:flex;align-items:center;justify-content:center;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);";
-	content.innerHTML = HURRICANE_ICON_SVG;
+	content.innerHTML = hurricaneIconSvg(size);
 	content.firstElementChild.setAttribute("opacity", String(opacity));
 	content.title = "Tropical cyclone";
 	return content;
@@ -4963,6 +4971,12 @@ function hurricaneSaffirSimpsonCategory(properties) {
 		return 1;
 	}
 	return 0;
+}
+
+// Returns true when the current storm is classified as a hurricane or typhoon...
+function hurricaneIsHurricaneClass(properties) {
+	const classification = hurricaneArcgisSeverityText(properties).toLowerCase();
+	return /hurricane|typhoon/.test(classification) || hurricaneSaffirSimpsonCategory(properties) >= 1;
 }
 
 // Returns map-icon opacity from 30 percent for the weakest storms to 100 percent for Category 3 and stronger...
@@ -5019,7 +5033,7 @@ function hurricaneInfoHtml(storm) {
 	const properties = storm.properties || {};
 	const development = properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || "";
 	const measurements = hurricaneArcgisMeasurementsText(properties);
-	const infoIcon = HURRICANE_ICON_SVG.replace('width="30" height="30"', 'width="80" height="80"');
+	const infoIcon = hurricaneIconSvg(80);
 	const reportUrl = properties.url && typeof properties.url === "object" ? properties.url.report : properties["url.report"];
 	const reportLink = /^https?:\/\//i.test(String(reportUrl || "")) ? `<div style="border-top:1px solid #eee;padding:6px 0;"><a href="${escapeHtml(reportUrl)}" target="_blank" rel="noopener noreferrer">Storm Report</a></div>` : "";
 	const developmentBlock = development ? `<div style="border-bottom:1px solid #eee;padding-bottom:6px;margin-bottom:0;">${escapeHtml(development)}</div>` : "";
@@ -5108,7 +5122,8 @@ function plotHurricanes(geojson) {
 		if (!point || !point.feature.geometry || point.feature.geometry.coordinates.length < 2) return;
 		const position = { lat: Number(point.feature.geometry.coordinates[1]), lng: Number(point.feature.geometry.coordinates[0]) };
 		if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
-		const markerContent = hurricaneMarkerContent(hurricaneIconOpacity(storm.properties));
+		const markerSize = hurricaneIsHurricaneClass(storm.properties) ? 35 : 30;
+		const markerContent = hurricaneMarkerContent(hurricaneIconOpacity(storm.properties), markerSize);
 		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: markerContent, anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), zIndex: 1000 });
 		plottedStorms.set(groupId, { storm, marker, position });
 		markerContent.addEventListener("dblclick", event => { event.stopPropagation(); hurricaneFitStormBounds(storm, position); });
@@ -5432,7 +5447,7 @@ async function addWeatherLayer() {
 				} else {
 					map.overlayMapTypes.insertAt(0, createWeatherTileLayer("xweather", (tile, zoom) => {
 						return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar-global/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
-					}, { maxZoom: 12 }));
+					}, { maxZoom: 12, opacity: Math.max(0, weatherOpacity - 0.10) }));
 				}
 			}
 		} catch (error) {
