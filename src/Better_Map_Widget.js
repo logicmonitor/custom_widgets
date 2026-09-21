@@ -5431,7 +5431,7 @@ async function addWeatherLayer() {
 					console.error(`Map ${widgetID}: Xweather radar requires an API ID and secret. Set them via the 'XweatherAPIID' and 'XweatherAPIKey' dashboard tokens or the 'xweatherAPIID' and 'xweatherAPIKey' variables.`);
 				} else {
 					map.overlayMapTypes.insertAt(0, createWeatherTileLayer("xweather", (tile, zoom) => {
-						return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
+						return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar-global/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
 					}, { maxZoom: 12 }));
 				}
 			}

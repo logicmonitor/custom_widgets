@@ -26,8 +26,8 @@
 	* 'MapGroupPathFilter': Allows setting a default group path to start. Default is "*".
 	* 'MapLocationProperty': The property to use for the location of the items on the map. Default is "location".
 	* 'MapMarkerStyle': The style of marker to use for the items on the map. Use "pins" (default pin markers) or "circles" (color-coded circles). Legacy values "default", "pin", "dot", "dots", and "circle" are also accepted. Default is "pins".
-	* 'MapShowWeather': If weather should be shown by default. Options are "global", "nexrad", or "xweather". Default is "global".
-	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "none", "wildfires", "us-wildfires", "outages", "us-poweroutages", "us-flooding" or "earthquakes". Default is "earthquakes".
+	* 'MapShowWeather': If weather should be shown by default. Options are "global", "nexrad", "xweather", or "openweather". The legacy values "true" and "yes" are also accepted as "global". Default is "no".
+	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "none", "earthquakes", "hurricanes", "us-flooding", "us-poweroutages", or "wildfires". Legacy values "us-wildfires" and "outages" are also accepted. Default is "earthquakes".
 	* 'HideMapOptions': If "true" then will hide the options bar by default. Default is "false".
 	* 'ShowMapSidebar': If "true" then will show the sidebar by default. Default is "false".
 	* 'MapSourceType': Whether to map "groups", "resources", or "services". Sets the initial toolbar selection, which the user can change. Default is "groups".
@@ -47,7 +47,8 @@
 	* 'MapStyle': Allows one of the following available map style options: "silver", "standard", "dark", "aubergine", "satellite", or "silverblue". Default is "silverblue".
 	* 'MapShowRoadLabels': If "true" then road labels will be shown on the map. Default is "false".
 	* 'apiBearerToken', or 'apiID' + 'apiKey': Optional LogicMonitor API bearer token or API ID & key to use for the widget. If not specified then the widget will use integrated portal authentication.
-	* 'XweatherAPIID' & 'XweatherAPIKey': Optional Xweather API ID & key to use for weather radar. If not specified then the widget will not show Xweather radar.
+	* 'OpenWeatherAPIKey': OpenWeather API key required if 'MapShowWeather' is set to the "openweather" option.
+	* 'XweatherAPIID' & 'XweatherAPIKey': Xweather API ID & key required if 'MapShowWeather' is set to the "xweather" option.
 
 	LIMITATIONS:
 	* This widget is currently unable to leverage LogicMonitor's native dashboard filters.
@@ -6044,7 +6045,7 @@ if (window.RProfiler) {
 						console.error(`Map ${widgetID}: Xweather radar requires an API ID and secret. Set them via the 'XweatherAPIID' and 'XweatherAPIKey' dashboard tokens or the 'xweatherAPIID' and 'xweatherAPIKey' variables.`);
 					} else {
 						map.overlayMapTypes.insertAt(0, createWeatherTileLayer("xweather", (tile, zoom) => {
-							return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
+							return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar-global/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
 						}, { maxZoom: 12 }));
 					}
 				}
