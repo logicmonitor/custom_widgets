@@ -85,7 +85,7 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapOverlayOption**: Which optional overlay to default to when weather is shown. Options are:
 	- "**none**": Shows weather with no additional overlay (no earthquakes, hurricanes, wildfires, power outages, or flooding).
 	- "**earthquakes**" _(the default)_: Displays significant earthquakes. By default it shows quakes from the past 7 days and the icons fade based on age. There's an option to instead show quakes from the past 24 hours, which case the icon's boldness indicates the earthquake's magnitude. Clicking an earthquake's icon display more details.
-	- "**hurricanes**": Plots active tropical cyclones from GDACS. Clicking a storm displays details and shows its historical track, forecast track, and uncertainty cone.
+	- "**hurricanes**": Plots active tropical cyclones from ArcGIS. Clicking a storm displays ArcGIS intensity details and GDACS report metadata along with its historical track, forecast track, and uncertainty cone.
  	- "**wildfires**": Displays active wildfires in the US and Australia. Clicking a wildfire displays additional info.
   	- "**us-poweroutages**" (or just "outages" for short): Color-codes US counties by current number of customers without power (darker colors = higher % of customers affected). Clicking a county displays more info.
   	- "**us-flooding**": Plots blue dots for areas with active US flood alerts. Clicking a dot displays more details about the flooding.
@@ -149,9 +149,9 @@ Below is a domain list for external APIs used by Better Map Widget for various d
 - `tile.openweathermap.org` — OpenWeather radar tiles
 - `maps.aerisapi.com` — Xweather radar tiles
 - `earthquake.usgs.gov` — earthquake GeoJSON data
-- `www.gdacs.org` — active tropical cyclone event, timeline, and storm-track data
+- `www.gdacs.org` — tropical cyclone descriptions, alert metadata, and report links
 - `api.waterdata.usgs.gov` — US flooding data
-- `services9.arcgis.com` — US wildfire data
+- `services9.arcgis.com` — active tropical cyclone geometry/intensity and US wildfire data
 - `services-ap1.arcgis.com` — Australian bushfire data
 - `openenergyhub.ornl.gov` — US power-outage data
 - `data.usatoday.com` — fallback data for county power meter totals
