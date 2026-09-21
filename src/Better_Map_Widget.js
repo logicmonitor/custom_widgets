@@ -2,22 +2,26 @@
 // Developed by Kevin Ford
 
 // Some of the ideas behind this project:
-// * Support for thousands pins on the map, though be aware that Google Maps will start to struggle if too many pins.
-// * Adjacent pins get grouped/clustered together for a cleaner map display.
-// * Clusters use a donut chart to represent the severities of the grouped markers.
-// * Easy toggling of weather layers.
-// * Quick & easy filtering of what's displayed on the map.
+// * Support for thousands pins on the map, though be aware that Google Maps will start to struggle if too many pins...
+// * Adjacent pins get grouped/clustered together for a cleaner map display...
+// * Clusters use a donut chart to represent the severities of the grouped markers...
+// * Easy toggling of weather layers...
+// * Quick & easy filtering of what's displayed on the map...
 //
 // CODING CONSTRAINTS (LogicMonitor HTML sanitizer):
-// * Use plain ASCII only in widget source (printable 0x20-0x7E plus tab/newline).
-// * Do not use em dashes, en dashes, curly quotes, ellipsis, or other non-ASCII punctuation.
-// * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis.
+// * Use plain ASCII only in widget source (printable 0x20-0x7E plus tab/newline)...
+// * Do not use em dashes, en dashes, curly quotes, ellipsis, or other non-ASCII punctuation...
+// * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis...
 
 // ------------------------------------------------------------
-var version = "3.73 CDN";
+var version = "3.74 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.74</h3>
+	<ul>
+		<li>Added ability to double-click a tropical storm's icon to zoom in to its track.</li>
+	</ul>
 	<h3>Version 3.73</h3>
 	<ul>
 		<li>Clicking an empty part of the map now hides any visible storm tracks.</li>
@@ -239,8 +243,7 @@ if (betterMapInstanceId && !betterMapRegistry.instances[betterMapInstanceId]) {
 var betterMapReloadGeneration = betterMapInstance.reloadGeneration || 0;
 var betterMapRoot = ensureBetterMapRoot(betterMapInstance.root);
 var betterMapTokenRoot = betterMapInstance.tokenRoot || document;
-// Recover CDN defaults when the loader stored {} because document.currentScript
-// was not the same node later found by sibling walk / querySelector.
+// Recover CDN defaults when the loader stored {} because document.currentScript was not the same node later found by sibling walk / querySelector...
 var betterMapDefaults = resolveBetterMapDefaults(betterMapInstance, betterMapRoot, betterMapTokenRoot);
 betterMapInstance.defaults = betterMapDefaults;
 if (betterMapRoot && betterMapInstanceId) {
@@ -248,9 +251,7 @@ if (betterMapRoot && betterMapInstanceId) {
 	betterMapInstance.root = betterMapRoot;
 }
 
-// LogicMonitor is a single-page app, so saving a widget re-runs this script without
-// reloading the page or the Google Maps API. Tear down any stale instance still
-// registered against this widget root before rebuilding the DOM.
+// LogicMonitor is a single-page app, so saving a widget re-runs this script without reloading the page or the Google Maps API. Tear down any stale instance still registered against this widget root before rebuilding the DOM...
 if (betterMapRoot && betterMapRegistry.instances) {
 	Object.keys(betterMapRegistry.instances).forEach(function(id) {
 		if (id === betterMapInstanceId) return;
@@ -305,8 +306,7 @@ var betterMapPolicyReloadKey = "betterMapPolicyReloadAttempted";
 var _betterMapStylesheetWatchCancel = null;
 
 // Function to find the link tag the CDN loader added for the widget's stylesheet...
-// The fully inlined build carries its CSS in a style tag instead, so nothing is found for it and
-// none of the stylesheet checks below apply...
+// The fully inlined build carries its CSS in a style tag instead, so nothing is found for it and none of the stylesheet checks below apply...
 function findBetterMapStylesheetLink() {
 	var tagged = document.querySelector("link[data-better-map-stylesheet]");
 	if (tagged) {
@@ -322,12 +322,7 @@ function findBetterMapStylesheetLink() {
 }
 
 // Function to report whether the widget's stylesheet rules are in effect...
-// Asking the browser what it computed is the one check that covers every way the CSS can go
-// missing: stopped by a Content Security Policy, a 404, or served with an unusable MIME type. A
-// throwaway element is measured rather than the widget's own root, so the answer cannot be
-// confused by the inline styles the widget sets on itself. Only the stylesheet turns a
-// .customMapBody div into a column flex container, which makes those two properties its
-// fingerprint...
+// Asking the browser what it computed is the one check that covers every way the CSS can go missing: stopped by a Content Security Policy, a 404, or served with an unusable MIME type. A throwaway element is measured rather than the widget's own root, so the answer cannot be confused by the inline styles the widget sets on itself. Only the stylesheet turns a .customMapBody div into a column flex container, which makes those two properties its fingerprint...
 function betterMapStylesApplied() {
 	var probe = document.createElement("div");
 	probe.className = "customMapBody";
@@ -342,8 +337,7 @@ function betterMapStylesApplied() {
 		var computed = window.getComputedStyle(probe);
 		applied = computed.display === "flex" && computed.flexDirection === "column";
 	} catch (error) {
-		// With no computed style to read, assume the CSS is fine rather than reload the page on the
-		// strength of a measurement that failed...
+		// With no computed style to read, assume the CSS is fine rather than reload the page on the strength of a measurement that failed...
 		applied = true;
 	}
 	host.removeChild(probe);
@@ -351,10 +345,7 @@ function betterMapStylesApplied() {
 }
 
 // Function to find the outermost window this widget is allowed to reload...
-// The widget runs inside a dashboard iframe, and reloading that frame only re-runs the widget under
-// the policy it already inherited. The policy travels with the top-level document, so that is the
-// one to re-request. Reading a location across origins throws, which doubles as the access test and
-// lets the search fall back to the nearest window it can actually use...
+// The widget runs inside a dashboard iframe, and reloading that frame only re-runs the widget under the policy it already inherited. The policy travels with the top-level document, so that is the one to re-request. Reading a location across origins throws, which doubles as the access test and lets the search fall back to the nearest window it can actually use...
 function findBetterMapReloadableWindow() {
 	var candidates = [];
 	var framed = true;
@@ -364,8 +355,7 @@ function findBetterMapReloadableWindow() {
 			candidates.push(window.top);
 		}
 	} catch (error) {
-		// Even reaching window.top can throw across origins, and it only throws when this really is
-		// framed...
+		// Even reaching window.top can throw across origins, and it only throws when this really is framed...
 		framed = true;
 	}
 	try {
@@ -375,8 +365,7 @@ function findBetterMapReloadableWindow() {
 	} catch (error) {
 		// As above, the parent may be out of reach...
 	}
-	// Reloading the widget's own frame cannot replace a policy that arrived with the top-level
-	// document, so this window is only worth trying when nothing sits above it...
+	// Reloading the widget's own frame cannot replace a policy that arrived with the top-level document, so this window is only worth trying when nothing sits above it...
 	if (!framed) {
 		candidates.push(window);
 	}
@@ -393,8 +382,7 @@ function findBetterMapReloadableWindow() {
 	return null;
 }
 
-// Function to forget a recorded reload attempt once the stylesheet arrives, which re-arms this for
-// a later navigation that carries a stale policy of its own...
+// Function to forget a recorded reload attempt once the stylesheet arrives, which re-arms this for a later navigation that carries a stale policy of its own...
 function clearBetterMapPolicyReloadRecord() {
 	try {
 		window.sessionStorage.removeItem(betterMapPolicyReloadKey);
@@ -403,24 +391,14 @@ function clearBetterMapPolicyReloadRecord() {
 	}
 }
 
-// Function to reload the page holding this widget once, so that the dashboard's own Content
-// Security Policy is the one in force...
-// LogicMonitor's portal is a single-page application whose dashboards page is served with a
-// different policy than its other pages. A user who lands somewhere else first and then navigates
-// to a dashboard is still governed by the policy that arrived with that first document, and that
-// policy blocks this widget's CDN assets. Re-requesting the top-level document at the dashboard URL
-// brings the correct policy with it.
-// The attempt is recorded in sessionStorage and made at most once per tab, so a portal that
-// genuinely forbids the CDN reports the problem instead of reloading forever. If sessionStorage
-// cannot be reached there is no way to remember the attempt, so the page is deliberately left alone
-// rather than risk an endless reload...
+// Function to reload the page holding this widget once, so that the dashboard's own Content Security Policy is the one in force...
+// LogicMonitor's portal is a single-page application whose dashboards page is served with a different policy than its other pages. A user who lands somewhere else first and then navigates to a dashboard is still governed by the policy that arrived with that first document, and that policy blocks this widget's CDN assets. Re-requesting the top-level document at the dashboard URL brings the correct policy with it. The attempt is recorded in sessionStorage and made at most once per tab, so a portal that genuinely forbids the CDN reports the problem instead of reloading forever. If sessionStorage cannot be reached there is no way to remember the attempt, so the page is deliberately left alone rather than risk an endless reload...
 function reloadForStaleContentPolicy() {
 	if (betterMapRegistry.policyReloadHandled) {
 		return;
 	}
 	betterMapRegistry.policyReloadHandled = true;
-	// Resolved before anything is recorded, so an unreachable page cannot use up the one reload this
-	// tab is allowed...
+	// Resolved before anything is recorded, so an unreachable page cannot use up the one reload this tab is allowed...
 	var reloadTarget = findBetterMapReloadableWindow();
 	if (!reloadTarget) {
 		console.error(`Map ${widgetID}: the page holding this widget cannot be reached from inside the widget frame, so it will not be reloaded automatically. Refresh the browser page manually to pick up the dashboard's Content Security Policy.`);
@@ -444,8 +422,7 @@ function reloadForStaleContentPolicy() {
 		return;
 	}
 	console.warn(`Map ${widgetID}: reloading ${reloadTarget === window ? "this page" : "the page holding this widget"} once so the dashboard's Content Security Policy is applied instead of the one carried over from a previously visited portal page...`);
-	// Reloaded from a timer rather than from inside an event handler, since the document is often
-	// still loading when the verdict is reached...
+	// Reloaded from a timer rather than from inside an event handler, since the document is often still loading when the verdict is reached...
 	setTimeout(function() {
 		try {
 			reloadTarget.location.reload();
@@ -455,14 +432,8 @@ function reloadForStaleContentPolicy() {
 	}, 0);
 }
 
-// Function to confirm the widget's stylesheet was loaded and applied, and to recover the page when
-// it was not...
-// The question cannot be settled with a single check, since this script is deferred and the
-// stylesheet may still be in flight when it runs. Whichever comes first decides it: the link's own
-// events, a policy violation report naming the stylesheet, or the document finishing its load,
-// after which anything still missing is never going to arrive. A poll and a deadline back all of
-// that up for the cases where none of those fire, such as a violation reported before this script
-// had a listener attached...
+// Function to confirm the widget's stylesheet was loaded and applied, and to recover the page when it was not...
+// The question cannot be settled with a single check, since this script is deferred and the stylesheet may still be in flight when it runs. Whichever comes first decides it: the link's own events, a policy violation report naming the stylesheet, or the document finishing its load, after which anything still missing is never going to arrive. A poll and a deadline back all of that up for the cases where none of those fire, such as a violation reported before this script had a listener attached...
 function verifyBetterMapStylesheetLoaded() {
 	var link = findBetterMapStylesheetLink();
 	if (!link) {
@@ -476,6 +447,7 @@ function verifyBetterMapStylesheetLoaded() {
 	var deadline = Date.now() + betterMapStylesheetWaitMs;
 	var pollTimer = null;
 
+	// Function to drop every listener and timer this watch installed...
 	function stopWatching() {
 		if (pollTimer !== null) {
 			clearInterval(pollTimer);
@@ -488,6 +460,7 @@ function verifyBetterMapStylesheetLoaded() {
 		_betterMapStylesheetWatchCancel = null;
 	}
 
+	// Function to settle the watch with the stylesheet in effect...
 	function concludeApplied() {
 		if (settled) {
 			return;
@@ -497,6 +470,7 @@ function verifyBetterMapStylesheetLoaded() {
 		clearBetterMapPolicyReloadRecord();
 	}
 
+	// Function to settle the watch with the stylesheet missing, reporting why and attempting recovery...
 	function concludeMissing(detail) {
 		if (settled) {
 			return;
@@ -507,6 +481,7 @@ function verifyBetterMapStylesheetLoaded() {
 		reloadForStaleContentPolicy();
 	}
 
+	// Function to judge the stylesheet once its link reports a successful load...
 	function onLinkLoaded() {
 		if (betterMapStylesApplied()) {
 			concludeApplied();
@@ -515,10 +490,12 @@ function verifyBetterMapStylesheetLoaded() {
 		}
 	}
 
+	// Function to settle the watch when the request for the stylesheet fails outright...
 	function onLinkFailed() {
 		concludeMissing("The request for it failed.");
 	}
 
+	// Function to settle the watch when a Content Security Policy report names this stylesheet...
 	function onPolicyViolation(event) {
 		var blockedURI = event && event.blockedURI;
 		// A cross-origin report can be reduced to just the origin, so match on prefix...
@@ -528,6 +505,7 @@ function verifyBetterMapStylesheetLoaded() {
 		concludeMissing(`A Content Security Policy (${event.effectiveDirective || event.violatedDirective || "style-src"}) blocked it.`);
 	}
 
+	// Function to judge the stylesheet once the page has finished loading, after which nothing more is coming...
 	function onDocumentLoaded() {
 		if (betterMapStylesApplied()) {
 			concludeApplied();
@@ -536,6 +514,7 @@ function verifyBetterMapStylesheetLoaded() {
 		}
 	}
 
+	// Function to re-check the stylesheet on a timer, for the cases where none of the events above fire...
 	function poll() {
 		if (betterMapStylesApplied()) {
 			concludeApplied();
@@ -551,8 +530,7 @@ function verifyBetterMapStylesheetLoaded() {
 	pollTimer = setInterval(poll, 500);
 	_betterMapStylesheetWatchCancel = stopWatching;
 
-	// The document may already have finished loading before this ran, in which case no further
-	// events are coming and the verdict can be reached now...
+	// The document may already have finished loading before this ran, in which case no further events are coming and the verdict can be reached now...
 	if (document.readyState === "complete") {
 		onDocumentLoaded();
 	}
@@ -788,9 +766,7 @@ betterMapRoot.innerHTML = `<!-- Create our options bar above the map... -->
 
 			<div id="optionsToggleArea">
 				<span id="autoZoomOptions" data-title="Automatically reset the map's zoom to encompass all items after timed refreshes. You can also manually do so at any time using the 'Reset map zoom' button on the left of the map.">
-					<!-- No handler needed: refreshGroupData reads this checkbox directly, and the
-					     mapOptionsArea change listener persists it. It previously called
-					     enableWeather, which refetched and rebuilt every weather overlay. -->
+					<!-- No handler needed: refreshGroupData reads this checkbox directly, and the mapOptionsArea change listener persists it. It previously called enableWeather, which refetched and rebuilt every weather overlay... -->
 					<input type="checkbox" id="autoZoom" name="autoZoom" value="autoZoom" checked="true" />
 					<label for="autoZoom">Auto-zoom</label>
 				</span>
@@ -860,6 +836,10 @@ betterMapRoot.innerHTML = `<!-- Create our options bar above the map... -->
 	</div>`;
 
 // ------------------------------------------------------------
+// Values the toolbar dropdowns accept, used to validate whatever arrives from a dashboard token or a saved cookie...
+var __LMBMW_ALLOWED_OVERLAY_VALUES = ["none", "wildfires", "us-poweroutages", "earthquakes", "us-flooding", "hurricanes"];
+var __LMBMW_ALLOWED_WEATHER_TYPES = ["radar", "nexrad-n0q-900913", "xweather", "openweather"];
+var __LMBMW_ALLOWED_SOURCE_TYPES = ["groups", "resources", "services"];
 
 // Capture information from specific dashboard tokens we'll be using...
 // (Like any token inserted into the Text widget, LogicMonitor automatically inserts these token values as the page is being rendered so Javascript is able to pick them as if the values were there originally. If a token isn't set then the variable's value will be literally what's shown below, including the double-hashtags.)
@@ -960,7 +940,7 @@ if (isTruthyToken(autoResetMapOnRefreshToken)) {
 }
 // console.debug("autoResetMapOnRefreshToken", autoResetMapOnRefreshToken);
 // Capture our group filter if defined as a token...
-// Ignore empty/whitespace tokens so an unset MapGroupPathFilter cannot wipe a CDN default.
+// Ignore empty/whitespace tokens so an unset MapGroupPathFilter cannot wipe a CDN default...
 var dashboardGroupPathTokenEl = getBetterMapElementById("dashboardGroupPathToken");
 var dashboardGroupPathToken = ((dashboardGroupPathTokenEl && dashboardGroupPathTokenEl.innerText) || "").trim();
 if (dashboardGroupPathToken !== "" && dashboardGroupPathToken !== "##MapGroupPathFilter##") {
@@ -1003,11 +983,11 @@ if (xweatherAPIKeyTokenEl) {
 	}
 }
 var dashboardAddlOverlayToken = getBetterMapElementById("dashboardAddlOverlayToken").innerText.toLowerCase();
-if (dashboardAddlOverlayToken == "none" || dashboardAddlOverlayToken == "wildfires" || dashboardAddlOverlayToken == "us-wildfires" || dashboardAddlOverlayToken == "outages" || dashboardAddlOverlayToken == "us-poweroutages" || dashboardAddlOverlayToken == "earthquakes" || dashboardAddlOverlayToken == "us-flooding" || dashboardAddlOverlayToken == "hurricanes") {
-	additionalOverlayOption = dashboardAddlOverlayToken;
-	if (additionalOverlayOption == "us-wildfires") {
-		additionalOverlayOption = "wildfires";
-	}
+// The legacy "us-wildfires" and "outages" spellings are still accepted alongside the dropdown's own values...
+var addlOverlayTokenAliases = { "us-wildfires": "wildfires", "outages": "us-poweroutages" };
+var addlOverlayTokenValue = addlOverlayTokenAliases[dashboardAddlOverlayToken] || dashboardAddlOverlayToken;
+if (__LMBMW_ALLOWED_OVERLAY_VALUES.indexOf(addlOverlayTokenValue) >= 0) {
+	additionalOverlayOption = addlOverlayTokenValue;
 }
 // console.debug("dashboardAddlOverlayToken", dashboardAddlOverlayToken);
 // Capture from token any custom properties to display when viewing an item's details...
@@ -1078,7 +1058,7 @@ if (apiKeyToken != "##apiKey##") {
 // Fetch our map API key to use...
 var googleMapApiKey = parent.LMGlobalData.googleMapInfo.key.toString();
 
-// Skip bootstrap when Maps is already on the page (e.g. CDN widget reload during dev).
+// Skip bootstrap when Maps is already on the page (e.g. CDN widget reload during dev)...
 if (typeof google === 'undefined' || !google.maps || typeof google.maps.importLibrary !== 'function') {
 	(g=>{var h,a,k,s,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=(s=m.querySelector("script[nonce]"))&&s.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
 	({key: googleMapApiKey, v: "weekly"});
@@ -1109,8 +1089,7 @@ function debounce(fn, delay = 300) {
 		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => fn(...args), delay);
 	};
-	// Lets callers drop a queued call, either because it would undo work done since it was
-	// scheduled or because the widget is being torn down...
+	// Lets callers drop a queued call, either because it would undo work done since it was scheduled or because the widget is being torn down...
 	debounced.cancel = () => {
 		clearTimeout(timeoutId);
 		timeoutId = null;
@@ -1120,9 +1099,6 @@ function debounce(fn, delay = 300) {
 
 var __LMBMW_MAPOPTS_COOKIE_BASE = "lm_bmw_mapOpts_v1";
 var __LMBMW_MAPOPTS_MAX_AGE = 60 * 60 * 24 * 400;
-var __LMBMW_ALLOWED_OVERLAY_VALUES = ["none", "wildfires", "us-poweroutages", "earthquakes", "us-flooding", "hurricanes"];
-var __LMBMW_ALLOWED_WEATHER_TYPES = ["radar", "nexrad-n0q-900913", "xweather", "openweather"];
-var __LMBMW_ALLOWED_SOURCE_TYPES = ["groups", "resources", "services"];
 var __LMBMW_MAPOPTS_ELEMENT_TO_KEY = {
 	customGroupFilterField: "groupPathFilter",
 	showCleared: "showCleared",
@@ -1247,13 +1223,10 @@ function syncMapTypeRadiosFromSourceType() {
 
 // Function to sync the selected overlay back to the overlay variable...
 function syncAdditionalOverlayVarFromSelect() {
-	const v = _dom.otherWeatherOverlays.value;
-	if (v === "none") additionalOverlayOption = "none";
-	else if (v === "wildfires") additionalOverlayOption = "wildfires";
-	else if (v === "us-poweroutages") additionalOverlayOption = "us-poweroutages";
-	else if (v === "earthquakes") additionalOverlayOption = "earthquakes";
-	else if (v === "us-flooding") additionalOverlayOption = "us-flooding";
-	else if (v === "hurricanes") additionalOverlayOption = "hurricanes";
+	const selected = _dom.otherWeatherOverlays.value;
+	if (__LMBMW_ALLOWED_OVERLAY_VALUES.indexOf(selected) >= 0) {
+		additionalOverlayOption = selected;
+	}
 }
 
 // Function to apply saved toolbar options from the dashboard cookie...
@@ -1284,8 +1257,7 @@ function applyPersistedMapOptionsFromCookie() {
 
 	if (typeof o.otherWeatherOverlays === "string" && __LMBMW_ALLOWED_OVERLAY_VALUES.indexOf(o.otherWeatherOverlays) >= 0) {
 		_dom.otherWeatherOverlays.value = o.otherWeatherOverlays;
-		if (o.otherWeatherOverlays === "us-poweroutages") additionalOverlayOption = "us-poweroutages";
-		else additionalOverlayOption = o.otherWeatherOverlays;
+		additionalOverlayOption = o.otherWeatherOverlays;
 	}
 	if (typeof o.weather === "boolean") {
 		_dom.weather.checked = o.weather;
@@ -1664,8 +1636,7 @@ async function LMClient({
 
 		console.error(`Map ${widgetID}: An error occurred in LMClient:`, error.message || error);
 
-		// Re-throw the error to be handled by the caller.
-		// Ensure it's always an Error object.
+		// Re-throw the error to be handled by the caller. Ensure it's always an Error object...
 		if (error instanceof Error) {
 			throw error;
 		} else {
@@ -1720,7 +1691,6 @@ var _dom = {
 	gearIcon: getBetterMapElementById("gearIcon"),
 	gearIconChevron: getBetterMapElementById("gearIconChevron"),
 	releaseNotesOverlay: getBetterMapElementById("releaseNotesOverlay"),
-	releaseNotesCloseBtn: getBetterMapElementById("releaseNotesCloseBtn"),
 }
 
 // Attach event listeners to elements with data-bmw-action attributes (CSP compliance)...
@@ -1781,28 +1751,18 @@ if (openweatherOption && !openWeatherAPIKey) {
 	openweatherOption.textContent += " (API key required)";
 }
 
-if (additionalOverlayOption == "none") {
-	_dom.otherWeatherOverlays.value = "none";
-} else if (additionalOverlayOption == "wildfires") {
-	_dom.otherWeatherOverlays.value = "wildfires";
-} else if (additionalOverlayOption == "outages" || additionalOverlayOption == "us-poweroutages") {
-	_dom.otherWeatherOverlays.value = "us-poweroutages";
-} else if (additionalOverlayOption == "earthquakes") {
-	_dom.otherWeatherOverlays.value = "earthquakes";
-} else if (additionalOverlayOption == "us-flooding") {
-	_dom.otherWeatherOverlays.value = "us-flooding";
-} else if (additionalOverlayOption == "hurricanes") {
-	_dom.otherWeatherOverlays.value = "hurricanes";
+// The legacy "outages" spelling maps onto the dropdown's "us-poweroutages" option...
+var initialOverlaySelection = additionalOverlayOption == "outages" ? "us-poweroutages" : additionalOverlayOption;
+if (__LMBMW_ALLOWED_OVERLAY_VALUES.indexOf(initialOverlaySelection) >= 0) {
+	_dom.otherWeatherOverlays.value = initialOverlaySelection;
 }
 
 _dom.markerStyleSelect.value = markerStyle === "circles" ? "circles" : "pins";
 _dom.markerStyleSelect.addEventListener("change", applyMarkerStyleFromSelect);
 
 // Capture information about the current dashboard for use in subsequent REST calls...
-var hostName = parent.window.location.host;
-var locationHash = parent.window.location.hash;
 var pathName = parent.window.location.pathname; // example: "/santaba/uiv4/dashboards/dashboards-2338"
-// Extract the numeric dashboard ID from the path (e.g. "dashboards-2338" -> "2338").
+// Extract the numeric dashboard ID from the path (e.g. "dashboards-2338" -> "2338")...
 var __LMBMW_DASHBOARD_ID_MATCH = pathName.match(/\/dashboards-(\d+)/i);
 var dashboardID = __LMBMW_DASHBOARD_ID_MATCH ? __LMBMW_DASHBOARD_ID_MATCH[1] : "";
 var widgetID = getContainingWidgetId();
@@ -1812,8 +1772,7 @@ var defaultMapTilt = mapTilt;
 var defaultMapHeading = mapHeading;
 // Zoom the map opens at, and what resetZoom falls back to when the bounds have no area to fit...
 var defaultMapZoom = 3;
-// Deepest zoom Google Maps supports. Clustering is capped at this so that pins sharing a coordinate
-// stay grouped in a donut instead of splitting into markers stacked on top of each other...
+// Deepest zoom Google Maps supports. Clustering is capped at this so that pins sharing a coordinate stay grouped in a donut instead of splitting into markers stacked on top of each other...
 var googleMapsMaxZoom = 22;
 
 // SVG icon definitions for our different alert severities...
@@ -1831,8 +1790,7 @@ var optionsToggleVisibleIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox=
 var optionsToggleHiddenIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px;"><rect x="10" y="42" width="428" height="428" rx="54" ry="54" fill="none" stroke="#000000" stroke-width="20"/><path fill="#000000" d="M320 192H128C118.5 192 109.8 197.7 105.1 206.4C102.2 215.1 103.9 225.3 110.4 232.3l96 104C210.9 341.2 217.3 344 224 344s13.09-2.812 17.62-7.719l96-104c6.469-7 8.188-17.19 4.375-25.91C338.2 197.7 329.5 192 320 192z"/></svg>';
 
 
-// Map color schemes created using Google's style editor (https://mapstyle.withgoogle.com/).
-// Wrapped in getters so only the selected style is allocated, and showRoadLabels is captured at call time.
+// Map color schemes created using Google's style editor (https://mapstyle.withgoogle.com/). Wrapped in getters so only the selected style is allocated, and showRoadLabels is captured at call time...
 var mapStyles = {
 	get standard() { return [ { "stylers": [ { "lightness": 60 } ] }, { "elementType": "labels", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi.business", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "transit", "stylers": [ { "visibility": "off" } ] } ]; },
 	get silver() { return [ { "elementType": "geometry", "stylers": [ { "color": "#f5f5f5" } ] }, { "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "elementType": "labels.text.fill", "stylers": [ { "color": "#616161" }, { "lightness": 70 } ] }, { "elementType": "labels.text.stroke", "stylers": [ { "color": "#f5f5f5" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [ { "color": "#000000" }, { "lightness": 85 } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [ { "color": "#bdbdbd" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [ { "color": "#000000" }, { "lightness": 80 } ] }, { "featureType": "poi", "elementType": "geometry", "stylers": [ { "color": "#eeeeee" } ] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [ { "color": "#e5e5e5" } ] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] }, { "featureType": "road", "stylers": [ { "lightness": 45 } ] }, { "featureType": "road", "elementType": "geometry", "stylers": [ { "color": "#ffffff" }, { "lightness": 55 } ] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [ { "lightness": 55 } ] }, { "featureType": "road", "elementType": "geometry.stroke", "stylers": [ { "lightness": 55 } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "lightness": -15 }, { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.text.stroke", "stylers": [ { "color": "#ffffff" } ] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [ { "color": "#dadada" }, { "lightness": 50 }, { "weight": 0.5 } ] }, { "featureType": "transit.line", "elementType": "geometry", "stylers": [ { "color": "#e5e5e5" } ] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [ { "color": "#eeeeee" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#c9c9c9" }, { "lightness": 20 } ] }, { "featureType": "water", "elementType": "geometry.fill", "stylers": [ { "lightness": 35 } ] }, { "featureType": "water", "elementType": "labels.text", "stylers": [ { "visibility": "off" } ] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] } ]; },
@@ -1890,6 +1848,7 @@ var betterMapCorsProxies = [
 	{ url: "https://api.codetabs.com/v1/proxy?quest=", encode: false }
 ];
 
+// Function to fetch a URL through the public CORS proxies, trying each in turn until one answers...
 async function fetchWithBetterMapCorsProxy(targetUrl, dataLabel) {
 	const separator = targetUrl.includes("?") ? "&" : "?";
 	const urlWithCacheBust = targetUrl + separator + "v=" + Date.now();
@@ -1915,9 +1874,7 @@ if (!window.buildMarkersInBatches) {
 	window.buildMarkersInBatches = async function(items, fn, batchSize = 1000) {
 		for (let i = 0; i < items.length; i += batchSize) {
 			const slice = items.slice(i, i + batchSize);
-			// One item is allowed to fail without taking down the whole batch, but it has to be
-			// reported. A silent throw here skips that item's processed count, which is what strands
-			// the refresh spinner, and swallowing the error leaves nothing to diagnose it with...
+			// One item is allowed to fail without taking down the whole batch, but it has to be reported. A silent throw here skips that item's processed count, which is what strands the refresh spinner, and swallowing the error leaves nothing to diagnose it with...
 			for (const it of slice) {
 				try {
 					fn(it);
@@ -1947,20 +1904,19 @@ function getMarkerByDeviceID(deviceID) {
 var centerCalculated = false;
 // For storing polyline references and their marker associations...
 var polylines = [];
-// Incremented for each refresh so old async connection draws cannot redraw stale lines.
+// Incremented for each refresh so old async connection draws cannot redraw stale lines...
 let refreshGeneration = 0;
-// Curvature is measured in screen pixels per parallel-link offset.
-// This keeps redundant interface links visible without changing marker placement.
+// Curvature is measured in screen pixels per parallel-link offset. This keeps redundant interface links visible without changing marker placement...
 const parallelConnectionCurveSteps = 8;
 
 // Function to show the release notes overlay...
 function showReleaseNotes() {
-	getBetterMapElementById('releaseNotesOverlay').classList.add('visible');
+	_dom.releaseNotesOverlay.classList.add('visible');
 }
 
 // Function to close the release notes overlay...
 function closeReleaseNotes() {
-	getBetterMapElementById('releaseNotesOverlay').classList.remove('visible');
+	_dom.releaseNotesOverlay.classList.remove('visible');
 }
 
 // Function to clear all markers from the map...
@@ -2017,7 +1973,7 @@ function assignParallelConnectionOffsets() {
 	});
 
 	groupedConnections.forEach(connections => {
-		// Stable ordering prevents the same links from swapping sides between refreshes.
+		// Stable ordering prevents the same links from swapping sides between refreshes...
 		connections.sort((a, b) =>
 			String(a.instanceID).localeCompare(String(b.instanceID)) ||
 			String(a.datasourceID).localeCompare(String(b.datasourceID)) ||
@@ -2033,9 +1989,7 @@ function assignParallelConnectionOffsets() {
 
 // Function to determine how far off-center a connection line should be curved...
 function getConnectionPathOffsetIndex(connection) {
-	// A lone connection has nothing to separate itself from, so it stays at offset 0 and
-	// buildConnectionPath returns a two-point straight line instead of interpolating a curve
-	// on every map idle. Curvature exists to fan out overlapping parallel links...
+	// A lone connection has nothing to separate itself from, so it stays at offset 0 and buildConnectionPath returns a two-point straight line instead of interpolating a curve on every map idle. Curvature exists to fan out overlapping parallel links...
 	return Number((connection && connection.parallelOffsetIndex) || 0);
 }
 
@@ -2059,8 +2013,7 @@ function buildMercatorConnectionPath(sourcePos, targetPos, connection, offsetInd
 	const lengthPixels = Math.hypot(dxPixels, dyPixels);
 	if (!lengthPixels) return [sourcePos, targetPos];
 
-	// Offset in screen-pixel space, then convert back to LatLng. This keeps the
-	// visual separation consistent across zoom levels and latitude.
+	// Offset in screen-pixel space, then convert back to LatLng. This keeps the visual separation consistent across zoom levels and latitude...
 	const directionSign = getConnectionDirectionSign(connection.deviceIDSource, connection.deviceIDConnected);
 	const offsetPixels = offsetIndex * parallelConnectionCurvature * directionSign;
 	const perpendicularX = -dyPixels / lengthPixels;
@@ -2109,7 +2062,7 @@ function buildGeodesicConnectionPath(sourcePos, targetPos, connection, offsetInd
 	for (let i = 0; i <= parallelConnectionCurveSteps; i++) {
 		const t = i / parallelConnectionCurveSteps;
 		const greatCirclePoint = spherical.interpolate(source, target, t);
-		// Match the Mercator Bezier by peaking offset at the midpoint and tapering to zero at endpoints.
+		// Match the Mercator Bezier by peaking offset at the midpoint and tapering to zero at endpoints...
 		const bulge = 4 * t * (1 - t);
 		const offsetMeters = offsetMetersMax * bulge;
 		if (!offsetMeters) {
@@ -2140,6 +2093,7 @@ function buildConnectionPath(sourcePos, targetPos, connection) {
 	return buildMercatorConnectionPath(sourcePos, targetPos, connection, offsetIndex);
 }
 
+// Function to check that both ends of a connection are plotted under the current toolbar filters...
 function isConnectionInCurrentFilter(connection) {
 	return Boolean(
 		getMarkerByDeviceID(connection.deviceIDSource) &&
@@ -2196,10 +2150,7 @@ function passesConnectionFilter(itemId, connectedDeviceIDs) {
 }
 
 // Function to add a map.data listener and record its handle for teardown...
-// Every listener has to go through here. addWeatherLayer rebuilds its overlay on a timer, so an
-// untracked listener is installed again on each pass and never removed. The outage handlers below
-// restyle every county polygon, which means a few hours of accumulation turns each mouse move
-// across the map into dozens of full-collection restyles.
+// Every listener has to go through here. addWeatherLayer rebuilds its overlay on a timer, so an untracked listener is installed again on each pass and never removed. The outage handlers below restyle every county polygon, which means a few hours of accumulation turns each mouse move across the map into dozens of full-collection restyles...
 function addOverlayDataListener(eventName, handler) {
 	const handle = map.data.addListener(eventName, handler);
 	overlayDataListenerHandles.push(handle);
@@ -2249,7 +2200,6 @@ function clearOverlayState() {
 		});
 		hurricanePathOverlays = [];
 	}
-	hurricaneConeOverlays = [];
 }
 
 // Function to close all open InfoWindows...
@@ -2344,9 +2294,7 @@ function buildEarthquakeIconUrl(iconOpacity, alertColor) {
 var _polylineUpdateFrame = null;
 
 // Function to coalesce polyline endpoint updates into a single pass per frame...
-// A refresh can otherwise trigger three full passes in a row (the explicit call after plotting,
-// the clusterer's "clusteringend" event, and the map's "idle" event), each one walking every
-// polyline and rebuilding its path.
+// A refresh can otherwise trigger three full passes in a row (the explicit call after plotting, the clusterer's "clusteringend" event, and the map's "idle" event), each one walking every polyline and rebuilding its path...
 function schedulePolylineEndpointUpdate() {
 	if (_polylineUpdateFrame !== null) return;
 	_polylineUpdateFrame = requestAnimationFrame(() => {
@@ -2449,11 +2397,7 @@ function loadCache() {
 }
 
 // Function to save the cached marker latitude/longitude information...
-// This key is shared by every widget instance, and each one keeps its own in-memory copy, so
-// writing that copy verbatim would discard whatever a sibling map resolved since this instance
-// loaded. Merging keeps both sets, which also lets a second map on the dashboard reuse addresses
-// the first already geocoded instead of paying for them again. This instance's values win on a
-// conflict so a re-geocoded address still updates.
+// This key is shared by every widget instance, and each one keeps its own in-memory copy, so writing that copy verbatim would discard whatever a sibling map resolved since this instance loaded. Merging keeps both sets, which also lets a second map on the dashboard reuse addresses the first already geocoded instead of paying for them again. This instance's values win on a conflict so a re-geocoded address still updates...
 function saveCache() {
 	try {
 		localStorage.setItem(__LMBMW_CACHE_KEY, JSON.stringify(Object.assign({}, loadCache(), cachedAddresses)));
@@ -2465,11 +2409,9 @@ var debouncedSaveCache = debounce(saveCache, 1000);
 // Function to clear cached marker locations and saved map options...
 function clearCache() {
 	try {
-		// Drop any queued write first, otherwise it would flush the addresses we are about to
-		// discard straight back into localStorage a moment after we remove the key...
+		// Drop any queued write first, otherwise it would flush the addresses we are about to discard straight back into localStorage a moment after we remove the key...
 		debouncedSaveCache.cancel();
-		// The in-memory copy is the one every lookup actually reads, so removing only the
-		// localStorage key would leave the cache fully populated until the widget reloads...
+		// The in-memory copy is the one every lookup actually reads, so removing only the localStorage key would leave the cache fully populated until the widget reloads...
 		cachedAddresses = {};
 		localStorage.removeItem(__LMBMW_CACHE_KEY);
 		clearMapOptionsCookie();
@@ -2493,21 +2435,11 @@ function clearCache() {
 var _clearCacheMessageTimeout = null;
 var cachedAddresses = loadCache();
 
-// Geocoding runs through a queue instead of firing every uncached address at once. A large map
-// resolving a fresh cache would otherwise open a request per item within the same batch, and
-// Google answers the overflow with OVER_QUERY_LIMIT, which this widget treats as an unresolvable
-// address: the item is deducted from the expected count and never plotted.
+// Geocoding runs through a queue instead of firing every uncached address at once. A large map resolving a fresh cache would otherwise open a request per item within the same batch, and Google answers the overflow with OVER_QUERY_LIMIT, which this widget treats as an unresolvable address: the item is deducted from the expected count and never plotted...
 //
-// The published limit is 3,000 queries per minute, which is 50 per second, counted as the sum of
-// client-side and server-side queries against the API key. That is a rate, not a number of open
-// requests, so the queue paces starts across a trailing one-second window and runs as close to
-// the ceiling as it can. Raising concurrency alone would be the wrong control: 50 requests open
-// at a typical geocode latency works out to several hundred per second, so the load would spend
-// itself being throttled and retried and finish slower than a paced one.
+// The published limit is 3,000 queries per minute, which is 50 per second, counted as the sum of client-side and server-side queries against the API key. That is a rate, not a number of open requests, so the queue paces starts across a trailing one-second window and runs as close to the ceiling as it can. Raising concurrency alone would be the wrong control: 50 requests open at a typical geocode latency works out to several hundred per second, so the load would spend itself being throttled and retried and finish slower than a paced one...
 var GEOCODE_MAX_QPS = 50;
-// Only needs to be high enough that it is not the binding constraint. Sustaining 50 per second
-// takes about 25 in flight once responses approach half a second, and if they get slower than
-// that, letting concurrency throttle the rate is the safer behavior.
+// Only needs to be high enough that it is not the binding constraint. Sustaining 50 per second takes about 25 in flight once responses approach half a second, and if they get slower than that, letting concurrency throttle the rate is the safer behavior...
 var GEOCODE_MAX_CONCURRENT = 49;
 var GEOCODE_MAX_ATTEMPTS = 3;
 var GEOCODE_RETRY_DELAY_MS = 1200;
@@ -2552,8 +2484,7 @@ function pumpGeocodeQueue() {
 		_geocodeActive++;
 		job.geocoder.geocode(job.request, function(results, status) {
 			_geocodeActive--;
-			// OVER_QUERY_LIMIT means we asked too quickly rather than that the address is bad, so
-			// the job goes back on the queue after a pause instead of dropping its marker...
+			// OVER_QUERY_LIMIT means we asked too quickly rather than that the address is bad, so the job goes back on the queue after a pause instead of dropping its marker...
 			if (status === "OVER_QUERY_LIMIT" && job.attempts < GEOCODE_MAX_ATTEMPTS) {
 				job.attempts++;
 				const timer = setTimeout(function() {
@@ -2589,7 +2520,7 @@ function cancelPendingGeocodes() {
 // For holding our LM group data...
 var groupData = [];
 // For timing our refreshes...
-var refreshStartTime = new Date();
+var refreshStartTime = performance.now();
 // For tracking when to do a full refresh...
 var pollCount = 0;
 var fullRefresh = true;
@@ -2625,14 +2556,11 @@ var overlayDataListenerHandles = [];
 var mmiContourLines = [];
 var hurricaneMarkers = [];
 var hurricaneTrackPointMarkers = [];
+// Tracks, track points, and uncertainty cones all live in hurricanePathOverlays so that one pass hides or shows everything a storm drew...
 var hurricanePathOverlays = [];
-var hurricaneConeOverlays = [];
-var hurricaneTracksLoading = false;
 var hurricaneSelectedStormId = null;
 var hurricaneRestoreInfoWindow = false;
 var hurricaneBaseFeatures = [];
-var hurricaneTrackLoaders = new Map();
-var hurricaneLoadedTrackFeatures = new Map();
 var hurricaneDataLoadGeneration = 0;
 
 // Track map initialization state...
@@ -2641,7 +2569,7 @@ var _mapInitializing = false;
 var _mapInitRetryTimeout = null;
 var initAttempts = 0;
 var MAX_INIT_ATTEMPTS = 10;
-// Bumped whenever initialization is cancelled so an awaiting initMap() can detect it was torn down.
+// Bumped whenever initialization is cancelled so an awaiting initMap() can detect it was torn down...
 var mapInitGeneration = 0;
 
 // Function to check whether this script execution is still the active widget instance...
@@ -2649,7 +2577,7 @@ function isBetterMapInstanceActive() {
 	if (!betterMapInstanceId) return true;
 	var inst = betterMapRegistry.instances && betterMapRegistry.instances[betterMapInstanceId];
 	if (!inst) return false;
-	// Older CDN loaders register instances without reloadGeneration; treat them as active.
+	// Older CDN loaders register instances without reloadGeneration; treat them as active...
 	if (typeof inst.reloadGeneration !== "number") return true;
 	return inst.reloadGeneration === betterMapReloadGeneration;
 }
@@ -2792,23 +2720,22 @@ window.addEventListener('focus', _focusHandler);
 // ----- FUNCTIONS
 
 // Function to create our map...
-// Returns true when the map was fully built, or false when the widget was torn down mid-init.
+// Returns true when the map was fully built, or false when the widget was torn down mid-init...
 async function initMap() {
-	// LogicMonitor can re-save this widget while the library imports below are still pending.
-	// Anything created after that point would be unreachable by the new instance's cleanup.
+	// LogicMonitor can re-save this widget while the library imports below are still pending. Anything created after that point would be unreachable by the new instance's cleanup...
 	const thisInitGeneration = mapInitGeneration;
 	const initStillCurrent = () => thisInitGeneration === mapInitGeneration && isBetterMapInstanceActive();
 
 	// Load some libraries needed by Google Maps...
-	const { Map, RenderingType, InfoWindow } = await google.maps.importLibrary("maps");
-	const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
+	// Only the names used below are destructured; the rest of each library is reached through the google.maps namespace once imported...
+	const { RenderingType } = await google.maps.importLibrary("maps");
 	const { ColorScheme } = await google.maps.importLibrary("core");
+	await google.maps.importLibrary("marker");
 	await google.maps.importLibrary("geometry");
 
 	if (!initStillCurrent()) return false;
 
-	// CustomInfoWindow class - allows positioning InfoWindows to left/right/top/bottom of a point
-	// Defined here after Google Maps API is loaded so google.maps.OverlayView is available
+	// CustomInfoWindow class - allows positioning InfoWindows to left/right/top/bottom of a point. Defined here after Google Maps API is loaded so google.maps.OverlayView is available...
 	window.CustomInfoWindow = class extends google.maps.OverlayView {
 		constructor(options = {}) {
 			super();
@@ -3139,8 +3066,7 @@ async function initMap() {
 	// Add some custom controls to the map...
 	const weatherControlDiv = document.createElement("div");
 	// Create a button to the map for toggling visibility of the options bar...
-	const weatherControls = createWeatherToggleControl(map);
-	weatherControlDiv.appendChild(weatherControls);
+	weatherControlDiv.appendChild(createWeatherToggleControl());
 
 	// Create a div to hold our refresh & zoom reset buttons...
 	const weatherControlButtonDiv = document.createElement("div");
@@ -3154,15 +3080,13 @@ async function initMap() {
 	weatherControlButtonDiv.style.height = "81px";
 	weatherControlButtonDiv.style.margin = "0 10px";
 	// Create a button to force-refresh the map data...
-	const weatherRefreshControl = createWeatherRefreshControl(map);
-	weatherControlButtonDiv.appendChild(weatherRefreshControl);
+	weatherControlButtonDiv.appendChild(createWeatherRefreshControl());
 	const weatherControlDivider = document.createElement("div");
 	// Create a divider between the two buttons...
 	weatherControlDivider.innerHTML = '<div style="position: relative; overflow: hidden; width: 30px; height: 1px; margin: 0px 5px; background-color: rgb(230, 230, 230); top: 0px;"></div>';
 	weatherControlButtonDiv.appendChild(weatherControlDivider);
 	// Create a button to reset the zoom on the map...
-	const mapZoomResetControl = createZoomResetControl(map);
-	weatherControlButtonDiv.appendChild(mapZoomResetControl);
+	weatherControlButtonDiv.appendChild(createZoomResetControl());
 	// Add our button div to our custom map controls...
 	weatherControlDiv.appendChild(weatherControlButtonDiv);
 	// Attach our controls to the map...
@@ -3182,28 +3106,23 @@ async function initMap() {
 		mapControlButtonDiv.style.alignItems = "center";
 		mapControlButtonDiv.style.padding = "5px 0";
 		// Create a button to tilt the map forward...
-		const mapRotateForwardControl = createRotateForwardControl(map);
-		mapControlButtonDiv.appendChild(mapRotateForwardControl);
+		mapControlButtonDiv.appendChild(createRotateForwardControl());
 		// Create a button to tilt the map backward...
-		const mapRotateBackControl = createRotateBackControl(map);
-		mapControlButtonDiv.appendChild(mapRotateBackControl);
+		mapControlButtonDiv.appendChild(createRotateBackControl());
 		// Create a button to rotate the map right...
-		const mapRotateRightControl = createRotateRightControl(map);
-		mapControlButtonDiv.appendChild(mapRotateRightControl);
+		mapControlButtonDiv.appendChild(createRotateRightControl());
 		// Create a button to rotate the map left...
-		const mapRotateLeftControl = createRotateLeftControl(map);
-		mapControlButtonDiv.appendChild(mapRotateLeftControl);
+		mapControlButtonDiv.appendChild(createRotateLeftControl());
 		// Attach our controls to the map...
 		map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(mapControlButtonDiv);
 	}
 
 	// Create a button to toggle the sidebar...
-	const sidebarToggle = createSidebarToggleControl(map);
-	map.controls[google.maps.ControlPosition.INLINE_END_BLOCK_START].push(sidebarToggle);
+	map.controls[google.maps.ControlPosition.INLINE_END_BLOCK_START].push(createSidebarToggleControl());
 	initSidebarResize();
 
 	// Add an area to display when we're updating...
-	const updateAreaDiv = await createUpdateArea(map);
+	createUpdateArea(map);
 
 	// Bail out before starting any weather or refresh timers this instance could no longer clear...
 	if (!initStillCurrent()) {
@@ -3260,7 +3179,7 @@ async function initMap() {
 }
 
 // Function for creating & styling the map button for toggling the options bar...
-function createWeatherToggleControl(map) {
+function createWeatherToggleControl() {
 	const weatherToggle = document.createElement("button");
 
 	weatherToggle.id = "weatherControlToggle";
@@ -3302,7 +3221,7 @@ function createWeatherToggleControl(map) {
 }
 
 // Function to create the refresh button control...
-function createWeatherRefreshControl(map) {
+function createWeatherRefreshControl() {
 	return createMapControlButton({
 		id: "weatherRefreshButton",
 		title: "Force refresh the map data",
@@ -3313,7 +3232,7 @@ function createWeatherRefreshControl(map) {
 }
 
 // Function to create the reset zoom button control...
-function createZoomResetControl(map) {
+function createZoomResetControl() {
 	return createMapControlButton({
 		id: "weatherZoomResetButton",
 		title: "Reset map zoom",
@@ -3323,7 +3242,7 @@ function createZoomResetControl(map) {
 }
 
 // Function to create the sidebar toggle button control...
-function createSidebarToggleControl(map) {
+function createSidebarToggleControl() {
 	const btn = document.createElement("button");
 	btn.id = "sidebarToggleButton";
 	btn.style.backgroundColor = "rgb(255 255 255)";
@@ -3397,11 +3316,7 @@ function initSidebarResize() {
 	const container = getBetterMapElementById("mapContainer");
 	if (!handle || !sidebar || !container) return;
 
-	// These feed the stylesheet's min-width/max-width through custom properties rather than being
-	// set as inline min-width/max-width. An inline value outranks every selector, so the collapsed
-	// rule's "min-width: 0" could not win and the sidebar stayed at its minimum width when hidden.
-	// Going through a variable lets the configured limits apply while expanded and still leaves the
-	// collapse rule in charge...
+	// These feed the stylesheet's min-width/max-width through custom properties rather than being set as inline min-width/max-width. An inline value outranks every selector, so the collapsed rule's "min-width: 0" could not win and the sidebar stayed at its minimum width when hidden. Going through a variable lets the configured limits apply while expanded and still leaves the collapse rule in charge...
 	sidebar.style.setProperty("--bmw-sidebar-min-width", getSidebarMinWidthPx() + "px");
 	sidebar.style.setProperty("--bmw-sidebar-max-width", getSidebarMaxWidthPercent() + "%");
 
@@ -3438,7 +3353,7 @@ function initSidebarResize() {
 }
 
 // Function to create the rotate-right control...
-function createRotateRightControl(map) {
+function createRotateRightControl() {
 	return createMapControlButton({
 		id: "mapRotateRightButton",
 		title: "Rotate Map Right",
@@ -3449,7 +3364,7 @@ function createRotateRightControl(map) {
 }
 
 // Function to create the rotate-left control...
-function createRotateLeftControl(map) {
+function createRotateLeftControl() {
 	return createMapControlButton({
 		id: "mapRotateLeftButton",
 		title: "Rotate Map Left",
@@ -3460,7 +3375,7 @@ function createRotateLeftControl(map) {
 }
 
 // Function to create the tilt-forward control...
-function createRotateForwardControl(map) {
+function createRotateForwardControl() {
 	return createMapControlButton({
 		id: "mapRotateForwardButton",
 		title: "Rotate Map Up",
@@ -3471,7 +3386,7 @@ function createRotateForwardControl(map) {
 }
 
 // Function to create the tilt-back control...
-function createRotateBackControl(map) {
+function createRotateBackControl() {
 	return createMapControlButton({
 		id: "mapRotateBackButton",
 		title: "Rotate Map Down",
@@ -3499,8 +3414,6 @@ function createUpdateArea(map) {
 	updateAreaDiv.innerHTML = "Updating...";
 	// Attach to the map...
 	map.controls[google.maps.ControlPosition.TOP_LEFT].push(updateAreaDiv);
-
-	return updateAreaDiv;
 }
 
 // Function to adjust the map tilt or heading...
@@ -3561,8 +3474,7 @@ async function fetchPaginatedLMItems({ resourcePath, buildQueryParams, signal, l
 		}
 
 		if (data.total !== total) total = data.total;
-		// A page that reports more records remaining but returns none would leave offset where it
-		// was, and the loop would reissue the same request forever against the LM API...
+		// A page that reports more records remaining but returns none would leave offset where it was, and the loop would reissue the same request forever against the LM API...
 		const page = Array.isArray(data.items) ? data.items : [];
 		if (!page.length) {
 			console.warn(`Map ${widgetID}: ${label} stopped at ${offset} of ${total} after an empty page.`);
@@ -3656,9 +3568,6 @@ async function refreshGroupData(timedRefresh = false) {
 	// Display our progress to the user...
 	_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating";
 	_dom.refreshStatusArea.style.display = "flex";
-
-	// Prepare to call the LogicMonitor API method...
-	const httpVerb = "GET";
 
 	// List of fields to fetch...
 	let fieldList = "alertStatus,displayName,description,id,hostStatus,name,sdtStatus,numOfHosts,numOfAWSDevices,numOfAzureDevices,numOfGcpDevices,numOfKubernetesDevices,numOfDirectDevices,numOfSubGroups,customProperties,autoProperties";
@@ -3806,7 +3715,6 @@ async function refreshGroupData(timedRefresh = false) {
 
 		// Prepare Google geocoding for translating a street address to latitude & longitude...
 		const geocoder = new google.maps.Geocoder();
-		const parser = new DOMParser();
 
 		let itemsProcessed = 0;
 		// Track geocoding progress for status display...
@@ -3828,11 +3736,7 @@ async function refreshGroupData(timedRefresh = false) {
 				updateGeocodingStatus();
 			}
 		}
-		// onRefreshComplete tears down and rebuilds clustering and refits the map, so it has to run
-		// exactly once per pass. The count below is compared with >= rather than == because the
-		// geocoder failure path lowers totalGroups from async callbacks, so an exact match can be
-		// stepped over and leave the spinner up and the toolbar disabled for good. Since >= then
-		// stays true for every later increment, this flag is what holds it to a single run.
+		// onRefreshComplete tears down and rebuilds clustering and refits the map, so it has to run exactly once per pass. The count below is compared with >= rather than == because the geocoder failure path lowers totalGroups from async callbacks, so an exact match can be stepped over and leave the spinner up and the toolbar disabled for good. Since >= then stays true for every later increment, this flag is what holds it to a single run...
 		let refreshCompleteFired = false;
 
 		// Function to finish the refresh once every item has been accounted for...
@@ -3843,11 +3747,7 @@ async function refreshGroupData(timedRefresh = false) {
 		}
 
 		// Function to wrap per-item work so that an item which throws still gets accounted for...
-		// A failing item never reaches its own itemsProcessed increment, so the expected total could
-		// never be met and the refresh would sit unfinished. buildMarkersInBatches catches per-item
-		// errors too, but it is a shared window-level helper whose first definition on the page wins,
-		// so a widget save cannot rely on its copy being the current one. Keeping the accounting here
-		// in the refresh scope makes it work either way.
+		// A failing item never reaches its own itemsProcessed increment, so the expected total could never be met and the refresh would sit unfinished. buildMarkersInBatches catches per-item errors too, but it is a shared window-level helper whose first definition on the page wins, so a widget save cannot rely on its copy being the current one. Keeping the accounting here in the refresh scope makes it work either way...
 		function withItemErrorAccounting(handler) {
 			return function(thisItem) {
 				try {
@@ -3906,8 +3806,7 @@ async function refreshGroupData(timedRefresh = false) {
 						google.maps.event.clearInstanceListeners(clusterer);
 						clusterer.setMap(null);
 					}
-					// Without maxZoom the library stops clustering at zoom 16 and overlapping pins end up
-					// hidden behind each other...
+					// Without maxZoom the library stops clustering at zoom 16 and overlapping pins end up hidden behind each other...
 					const algorithm = new markerClusterer.SuperClusterAlgorithm({radius: 120, maxZoom: googleMapsMaxZoom});
 					clusterer = new markerClusterer.MarkerClusterer({
 						markers,
@@ -4041,18 +3940,15 @@ async function refreshGroupData(timedRefresh = false) {
 						let latVal = null;
 						let lngVal = null;
 						if (match && match.length == 3) {
-							try {
-								latVal = Number(match[1]);
-								lngVal = Number(match[2]);
-							} catch(e) {};
-							// It appears we have a latitude & longitude. Cache them for reuse...
+							// It appears we have a latitude & longitude...
 							latVal = Number(match[1]);
 							lngVal = Number(match[2]);
 						}
 						// Ensure the latitude and longitude are valid...
 						if (latVal && lngVal && latVal > -90 && latVal < 90 && lngVal > -180 && lngVal < 180 && latVal != 0 && lngVal != 0) {
-							// console.debug('Latitude & longitude found for ' + thisItem.name + ': ' + match[1] + ', ' + match[2]);
-							cachedAddresses[thisItem.id] = {lat: Number(match[1]), lng: Number(match[2]), address: address};
+							// console.debug('Latitude & longitude found for ' + thisItem.name + ': ' + latVal + ', ' + lngVal);
+							// Cache the coordinates for reuse...
+							cachedAddresses[thisItem.id] = {lat: latVal, lng: lngVal, address: address};
 							debouncedSaveCache();
 							// Call the subfunction to add the group to the map...
 							plotMarker(thisItem, cachedAddresses[thisItem.id].lat, cachedAddresses[thisItem.id].lng, address);
@@ -4244,7 +4140,7 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 		return false;
 	}
 
-	// Establish coordinates of the line start and end from the currently visible marker/cluster set.
+	// Establish coordinates of the line start and end from the currently visible marker/cluster set...
 	const sourcePos = getMarkerOrClusterPosition(connection.deviceIDSource);
 	const targetPos = getMarkerOrClusterPosition(connection.deviceIDConnected);
 	if (!sourcePos || !targetPos) {
@@ -4303,7 +4199,6 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 		sourceDeviceID: connection.deviceIDSource,
 		targetDeviceID: connection.deviceIDConnected,
 		connection: connection,
-		originalCoords: [sourcePos, targetPos],
 	});
 
 	// Show connection info on hover...
@@ -4332,9 +4227,7 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 function toggleHighlight(markerView, group) {
 	closeAllInfoWindows({ skipMarker: true });
 
-	// If clicking the same marker that's already open, close it. The isOpen test matters because
-	// dismissing the window with its own X button leaves this reference in place, and without it
-	// the next click on that same marker was treated as a second toggle-off and opened nothing...
+	// If clicking the same marker that's already open, close it. The isOpen test matters because dismissing the window with its own X button leaves this reference in place, and without it the next click on that same marker was treated as a second toggle-off and opened nothing...
 	if (markerInfoWindow && markerInfoWindow.markerId === markerView.deviceID && markerInfoWindow.isOpen) {
 		markerInfoWindow.close();
 		markerInfoWindow = null;
@@ -4384,7 +4277,8 @@ function escapeHtml(str) {
 		.replace(/'/g, '&#39;');
 }
 
-// LogicMonitor's widget sanitizer breaks nested template literals and ternary HTML fragments.
+// Function to build the display-property rows shown under a sidebar item's name...
+// The builders below assemble their markup by string concatenation with escaped angle brackets because LogicMonitor's widget sanitizer breaks nested template literals and ternary HTML fragments...
 function buildSidebarPropsHtml(props) {
 	if (!props || !props.length) return "";
 	var inner = props.map(function(p) {
@@ -4397,9 +4291,9 @@ function buildSidebarPropsHtml(props) {
 	return '\x3cdiv class="sidebar-item-props"\x3e' + inner + '\x3c/div\x3e';
 }
 
+// Function to build one item's row in a cluster's popup, with its status dot and drill-down link...
 function buildClusterDeviceRowHtml(device) {
-	// device.name is read back out of the marker DOM via textContent, so entities are already
-	// decoded by the time we get here and must be re-escaped before returning to markup.
+	// device.name is read back out of the marker DOM via textContent, so entities are already decoded by the time we get here and must be re-escaped before returning to markup...
 	var name = escapeHtml(device.name);
 	var link = escapeHtml(device.link);
 	return '\x3cdiv class="cluster-device-row" style="--device-status-color: var(--' + device.status + '-color);"\x3e' +
@@ -4419,6 +4313,7 @@ function buildClusterDeviceRowHtml(device) {
 	'\x3c/div\x3e';
 }
 
+// Function to build the large burned-area figure at the top of a wildfire popup...
 function buildWildfireHighlightBlock(highlightValueHtml, highlightUnitHtml) {
 	if (!highlightValueHtml) return "";
 	var unitLine = highlightUnitHtml
@@ -4430,6 +4325,7 @@ function buildWildfireHighlightBlock(highlightValueHtml, highlightUnitHtml) {
 	'\x3c/div\x3e';
 }
 
+// Function to build the tsunami warning banner shown in an earthquake's popup...
 function buildTsunamiWarningBannerHtml(tsunamiWarningHtml) {
 	var svg = '\x3csvg width="35px" height="35px" viewBox="0 0 60.601004 60.601004" xmlns="http://www.w3.org/2000/svg"\x3e' +
 		'\x3cpath d="m 57.316128,56.958628 c 1.125,0 2.225,-0.5825 2.825,-1.63125 0.6125,-1.04625 0.5625,-2.28875 0,-3.265 L 33.128628,5.2773777 c -0.5625,-0.97375 -1.6125,-1.635 -2.8375,-1.635 -1.2,0.0025 -2.25,0.66125 -2.8125,1.635 L 0.46612771,52.062378 c -0.575,0.97625 -0.6125,2.21875 -0.0125,3.265 0.61249999,1.04875 1.69999999,1.63125 2.83749999,1.63125 l 54.0250003,0" fill="#000000" fill-rule="nonzero"/\x3e' +
@@ -4441,6 +4337,8 @@ function buildTsunamiWarningBannerHtml(tsunamiWarningHtml) {
 	'\x3c/div\x3e';
 }
 
+// Function to build the flood-gauge chart comparing a site's current level against its normal level...
+// Returns nothing when either reading is missing or the site is not above normal, since there is no rise to chart...
 function buildFloodingLevelChartHtml(data) {
 	var gage = parseFloat(data.gage_height);
 	var normal = parseFloat(data.rp_elevation);
@@ -4581,9 +4479,7 @@ function populateSidebar() {
 	const sidebar = _dom.sidebarArea;
 	if (!sidebar) return;
 
-	// Building the item list walks every item and its display properties, and rendering rewrites
-	// the entire list markup, so skip both while the sidebar is collapsed and catch up when the
-	// user opens it...
+	// Building the item list walks every item and its display properties, and rendering rewrites the entire list markup, so skip both while the sidebar is collapsed and catch up when the user opens it...
 	if (isSidebarVisible()) {
 		_sidebarNeedsRebuild = false;
 		buildSidebarItems();
@@ -4627,16 +4523,14 @@ function populateSidebar() {
 	}
 }
 
-// Donut chart data URLs keyed by severity mix, since clusters with the same composition produce
-// byte-identical SVG and the markup plus base64 encoding is rebuilt for every cluster on every
-// clustering pass (which happens on each pan, zoom, and refresh)...
+// Donut chart data URLs keyed by severity mix, since clusters with the same composition produce byte-identical SVG and the markup plus base64 encoding is rebuilt for every cluster on every clustering pass (which happens on each pan, zoom, and refresh)...
 var _clusterIconCache = new Map();
 var CLUSTER_ICON_CACHE_MAX = 200;
 
 // Our custom renderer for MarkerClusterer to create donut charts based on status of clustered items...
 var renderer = {
 	render ({ markers, count, position }) {
-		// Since Google Maps markers don't have direct support for metadata, I'm using the marker's z-index to capture the group's severity: 1=warning, 2=error, 3=critical.
+		// Since Google Maps markers don't have direct support for metadata, I'm using the marker's z-index to capture the group's severity: 1=warning, 2=error, 3=critical...
 
 		// Create objects to hold per-severity metrics...
 		const severityCounts = new Map([["4",0],["3",0],["2",0],["1",0],["0",0]]);
@@ -4674,8 +4568,7 @@ var renderer = {
 			}
 		});
 
-		// Every value interpolated into the SVG below goes into the cache key, so a hit is always
-		// byte-identical to a freshly built chart...
+		// Every value interpolated into the SVG below goes into the cache key, so a hit is always byte-identical to a freshly built chart...
 		const iconKey = [
 			severityPercents.get("4"), severityPercents.get("3"), severityPercents.get("2"), severityPercents.get("1"),
 			severityOffsets.get("4"), severityOffsets.get("3"), severityOffsets.get("2"), severityOffsets.get("1"),
@@ -4778,9 +4671,7 @@ var renderer = {
 				clusterBounds.extend(device.position);
 			});
 
-			// When every clustered item sits on the exact same point the bounds collapse to that point.
-			// Zooming in is still useful until street-ish detail, so only disable the button once the
-			// map is already at zoom 18 or closer...
+			// When every clustered item sits on the exact same point the bounds collapse to that point. Zooming in is still useful until street-ish detail, so only disable the button once the map is already at zoom 18 or closer...
 			const allSameLocation = clusterBounds.getSouthWest().equals(clusterBounds.getNorthEast());
 			const currentZoom = (map && map.getZoom && map.getZoom()) || 0;
 			const disableSameLocationZoom = allSameLocation && currentZoom >= 18;
@@ -4932,23 +4823,14 @@ async function initWeather() {
 function initRainViewerData() {
 	const radar = rvAPIData.radar || {};
 	const pastFrames = Array.isArray(radar.past) ? radar.past : [];
-	// The frame we render is the most recent observed image, so this index has to come from
-	// past[] alone. Deriving it inside the nowcast branch left it at -1 whenever RainViewer
-	// returned no forecast frames, and every tile then dereferenced rvMapFrames[-1]...
+	// The frame we render is the most recent observed image, so this index has to come from past[] alone. Deriving it inside the nowcast branch left it at -1 whenever RainViewer returned no forecast frames, and every tile then dereferenced rvMapFrames[-1]...
 	rvLastPastFramePosition = pastFrames.length - 1;
 	rvMapFrames = Array.isArray(radar.nowcast) ? pastFrames.concat(radar.nowcast) : pastFrames.slice();
 }
 
-// Custom MapType implementation for weather tile overlays.
-// Uses a two-layer DOM structure: an outer container div (managed by
-// Google Maps for zoom/fade transitions) wrapping an inner <img> with
-// weatherOpacity applied directly. Because Google Maps only animates
-// the outer container, tiles never flash at full opacity during zooms.
-//
-// Revisited tiles are served from the browser's own HTTP cache. An in-page
-// cache is not useful here because getTile has to return a fresh element
-// each call, so it can only hand back the same URL a miss would have used.
 // Function to create a weather tile overlay layer...
+// Uses a two-layer DOM structure: an outer container div (managed by Google Maps for zoom/fade transitions) wrapping an inner <img> with weatherOpacity applied directly. Because Google Maps only animates the outer container, tiles never flash at full opacity during zooms...
+// Revisited tiles are served from the browser's own HTTP cache. An in-page cache is not useful here because getTile has to return a fresh element each call, so it can only hand back the same URL a miss would have used...
 function createWeatherTileLayer(name, getTileUrl, opts = {}) {
 	const tileSize = new google.maps.Size(256, 256);
 	return {
@@ -4985,11 +4867,10 @@ function hurricanePropertyText(properties) {
 }
 
 // Returns the stable group identifier used to associate hurricane features...
+// hurricaneBuildArcgisFeatures stamps _stormKey onto every feature it emits, so the remaining fallbacks only matter if a feature ever arrives from somewhere else...
 function hurricaneFeatureGroupId(feature, index) {
 	const properties = feature.properties || {};
-	const preferredKeys = ["_stormKey", "eventid", "episodeid", "event_id", "episode_id", "cycloneid", "stormid", "alertid", "id"];
-	const key = preferredKeys.find(name => Object.prototype.hasOwnProperty.call(properties, name)) || Object.keys(properties).find(name => /episode.?id|event.?id|cyclone.?id|storm.?id|alert.?id/i.test(name));
-	return String((key && properties[key]) || feature.id || properties.name || `storm-${index}`);
+	return String(properties._stormKey || feature.id || properties.name || `storm-${index}`);
 }
 
 // Converts GeoJSON coordinate pairs into valid Google Maps latitude/longitude objects...
@@ -5025,16 +4906,11 @@ const HURRICANE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 const HURRICANE_HISTORICAL_COLOR = "rgb(170 170 170)";
 const HURRICANE_PROJECTED_COLOR = "#e2a957";
 
-// Returns the reusable red hurricane SVG...
-function hurricaneIconSvg() {
-	return HURRICANE_ICON_SVG;
-}
-
 // Creates map marker content with opacity scaled to storm intensity...
 function hurricaneMarkerContent(opacity) {
 	const content = document.createElement("div");
 	content.style.cssText = "display:flex;align-items:center;justify-content:center;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);";
-	content.innerHTML = hurricaneIconSvg();
+	content.innerHTML = HURRICANE_ICON_SVG;
 	content.firstElementChild.setAttribute("opacity", String(opacity));
 	content.title = "Tropical cyclone";
 	return content;
@@ -5051,7 +4927,7 @@ function hurricaneArcgisMeasurementsText(properties) {
 	else if (Number.isFinite(observedIntensity) && observedIntensity > 0 && observedIntensity < 9999) parts.push(`Wind ${observedIntensity} kt`);
 	if (Number.isFinite(gust) && gust > 0 && gust < 9999) parts.push(`Gust ${gust} kt`);
 	if (Number.isFinite(pressure) && pressure > 0 && pressure < 9999) parts.push(`Pressure ${pressure} mb`);
-	return parts.join(" · ");
+	return parts.join(" | ");
 }
 
 // Returns the ArcGIS-only storm classification used in track-point tooltips...
@@ -5143,20 +5019,18 @@ function hurricaneInfoHtml(storm) {
 	const properties = storm.properties || {};
 	const development = properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || "";
 	const measurements = hurricaneArcgisMeasurementsText(properties);
-	const infoIcon = hurricaneIconSvg().replace('width="30" height="30"', 'width="80" height="80"');
-	const loadingStatus = hurricaneTracksLoading ? `<div style="border-top:1px solid #eee;padding:6px 0;color:#666;font-style:italic;display:flex;align-items:center;gap:4px;">${loadingSpinner}<span>Getting storm tracks</span></div>` : "";
+	const infoIcon = HURRICANE_ICON_SVG.replace('width="30" height="30"', 'width="80" height="80"');
 	const reportUrl = properties.url && typeof properties.url === "object" ? properties.url.report : properties["url.report"];
 	const reportLink = /^https?:\/\//i.test(String(reportUrl || "")) ? `<div style="border-top:1px solid #eee;padding:6px 0;"><a href="${escapeHtml(reportUrl)}" target="_blank" rel="noopener noreferrer">Storm Report</a></div>` : "";
 	const developmentBlock = development ? `<div style="border-bottom:1px solid #eee;padding-bottom:6px;margin-bottom:0;">${escapeHtml(development)}</div>` : "";
 	const measurementsBlock = measurements ? `<div style="padding:6px 0;">${escapeHtml(measurements)}</div>` : "";
-	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(hurricaneDisplayName(properties))}</div>${developmentBlock}${loadingStatus}${measurementsBlock}${reportLink}</div>`;
+	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(hurricaneDisplayName(properties))}</div>${developmentBlock}${measurementsBlock}${reportLink}</div>`;
 }
 
 // Hides all hurricane paths, dots, and cones...
 function hideHurricaneTracks() {
 	hurricaneSelectedStormId = null;
 	setOverlayCollectionMap(hurricanePathOverlays, null);
-	setOverlayCollectionMap(hurricaneConeOverlays, null);
 	hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
 }
 
@@ -5164,14 +5038,6 @@ function hideHurricaneTracks() {
 function hideEarthquakeImpactOutlines() {
 	setOverlayCollectionMap(mmiContourLines, null);
 	mmiContourLines = [];
-}
-
-// Rebuilds the hurricane layer with the tracks loaded so far...
-function hurricaneReplotLoadedTracks() {
-	const loadedFeatures = hurricaneBaseFeatures.concat(...hurricaneLoadedTrackFeatures.values());
-	hurricaneRestoreInfoWindow = Boolean(overlayInfoWindow && overlayInfoWindow.isOpen);
-	clearOverlayState();
-	plotHurricanes({ type: "FeatureCollection", features: loadedFeatures });
 }
 
 // Fits the map to a storm's tracks, uncertainty cone, marker, and infowindow...
@@ -5192,13 +5058,37 @@ function hurricaneFitStormBounds(storm, markerPosition) {
 	map.fitBounds(bounds, { top: 100, right: 420, bottom: 100, left: 100 });
 }
 
-// Plots hurricane markers, paths, cones, and track-point overlays with lazy track loading...
+// Rebuilds the hurricane overlay from a feature list, restoring any storm infowindow that was open...
+function hurricaneReplotFeatures(features) {
+	hurricaneRestoreInfoWindow = Boolean(overlayInfoWindow && overlayInfoWindow.isOpen);
+	clearOverlayState();
+	plotHurricanes({ type: "FeatureCollection", features: features });
+}
+
+// Shows one storm's track, track points, and uncertainty cone while hiding every other storm's...
+function hurricaneShowStormTracks(storm) {
+	setOverlayCollectionMap(hurricanePathOverlays, null);
+	hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
+	setOverlayCollectionMap(storm.pathOverlays, map);
+	storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; });
+}
+
+// Opens a storm's infowindow, held to the width the storm details are laid out for...
+function hurricaneOpenStormInfo(storm, position) {
+	closeAllInfoWindows();
+	overlayInfoWindow.setContent(hurricaneInfoHtml(storm));
+	overlayInfoWindow.setPosition(position);
+	overlayInfoWindow.open(map);
+	if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px";
+}
+
+// Plots hurricane markers, paths, cones, and track-point overlays...
 function plotHurricanes(geojson) {
 	const storms = new Map();
 	const plottedStorms = new Map();
 	(geojson.features || []).forEach((feature, index) => {
 		const groupId = hurricaneFeatureGroupId(feature, index);
-		if (!storms.has(groupId)) storms.set(groupId, { properties: {}, points: [], historical: [], forecast: [], cones: [], pathOverlays: [], coneOverlays: [], trackPointMarkers: [] });
+		if (!storms.has(groupId)) storms.set(groupId, { properties: {}, points: [], historical: [], forecast: [], cones: [], pathOverlays: [], trackPointMarkers: [] });
 		const storm = storms.get(groupId);
 		storm.properties = Object.assign({}, storm.properties, feature.properties || {});
 		const text = hurricanePropertyText(feature.properties);
@@ -5224,31 +5114,8 @@ function plotHurricanes(geojson) {
 		markerContent.addEventListener("dblclick", event => { event.stopPropagation(); hurricaneFitStormBounds(storm, position); });
 		marker.addListener("gmp-click", () => {
 			hurricaneSelectedStormId = groupId;
-			hurricanePathOverlays.forEach(overlay => overlay.setMap(null));
-			hurricaneConeOverlays.forEach(overlay => overlay.setMap(null));
-			hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
-			storm.pathOverlays.forEach(overlay => overlay.setMap(map));
-			storm.coneOverlays.forEach(overlay => overlay.setMap(map));
-			storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; });
-			closeAllInfoWindows();
-			overlayInfoWindow.setContent(hurricaneInfoHtml(storm));
-			overlayInfoWindow.setPosition(position);
-			overlayInfoWindow.open(map);
-			if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px";
-			const trackLoader = hurricaneTrackLoaders.get(groupId);
-			if (trackLoader && !hurricaneLoadedTrackFeatures.has(groupId)) {
-				hurricaneTracksLoading = true;
-				overlayInfoWindow.setContent(hurricaneInfoHtml(storm));
-				trackLoader().then(features => {
-					hurricaneLoadedTrackFeatures.set(groupId, features);
-					hurricaneTracksLoading = false;
-					hurricaneReplotLoadedTracks();
-				}).catch(error => {
-					hurricaneTracksLoading = false;
-					console.warn(`Map ${widgetID}: Failed to load tracks for ${hurricaneDisplayName(storm.properties)}:`, error.message);
-					overlayInfoWindow.setContent(hurricaneInfoHtml(storm));
-				});
-			}
+			hurricaneShowStormTracks(storm);
+			hurricaneOpenStormInfo(storm, position);
 		});
 		hurricaneMarkers.push(marker);
 		storm.points.filter(item => item !== point).forEach(trackPoint => {
@@ -5265,26 +5132,15 @@ function plotHurricanes(geojson) {
 		storm.historical.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: HURRICANE_HISTORICAL_COLOR, strokeOpacity: .9, strokeWeight: 2 })));
 		storm.forecast.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: HURRICANE_PROJECTED_COLOR, strokeOpacity: .95, strokeWeight: 2, icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 2 }, offset: "0", repeat: "12px" }] })));
 		storm.cones.forEach(paths => {
-			const cone = new google.maps.Polygon({ map: null, paths, fillColor: "#f6b44b", fillOpacity: .24, strokeColor: "#d98b1e", strokeOpacity: .7, strokeWeight: 1 });
-			storm.coneOverlays.push(cone);
-			storm.pathOverlays.push(cone);
-			hurricaneConeOverlays.push(cone);
+			storm.pathOverlays.push(new google.maps.Polygon({ map: null, paths, fillColor: "#f6b44b", fillOpacity: .24, strokeColor: "#d98b1e", strokeOpacity: .7, strokeWeight: 1 }));
 		});
 		hurricanePathOverlays.push(...storm.pathOverlays);
 	});
-	const selected = !hurricaneTracksLoading && hurricaneSelectedStormId ? plottedStorms.get(hurricaneSelectedStormId) : null;
+	// A refresh rebuilds every overlay, so the storm the user had selected has to be re-shown against the new objects...
+	const selected = hurricaneSelectedStormId ? plottedStorms.get(hurricaneSelectedStormId) : null;
 	if (selected) {
-		hurricanePathOverlays.forEach(overlay => overlay.setMap(null));
-		hurricaneTrackPointMarkers.forEach(trackMarker => { trackMarker.map = null; });
-		selected.storm.pathOverlays.forEach(overlay => overlay.setMap(map));
-		selected.storm.trackPointMarkers.forEach(trackMarker => { trackMarker.map = map; });
-		if (hurricaneRestoreInfoWindow) {
-			closeAllInfoWindows();
-			overlayInfoWindow.setContent(hurricaneInfoHtml(selected.storm));
-			overlayInfoWindow.setPosition(selected.position);
-			overlayInfoWindow.open(map);
-			if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px";
-		}
+		hurricaneShowStormTracks(selected.storm);
+		if (hurricaneRestoreInfoWindow) hurricaneOpenStormInfo(selected.storm, selected.position);
 	}
 	hurricaneRestoreInfoWindow = false;
 	console.debug(`Map ${widgetID}: Plotted ${hurricaneMarkers.length} active tropical cyclone(s) with ${hurricanePathOverlays.filter(overlay => overlay instanceof google.maps.Polygon).length} uncertainty cone(s)`);
@@ -5519,24 +5375,16 @@ async function loadHurricanesFromArcgisApi() {
 	const initialFeatures = hurricaneBuildArcgisFeatures(layers);
 	console.debug(`Map ${widgetID}: ArcGIS returned ${initialFeatures.length} plottable hurricane feature(s); GDACS metadata is loading in parallel`);
 	hurricaneBaseFeatures = initialFeatures;
-	hurricaneTrackLoaders = new Map();
-	hurricaneLoadedTrackFeatures = new Map();
-	hurricaneTracksLoading = false;
-	hurricaneRestoreInfoWindow = Boolean(overlayInfoWindow && overlayInfoWindow.isOpen);
-	clearOverlayState();
-	plotHurricanes({ type: "FeatureCollection", features: initialFeatures });
+	hurricaneReplotFeatures(initialFeatures);
 	gdacsPromise.then(gdacsEntries => {
 		if (requestGeneration !== hurricaneDataLoadGeneration || _dom.otherWeatherOverlays.value !== "hurricanes" || !gdacsEntries.length) return;
 		const enrichedFeatures = hurricaneEnrichArcgisFeatures(hurricaneBaseFeatures, gdacsEntries);
 		const enrichmentChanged = enrichedFeatures.some((feature, index) => feature.properties !== hurricaneBaseFeatures[index].properties);
 		if (!enrichmentChanged) return;
 		hurricaneBaseFeatures = enrichedFeatures;
-		hurricaneRestoreInfoWindow = Boolean(overlayInfoWindow && overlayInfoWindow.isOpen);
-		clearOverlayState();
-		plotHurricanes({ type: "FeatureCollection", features: enrichedFeatures });
+		hurricaneReplotFeatures(enrichedFeatures);
 		console.debug(`Map ${widgetID}: Enriched ArcGIS hurricane data with GDACS metadata for ${gdacsEntries.length} active event(s)`);
 	});
-	return { type: "FeatureCollection", features: initialFeatures };
 }
 
 // Orchestrates the selected weather and optional map overlays...
@@ -5557,8 +5405,7 @@ async function addWeatherLayer() {
 				let snow = rvOptionKind == 'satellite' ? 0 : rvOptionSnowColors;
 
 				map.overlayMapTypes.insertAt(0, createWeatherTileLayer(mapType, (tile, zoom) => {
-					// Returning nothing yields a blank tile rather than throwing per tile when
-					// RainViewer gave us no usable frames...
+					// Returning nothing yields a blank tile rather than throwing per tile when RainViewer gave us no usable frames...
 					const frame = rvMapFrames[rvLastPastFramePosition];
 					if (!frame || !frame.path || !rvAPIData.host) return null;
 					return [rvAPIData.host + frame.path, 256, zoom, tile.x, tile.y, colorScheme, smooth + '_' + snow + '.png'].join('/');
@@ -5595,18 +5442,17 @@ async function addWeatherLayer() {
 		// Look to see if we should add hurricanes into the map...
 		if (optionalMapType == "hurricanes") {
 			try {
-					const hurricaneData = await loadHurricanesFromArcgisApi();
-				if (hurricaneData.features.length) console.debug(`Map ${widgetID}: Hurricane markers ready; tracks load on selection`);
-				} catch (error) {
-					console.error(`Map ${widgetID}: Failed to fetch ArcGIS hurricane data:`, error);
+				await loadHurricanesFromArcgisApi();
+			} catch (error) {
+				console.error(`Map ${widgetID}: Failed to fetch ArcGIS hurricane data:`, error);
 			}
 		// Look to see if we should add wildfire into the map...
 		} else if (optionalMapType == "wildfires") {
 			clearOverlayState();
 
 			// Load the wildfire data from the ArcGIS site...
-			// More info about this source of active US wildfire data can be found at: https://www.arcgis.com/home/item.html?id=d957997ccee7408287a963600a77f61f
-			// From that site, you can click "View" above the "URL" field on the right-hand side. From there, you'll see info on the two available layers. We're using layer "1" for perimeter data (denoted in the URL below with the "_1"), and pulling geojson data (per the suffix).
+			// More info about this source of active US wildfire data can be found at https://www.arcgis.com/home/item.html?id=d957997ccee7408287a963600a77f61f
+			// From that site, you can click "View" above the "URL" field on the right-hand side. From there, you'll see info on the two available layers. We're using layer "1" for perimeter data (denoted in the URL below with the "_1"), and pulling geojson data (per the suffix)...
 			//map.data.loadGeoJson("https://opendata.arcgis.com/datasets/d957997ccee7408287a963600a77f61f_1.geojson");
 			const usWildfireUrl = `https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/USA_Wildfires_v1/FeatureServer/1/query?where=CurrentDateAge+<%3D+7&outFields=*&f=geojson&ts=${Date.now()}`;
 			
@@ -5681,6 +5527,7 @@ async function addWeatherLayer() {
 				<path d="M18.2 36.8C13.4 36.8 10.5 33.7 10.5 29.6C10.5 26 13.2 23.5 15.1 20.8C16.6 18.7 16.9 16.7 16.5 14.4C20.4 16.6 22.6 20.1 22.1 23.4C23.6 22.5 24.6 21 25.1 19.3C27.1 21.8 28.2 25 28.2 28.1C28.2 33.2 24.1 36.8 18.2 36.8Z" fill="url(#emberGlow)"/>
 				<path d="M18.1 36.7C15.4 36.7 13.7 35 13.7 32.7C13.7 30.6 15.4 29.1 16.5 27.5C17.4 26.1 17.6 24.9 17.3 23.4C20 25 21.4 27.1 21.1 29.2C22 28.7 22.7 27.8 23.1 26.8C24.2 28.2 24.8 30 24.8 31.7C24.8 34.8 22.2 36.7 18.1 36.7Z" fill="#FFE08A"/>
 			</svg>`;
+			// Function to turn a wildfire's age in days into display text and a badge value...
 			function formatWildfireAgeDays(ageDays, locale) {
 				if (ageDays == null) {
 					return { display: '(not available)', badge: null };
@@ -5695,6 +5542,7 @@ async function addWeatherLayer() {
 				};
 			}
 
+			// Function to build a wildfire age badge, colored green for today and amber for the last three days...
 			function wildfireAgeBadgeHtml(displayText, ageDays) {
 				if (displayText == null || displayText === '(not available)') {
 					return `<span style="font-size:13px;font-weight:600;color:rgb(20,29,48);">${escapeHtml(displayText)}</span>`;
@@ -5711,6 +5559,7 @@ async function addWeatherLayer() {
 				return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;background:${bg};color:${color};">${escapeHtml(displayText)}</span>`;
 			}
 
+			// Function to build a wildfire popup, shared by the US and Australian feeds since their fields differ but their layout does not...
 			function buildWildfireInfoHtml(options) {
 				const {
 					title,
@@ -5832,9 +5681,7 @@ async function addWeatherLayer() {
 			}
 		// Look to see if we should add power outages to the map...
 		} else if (optionalMapType == "us-poweroutages") {
-			// ODIN county outage API (CORS-enabled, ~30KB). Primary source since USA Today's
-			// ~6.8MB JS feed cannot be fetched directly from the browser and public CORS
-			// proxies now return 522/408 timeouts against data.usatoday.com.
+			// ODIN county outage API (CORS-enabled, ~30KB). Primary source since USA Today's ~6.8MB JS feed cannot be fetched directly from the browser and public CORS proxies now return 522/408 timeouts against data.usatoday.com...
 			const odinOutageApiURL = 'https://openenergyhub.ornl.gov/api/explore/v2.1/catalog/datasets/odin-real-time-outages-county/records?select=communitydescriptor,county,state,sum(metersaffected)&group_by=communitydescriptor,county,state&limit=-1';
 			// USA Today fallback (requires CORS proxy; often fails with 522 on large payload)...
 			const usaTodayDataURL = `https://data.usatoday.com/media/jsons/power/active/national_powerout_slider_data.js`;
@@ -5887,7 +5734,7 @@ async function addWeatherLayer() {
 				return data;
 			}
 
-			// Bundled county customer totals: USA Today primary, ORNL EAGLE-I fallback (~86KB combined)...
+			// Function to fetch one of the bundled county customer total files (~86KB combined)...
 			async function fetchBundledCustomerTotals(url, label) {
 				const response = await fetch(url);
 				if (!response.ok) {
@@ -5896,6 +5743,7 @@ async function addWeatherLayer() {
 				return response.json();
 			}
 
+			// Function to load the per-county customer totals that turn outage counts into percentages, preferring USA Today's figures and filling gaps from ORNL's...
 			async function getCountyCustomerTotals() {
 				if (_countyCustomerTotalsMemo) {
 					return _countyCustomerTotalsMemo;
@@ -5977,6 +5825,7 @@ async function addWeatherLayer() {
 				return data;
 			}
 
+			// Function to turn each county's outage count into a percentage of its customers, returning how many counties could be scored...
 			function applyOutagePercentages(outageDataByFips, customersByFips) {
 				let applied = 0;
 				for (const fips in outageDataByFips) {
@@ -6451,8 +6300,7 @@ async function addWeatherLayer() {
 							contMmiData.features.forEach(feature => {
 								if (feature.geometry && feature.geometry.type === "MultiLineString") {
 									const mmi = feature.properties.value || 0;
-									// Calculate red intensity: higher MMI = stronger red (scale from light to dark red)
-									// MMI typically ranges from ~1 to 10
+									// Calculate red intensity: higher MMI = stronger red (scaled from light to dark red), where MMI typically ranges from ~1 to 10...
 									const intensity = Math.min(1, Math.max(0, (mmi - minMmi) / (maxMmi - minMmi)));
 									// Create gradient from light red (#ffcccc) to dark red (#8b0000)
 									const red = 255;
@@ -6496,7 +6344,7 @@ async function addWeatherLayer() {
 
 			try {
 				// Fetch the flooding data from the USGS API...
-				// See https://api.waterdata.usgs.gov/rtfi-api/docs for more information on the API.
+				// See https://api.waterdata.usgs.gov/rtfi-api/docs for more information on the API...
 				const floodingResponse = await fetch(floodingDataURL);
 				if (!floodingResponse.ok) {
 					throw new Error(`Flooding data fetch error: ${floodingResponse.status}`);
@@ -6580,8 +6428,7 @@ function fitClusterBounds(south, west, north, east) {
 		new google.maps.LatLng(south, west),
 		new google.maps.LatLng(north, east)
 	);
-	// A cluster of pins on the same point has no area, so fitBounds would zoom all the way to
-	// street level. Cap that case at zoom 18 so the user can still inspect the area...
+	// A cluster of pins on the same point has no area, so fitBounds would zoom all the way to street level. Cap that case at zoom 18 so the user can still inspect the area...
 	if (clusterBounds.getSouthWest().equals(clusterBounds.getNorthEast())) {
 		map.setCenter(clusterBounds.getCenter());
 		map.setZoom(18);
@@ -6599,9 +6446,7 @@ function fitClusterBounds(south, west, north, east) {
 function resetZoom() {
 	if (!isMapReady()) return;
 	if (markers.length > 0) {
-		// A single marker, or several stacked on one spot, gives bounds with no area. fitBounds on
-		// those zooms all the way to street level, so center on them at the map's opening zoom
-		// instead, which is what this function was always meant to do...
+		// A single marker, or several stacked on one spot, gives bounds with no area. fitBounds on those zooms all the way to street level, so center on them at the map's opening zoom instead, which is what this function was always meant to do...
 		if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
 			map.setCenter(bounds.getCenter());
 			map.setZoom(defaultMapZoom);
@@ -6654,7 +6499,7 @@ function toggleMiscOptions() {
 var _pendingElementWaiters = new Set();
 
 // Function to wait until an element exists in this widget instance...
-// Resolves with null if the widget is torn down before the element appears.
+// Resolves with null if the widget is torn down before the element appears...
 function waitForElm(selector) {
 	return new Promise(resolve => {
 		const existing = getBetterMapScopedQuery(selector);
@@ -6670,8 +6515,7 @@ function waitForElm(selector) {
 			waiter.observer.disconnect();
 			resolve(found);
 		});
-		// Without this bookkeeping, a widget removed before the element rendered left a
-		// subtree observer running against the whole dashboard for the life of the page...
+		// Without this bookkeeping, a widget removed before the element rendered left a subtree observer running against the whole dashboard for the life of the page...
 		_pendingElementWaiters.add(waiter);
 
 		// If you get "parameter 1 is not of type 'Node'" error, see https://stackoverflow.com/a/77855838/492336
@@ -6707,9 +6551,7 @@ function exposeBetterMapState(name, getValue, setValue) {
 }
 
 // Function to release the window references this instance installed...
-// Each one closes over this script's scope, so leaving them behind keeps the whole instance
-// (markers, group data, cached addresses) reachable after the widget is gone. Ownership is
-// checked by identity first so a newer instance's accessors are never removed.
+// Each one closes over this script's scope, so leaving them behind keeps the whole instance (markers, group data, cached addresses) reachable after the widget is gone. Ownership is checked by identity first so a newer instance's accessors are never removed...
 function releaseBetterMapWindowState() {
 	_exposedStateProps.forEach(prop => {
 		try {

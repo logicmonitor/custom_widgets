@@ -62,7 +62,7 @@
 		(function(script) {
 			var registry = window.__betterMapWidgetRegistry = window.__betterMapWidgetRegistry || { instances: Object.create(null) };
 			registry.pendingDefaults = registry.pendingDefaults || [];
-			// Edit the values after the colons below. Dashboard tokens still take precedence.
+			// Edit the values after the colons below. Dashboard tokens still take precedence...
 			var defaults = {
 				// Optional: You can specify a LogicMonitor API bearer token or API ID & key to use for the widget...
 				apiBearerToken: "",
@@ -157,8 +157,7 @@
 				// Whether to use geodesic (great circle) lines when connecting two locations...
 				// You can set it here or in a dashboard token named "MapUseGeodesicLines"...
 				useGeodesicLines: true,
-				// Screen-pixel offset used to separate overlapping parallel connection lines between
-				// the same two endpoints (0-120). Set to 0 to keep parallel lines straight...
+				// Screen-pixel offset used to separate overlapping parallel connection lines between the same two endpoints (0-120). Set to 0 to keep parallel lines straight...
 				// You can set it here or in a dashboard token named "MapConnectionCurvature"...
 				parallelConnectionCurvature: 18,
 
@@ -257,13 +256,7 @@
 		if (!registry.instances) {
 			registry.instances = Object.create(null);
 		}
-		// One cache-busting stamp per page load, held on the shared registry so that every widget
-		// instance on the dashboard requests the same URL. A full page refresh starts with a new
-		// registry and therefore always pulls the currently published JS and CSS, while additional
-		// instances on that same page reuse what the first one already fetched rather than each
-		// pulling another ~294 KB. Do not replace this with a fixed version string: this loader is
-		// pasted into a dashboard once, so a hard-coded version would freeze that dashboard on
-		// whatever assets were current the day it was pasted...
+		// One cache-busting stamp per page load, held on the shared registry so that every widget instance on the dashboard requests the same URL. A full page refresh starts with a new registry and therefore always pulls the currently published JS and CSS, while additional instances on that same page reuse what the first one already fetched rather than each pulling another ~294 KB. Do not replace this with a fixed version string: this loader is pasted into a dashboard once, so a hard-coded version would freeze that dashboard on whatever assets were current the day it was pasted...
 		if (!registry.assetCacheBuster) {
 			registry.assetCacheBuster = String(Date.now());
 		}
@@ -342,11 +335,7 @@
 		}
 
 		// Function to load an external stylesheet for the widget...
-		// The stylesheet is byte-identical for every instance and its rules apply document-wide, so
-		// the document only ever needs one link. Previously a fresh untagged link was appended on
-		// every widget save and nothing ever removed them, so they accumulated in the head for the
-		// life of the dashboard session. Reusing one tagged link also avoids the unstyled flash that
-		// removing and re-adding it would cause for any other maps on the page...
+		// The stylesheet is byte-identical for every instance and its rules apply document-wide, so the document only ever needs one link. Previously a fresh untagged link was appended on every widget save and nothing ever removed them, so they accumulated in the head for the life of the dashboard session. Reusing one tagged link also avoids the unstyled flash that removing and re-adding it would cause for any other maps on the page...
 		function loadStylesheet(url) {
 			return new Promise(function(resolve, reject) {
 				var existing = document.querySelector("link[data-better-map-stylesheet]");
@@ -416,14 +405,7 @@
 			}
 		});
 
-		// Remove widget scripts left behind by this widget's own earlier loads, plus any whose
-		// instance is no longer registered. The Google Maps API stays loaded, but each widget
-		// save should not accumulate script tags.
-		// Only dead instances are swept. On a dashboard holding several maps, removing every
-		// tagged script would also take a sibling's, and a sibling that is still waiting on its
-		// deferred script would then be depending on a detached element to run. The loader
-		// registers an instance before requesting its script, so a sibling is in the registry
-		// here whether or not its script has executed yet.
+		// Remove widget scripts left behind by this widget's own earlier loads, plus any whose instance is no longer registered. The Google Maps API stays loaded, but each widget save should not accumulate script tags. Only dead instances are swept. On a dashboard holding several maps, removing every tagged script would also take a sibling's, and a sibling that is still waiting on its deferred script would then be depending on a detached element to run. The loader registers an instance before requesting its script, so a sibling is in the registry here whether or not its script has executed yet...
 		document.querySelectorAll("script[data-better-map-instance-id]").forEach(function(script) {
 			var scriptInstanceId = script.getAttribute("data-better-map-instance-id");
 			if (scriptInstanceId && scriptInstanceId !== previousInstanceId && registry.instances[scriptInstanceId]) {
