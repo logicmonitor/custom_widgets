@@ -5440,7 +5440,7 @@ async function addWeatherLayer() {
 				} else {
 					map.overlayMapTypes.insertAt(0, createWeatherTileLayer("openweather", (tile, zoom) => {
 						return "https://tile.openweathermap.org/map/precipitation_new/" + zoom + "/" + tile.x + "/" + tile.y + ".png?appid=" + openWeatherAPIKey;
-					}, { maxZoom: 12 }));
+					}, { maxZoom: 12, opacity: Math.min(1, weatherOpacity + 0.20) }));
 				}
 
 			} else if (mapType === "xweather") {
