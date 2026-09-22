@@ -4073,6 +4073,7 @@ async function refreshGroupData(timedRefresh = false) {
 						position: { lat: cachedAddresses[groupID].lat, lng: cachedAddresses[groupID].lng },
 						map: map,
 						content: content,
+						gmpClickable: true,
 						// content: glyphSvgPinElement.element,
 						title: thisItem.name,
 						zIndex: pinIndex,
@@ -4081,7 +4082,7 @@ async function refreshGroupData(timedRefresh = false) {
 					marker.deviceID = thisItem.id;
 
 					// Open info window when marker is clicked...
-					marker.addListener("gmp-click", () => {
+					marker.addEventListener("gmp-click", () => {
 						toggleHighlight(marker, thisItem)
 					});
 
@@ -4625,6 +4626,7 @@ var renderer = {
 		const marker = new google.maps.marker.AdvancedMarkerElement({
 			position,
 			content: clusterContent,
+			gmpClickable: true,
 			zIndex: 1000 + count,
 		});
 
@@ -4728,7 +4730,7 @@ var renderer = {
 		}
 
 		// Add click listener
-		marker.addListener('gmp-click', () => {
+		marker.addEventListener('gmp-click', () => {
 			closeAllInfoWindows();
 			clusterInfoWindow = new CustomInfoWindow({
 				position: marker.position,
@@ -4935,7 +4937,7 @@ function hurricaneArcgisMeasurementsText(properties) {
 	else if (Number.isFinite(observedIntensity) && observedIntensity > 0 && observedIntensity < 9999) parts.push(`Wind ${observedIntensity} kt`);
 	if (Number.isFinite(gust) && gust > 0 && gust < 9999) parts.push(`Gust ${gust} kt`);
 	if (Number.isFinite(pressure) && pressure > 0 && pressure < 9999) parts.push(`Pressure ${pressure} mb`);
-	return parts.join(" | ");
+	return parts.join(" \u2022 ");
 }
 
 // Returns the ArcGIS-only storm classification used in track-point tooltips...
@@ -5124,10 +5126,10 @@ function plotHurricanes(geojson) {
 		if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
 		const markerSize = hurricaneIsHurricaneClass(storm.properties) ? 35 : 30;
 		const markerContent = hurricaneMarkerContent(hurricaneIconOpacity(storm.properties), markerSize);
-		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: markerContent, anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), zIndex: 1000 });
+		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: markerContent, anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), gmpClickable: true, zIndex: 1000 });
 		plottedStorms.set(groupId, { storm, marker, position });
 		markerContent.addEventListener("dblclick", event => { event.stopPropagation(); hurricaneFitStormBounds(storm, position); });
-		marker.addListener("gmp-click", () => {
+		marker.addEventListener("gmp-click", () => {
 			hurricaneSelectedStormId = groupId;
 			hurricaneShowStormTracks(storm);
 			hurricaneOpenStormInfo(storm, position);
@@ -5438,7 +5440,7 @@ async function addWeatherLayer() {
 				} else {
 					map.overlayMapTypes.insertAt(0, createWeatherTileLayer("openweather", (tile, zoom) => {
 						return "https://tile.openweathermap.org/map/precipitation_new/" + zoom + "/" + tile.x + "/" + tile.y + ".png?appid=" + openWeatherAPIKey;
-					}, { maxZoom: 12 }));
+					}, { maxZoom: 12, opacity: Math.min(1, weatherOpacity + 0.20) }));
 				}
 
 			} else if (mapType === "xweather") {
