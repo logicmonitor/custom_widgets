@@ -20,6 +20,7 @@ var releaseNotes = `
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
 	<h3>Version 3.75</h3>
 	<ul>
+		<li>Fixed an invalid query when filtering resources by severity.</li>
 		<li>Minor improvements to the hurricane info windows: added mph/kph conversions, storm speed and direction, and minor formatting tweaks.</li>
 	</ul>
 	<h3>Version 3.74</h3>
