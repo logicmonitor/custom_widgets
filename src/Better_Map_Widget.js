@@ -1381,6 +1381,18 @@ function parseSeverity(item) {
 	};
 }
 
+// Keep the displayed results aligned with the selected severities even if an API filter returns extra items.
+function matchesSelectedSeverity(item) {
+	const selected = {
+		clear: showCleared,
+		warn: showWarnings,
+		error: showErrors,
+		critical: showCriticals,
+		sdt: showSDT,
+	};
+	return selected[parseSeverity(item).severity];
+}
+
 // Function to switch between mapping groups, resources, or services...
 function selectMapType(newType) {
 	const requestedType = __LMBMW_ALLOWED_SOURCE_TYPES.indexOf(newType) >= 0 ? newType : "groups";
@@ -3541,6 +3553,7 @@ async function refreshGroupData(timedRefresh = false) {
 		_dom.showErrors.checked = true;
 		_dom.showCriticals.checked = true;
 		_dom.showSDT.checked = true;
+		showCleared = showWarnings = showErrors = showCriticals = showSDT = true;
 	}
 	// Get current state of the auto-zoom checkbox on the toolbar...
 	autoResetMapOnRefresh = _dom.autoZoom.checked;
@@ -3598,7 +3611,6 @@ async function refreshGroupData(timedRefresh = false) {
 	// Set our severity filters to query...
 	let statusFilter = "";
 	let statusArray = [];
-	// if (!showCleared && showWarnings && showErrors && showCriticals) {
 	if (showCleared) {
 		statusArray.push("none");
 	}
@@ -3611,8 +3623,10 @@ async function refreshGroupData(timedRefresh = false) {
 	if (showCriticals) {
 		statusArray.push("*critical*");
 	}
-	if (statusArray.length > 0) {
-		statusFilter = ',alertStatus:' + '"' + statusArray.join("|") + '"';
+	// SDT can coexist with any alert severity, so an alertStatus filter would omit some selected SDT items.
+	// Filter the returned items by their displayed severity after both location queries complete.
+	if (statusArray.length > 0 && !showSDT) {
+		statusFilter = ',alertStatus:' + statusArray.map(status => `"${status}"`).join("|");
 	}
 	if (!showSDT) {
 		statusFilter = statusFilter + ',sdtStatus:"none-none-*"';
@@ -3642,22 +3656,9 @@ async function refreshGroupData(timedRefresh = false) {
 			label: "Updating",
 		});
 
-		if (primaryResult.total === 0) {
-			console.debug('No results found');
-			if (!isBetterMapInstanceActive() || refreshSignal.aborted) return;
-			_dom.refreshStatusArea.innerHTML = "<span class='noResultMessage'>No results</span>";
-			_dom.mapOptionsArea.classList.remove("disabled");
-			if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
-			clearAllMarkers();
-			bounds = new google.maps.LatLngBounds();
-			resetZoom();
-			centerCalculated = false;
-			totalGroups = -1;
-		} else {
-			groupData = primaryResult.items;
-			totalGroups = primaryResult.total;
-			offset = groupData.length;
-		}
+		groupData = primaryResult.items.filter(matchesSelectedSeverity);
+		totalGroups = groupData.length;
+		offset = groupData.length;
 	} catch (error) {
 		if (error.name === 'AbortError') {
 			console.debug('Refresh operation was cancelled.');
@@ -3676,7 +3677,9 @@ async function refreshGroupData(timedRefresh = false) {
 		try {
 			const inheritedResult = await fetchPaginatedLMItems({
 				resourcePath,
-				buildQueryParams: (off) => buildLocationQuery(off, "inheritedProperties", queryCtx),
+				// The API can return unrelated statuses for inheritedProperties filters (and miss clear-only matches).
+				// Fetch by location and device type, then apply the selected severity locally.
+				buildQueryParams: (off) => buildLocationQuery(off, "inheritedProperties", { ...queryCtx, statusFilter: "" }),
 				signal: refreshSignal,
 				label: "Inherited locations",
 			});
@@ -3686,13 +3689,13 @@ async function refreshGroupData(timedRefresh = false) {
 				const seenIDs = new Set(groupData.map(item => item.id));
 				let added = 0;
 				for (const item of inheritedResult.items) {
-					if (!seenIDs.has(item.id)) {
+					if (!seenIDs.has(item.id) && matchesSelectedSeverity(item)) {
 						groupData.push(item);
 						seenIDs.add(item.id);
 						added++;
 					}
 				}
-				console.debug(`Inherited locations: ${inheritedResult.total} found, ${added} new (${inheritedResult.total - added} duplicates skipped)`);
+				console.debug(`Inherited locations: ${inheritedResult.total} found, ${added} selected new`);
 				totalGroups = groupData.length;
 				offset = totalGroups;
 			}
@@ -3707,6 +3710,19 @@ async function refreshGroupData(timedRefresh = false) {
 			_dom.mapOptionsArea.classList.remove("disabled");
 			if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
 		}
+	}
+
+	// A resource can have only an inherited location, so wait for both queries before reporting no results.
+	if (totalGroups === 0) {
+		if (!isBetterMapInstanceActive() || refreshSignal.aborted) return;
+		console.debug('No results found');
+		_dom.refreshStatusArea.innerHTML = "<span class='noResultMessage'>No results</span>";
+		_dom.mapOptionsArea.classList.remove("disabled");
+		if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
+		clearAllMarkers();
+		bounds = new google.maps.LatLngBounds();
+		resetZoom();
+		centerCalculated = false;
 	}
 
 	// If we've finished fetching all the group/resource data...
