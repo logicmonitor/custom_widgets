@@ -14,10 +14,15 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis...
 
 // ------------------------------------------------------------
-var version = "3.74 CDN";
+var version = "3.75 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.75</h3>
+	<ul>
+		<li>Fixed an invalid query when filtering resources by severity.</li>
+		<li>Minor improvements to the hurricane info windows: added mph/kph conversions, storm speed and direction, and minor formatting tweaks.</li>
+	</ul>
 	<h3>Version 3.74</h3>
 	<ul>
 		<li>Added ability to double-click a tropical storm's icon to zoom in to its track.</li>
@@ -1375,6 +1380,18 @@ function parseSeverity(item) {
 		pinBorder: meta.pinBorder,
 		pinIndex: meta.pinIndex,
 	};
+}
+
+// Keep the displayed results aligned with the selected severities even if an API filter returns extra items.
+function matchesSelectedSeverity(item) {
+	const selected = {
+		clear: showCleared,
+		warn: showWarnings,
+		error: showErrors,
+		critical: showCriticals,
+		sdt: showSDT,
+	};
+	return selected[parseSeverity(item).severity];
 }
 
 // Function to switch between mapping groups, resources, or services...
@@ -3537,6 +3554,7 @@ async function refreshGroupData(timedRefresh = false) {
 		_dom.showErrors.checked = true;
 		_dom.showCriticals.checked = true;
 		_dom.showSDT.checked = true;
+		showCleared = showWarnings = showErrors = showCriticals = showSDT = true;
 	}
 	// Get current state of the auto-zoom checkbox on the toolbar...
 	autoResetMapOnRefresh = _dom.autoZoom.checked;
@@ -3594,7 +3612,6 @@ async function refreshGroupData(timedRefresh = false) {
 	// Set our severity filters to query...
 	let statusFilter = "";
 	let statusArray = [];
-	// if (!showCleared && showWarnings && showErrors && showCriticals) {
 	if (showCleared) {
 		statusArray.push("none");
 	}
@@ -3607,8 +3624,10 @@ async function refreshGroupData(timedRefresh = false) {
 	if (showCriticals) {
 		statusArray.push("*critical*");
 	}
-	if (statusArray.length > 0) {
-		statusFilter = ',alertStatus:' + '"' + statusArray.join("|") + '"';
+	// SDT can coexist with any alert severity, so an alertStatus filter would omit some selected SDT items.
+	// Filter the returned items by their displayed severity after both location queries complete.
+	if (statusArray.length > 0 && !showSDT) {
+		statusFilter = ',alertStatus:' + statusArray.map(status => `"${status}"`).join("|");
 	}
 	if (!showSDT) {
 		statusFilter = statusFilter + ',sdtStatus:"none-none-*"';
@@ -3638,22 +3657,9 @@ async function refreshGroupData(timedRefresh = false) {
 			label: "Updating",
 		});
 
-		if (primaryResult.total === 0) {
-			console.debug('No results found');
-			if (!isBetterMapInstanceActive() || refreshSignal.aborted) return;
-			_dom.refreshStatusArea.innerHTML = "<span class='noResultMessage'>No results</span>";
-			_dom.mapOptionsArea.classList.remove("disabled");
-			if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
-			clearAllMarkers();
-			bounds = new google.maps.LatLngBounds();
-			resetZoom();
-			centerCalculated = false;
-			totalGroups = -1;
-		} else {
-			groupData = primaryResult.items;
-			totalGroups = primaryResult.total;
-			offset = groupData.length;
-		}
+		groupData = primaryResult.items.filter(matchesSelectedSeverity);
+		totalGroups = groupData.length;
+		offset = groupData.length;
 	} catch (error) {
 		if (error.name === 'AbortError') {
 			console.debug('Refresh operation was cancelled.');
@@ -3672,7 +3678,9 @@ async function refreshGroupData(timedRefresh = false) {
 		try {
 			const inheritedResult = await fetchPaginatedLMItems({
 				resourcePath,
-				buildQueryParams: (off) => buildLocationQuery(off, "inheritedProperties", queryCtx),
+				// The API can return unrelated statuses for inheritedProperties filters (and miss clear-only matches).
+				// Fetch by location and device type, then apply the selected severity locally.
+				buildQueryParams: (off) => buildLocationQuery(off, "inheritedProperties", { ...queryCtx, statusFilter: "" }),
 				signal: refreshSignal,
 				label: "Inherited locations",
 			});
@@ -3682,13 +3690,13 @@ async function refreshGroupData(timedRefresh = false) {
 				const seenIDs = new Set(groupData.map(item => item.id));
 				let added = 0;
 				for (const item of inheritedResult.items) {
-					if (!seenIDs.has(item.id)) {
+					if (!seenIDs.has(item.id) && matchesSelectedSeverity(item)) {
 						groupData.push(item);
 						seenIDs.add(item.id);
 						added++;
 					}
 				}
-				console.debug(`Inherited locations: ${inheritedResult.total} found, ${added} new (${inheritedResult.total - added} duplicates skipped)`);
+				console.debug(`Inherited locations: ${inheritedResult.total} found, ${added} selected new`);
 				totalGroups = groupData.length;
 				offset = totalGroups;
 			}
@@ -3703,6 +3711,19 @@ async function refreshGroupData(timedRefresh = false) {
 			_dom.mapOptionsArea.classList.remove("disabled");
 			if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
 		}
+	}
+
+	// A resource can have only an inherited location, so wait for both queries before reporting no results.
+	if (totalGroups === 0) {
+		if (!isBetterMapInstanceActive() || refreshSignal.aborted) return;
+		console.debug('No results found');
+		_dom.refreshStatusArea.innerHTML = "<span class='noResultMessage'>No results</span>";
+		_dom.mapOptionsArea.classList.remove("disabled");
+		if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
+		clearAllMarkers();
+		bounds = new google.maps.LatLngBounds();
+		resetZoom();
+		centerCalculated = false;
 	}
 
 	// If we've finished fetching all the group/resource data...
@@ -4940,6 +4961,13 @@ function hurricaneArcgisMeasurementsText(properties) {
 	return parts.join(" \u2022 ");
 }
 
+// Formats a speed in knots with mph and kph equivalents for storm infowindows...
+function hurricaneKnotsWithConversions(knots) {
+	const mph = Number((knots * 1.150779448).toFixed(2));
+	const kph = Number((knots * 1.852).toFixed(2));
+	return `${knots} kt (${mph} mph / ${kph} kph)`;
+}
+
 // Returns the ArcGIS-only storm classification used in track-point tooltips...
 function hurricaneArcgisSeverityText(properties) {
 	return String(properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || properties.STORMTYPE || "");
@@ -5034,13 +5062,25 @@ function hurricaneDisplayName(properties) {
 function hurricaneInfoHtml(storm) {
 	const properties = storm.properties || {};
 	const development = properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || "";
-	const measurements = hurricaneArcgisMeasurementsText(properties);
+	const measurements = [];
+	const wind = Number(properties.MAXWIND);
+	const observedIntensity = Number(properties.INTENSITY);
+	const gust = Number(properties.GUST);
+	const pressure = Number(properties.MSLP);
+	if (Number.isFinite(wind) && wind > 0 && wind < 9999) measurements.push(`Wind: ${hurricaneKnotsWithConversions(wind)}`);
+	else if (Number.isFinite(observedIntensity) && observedIntensity > 0 && observedIntensity < 9999) measurements.push(`Wind: ${hurricaneKnotsWithConversions(observedIntensity)}`);
+	if (Number.isFinite(gust) && gust > 0 && gust < 9999) measurements.push(`Gust: ${hurricaneKnotsWithConversions(gust)}`);
+	if (Number.isFinite(pressure) && pressure > 0 && pressure < 9999) measurements.push(`Pressure: ${pressure} mb`);
+	const direction = Number(properties.TCDIR);
+	const speed = Number(properties.TCSPD);
+	if (properties.TCDIR != null && properties.TCDIR !== "" && Number.isFinite(direction) && direction >= 0 && direction <= 360 && !(direction === 0 && speed === 0)) measurements.push(`Direction: ${direction}\u00b0`);
+	if (properties.TCSPD != null && properties.TCSPD !== "" && Number.isFinite(speed) && speed >= 0 && speed < 9999 && !(direction === 0 && speed === 0)) measurements.push(`Speed: ${hurricaneKnotsWithConversions(speed)}`);
 	const infoIcon = hurricaneIconSvg(80);
 	const reportUrl = properties.url && typeof properties.url === "object" ? properties.url.report : properties["url.report"];
 	const reportLink = /^https?:\/\//i.test(String(reportUrl || "")) ? `<div style="border-top:1px solid #eee;padding:6px 0;"><a href="${escapeHtml(reportUrl)}" target="_blank" rel="noopener noreferrer">Storm Report</a></div>` : "";
-	const developmentBlock = development ? `<div style="border-bottom:1px solid #eee;padding-bottom:6px;margin-bottom:0;">${escapeHtml(development)}</div>` : "";
-	const measurementsBlock = measurements ? `<div style="padding:6px 0;">${escapeHtml(measurements)}</div>` : "";
-	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);">${infoIcon}</div><div style="font-size:1.2em;font-weight:700;color:#1261a0;margin-bottom:10px;">${escapeHtml(hurricaneDisplayName(properties))}</div>${developmentBlock}${measurementsBlock}${reportLink}</div>`;
+	const developmentBlock = development ? `<div style="border-bottom:1px solid #eee;padding-bottom:6px;margin-bottom:0;font-weight:500;">${escapeHtml(development)}</div>` : "";
+	const measurementsBlock = measurements.length ? `<div style="padding:6px 0;font-size:0.95em;color:darkslategray;line-height:1.4;">${measurements.map(value => `<div>${escapeHtml(value).replace(/^([^:]+):/, '<strong style="color:slategray;">$1:</strong>')}</div>`).join("")}</div>` : "";
+	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);">${infoIcon}</div><div style="font-size:1.4em;font-weight:700;color:#1261a0;margin-bottom:7px;">${escapeHtml(hurricaneDisplayName(properties))}</div>${developmentBlock}${measurementsBlock}${reportLink}</div>`;
 }
 
 // Hides all hurricane paths, dots, and cones...
