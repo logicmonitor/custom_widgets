@@ -37,7 +37,7 @@ body {
 	padding: 0 12px 12px 12px;
 	min-width: 300px;
 	max-height: 400px;
-	overflow-y: auto;
+	/* overflow-y: auto; */
 	font-family: system-ui, -apple-system, sans-serif;
 	user-select: none;
 }
@@ -900,6 +900,7 @@ body {
 	display: grid;
 	gap: 4px;
 	max-height: 180px;
+	overflow-y: auto;
 }
 
 /* --- Cluster Device Row --- */
