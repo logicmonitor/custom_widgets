@@ -861,6 +861,10 @@ body {
 	border-left: 1px solid #e5e7eb;
 }
 
+.cluster-stat-cell--zero {
+	background-color: #efefef;
+}
+
 .cluster-stat-label {
 	display: flex;
 	align-items: center;

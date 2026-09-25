@@ -4728,23 +4728,23 @@ var renderer = {
 						</button>
 					</div>
 					<div class="cluster-stats">
-						<div class="cluster-stat-cell">
+						<div class="cluster-stat-cell${severityCounts.get("3") ? '' : ' cluster-stat-cell--zero'}">
 							<span class="cluster-stat-label"><span class="status-dot status-dot--critical"></span>Critical</span>
 							<span class="cluster-stat-count${severityCounts.get("3") ? '' : ' cluster-stat-count--zero'}">${severityCounts.get("3") || 0}</span>
 						</div>
-						<div class="cluster-stat-cell">
+						<div class="cluster-stat-cell${severityCounts.get("2") ? '' : ' cluster-stat-cell--zero'}">
 							<span class="cluster-stat-label"><span class="status-dot status-dot--error"></span>Error</span>
 							<span class="cluster-stat-count${severityCounts.get("2") ? '' : ' cluster-stat-count--zero'}">${severityCounts.get("2") || 0}</span>
 						</div>
-						<div class="cluster-stat-cell">
+						<div class="cluster-stat-cell${severityCounts.get("1") ? '' : ' cluster-stat-cell--zero'}">
 							<span class="cluster-stat-label"><span class="status-dot status-dot--warning"></span>Warning</span>
 							<span class="cluster-stat-count${severityCounts.get("1") ? '' : ' cluster-stat-count--zero'}">${severityCounts.get("1") || 0}</span>
 						</div>
-						<div class="cluster-stat-cell">
+						<div class="cluster-stat-cell${severityCounts.get("0") ? '' : ' cluster-stat-cell--zero'}">
 							<span class="cluster-stat-label"><span class="status-dot status-dot--clear"></span>Clear</span>
 							<span class="cluster-stat-count${severityCounts.get("0") ? '' : ' cluster-stat-count--zero'}">${severityCounts.get("0") || 0}</span>
 						</div>
-						<div class="cluster-stat-cell">
+						<div class="cluster-stat-cell${severityCounts.get("4") ? '' : ' cluster-stat-cell--zero'}">
 							<span class="cluster-stat-label"><span class="status-dot status-dot--sdt"></span>SDT</span>
 							<span class="cluster-stat-count${severityCounts.get("4") ? '' : ' cluster-stat-count--zero'}">${severityCounts.get("4") || 0}</span>
 						</div>
