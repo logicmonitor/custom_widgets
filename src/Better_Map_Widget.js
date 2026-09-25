@@ -1721,6 +1721,10 @@ betterMapRoot.querySelectorAll('[data-bmw-action]').forEach(function(el) {
 	el.addEventListener(eventType, function(e) {
 		// For overlay backgrounds, only trigger if the click was directly on the element itself
 		if (selfOnly && e.target !== el) return;
+		if (["showCleared", "showWarnings", "showErrors", "showCriticals", "showSDT"].includes(el.id) && clusterInfoWindow) {
+			clusterInfoWindow.close();
+			clusterInfoWindow = null;
+		}
 		// Build the arguments for betterMapWidgetCall
 		if (eventType === 'keypress') {
 			window.betterMapWidgetCall(betterMapInstanceId, action, e);

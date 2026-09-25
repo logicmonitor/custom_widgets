@@ -1302,8 +1302,8 @@
 	}
 
 	.cluster-stat-count {
-		font-size: 20px;
-		font-weight: 600;
+		font-size: 18px;
+		/* font-weight: 600; */
 		line-height: 1.2;
 	}
 
@@ -1325,6 +1325,7 @@
 	.cluster-devices-list {
 		display: grid;
 		gap: 4px;
+		max-height: 180px;
 	}
 
 	/* --- Cluster Device Row --- */
@@ -2756,6 +2757,10 @@ if (window.RProfiler) {
 		el.addEventListener(eventType, function(e) {
 			// For overlay backgrounds, only trigger if the click was directly on the element itself
 			if (selfOnly && e.target !== el) return;
+			if (["showCleared", "showWarnings", "showErrors", "showCriticals", "showSDT"].includes(el.id) && clusterInfoWindow) {
+				clusterInfoWindow.close();
+				clusterInfoWindow = null;
+			}
 			// Build the arguments for betterMapWidgetCall
 			if (eventType === 'keypress') {
 				window.betterMapWidgetCall(betterMapInstanceId, action, e);

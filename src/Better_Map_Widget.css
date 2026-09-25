@@ -876,8 +876,8 @@ body {
 }
 
 .cluster-stat-count {
-	font-size: 20px;
-	font-weight: 600;
+	font-size: 18px;
+	/* font-weight: 600; */
 	line-height: 1.2;
 }
 
@@ -899,6 +899,7 @@ body {
 .cluster-devices-list {
 	display: grid;
 	gap: 4px;
+	max-height: 180px;
 }
 
 /* --- Cluster Device Row --- */
