@@ -39,6 +39,10 @@ body {
 	max-height: 400px;
 	overflow-y: auto;
 	font-family: system-ui, -apple-system, sans-serif;
+	user-select: none;
+}
+.custom-info-window {
+	cursor: auto;
 }
 #optionsBar {
 	width: 100%;
@@ -807,7 +811,7 @@ body {
 
 .cluster-title {
 	font-weight: 600;
-	font-size: 14px;
+	font-size: 16px;
 }
 
 .cluster-zoom-btn {
@@ -835,19 +839,55 @@ body {
 
 .cluster-stats {
 	display: grid;
-	gap: 8px;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	border: 1px solid #c5cad3;
+	border-radius: 6px;
+	overflow: hidden;
 	margin-bottom: 16px;
+	background-color: #f9f9f9;
 }
 
-.cluster-stat-row {
+.cluster-stat-cell {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	min-width: 0;
+	padding: 8px 4px;
+}
+
+.cluster-stat-cell + .cluster-stat-cell {
+	border-left: 1px solid #e5e7eb;
+}
+
+.cluster-stat-label {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 4px;
+	font-size: 11px;
+	line-height: 1.2;
+}
+
+.cluster-stat-label .status-dot {
+	flex: 0 0 10px;
+	width: 10px;
+	height: 10px;
+}
+
+.cluster-stat-count {
+	font-size: 18px;
+	/* font-weight: 600; */
+	line-height: 1.2;
+}
+
+.cluster-stat-count--zero {
+	color: #aaa;
 }
 
 .cluster-devices-section {
-	border-top: 1px solid #eee;
-	padding-top: 12px;
+	/* border-top: 1px solid #eee; */
+	padding-top: 8px;
 }
 
 .cluster-devices-title {
@@ -859,6 +899,7 @@ body {
 .cluster-devices-list {
 	display: grid;
 	gap: 4px;
+	max-height: 180px;
 }
 
 /* --- Cluster Device Row --- */
