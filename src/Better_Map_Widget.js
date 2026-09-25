@@ -14,10 +14,15 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis...
 
 // ------------------------------------------------------------
-var version = "3.75 CDN";
+var version = "3.76 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.76</h3>
+	<ul>
+		<li>Improved the severity summary on cluster infowindows.</li>
+		<li>Fixed an issue where the cluster infowindow could be left open after clicking a severity filter checkbox.</li>
+	</ul>
 	<h3>Version 3.75</h3>
 	<ul>
 		<li>Fixed an invalid query when filtering resources by severity.</li>
