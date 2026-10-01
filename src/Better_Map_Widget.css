@@ -444,7 +444,7 @@ body {
 	align-items: center;
 	background-color: #FFFFFF;
 	border-radius: 50% 50% 50% 0;
-	box-shadow: rgba(255, 255, 255, 0.8) 0px 0px 0px 2px, rgba(0, 0, 0, 0.8) 0px 2px 8px;
+	box-shadow: rgba(255, 255, 255, 1) 0px 0px 0px 2px, rgba(0, 0, 0, 0.9) 0px 2px 8px;
 	color: #263238;
 	display: flex;
 	font-size: 14px;

@@ -5498,7 +5498,7 @@ async function addWeatherLayer() {
 				} else {
 					map.overlayMapTypes.insertAt(0, createWeatherTileLayer("xweather", (tile, zoom) => {
 						return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar-global/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
-					}, { maxZoom: 12, opacity: Math.max(0, weatherOpacity - 0.10) }));
+					}, { maxZoom: 12, opacity: Math.max(0, weatherOpacity - 0.15) }));
 				}
 			}
 		} catch (error) {
