@@ -4728,23 +4728,23 @@ var renderer = {
 						</button>
 					</div>
 					<div class="cluster-stats">
-						<div class="cluster-stat-cell">
+						<div class="cluster-stat-cell${severityCounts.get("3") ? '' : ' cluster-stat-cell--zero'}">
 							<span class="cluster-stat-label"><span class="status-dot status-dot--critical"></span>Critical</span>
 							<span class="cluster-stat-count${severityCounts.get("3") ? '' : ' cluster-stat-count--zero'}">${severityCounts.get("3") || 0}</span>
 						</div>
-						<div class="cluster-stat-cell">
+						<div class="cluster-stat-cell${severityCounts.get("2") ? '' : ' cluster-stat-cell--zero'}">
 							<span class="cluster-stat-label"><span class="status-dot status-dot--error"></span>Error</span>
 							<span class="cluster-stat-count${severityCounts.get("2") ? '' : ' cluster-stat-count--zero'}">${severityCounts.get("2") || 0}</span>
 						</div>
-						<div class="cluster-stat-cell">
+						<div class="cluster-stat-cell${severityCounts.get("1") ? '' : ' cluster-stat-cell--zero'}">
 							<span class="cluster-stat-label"><span class="status-dot status-dot--warning"></span>Warning</span>
 							<span class="cluster-stat-count${severityCounts.get("1") ? '' : ' cluster-stat-count--zero'}">${severityCounts.get("1") || 0}</span>
 						</div>
-						<div class="cluster-stat-cell">
+						<div class="cluster-stat-cell${severityCounts.get("0") ? '' : ' cluster-stat-cell--zero'}">
 							<span class="cluster-stat-label"><span class="status-dot status-dot--clear"></span>Clear</span>
 							<span class="cluster-stat-count${severityCounts.get("0") ? '' : ' cluster-stat-count--zero'}">${severityCounts.get("0") || 0}</span>
 						</div>
-						<div class="cluster-stat-cell">
+						<div class="cluster-stat-cell${severityCounts.get("4") ? '' : ' cluster-stat-cell--zero'}">
 							<span class="cluster-stat-label"><span class="status-dot status-dot--sdt"></span>SDT</span>
 							<span class="cluster-stat-count${severityCounts.get("4") ? '' : ' cluster-stat-count--zero'}">${severityCounts.get("4") || 0}</span>
 						</div>
@@ -5089,7 +5089,7 @@ function hurricaneInfoHtml(storm) {
 	const reportLink = /^https?:\/\//i.test(String(reportUrl || "")) ? `<div style="border-top:1px solid #eee;padding:6px 0;"><a href="${escapeHtml(reportUrl)}" target="_blank" rel="noopener noreferrer">Storm Report</a></div>` : "";
 	const developmentBlock = development ? `<div style="border-bottom:1px solid #eee;padding-bottom:6px;margin-bottom:0;font-weight:500;">${escapeHtml(development)}</div>` : "";
 	const measurementsBlock = measurements.length ? `<div style="padding:6px 0;font-size:0.95em;color:darkslategray;line-height:1.4;">${measurements.map(value => `<div>${escapeHtml(value).replace(/^([^:]+):/, '<strong style="color:slategray;">$1:</strong>')}</div>`).join("")}</div>` : "";
-	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);">${infoIcon}</div><div style="font-size:1.4em;font-weight:700;color:#1261a0;margin-bottom:7px;">${escapeHtml(hurricaneDisplayName(properties))}</div>${developmentBlock}${measurementsBlock}${reportLink}</div>`;
+	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;user-select:none;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);">${infoIcon}</div><div style="font-size:1.4em;font-weight:700;color:#1261a0;margin-bottom:7px;">${escapeHtml(hurricaneDisplayName(properties))}</div>${developmentBlock}${measurementsBlock}${reportLink}</div>`;
 }
 
 // Hides all hurricane paths, dots, and cones...
@@ -5498,7 +5498,7 @@ async function addWeatherLayer() {
 				} else {
 					map.overlayMapTypes.insertAt(0, createWeatherTileLayer("xweather", (tile, zoom) => {
 						return "https://maps.aerisapi.com/" + xweatherAPIID + "_" + xweatherAPIKey + "/radar-global/" + zoom + "/" + tile.x + "/" + tile.y + "/current.png";
-					}, { maxZoom: 12, opacity: Math.max(0, weatherOpacity - 0.10) }));
+					}, { maxZoom: 12, opacity: Math.max(0, weatherOpacity - 0.15) }));
 				}
 			}
 		} catch (error) {
