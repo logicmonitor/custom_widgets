@@ -14,10 +14,14 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis...
 
 // ------------------------------------------------------------
-var version = "3.76 CDN";
+var version = "3.77 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.77</h3>
+	<ul>
+		<li>Allowing zooming the "Global Weather" radar layer beyond zoom level 7, which is the max that Rainviewer allows. The widget will now scale the weather tiles as needed instead of just hiding them when zoomed in.</li>
+	</ul>
 	<h3>Version 3.76</h3>
 	<ul>
 		<li>Improved the severity summary on cluster infowindows.</li>
@@ -4869,20 +4873,37 @@ function createWeatherTileLayer(name, getTileUrl, opts = {}) {
 	const tileSize = new google.maps.Size(256, 256);
 	return {
 		tileSize,
-		maxZoom: opts.maxZoom,
+		// maxZoom caps source requests; maxDisplayZoom optionally keeps those tiles visible further in.
+		maxZoom: opts.maxDisplayZoom == null ? opts.maxZoom : opts.maxDisplayZoom,
 		name,
 		getTile(coord, zoom, ownerDocument) {
 			const div = ownerDocument.createElement('div');
 			div.style.width = tileSize.width + 'px';
 			div.style.height = tileSize.height + 'px';
-			if (opts.maxZoom && zoom > opts.maxZoom) return div;
-			const url = getTileUrl(coord, zoom);
+			const maxDisplayZoom = opts.maxDisplayZoom == null ? opts.maxZoom : opts.maxDisplayZoom;
+			if (maxDisplayZoom != null && zoom > maxDisplayZoom) return div;
+			// Above the native limit, request the parent tile and crop its enlarged image to this tile.
+			const sourceZoom = opts.maxZoom == null ? zoom : Math.min(zoom, opts.maxZoom);
+			const scale = Math.pow(2, zoom - sourceZoom);
+			const sourceCoord = { x: Math.floor(coord.x / scale), y: Math.floor(coord.y / scale) };
+			const url = getTileUrl(sourceCoord, sourceZoom);
 			if (!url) return div;
 			const img = ownerDocument.createElement('img');
 			img.src = url;
 			img.style.width = '100%';
 			img.style.height = '100%';
 			img.style.display = 'block';
+			if (scale > 1) {
+				div.style.position = 'relative';
+				div.style.overflow = 'hidden';
+				img.style.position = 'absolute';
+				img.style.width = (tileSize.width * scale) + 'px';
+				img.style.height = (tileSize.height * scale) + 'px';
+				img.style.maxWidth = 'none';
+				img.style.maxHeight = 'none';
+				img.style.left = (-(coord.x - sourceCoord.x * scale) * tileSize.width) + 'px';
+				img.style.top = (-(coord.y - sourceCoord.y * scale) * tileSize.height) + 'px';
+			}
 			img.style.opacity = opts.opacity == null ? weatherOpacity : opts.opacity;
 			div.appendChild(img);
 			return div;
@@ -5475,7 +5496,7 @@ async function addWeatherLayer() {
 					const frame = rvMapFrames[rvLastPastFramePosition];
 					if (!frame || !frame.path || !rvAPIData.host) return null;
 					return [rvAPIData.host + frame.path, 256, zoom, tile.x, tile.y, colorScheme, smooth + '_' + snow + '.png'].join('/');
-				}, { maxZoom: 7 }));
+				}, { maxZoom: 7, maxDisplayZoom: 12 }));
 
 			} else if (mapType.match(/(nexrad|q2)/g)) {
 				const nexradCacheBuster = Math.floor(Date.now() / (weatherRefreshMinutes * 60000));
