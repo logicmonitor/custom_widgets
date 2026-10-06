@@ -3506,8 +3506,29 @@ async function fetchPaginatedLMItems({ resourcePath, buildQueryParams, signal, l
 		offset = items.length;
 
 		// A group-popup lookup passes quiet so it does not overwrite the map's own refresh progress...
+		// The label and counts are text nodes so they are never parsed as HTML...
 		if (!quiet) {
-			_dom.refreshStatusArea.innerHTML = `${loadingSpinner}&nbsp;${label}: ${offset} of ${total} (${Math.round(offset / total * 100)}%)`;
+			var spinner = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+			spinner.setAttribute("class", "bmw-spinner");
+			spinner.setAttribute("width", "24");
+			spinner.setAttribute("height", "24");
+			spinner.setAttribute("viewBox", "0 0 24 24");
+			spinner.style.marginRight = "0.35em";
+			var ringClasses = ["bmw-spinner-ring-1", "bmw-spinner-ring-2", "bmw-spinner-ring-3"];
+			for (var ringIndex = 0; ringIndex < ringClasses.length; ringIndex++) {
+				var ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+				ring.setAttribute("class", "bmw-spinner-ring " + ringClasses[ringIndex]);
+				ring.setAttribute("cx", "12");
+				ring.setAttribute("cy", "12");
+				ring.setAttribute("r", "0");
+				ring.setAttribute("fill", "red");
+				spinner.appendChild(ring);
+			}
+			var progress = document.createElement("span");
+			progress.textContent = label + ": " + offset + " of " + total + " (" + Math.round(offset / total * 100) + "%)";
+			_dom.refreshStatusArea.textContent = "";
+			_dom.refreshStatusArea.appendChild(spinner);
+			_dom.refreshStatusArea.appendChild(progress);
 		}
 	}
 
