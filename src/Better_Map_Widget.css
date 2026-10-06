@@ -537,8 +537,8 @@ body {
 	font-size: 13px;
 }
 .group .features > div.drillDownButton {
-	background-color: #1a73e8;
-	border-color: #1a73e8;
+	background-color: #4195fe;
+	border-color: #1a7de8;
 	cursor: pointer;
 }
 .group .features > div.drillDownButton a {
@@ -899,9 +899,23 @@ body {
 }
 
 .cluster-devices-title {
+	display: flex;
+	align-items: center;
+	gap: 6px;
 	font-weight: 600;
 	font-size: 14px;
 	margin-bottom: 8px;
+}
+
+.cluster-list-type-icon {
+	display: inline-flex;
+	flex-shrink: 0;
+	line-height: 0;
+}
+
+.cluster-list-type-icon svg {
+	width: 18px;
+	height: 18px;
 }
 
 .cluster-devices-list {
