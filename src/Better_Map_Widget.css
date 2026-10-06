@@ -588,6 +588,10 @@ body {
 	display: flex;
 	z-index: 10;
 }
+.group.highlight .cluster-devices-section {
+	margin-top: 12px;
+	border-top: 1px solid #e8eaed;
+}
 .group.highlight .icon svg {
 	width: 50px;
 	height: 50px;
@@ -905,6 +909,7 @@ body {
 	gap: 4px;
 	max-height: 180px;
 	overflow-y: auto;
+	font-size: 13px;
 }
 
 /* --- Cluster Device Row --- */

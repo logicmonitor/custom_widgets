@@ -14,10 +14,14 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis...
 
 // ------------------------------------------------------------
-var version = "3.77 CDN";
+var version = "3.78 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.78</h3>
+	<ul>
+		<li>Clicking a group marker now lists the resources in that group and its subgroups, with the same status rows used by cluster popups. Groups that already report zero resources skip that lookup.</li>
+	</ul>
 	<h3>Version 3.77</h3>
 	<ul>
 		<li>Allowing zooming the "Global Weather" radar layer beyond zoom level 7, which is the max that Rainviewer allows. The widget will now scale the weather tiles as needed instead of just hiding them when zoomed in.</li>
@@ -2583,6 +2587,9 @@ _dom.showConnectedLabel.innerHTML = connectedIcon;
 var clusterInfoWindow = null;
 var markerInfoWindow = null;
 var overlayInfoWindow = null;
+// Resource rows for an open group popup, keyed by group id, cleared on the next map refresh...
+var _groupResourceCache = new Map();
+var _groupResourceListAbort = null;
 // Every map.data listener the current overlay installed, so teardown can remove all of them...
 var overlayDataListenerHandles = [];
 var mmiContourLines = [];
@@ -3487,7 +3494,7 @@ function buildLocationQuery(offset, propSource, { fieldList, pathOperator, statu
 }
 
 // Function to fetch paginated LogicMonitor API results...
-async function fetchPaginatedLMItems({ resourcePath, buildQueryParams, signal, label }) {
+async function fetchPaginatedLMItems({ resourcePath, buildQueryParams, signal, label, quiet }) {
 	const items = [];
 	let offset = 0;
 	let total = 1000;
@@ -3515,7 +3522,10 @@ async function fetchPaginatedLMItems({ resourcePath, buildQueryParams, signal, l
 		items.push(...page);
 		offset = items.length;
 
-		_dom.refreshStatusArea.innerHTML = `${loadingSpinner}&nbsp;${label}: ${offset} of ${total} (${Math.round(offset / total * 100)}%)`;
+		// A group-popup lookup passes quiet so it does not overwrite the map's own refresh progress...
+		if (!quiet) {
+			_dom.refreshStatusArea.innerHTML = `${loadingSpinner}&nbsp;${label}: ${offset} of ${total} (${Math.round(offset / total * 100)}%)`;
+		}
 	}
 
 	return { items, total };
@@ -3590,6 +3600,12 @@ async function refreshGroupData(timedRefresh = false) {
 
 	// Clear any previously fetched data...
 	groupData = [];
+	// Group popup resource lists are loaded on click, so drop them when the map data is refreshed...
+	if (_groupResourceListAbort) {
+		_groupResourceListAbort.abort();
+		_groupResourceListAbort = null;
+	}
+	_groupResourceCache.clear();
 	// For tracking how many groups to fetch & pagination...
 	let totalGroups = 1000;
 	let offset = 0;
@@ -3603,7 +3619,7 @@ async function refreshGroupData(timedRefresh = false) {
 	_dom.refreshStatusArea.style.display = "flex";
 
 	// List of fields to fetch...
-	let fieldList = "alertStatus,displayName,description,id,hostStatus,name,sdtStatus,numOfHosts,numOfAWSDevices,numOfAzureDevices,numOfGcpDevices,numOfKubernetesDevices,numOfDirectDevices,numOfSubGroups,customProperties,autoProperties";
+	let fieldList = "alertStatus,displayName,description,id,hostStatus,name,fullPath,sdtStatus,numOfHosts,numOfAWSDevices,numOfAzureDevices,numOfGcpDevices,numOfKubernetesDevices,numOfDirectDevices,numOfSubGroups,customProperties,autoProperties";
 	// Only fetch custom & inherited properties on full refreshes...
 	if (Object.keys(cachedAddresses).length === 0 || pollCount > fullRefreshInterval) {
 		fullRefresh = true;
@@ -4260,8 +4276,64 @@ async function plotConnection(connection, requestedRefreshGeneration = refreshGe
 	return true;
 }
 
+// Function to write into the group resource list once its popup markup is on the map...
+function writeGroupResourceList(infoWindow, groupId, writer) {
+	function attempt() {
+		if (!infoWindow || !infoWindow.isOpen || String(infoWindow.markerId) !== String(groupId) || !infoWindow.div) {
+			return false;
+		}
+		var listEl = infoWindow.div.querySelector("[data-group-resource-list]");
+		if (!listEl) return false;
+		writer(listEl);
+		// The window is anchored above the marker from its height at open time. Filling the list makes it taller, so redraw from the new height to keep the bottom on the marker...
+		if (infoWindow.isOpen && typeof infoWindow.draw === "function") {
+			infoWindow.draw();
+			if (typeof infoWindow.autoPan === "function") {
+				infoWindow.autoPan();
+			}
+		}
+		return true;
+	}
+	if (!attempt()) {
+		requestAnimationFrame(function() {
+			attempt();
+		});
+	}
+}
+
+// Function to fill a group popup's resource list, sorted like a cluster popup...
+function applyGroupResourceRows(listEl, devices) {
+	var statusNames = { critical: "critical", error: "error", warn: "warning", sdt: "sdt", clear: "clear" };
+	var statusRanks = { critical: 4, error: 3, warning: 2, sdt: 1, clear: 0 };
+	var rows = devices.map(function(device) {
+		var parsed = parseSeverity(device);
+		var status = statusNames[parsed.severity] || "clear";
+		var id = encodeURIComponent(device.id);
+		return {
+			name: device.displayName || device.name || "",
+			link: "/santaba/uiv4/resources/treeNodes/t-d,id-" + id + "?source=details&tab=alert",
+			status: status,
+			sdtStatus: parsed.severity === "sdt" ? ' <span class="sdtNote">(in SDT)</span>' : "",
+			statusRank: statusRanks[status] || 0
+		};
+	});
+	rows.sort(function(a, b) {
+		return (b.statusRank - a.statusRank) || String(a.name).localeCompare(String(b.name));
+	});
+	var section = listEl.parentNode;
+	var title = section ? section.querySelector(".cluster-devices-title") : null;
+	if (title) {
+		title.textContent = "Resources (" + rows.length + ")";
+	}
+	if (!rows.length) {
+		listEl.textContent = "No resources";
+		return;
+	}
+	listEl.innerHTML = rows.map(buildClusterDeviceRowHtml).join("");
+}
+
 // Function for showing/hiding a group's detail when clicked...
-function toggleHighlight(markerView, group) {
+async function toggleHighlight(markerView, group) {
 	closeAllInfoWindows({ skipMarker: true });
 
 	// If clicking the same marker that's already open, close it. The isOpen test matters because dismissing the window with its own X button leaves this reference in place, and without it the next click on that same marker was treated as a second toggle-off and opened nothing...
@@ -4286,6 +4358,32 @@ function toggleHighlight(markerView, group) {
 		detailsEl.style.display = 'flex';
 	}
 
+	var resourceCount = 0;
+	if (group) {
+		resourceCount = (Number(group.numOfHosts) || 0)
+			+ (Number(group.numOfAWSDevices) || 0)
+			+ (Number(group.numOfAzureDevices) || 0)
+			+ (Number(group.numOfGcpDevices) || 0)
+			+ (Number(group.numOfKubernetesDevices) || 0);
+	}
+	var showResourceList = mapSourceType === "groups" && resourceCount > 0 && detailsEl;
+	if (showResourceList) {
+		var section = document.createElement("div");
+		section.className = "cluster-devices-section";
+		var title = document.createElement("div");
+		title.className = "cluster-devices-title";
+		title.textContent = "Resources";
+		var list = document.createElement("div");
+		list.className = "cluster-devices-list";
+		list.setAttribute("data-group-resource-list", "1");
+		var loading = document.createElement("div");
+		loading.textContent = "Loading resources...";
+		list.appendChild(loading);
+		section.appendChild(title);
+		section.appendChild(list);
+		detailsEl.appendChild(section);
+	}
+
 	// Create and open the CustomInfoWindow
 	markerInfoWindow = new CustomInfoWindow({
 		position: markerView.position,
@@ -4295,6 +4393,64 @@ function toggleHighlight(markerView, group) {
 	});
 	markerInfoWindow.markerId = markerView.deviceID; // Track which marker this is for
 	markerInfoWindow.open(map);
+
+	if (!showResourceList) return;
+
+	if (_groupResourceListAbort) {
+		_groupResourceListAbort.abort();
+		_groupResourceListAbort = null;
+	}
+	var infoWindow = markerInfoWindow;
+	var groupId = group.id;
+	var fullPath = group.fullPath;
+	if (!fullPath) {
+		console.warn("Map " + widgetID + ": group resource list skipped because the group path is missing.", groupId);
+		writeGroupResourceList(infoWindow, groupId, function(listEl) {
+			listEl.textContent = "Could not load resources";
+		});
+		return;
+	}
+
+	var cached = _groupResourceCache.get(groupId);
+	if (cached) {
+		writeGroupResourceList(infoWindow, groupId, function(listEl) {
+			applyGroupResourceRows(listEl, cached);
+		});
+		return;
+	}
+
+	var controller = new AbortController();
+	_groupResourceListAbort = controller;
+	try {
+		var result = await fetchPaginatedLMItems({
+			resourcePath: "/device/devices",
+			buildQueryParams: function(offset) {
+				var safePath = String(fullPath).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+				var filterValue = 'systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + safePath + '*\\"}"';
+				var fields = "id,displayName,name,alertStatus,sdtStatus";
+				return "?v=3&size=1000&offset=" + offset + "&fields=" + fields + "&filter=" + encodeURIComponent(filterValue);
+			},
+			signal: controller.signal,
+			label: "Group resources",
+			quiet: true
+		});
+		if (controller.signal.aborted) return;
+		var items = (result && result.items) ? result.items : [];
+		_groupResourceCache.set(groupId, items);
+		writeGroupResourceList(infoWindow, groupId, function(listEl) {
+			applyGroupResourceRows(listEl, items);
+		});
+	} catch (error) {
+		if (error && error.name === "AbortError") return;
+		console.warn("Map " + widgetID + ": could not load resources for group " + groupId + ".", error);
+		writeGroupResourceList(infoWindow, groupId, function(listEl) {
+			listEl.textContent = "Could not load resources";
+		});
+	} finally {
+		if (_groupResourceListAbort === controller) {
+			_groupResourceListAbort = null;
+		}
+	}
 }
 
 if (typeof sidebarDefaultWidth === 'undefined') { sidebarDefaultWidth = 300; }
