@@ -537,8 +537,8 @@ body {
 	font-size: 13px;
 }
 .group .features > div.drillDownButton {
-	background-color: #1a73e8;
-	border-color: #1a73e8;
+	background-color: #4195fe;
+	border-color: #1a7de8;
 	cursor: pointer;
 }
 .group .features > div.drillDownButton a {
@@ -587,6 +587,10 @@ body {
 .group.highlight .details {
 	display: flex;
 	z-index: 10;
+}
+.group.highlight .cluster-devices-section {
+	margin-top: 12px;
+	border-top: 1px solid #e8eaed;
 }
 .group.highlight .icon svg {
 	width: 50px;
@@ -895,9 +899,24 @@ body {
 }
 
 .cluster-devices-title {
+	display: flex;
+	align-items: center;
+	gap: 6px;
 	font-weight: 600;
 	font-size: 14px;
 	margin-bottom: 8px;
+}
+
+.cluster-list-type-icon {
+	display: inline-flex;
+	flex-shrink: 0;
+	line-height: 0;
+}
+
+.cluster-list-type-icon svg {
+	width: 18px;
+	height: 18px;
+	fill: lightslategray;
 }
 
 .cluster-devices-list {
@@ -905,6 +924,7 @@ body {
 	gap: 4px;
 	max-height: 180px;
 	overflow-y: auto;
+	font-size: 13px;
 }
 
 /* --- Cluster Device Row --- */
