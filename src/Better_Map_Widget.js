@@ -20,6 +20,7 @@ var releaseNotes = `
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
 	<h3>Version 3.79</h3>
 	<ul>
+		<li>Storm data now appears as each source responds, while retaining newer reports so open info windows do not revert to older timestamps.</li>
 		<li>The force-refresh button now preserves map zoom when Auto-zoom is unchecked.</li>
 		<li>Hurricane info windows now show the storm's current latitude and longitude, plus the time of its latest report in your local time.</li>
 		<li>Storm data requests now use unique cache-busting URLs to avoid stale browser and upstream responses.</li>
@@ -5707,11 +5708,17 @@ function hurricaneEnrichArcgisFeatures(features, gdacsEntries) {
 		const stormKey = properties._stormKey || hurricaneArcgisStormKey(properties);
 		if (!matchedProperties.has(stormKey)) matchedProperties.set(stormKey, hurricaneMatchGdacsMetadata(properties, gdacsEntries, feature.geometry && feature.geometry.type === "Point" ? feature.geometry.coordinates : null));
 		const gdacsProperties = matchedProperties.get(stormKey);
-		return gdacsProperties ? Object.assign({}, feature, { properties: Object.assign({}, properties, gdacsProperties, { _stormKey: stormKey }) }) : feature;
+		if (!gdacsProperties) return feature;
+		// Descriptive metadata must not supply or overwrite position, intensity, or report timestamps...
+		const metadata = {};
+		["description", "url", "url.report"].forEach(key => {
+			if (Object.prototype.hasOwnProperty.call(gdacsProperties, key)) metadata[key] = gdacsProperties[key];
+		});
+		return Object.keys(metadata).length ? Object.assign({}, feature, { properties: Object.assign({}, properties, metadata) }) : feature;
 	});
 }
 
-// Fetches ArcGIS geometry, then adds NHC current reports and GDACS metadata as they arrive...
+// Fetches storm sources in parallel and displays each response without replacing newer current reports...
 async function loadHurricanesFromArcgisApi() {
 	const requestGeneration = ++hurricaneDataLoadGeneration;
 	// Builds the query URL for one ArcGIS hurricane layer...
@@ -5727,31 +5734,61 @@ async function loadHurricanesFromArcgisApi() {
 		return null;
 	});
 	const nhcPromise = hurricaneFetchJson(HURRICANE_NHC_URL, HURRICANE_NHC_CACHE_MS, true).catch(error => {
-		console.warn(`Map ${widgetID}: NHC current reports unavailable; retaining ArcGIS data:`, error.message);
+		console.warn(`Map ${widgetID}: NHC current reports unavailable; retaining the latest available storm reports:`, error.message);
 		return null;
 	});
 	const gdacsPromise = hurricaneFetchJson(HURRICANE_GDACS_EVENT_URL, HURRICANE_GDACS_CACHE_MS).then(hurricaneBuildGdacsIndex).catch(error => {
 		console.warn(`Map ${widgetID}: GDACS metadata enrichment unavailable:`, error.message);
 		return [];
 	});
-	const layers = await arcgisPromise;
-	if (requestGeneration !== hurricaneDataLoadGeneration || !map || !_dom.weather.checked || _dom.otherWeatherOverlays.value !== "hurricanes") return;
-	const initialFeatures = layers ? hurricaneBuildArcgisFeatures(layers) : hurricaneBaseFeatures;
-	console.debug(`Map ${widgetID}: Loaded ${initialFeatures.length} hurricane feature(s); NHC reports and GDACS metadata are loading in parallel`);
-	hurricaneBaseFeatures = initialFeatures;
-	hurricaneReplotFeatures(initialFeatures);
-	nhcPromise.then(data => {
-		if (requestGeneration !== hurricaneDataLoadGeneration || !map || !_dom.weather.checked || _dom.otherWeatherOverlays.value !== "hurricanes" || !data) return;
-		const updatedFeatures = hurricaneApplyNhcCurrentReports(hurricaneBaseFeatures, data);
-		if (updatedFeatures.length === hurricaneBaseFeatures.length && updatedFeatures.every((feature, index) => feature === hurricaneBaseFeatures[index])) return;
-		updatedFeatures.filter(feature => feature.geometry && feature.geometry.type === "Point" && feature.properties._current && feature.properties.DTG).forEach(feature => {
-			console.debug(`Map ${widgetID}: Current report for ${hurricaneDisplayName(feature.properties)}: ${new Date(feature.properties.DTG).toISOString()}`);
+	let nhcData = null;
+	let gdacsEntries = [];
+
+	// Publishes available data immediately, preserving the freshest complete report already displayed for each storm...
+	function publishFeatures(features, source) {
+		if (requestGeneration !== hurricaneDataLoadGeneration || !map || !_dom.weather.checked || _dom.otherWeatherOverlays.value !== "hurricanes") return;
+		// Match reports independently of display grouping so an NHC-only storm can later acquire ArcGIS tracks...
+		const reportKey = properties => properties.BASIN && properties.STORMNUM != null && properties.STORMNUM !== ""
+			? `${String(properties.BASIN).toUpperCase()}|${Number(properties.STORMNUM)}` : properties._stormKey;
+		const previousReports = new Map();
+		hurricaneBaseFeatures.forEach(feature => {
+			const properties = feature.properties || {};
+			if (feature.geometry && feature.geometry.type === "Point" && properties._current) previousReports.set(reportKey(properties), feature);
 		});
-		hurricaneBaseFeatures = updatedFeatures;
-		hurricaneReplotFeatures(updatedFeatures);
+		const updatedFeatures = hurricaneApplyNhcCurrentReports(features, nhcData).map(feature => {
+			const properties = feature.properties || {};
+			if (!feature.geometry || feature.geometry.type !== "Point" || !properties._current) return feature;
+			const previous = previousReports.get(reportKey(properties));
+			if (!previous) return feature;
+			if (hurricaneSelectedStormId === previous.properties._stormKey) hurricaneSelectedStormId = properties._stormKey;
+			const previousTimestamp = hurricaneArcgisDate(previous.properties);
+			const currentTimestamp = hurricaneArcgisDate(properties);
+			if (!previousTimestamp || (currentTimestamp && currentTimestamp >= previousTimestamp)) return feature;
+			// Preserve the entire newer report, including position and intensity, while refreshing track geometry...
+			return Object.assign({}, previous, { properties: Object.assign({}, previous.properties, { _stormKey: properties._stormKey }) });
+		});
+		console.debug(`Map ${widgetID}: Loaded ${updatedFeatures.length} hurricane feature(s) after ${source} responded; retaining the latest available current reports`);
+		updatedFeatures.filter(feature => feature.geometry && feature.geometry.type === "Point" && feature.properties._current).forEach(feature => {
+			const timestamp = hurricaneArcgisDate(feature.properties);
+			if (timestamp) console.debug(`Map ${widgetID}: Current report for ${hurricaneDisplayName(feature.properties)}: ${timestamp.toISOString()}`);
+		});
+		hurricaneBaseFeatures = gdacsEntries.length ? hurricaneEnrichArcgisFeatures(updatedFeatures, gdacsEntries) : updatedFeatures;
+		hurricaneReplotFeatures(hurricaneBaseFeatures);
+	}
+
+	// Neither current-data source waits for the other before showing usable storm data...
+	const arcgisUpdate = arcgisPromise.then(layers => {
+		if (layers) publishFeatures(hurricaneBuildArcgisFeatures(layers), "ArcGIS");
 	});
-	gdacsPromise.then(gdacsEntries => {
-		if (requestGeneration !== hurricaneDataLoadGeneration || !map || !_dom.weather.checked || _dom.otherWeatherOverlays.value !== "hurricanes" || !gdacsEntries.length) return;
+	const nhcUpdate = nhcPromise.then(data => {
+		if (!data) return;
+		nhcData = data;
+		publishFeatures(hurricaneBaseFeatures, "NHC");
+	});
+	gdacsPromise.then(entries => {
+		if (requestGeneration !== hurricaneDataLoadGeneration || !map || !_dom.weather.checked || _dom.otherWeatherOverlays.value !== "hurricanes" || !entries.length) return;
+		// Also retain early metadata for storm features that arrive later in this refresh...
+		gdacsEntries = entries;
 		const enrichedFeatures = hurricaneEnrichArcgisFeatures(hurricaneBaseFeatures, gdacsEntries);
 		const enrichmentChanged = enrichedFeatures.some((feature, index) => feature.properties !== hurricaneBaseFeatures[index].properties);
 		if (!enrichmentChanged) return;
@@ -5759,6 +5796,7 @@ async function loadHurricanesFromArcgisApi() {
 		hurricaneReplotFeatures(enrichedFeatures);
 		console.debug(`Map ${widgetID}: Enriched ArcGIS hurricane data with GDACS metadata for ${gdacsEntries.length} active event(s)`);
 	});
+	await Promise.all([arcgisUpdate, nhcUpdate]);
 }
 
 // Orchestrates the selected weather and optional map overlays...
