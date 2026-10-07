@@ -20,8 +20,11 @@ var releaseNotes = `
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
 	<h3>Version 3.79</h3>
 	<ul>
-		<li>Added a "Grey" map style option.</li>
 		<li>Hurricane info windows now show the storm's current latitude and longitude, plus the time of its latest report in your local time.</li>
+		<li>Storm data requests now use unique cache-busting URLs to avoid stale browser and upstream responses.</li>
+		<li>Hurricane markers and info windows now use the latest NHC position and intensity reports when available, while retaining ArcGIS tracks and cones.</li>
+		<li>Fixed current storm reports inheriting timestamps from older track points.</li>
+		<li>Added a "Grey" map style option.</li>
 	</ul>
 	<h3>Version 3.78</h3>
 	<ul>
@@ -1871,14 +1874,14 @@ var betterMapCorsProxies = [
 ];
 
 // Function to fetch a URL through the public CORS proxies, trying each in turn until one answers...
-async function fetchWithBetterMapCorsProxy(targetUrl, dataLabel) {
+async function fetchWithBetterMapCorsProxy(targetUrl, dataLabel, timeoutMs = 0) {
 	const separator = targetUrl.includes("?") ? "&" : "?";
 	const urlWithCacheBust = targetUrl + separator + "v=" + Date.now();
 	for (let i = 0; i < betterMapCorsProxies.length; i++) {
 		const proxy = betterMapCorsProxies[i];
 		const proxyUrl = proxy.url + (proxy.encode ? encodeURIComponent(urlWithCacheBust) : urlWithCacheBust);
 		try {
-			const response = await fetch(proxyUrl, { cache: "no-store" });
+			const response = await fetch(proxyUrl, { cache: "no-store", ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}) });
 			if (response.ok) {
 				console.debug(`Map ${widgetID}: ${dataLabel || "Overlay data"} fetched successfully using CORS proxy ${i + 1}`);
 				return response;
@@ -5258,10 +5261,9 @@ function hurricaneTrackPointContent(severityText, color, size) {
 	return content;
 }
 
-// Returns the display name from an ArcGIS storm record...
+// Returns the display name from the current storm record...
 function hurricaneDisplayName(properties) {
-	const value = Object.keys(properties || {}).find(key => /name|title|storm/i.test(key) && properties[key]);
-	return value ? String(properties[value]) : "Tropical cyclone";
+	return String(properties.STORMNAME || properties.stormname || properties.name || properties.title || "Tropical cyclone");
 }
 
 // Builds the hurricane infowindow contents for a storm, with its current position and latest report time...
@@ -5269,8 +5271,8 @@ function hurricaneInfoHtml(storm, position) {
 	const properties = storm.properties || {};
 	const development = properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || "";
 	const measurements = [];
-	// Forecast points carry future times, so only the current point and observed points count toward the latest report...
-	const latestTimestamp = (storm.points || [])
+	// Use the current marker's report time so it describes the displayed position and measurements...
+	const latestTimestamp = hurricaneArcgisDate(properties) || (storm.points || [])
 		.filter(item => item.current || (item.feature.properties && item.feature.properties._actual === true))
 		.map(item => hurricaneArcgisDate(item.feature.properties || {}))
 		.filter(Boolean)
@@ -5381,6 +5383,8 @@ function plotHurricanes(geojson) {
 		if (!point || !point.feature.geometry || point.feature.geometry.coordinates.length < 2) return;
 		const position = { lat: Number(point.feature.geometry.coordinates[1]), lng: Number(point.feature.geometry.coordinates[0]) };
 		if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
+		// Track and cone properties must not override the current point's intensity or report time...
+		storm.properties = Object.assign({}, storm.properties, point.feature.properties);
 		const markerSize = hurricaneIsHurricaneClass(storm.properties) ? 35 : 30;
 		const markerContent = hurricaneMarkerContent(hurricaneIconOpacity(storm.properties), markerSize);
 		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: markerContent, anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), gmpClickable: true, zIndex: 1000 });
@@ -5447,21 +5451,28 @@ function gdacsValue(properties, names) {
 }
 
 const HURRICANE_JSON_CACHE = new Map();
+let hurricaneRequestSequence = 0;
 const HURRICANE_ARCGIS_CACHE_MS = 120000;
+const HURRICANE_NHC_CACHE_MS = 120000;
 const HURRICANE_GDACS_CACHE_MS = 600000;
 const HURRICANE_ARCGIS_BASE_URL = "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services/Active_Hurricanes_v1/FeatureServer";
+const HURRICANE_NHC_URL = "https://www.nhc.noaa.gov/CurrentStorms.json";
 const HURRICANE_GDACS_EVENT_URL = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/map?eventtype=TC";
 
 // Fetches and caches a JSON response while sharing in-flight requests...
-async function hurricaneFetchJson(url, cacheDurationMs = HURRICANE_GDACS_CACHE_MS) {
+async function hurricaneFetchJson(url, cacheDurationMs = HURRICANE_GDACS_CACHE_MS, useCorsProxy = false) {
 	const cached = HURRICANE_JSON_CACHE.get(url);
 	if (cached && Date.now() - cached.timestamp < cacheDurationMs) return cached.promise;
-	const promise = fetch(url, { cache: "no-store" }).then(async response => {
+	const promise = (async () => {
+		// Keep the logical cache key stable, but give every outgoing storm request a unique URL...
+		const requestUrl = url + (url.includes("?") ? "&" : "?") + "_lmbmwStormRequest=" + Date.now() + "-" + (++hurricaneRequestSequence);
+		// NHC does not allow direct browser requests; use the existing proxies without a doomed CORS request...
+		const response = useCorsProxy ? await fetchWithBetterMapCorsProxy(requestUrl, "NHC storm data", 30000) : await fetch(requestUrl, { cache: "no-store" });
 		if (!response.ok) throw new Error(`Hurricane data request failed: ${response.status}`);
 		const data = await response.json();
 		if (data && data.error) throw new Error(data.error.message || "Hurricane data endpoint returned an error");
 		return data;
-	}).catch(error => {
+	})().catch(error => {
 		HURRICANE_JSON_CACHE.delete(url);
 		throw error;
 	});
@@ -5488,6 +5499,13 @@ function hurricaneArcgisDate(properties) {
 	if (Number.isFinite(epoch) && epoch > 100000000000) return new Date(epoch);
 	const directDate = properties.FLDATELBL || properties.fldatelbl;
 	if (directDate) {
+		// ArcGIS labels such as "2026-10-07 1:00 PM Wed CDT" are not portable JavaScript date strings...
+		const label = String(directDate).match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})\s+(AM|PM)(?:\s+[A-Za-z]{3})?\s+([A-Z]+)$/i);
+		const utcOffsets = { UTC: 0, GMT: 0, EDT: -4, EST: -5, CDT: -5, CST: -6, MDT: -6, MST: -7, PDT: -7, PST: -8, HST: -10, AST: -4 };
+		if (label && Object.prototype.hasOwnProperty.call(utcOffsets, label[7].toUpperCase())) {
+			const hour = Number(label[4]) % 12 + (label[6].toUpperCase() === "PM" ? 12 : 0);
+			return new Date(Date.UTC(Number(label[1]), Number(label[2]) - 1, Number(label[3]), hour - utcOffsets[label[7].toUpperCase()], Number(label[5])));
+		}
 		const parsed = new Date(directDate);
 		if (Number.isFinite(parsed.getTime())) return parsed;
 	}
@@ -5562,7 +5580,8 @@ function hurricaneBuildArcgisFeatures(layers) {
 		const forecast = group.forecastPoints.filter(point => Array.isArray(point.coordinates) && point.coordinates.length >= 2).sort((first, second) => Number(first.properties.TAU || 0) - Number(second.properties.TAU || 0));
 		const current = forecast.find(point => Number(point.properties.TAU) === 0) || observed[observed.length - 1] || forecast[0];
 		if (!current) return;
-		const baseProperties = Object.assign({}, group.properties, current.properties, { _stormKey: group.key });
+		// The current point must not inherit a historical DTG that masks its own report timestamp...
+		const baseProperties = Object.assign({}, hurricaneArcgisPointProperties(group.properties, current.properties), { _stormKey: group.key });
 		features.push({ type: "Feature", geometry: { type: "Point", coordinates: current.coordinates }, properties: Object.assign({}, baseProperties, { _current: true, _mapAnchor: true }) });
 		observed.filter(point => point !== current).forEach(point => features.push({ type: "Feature", geometry: { type: "Point", coordinates: point.coordinates }, properties: Object.assign({}, hurricaneArcgisPointProperties(baseProperties, point.properties), { _actual: true, _current: false, _trackPoint: true, _stormKey: group.key }) }));
 		forecast.filter(point => !hurricaneCoordinatesEqual(point.coordinates, current.coordinates)).forEach(point => features.push({ type: "Feature", geometry: { type: "Point", coordinates: point.coordinates }, properties: Object.assign({}, hurricaneArcgisPointProperties(baseProperties, point.properties), { _actual: false, _current: false, _trackPoint: true, _stormKey: group.key }) }));
@@ -5582,6 +5601,67 @@ function hurricaneBuildArcgisFeatures(layers) {
 		group.cones.forEach(cone => features.push({ type: "Feature", geometry: cone.geometry, properties: Object.assign({}, baseProperties, cone.properties || {}, { _stormKey: group.key }) }));
 	});
 	return features;
+}
+
+// Replaces current markers with equally recent or newer NHC reports, leaving ArcGIS track geometry intact...
+function hurricaneApplyNhcCurrentReports(features, data) {
+	const reports = new Map();
+	(data && Array.isArray(data.activeStorms) ? data.activeStorms : []).forEach(storm => {
+		if (!storm || typeof storm !== "object") return;
+		const id = String(storm.id || "").match(/^(al|ep|cp)(\d{2})(\d{4})$/i);
+		const timestamp = new Date(storm.lastUpdate || "");
+		// Missing values must remain missing rather than becoming zero through Number(null)...
+		const numberValue = value => value == null || String(value).trim() === "" ? NaN : Number(value);
+		const latitude = numberValue(storm.latitudeNumeric);
+		const longitude = numberValue(storm.longitudeNumeric);
+		const wind = numberValue(storm.intensity);
+		if (!id || !storm.name || !Number.isFinite(timestamp.getTime()) || !Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180 || !Number.isFinite(wind) || wind < 0 || wind >= 9999) return;
+		const classificationCode = String(storm.classification || "").toUpperCase();
+		const classification = { TD: "Tropical Depression", TS: "Tropical Storm", HU: "Hurricane", SD: "Subtropical Depression", SS: "Subtropical Storm", PTC: "Potential Tropical Cyclone", PT: "Post-Tropical Cyclone", EX: "Extratropical Cyclone", LO: "Low", DB: "Disturbance" }[classificationCode];
+		if (!classification) return;
+		const basin = id[1].toUpperCase();
+		const stormNumber = Number(id[2]);
+		const category = hurricaneSaffirSimpsonCategory({ ITCDVLP: classification, MAXWIND: wind });
+		const pressure = numberValue(storm.pressure);
+		const speed = numberValue(storm.movementSpeed);
+		const direction = numberValue(storm.movementDir);
+		const key = `${basin}|${stormNumber}`;
+		const report = {
+			type: "Feature",
+			geometry: { type: "Point", coordinates: [longitude, latitude] },
+			properties: {
+				_stormKey: `nhc-${storm.id.toLowerCase()}`, _current: true, _mapAnchor: true, _actual: true, _trackPoint: false,
+				STORMNAME: String(storm.name), BASIN: basin, STORMNUM: stormNumber, STORMTYPE: classificationCode,
+				ITCDVLP: category ? `Category ${category} Hurricane` : classification, TCDVLP: classification, IDVLBL: classification,
+				SSNUM: category, SS: category, MAXWIND: wind, INTENSITY: null, GUST: null,
+				MSLP: Number.isFinite(pressure) && pressure > 0 && pressure < 9999 ? pressure : null,
+				TCDIR: Number.isFinite(direction) && direction >= 0 && direction <= 360 ? direction : null,
+				// NHC intensity is in knots, but movementSpeed is in mph; the renderer expects knots...
+				TCSPD: Number.isFinite(speed) && speed >= 0 && speed < 9999 ? Number((speed / 1.150779448).toFixed(2)) : null,
+				LAT: latitude, LON: longitude, DTG: timestamp.getTime(), FLDATELBL: timestamp.toISOString(),
+				ADVDATE: timestamp.getTime(), ADVISNUM: storm.publicAdvisory && storm.publicAdvisory.advNum || "", TAU: 0
+			}
+		};
+		if (!reports.has(key) || timestamp.getTime() > reports.get(key).properties.DTG) reports.set(key, report);
+	});
+	const matched = new Set();
+	const result = features.map(feature => {
+		const properties = feature.properties || {};
+		if (!feature.geometry || feature.geometry.type !== "Point" || !properties._current) return feature;
+		const key = `${String(properties.BASIN || "").toUpperCase()}|${Number(properties.STORMNUM)}`;
+		const report = reports.get(key);
+		if (!report) return feature;
+		matched.add(key);
+		const currentTimestamp = hurricaneArcgisDate(properties);
+		if (currentTimestamp && currentTimestamp.getTime() > report.properties.DTG) return feature;
+		return Object.assign({}, feature, {
+			geometry: report.geometry,
+			properties: Object.assign({}, properties, report.properties, { _stormKey: properties._stormKey || report.properties._stormKey })
+		});
+	});
+	// A newly named storm may reach NHC before ArcGIS; show its current report until tracks become available...
+	reports.forEach((report, key) => { if (!matched.has(key)) result.push(report); });
+	return result;
 }
 
 // Builds a compact GDACS index containing report and descriptive metadata for active storms...
@@ -5629,7 +5709,7 @@ function hurricaneEnrichArcgisFeatures(features, gdacsEntries) {
 	});
 }
 
-// Fetches ArcGIS hurricane geometry and enriches it with GDACS report metadata...
+// Fetches ArcGIS geometry, then adds NHC current reports and GDACS metadata as they arrive...
 async function loadHurricanesFromArcgisApi() {
 	const requestGeneration = ++hurricaneDataLoadGeneration;
 	// Builds the query URL for one ArcGIS hurricane layer...
@@ -5640,18 +5720,36 @@ async function loadHurricanesFromArcgisApi() {
 		hurricaneFetchJson(layerUrl(3), HURRICANE_ARCGIS_CACHE_MS),
 		hurricaneFetchJson(layerUrl(2), HURRICANE_ARCGIS_CACHE_MS),
 		hurricaneFetchJson(layerUrl(4), HURRICANE_ARCGIS_CACHE_MS)
-	]).then(([observedPoints, forecastPoints, observedLines, forecastLines, cones]) => ({ observedPoints, forecastPoints, observedLines, forecastLines, cones }));
+	]).then(([observedPoints, forecastPoints, observedLines, forecastLines, cones]) => ({ observedPoints, forecastPoints, observedLines, forecastLines, cones })).catch(error => {
+		console.warn(`Map ${widgetID}: ArcGIS hurricane geometry unavailable; retaining existing tracks and loading NHC reports:`, error.message);
+		return null;
+	});
+	const nhcPromise = hurricaneFetchJson(HURRICANE_NHC_URL, HURRICANE_NHC_CACHE_MS, true).catch(error => {
+		console.warn(`Map ${widgetID}: NHC current reports unavailable; retaining ArcGIS data:`, error.message);
+		return null;
+	});
 	const gdacsPromise = hurricaneFetchJson(HURRICANE_GDACS_EVENT_URL, HURRICANE_GDACS_CACHE_MS).then(hurricaneBuildGdacsIndex).catch(error => {
 		console.warn(`Map ${widgetID}: GDACS metadata enrichment unavailable:`, error.message);
 		return [];
 	});
 	const layers = await arcgisPromise;
-	const initialFeatures = hurricaneBuildArcgisFeatures(layers);
-	console.debug(`Map ${widgetID}: ArcGIS returned ${initialFeatures.length} plottable hurricane feature(s); GDACS metadata is loading in parallel`);
+	if (requestGeneration !== hurricaneDataLoadGeneration || !map || !_dom.weather.checked || _dom.otherWeatherOverlays.value !== "hurricanes") return;
+	const initialFeatures = layers ? hurricaneBuildArcgisFeatures(layers) : hurricaneBaseFeatures;
+	console.debug(`Map ${widgetID}: Loaded ${initialFeatures.length} hurricane feature(s); NHC reports and GDACS metadata are loading in parallel`);
 	hurricaneBaseFeatures = initialFeatures;
 	hurricaneReplotFeatures(initialFeatures);
+	nhcPromise.then(data => {
+		if (requestGeneration !== hurricaneDataLoadGeneration || !map || !_dom.weather.checked || _dom.otherWeatherOverlays.value !== "hurricanes" || !data) return;
+		const updatedFeatures = hurricaneApplyNhcCurrentReports(hurricaneBaseFeatures, data);
+		if (updatedFeatures.length === hurricaneBaseFeatures.length && updatedFeatures.every((feature, index) => feature === hurricaneBaseFeatures[index])) return;
+		updatedFeatures.filter(feature => feature.geometry && feature.geometry.type === "Point" && feature.properties._current && feature.properties.DTG).forEach(feature => {
+			console.debug(`Map ${widgetID}: Current report for ${hurricaneDisplayName(feature.properties)}: ${new Date(feature.properties.DTG).toISOString()}`);
+		});
+		hurricaneBaseFeatures = updatedFeatures;
+		hurricaneReplotFeatures(updatedFeatures);
+	});
 	gdacsPromise.then(gdacsEntries => {
-		if (requestGeneration !== hurricaneDataLoadGeneration || _dom.otherWeatherOverlays.value !== "hurricanes" || !gdacsEntries.length) return;
+		if (requestGeneration !== hurricaneDataLoadGeneration || !map || !_dom.weather.checked || _dom.otherWeatherOverlays.value !== "hurricanes" || !gdacsEntries.length) return;
 		const enrichedFeatures = hurricaneEnrichArcgisFeatures(hurricaneBaseFeatures, gdacsEntries);
 		const enrichmentChanged = enrichedFeatures.some((feature, index) => feature.properties !== hurricaneBaseFeatures[index].properties);
 		if (!enrichmentChanged) return;
