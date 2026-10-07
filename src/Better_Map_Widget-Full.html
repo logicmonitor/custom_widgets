@@ -72,6 +72,7 @@
 			<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
 			<h3>Version 3.79</h3>
 			<ul>
+				<li>The force-refresh button now preserves map zoom when Auto-zoom is unchecked.</li>
 				<li>Hurricane info windows now show the storm's current latitude and longitude, plus the time of its latest report in your local time.</li>
 				<li>Storm data requests now use unique cache-busting URLs to avoid stale browser and upstream responses.</li>
 				<li>Hurricane markers and info windows now use the latest NHC position and intensity reports when available, while retaining ArcGIS tracks and cones.</li>
@@ -1667,7 +1668,7 @@
 				<svg id="gearIconChevron" style="display: none; margin-left: -3px;" width="10" height="15" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 512"><path d="M246.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-9.2-9.2-22.9-11.9-34.9-6.9s-19.8 16.6-19.8 29.6l0 256c0 12.9 7.8 24.6 19.8 29.6s25.7 2.2 34.9-6.9l128-128z" fill="#999"/></svg>
 
 				<div id="optionsToggleArea">
-					<span id="autoZoomOptions" data-title="Automatically reset the map's zoom to encompass all items after timed refreshes. You can also manually do so at any time using the 'Reset map zoom' button on the left of the map.">
+					<span id="autoZoomOptions" data-title="Automatically reset the map's zoom to encompass all items after timed or forced data refreshes. You can also manually do so at any time using the 'Reset map zoom' button on the left of the map.">
 						<!-- No handler needed: refreshGroupData reads this checkbox directly, and the
 						     mapOptionsArea change listener persists it. It previously called
 						     enableWeather, which refetched and rebuilt every weather overlay. -->
@@ -2639,7 +2640,7 @@ if (window.RProfiler) {
 		showMapTiltControls = true;
 	}
 
-	// Capture from token whether to automatically reset the map's zoom to encompass all items on timed refreshes...
+	// Capture from token whether to automatically reset the map's zoom to encompass all items on timed or forced data refreshes...
 	let autoResetMapOnRefreshToken = "##AutoResetMapOnRefresh##";
 	// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 	if (isTruthyToken(autoResetMapOnRefreshToken)) {
@@ -4312,8 +4313,8 @@ if (window.RProfiler) {
 			id: "weatherRefreshButton",
 			title: "Force refresh the map data",
 			innerHTML: '<svg viewBox="-0.5 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M7.1998 10.8799L3.9998 14.0799L0.799805 10.8799" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M17.72 6.77007C16.6086 5.63347 15.1839 4.85371 13.6275 4.53032C12.0711 4.20693 10.4536 4.35459 8.98145 4.95439C7.5093 5.5542 6.24924 6.57899 5.362 7.898C4.47476 9.21701 4.0006 10.7703 4 12.3599V14.0901" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M16.7998 13.96L19.9998 10.75L23.1998 13.96" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M6.28027 18.0801C7.39163 19.2167 8.8164 19.9962 10.3728 20.3196C11.9292 20.643 13.5467 20.4956 15.0188 19.8958C16.491 19.2959 17.751 18.2712 18.6383 16.9521C19.5255 15.6331 19.9997 14.0796 20.0003 12.49V10.76" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-			// Wrapped so the click event is not passed through as refreshGroupData's timedRefresh flag...
-			onClick: () => refreshGroupData(),
+			// Fully rebuild the data while honoring Auto-zoom; do not pass the click event as the timedRefresh flag...
+			onClick: () => refreshGroupData(false, true),
 		});
 	}
 
@@ -4579,7 +4580,7 @@ if (window.RProfiler) {
 	}
 
 	// Function to load our LogicMonitor data and add pins to the map...
-	async function refreshGroupData(timedRefresh = false) {
+	async function refreshGroupData(timedRefresh = false, respectAutoZoom = false) {
 		// Cancel any in-progress refresh operation
 		if (_currentRefreshController) {
 			if (!_currentRefreshController.signal.aborted) {
@@ -4709,9 +4710,8 @@ if (window.RProfiler) {
 			statusFilter = statusFilter + ',sdtStatus:"none-none-*"';
 		}
 
-		// Reset our zoom level when the filter options change...
-		// (User-initiated refreshes always refit; the auto-zoom checkbox only governs timed refreshes.)
-		if (centerCalculated && !timedRefresh) {
+		// Filter changes refit the map; forced data refreshes honor the Auto-zoom checkbox...
+		if (centerCalculated && !timedRefresh && !respectAutoZoom) {
 			centerCalculated = false;
 		}
 
@@ -4798,8 +4798,10 @@ if (window.RProfiler) {
 			if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
 			clearAllMarkers();
 			bounds = new google.maps.LatLngBounds();
-			resetZoom();
-			centerCalculated = false;
+			if (!respectAutoZoom || autoResetMapOnRefresh) {
+				resetZoom();
+				centerCalculated = false;
+			}
 		}
 
 	// If we've finished fetching all the group/resource data...
@@ -4891,7 +4893,7 @@ if (window.RProfiler) {
 			// Function called when all items have been processed...
 			async function onRefreshComplete() {
 				if (!isBetterMapInstanceActive() || refreshSignal.aborted || !map) return;
-				if (!centerCalculated || (timedRefresh && autoResetMapOnRefresh)) {
+				if (!centerCalculated || ((timedRefresh || respectAutoZoom) && autoResetMapOnRefresh)) {
 					resetZoom();
 					centerCalculated = true;
 				}

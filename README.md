@@ -98,7 +98,7 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapIgnoreSDT**: If "`true`" then won't show items in "SDT" status. Default is "`false`".
 - **MapOnlyShowConnectedItems**: If "`true`" then will only show items that participate in active map connections. Default is "`false`".
 - **MapShowConnectingLines**: If "`false`" then will hide status lines between connected endpoints. Default is "`true`".
-- **AutoResetMapOnRefresh**: If "`true`" then the map will automatically zoom to encompass all items on timed refreshes. Default is "`false`".
+- **AutoResetMapOnRefresh**: If "`true`" then the map will automatically zoom to encompass all items on timed or forced data refreshes. Default is "`false`".
 - **MapDisableClustering**: If "`true`" then clustering of adjacent markers on the map will be disabled. Might be desirable if showing connections between locations since clustering might hide markers at certain zoom levels. Default is "`false`".
 - **MapDisplayProperties**: An optional comma-delimited list of custom properties to show when viewing a group's/resource's details.
 - **MapStyle**: Allows one of the following available map style options: "`silver`", "`standard`", "`dark`", "`aubergine`", "`satellite`", "`satellite-light`", or "`silverblue`". Default is "`silverblue`".
