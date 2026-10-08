@@ -3618,11 +3618,7 @@ async function refreshGroupData(timedRefresh = false, respectAutoZoom = false) {
 
 	// Clear any previously fetched data...
 	groupData = [];
-	// Group popup resource lists are loaded on click, so drop them when the map data is refreshed...
-	if (_groupResourceListAbort) {
-		_groupResourceListAbort.abort();
-		_groupResourceListAbort = null;
-	}
+	// Group popup resource lists are loaded on click, so drop them when the map data is refreshed. A list still loading for an open popup is left to finish so that popup is not stuck loading...
 	_groupResourceCache.clear();
 	// For tracking how many groups to fetch & pagination...
 	let totalGroups = 1000;
@@ -4473,6 +4469,8 @@ async function toggleHighlight(markerView, group) {
 	}
 	var infoWindow = markerInfoWindow;
 	var groupId = group.id;
+	// A data refresh clears _groupResourceCache while this popup can stay open, so the chips filter the list this popup is showing...
+	var shownDevices = null;
 	// Attach the type-chip clicks once the popup is on the map. Presses are not saved, and a later open rebuilds every chip on...
 	function bindGroupResourceTypeToggles() {
 		if (!infoWindow || !infoWindow.isOpen || String(infoWindow.markerId) !== String(groupId) || !infoWindow.div) {
@@ -4487,10 +4485,9 @@ async function toggleHighlight(markerView, group) {
 			event.preventDefault();
 			var pressed = button.getAttribute("aria-pressed") !== "false";
 			button.setAttribute("aria-pressed", pressed ? "false" : "true");
-			var cachedDevices = _groupResourceCache.get(groupId);
-			if (!cachedDevices) return;
+			if (!shownDevices) return;
 			writeGroupResourceList(infoWindow, groupId, function(listEl) {
-				applyGroupResourceRows(listEl, cachedDevices);
+				applyGroupResourceRows(listEl, shownDevices);
 			});
 		});
 		return true;
@@ -4511,6 +4508,7 @@ async function toggleHighlight(markerView, group) {
 
 	var cached = _groupResourceCache.get(groupId);
 	if (cached) {
+		shownDevices = cached;
 		writeGroupResourceList(infoWindow, groupId, function(listEl) {
 			applyGroupResourceRows(listEl, cached);
 		});
@@ -4519,6 +4517,7 @@ async function toggleHighlight(markerView, group) {
 
 	var controller = new AbortController();
 	_groupResourceListAbort = controller;
+	var fetchRefreshGeneration = refreshGeneration;
 	try {
 		var result = await fetchPaginatedLMItems({
 			resourcePath: "/device/devices",
@@ -4534,7 +4533,11 @@ async function toggleHighlight(markerView, group) {
 		});
 		if (controller.signal.aborted) return;
 		var items = (result && result.items) ? result.items : [];
-		_groupResourceCache.set(groupId, items);
+		// A list that started before a data refresh still fills this popup, but is kept out of the cache so later opens load fresh data...
+		if (fetchRefreshGeneration === refreshGeneration) {
+			_groupResourceCache.set(groupId, items);
+		}
+		shownDevices = items;
 		writeGroupResourceList(infoWindow, groupId, function(listEl) {
 			applyGroupResourceRows(listEl, items);
 		});
