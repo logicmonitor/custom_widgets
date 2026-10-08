@@ -5763,8 +5763,9 @@ async function loadHurricanesFromArcgisApi() {
 		hurricaneFetchJson(layerUrl(3), HURRICANE_ARCGIS_CACHE_MS),
 		hurricaneFetchJson(layerUrl(2), HURRICANE_ARCGIS_CACHE_MS),
 		hurricaneFetchJson(layerUrl(4), HURRICANE_ARCGIS_CACHE_MS)
-	]).then(([observedPoints, forecastPoints, observedLines, forecastLines, cones]) => ({ observedPoints, forecastPoints, observedLines, forecastLines, cones })).catch(error => {
-		console.warn(`Map ${widgetID}: ArcGIS hurricane geometry unavailable; retaining existing tracks and loading NWS advisories:`, error.message);
+	]).then(([observedPoints, forecastPoints, observedLines, forecastLines, cones]) => ({ observedPoints, forecastPoints, observedLines, forecastLines, cones })).catch(() => {
+		// Storm request errors can carry text from the remote service, so warnings name only the source that failed...
+		console.warn(`Map ${widgetID}: ArcGIS hurricane geometry unavailable; retaining existing tracks and loading NWS advisories.`);
 		return null;
 	});
 	const advisoryPromise = hurricaneFetchJson(HURRICANE_ADVISORY_LIST_URL, HURRICANE_ADVISORY_CACHE_MS, false).then(list => {
@@ -5780,16 +5781,16 @@ async function loadHurricanesFromArcgisApi() {
 			if (!newestBySlot.has(key) || issued > newestBySlot.get(key).issued) newestBySlot.set(key, { url, issued });
 		});
 		// An issued advisory never changes, so its text is cached for as long as it can be used...
-		return Promise.all(Array.from(newestBySlot.values()).map(entry => hurricaneFetchJson(entry.url, HURRICANE_ADVISORY_MAX_AGE_MS, false).catch(error => {
-			console.warn(`Map ${widgetID}: NWS advisory ${entry.url} unavailable:`, error.message);
+		return Promise.all(Array.from(newestBySlot.values()).map(entry => hurricaneFetchJson(entry.url, HURRICANE_ADVISORY_MAX_AGE_MS, false).catch(() => {
+			console.warn(`Map ${widgetID}: An NWS advisory could not be loaded; that storm keeps its latest available report.`);
 			return null;
 		}))).then(products => products.filter(Boolean));
-	}).catch(error => {
-		console.warn(`Map ${widgetID}: NWS advisories unavailable; retaining the latest available storm reports:`, error.message);
+	}).catch(() => {
+		console.warn(`Map ${widgetID}: NWS advisories unavailable; retaining the latest available storm reports.`);
 		return null;
 	});
-	const gdacsPromise = hurricaneFetchJson(HURRICANE_GDACS_EVENT_URL, HURRICANE_GDACS_CACHE_MS).then(hurricaneBuildGdacsIndex).catch(error => {
-		console.warn(`Map ${widgetID}: GDACS metadata enrichment unavailable:`, error.message);
+	const gdacsPromise = hurricaneFetchJson(HURRICANE_GDACS_EVENT_URL, HURRICANE_GDACS_CACHE_MS).then(hurricaneBuildGdacsIndex).catch(() => {
+		console.warn(`Map ${widgetID}: GDACS metadata enrichment unavailable.`);
 		return [];
 	});
 	let advisoryProducts = null;
@@ -5818,11 +5819,9 @@ async function loadHurricanesFromArcgisApi() {
 			// Preserve the entire newer report, including position and intensity, while refreshing track geometry...
 			return Object.assign({}, previous, { properties: Object.assign({}, previous.properties, { _stormKey: properties._stormKey }) });
 		});
-		console.debug(`Map ${widgetID}: Loaded ${updatedFeatures.length} hurricane feature(s) after ${source} responded; retaining the latest available current reports`);
-		updatedFeatures.filter(feature => feature.geometry && feature.geometry.type === "Point" && feature.properties._current).forEach(feature => {
-			const timestamp = hurricaneArcgisDate(feature.properties);
-			if (timestamp) console.debug(`Map ${widgetID}: Current report for ${hurricaneDisplayName(feature.properties)}: ${timestamp.toISOString()}`);
-		});
+		// Storm names and times come from the feeds, so the log reports counts only...
+		const currentReportCount = updatedFeatures.filter(feature => feature.geometry && feature.geometry.type === "Point" && feature.properties._current).length;
+		console.debug(`Map ${widgetID}: Loaded ${updatedFeatures.length} hurricane feature(s), including ${currentReportCount} current storm report(s), after ${source} responded`);
 		hurricaneBaseFeatures = gdacsEntries.length ? hurricaneEnrichArcgisFeatures(updatedFeatures, gdacsEntries) : updatedFeatures;
 		hurricaneReplotFeatures(hurricaneBaseFeatures);
 	}
