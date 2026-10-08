@@ -14,10 +14,23 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis...
 
 // ------------------------------------------------------------
-var version = "3.78 CDN";
+var version = "3.81 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.81</h3>
+	<ul>
+		<li>The standard, cloud, Kubernetes, and web check counts on a group marker can be toggled to filter that group's resource list. A count of zero is disabled.</li>
+	</ul>
+	<h3>Version 3.79</h3>
+	<ul>
+		<li>Storm data now appears as each source responds, while retaining newer reports so open info windows do not revert to older timestamps.</li>
+		<li>The force-refresh button now preserves map zoom when Auto-zoom is unchecked.</li>
+		<li>Hurricane info windows now show the storm's current latitude and longitude, plus the time of its latest report in your local time.</li>
+		<li>Hurricane markers and info windows now use the latest NHC, Central Pacific, and NWS Guam advisories (including intermediate advisories and updates) from the National Weather Service API when they are newer than ArcGIS, while retaining ArcGIS tracks and cones. No CORS proxy is needed.</li>
+		<li>Fixed current storm reports inheriting timestamps from older track points.</li>
+		<li>Added a "Grey" map style option.</li>
+	</ul>
 	<h3>Version 3.78</h3>
 	<ul>
 		<li>Clicking a group marker now lists the resources in that group and its subgroups.</li>
@@ -758,7 +771,7 @@ betterMapRoot.innerHTML = `<!-- Create our options bar above the map... -->
 			<svg id="gearIconChevron" style="display: none; margin-left: -3px;" width="10" height="15" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 512"><path d="M246.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-9.2-9.2-22.9-11.9-34.9-6.9s-19.8 16.6-19.8 29.6l0 256c0 12.9 7.8 24.6 19.8 29.6s25.7 2.2 34.9-6.9l128-128z" fill="#999"/></svg>
 
 			<div id="optionsToggleArea">
-				<span id="autoZoomOptions" data-title="Automatically reset the map's zoom to encompass all items after timed refreshes. You can also manually do so at any time using the 'Reset map zoom' button on the left of the map.">
+				<span id="autoZoomOptions" data-title="Automatically reset the map's zoom to encompass all items after timed or forced data refreshes. You can also manually do so at any time using the 'Reset map zoom' button on the left of the map.">
 					<!-- No handler needed: refreshGroupData reads this checkbox directly, and the mapOptionsArea change listener persists it. It previously called enableWeather, which refetched and rebuilt every weather overlay... -->
 					<input type="checkbox" id="autoZoom" name="autoZoom" value="autoZoom" checked="true" />
 					<label for="autoZoom">Auto-zoom</label>
@@ -925,7 +938,7 @@ if (isTruthyToken(showMapTiltControlsToken)) {
 	showMapTiltControls = true;
 }
 // console.debug("showMapTiltControlsToken", showMapTiltControlsToken);
-// Capture from token whether to automatically reset the map's zoom to encompass all items on timed refreshes...
+// Capture from token whether to automatically reset the map's zoom to encompass all items on timed or forced data refreshes...
 var autoResetMapOnRefreshToken = getBetterMapElementById("autoResetMapOnRefreshToken").innerText;
 // If the token value wasn't set then use the value hard-coded above at the beginning of this script...
 if (isTruthyToken(autoResetMapOnRefreshToken)) {
@@ -1813,6 +1826,7 @@ var mapStyles = {
 	get silverblue() { return [ { "elementType": "geometry", "stylers": [{ "color": "#f5f5f5" }] }, { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] }, { "elementType": "labels.text.fill", "stylers": [{ "color": "#616161" }, { "lightness": 70 }] }, { "elementType": "labels.text.stroke", "stylers": [{ "color": "#f5f5f5" }] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [{ "color": "#000000" }, { "lightness": 85 }] }, { "featureType": "administrative.land_parcel", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [{ "color": "#bdbdbd" }] }, { "featureType": "administrative.neighborhood", "stylers": [{ "visibility": "off" }] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [{ "color": "#000000" }, { "lightness": 80 }] }, { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#eeeeee" }] }, { "featureType": "poi", "elementType": "labels.text", "stylers": [{ "visibility": "off" }] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#e5e5e5" }] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] }, { "featureType": "road", "stylers": [{ "lightness": 45 }] }, { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#ffffff" }, { "lightness": 55 }] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [{ "lightness": 55 }] }, { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "lightness": 55 }] }, { "featureType": "road", "elementType": "labels", "stylers": [{ "visibility": showRoadLabels, "lightness": -15 }] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#dadada" }, { "lightness": 50 }, { "weight": 0.5 }] }, { "featureType": "transit.line", "elementType": "geometry", "stylers": [{ "color": "#e5e5e5" }] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [{ "color": "#eeeeee" }] }, { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#c9c9c9" }, { "lightness": 20 }] }, { "featureType": "water", "elementType": "geometry.fill", "stylers": [{ "color": "#cad0d8" }, { "lightness": 35 }] }, { "featureType": "water", "elementType": "labels.text", "stylers": [{ "visibility": "off" }] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] } ]; },
 	get dark() { return [ { "elementType": "geometry", "stylers": [ { "color": "#212121" } ] }, { "elementType": "geometry.fill", "stylers": [ { "lightness": 10 } ] }, { "elementType": "labels", "stylers": [ { "visibility": "off" } ] }, { "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "elementType": "labels.text.stroke", "stylers": [ { "color": "#212121" } ] }, { "featureType": "administrative", "elementType": "geometry", "stylers": [ { "color": "#757575" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.country", "elementType": "labels.text.fill", "stylers": [ { "color": "#9e9e9e" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [ { "color": "#bdbdbd" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "featureType": "poi.park", "elementType": "geometry", "stylers": [ { "color": "#181818" } ] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [ { "color": "#616161" } ] }, { "featureType": "poi.park", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1b1b1b" } ] }, { "featureType": "road", "elementType": "geometry.fill", "stylers": [ { "color": "#2c2c2c" } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "visibility": showRoadLabels } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.text.fill", "stylers": [ { "color": "#8a8a8a" } ] }, { "featureType": "road.arterial", "elementType": "geometry", "stylers": [ { "color": "#373737" } ] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [ { "color": "#3c3c3c" } ] }, { "featureType": "road.highway.controlled_access", "elementType": "geometry", "stylers": [ { "color": "#4e4e4e" } ] }, { "featureType": "road.local", "elementType": "labels.text.fill", "stylers": [ { "color": "#616161" } ] }, { "featureType": "transit", "elementType": "labels.text.fill", "stylers": [ { "color": "#757575" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#000000" } ] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [ { "color": "#3d3d3d" } ] } ]; },
 	get aubergine() { return [ { "elementType": "geometry", "stylers": [ { "color": "#1d2c4d" } ] }, { "elementType": "labels", "stylers": [ { "visibility": showRoadLabels } ] }, { "elementType": "labels.text.fill", "stylers": [ { "color": "#8ec3b9" } ] }, { "elementType": "labels.text.stroke", "stylers": [ { "color": "#1a3646" } ] }, { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [ { "color": "#4b6878" } ] }, { "featureType": "administrative.land_parcel", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [ { "color": "#64779e" } ] }, { "featureType": "administrative.neighborhood", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [ { "color": "#4b6878" } ] }, { "featureType": "landscape.man_made", "elementType": "geometry.stroke", "stylers": [ { "color": "#334e87" } ] }, { "featureType": "landscape.natural", "elementType": "geometry", "stylers": [ { "color": "#023e58" } ] }, { "featureType": "poi", "stylers": [ { "visibility": "off" } ] }, { "featureType": "poi", "elementType": "geometry", "stylers": [ { "color": "#283d6a" } ] }, { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [ { "color": "#6f9ba5" } ] }, { "featureType": "poi", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1d2c4d" } ] }, { "featureType": "poi.park", "elementType": "geometry.fill", "stylers": [ { "color": "#023e58" } ] }, { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [ { "color": "#3C7680" } ] }, { "featureType": "road", "elementType": "geometry", "stylers": [ { "color": "#304a7d" } ] }, { "featureType": "road", "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "labels.text.fill", "stylers": [ { "color": "#98a5be" }, { "lightness": -30 } ] }, { "featureType": "road", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1d2c4d" } ] }, { "featureType": "transit", "elementType": "labels.text.fill", "stylers": [ { "color": "#98a5be" } ] }, { "featureType": "transit", "elementType": "labels.text.stroke", "stylers": [ { "color": "#1d2c4d" } ] }, { "featureType": "transit.line", "elementType": "geometry.fill", "stylers": [ { "color": "#283d6a" } ] }, { "featureType": "transit.station", "elementType": "geometry", "stylers": [ { "color": "#3a4762" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#0e1626" } ] }, { "featureType": "water", "elementType": "labels.text.fill", "stylers": [ { "color": "#4e6d70" } ] } ]; },
+	get grey() { return [ { "elementType": "geometry", "stylers": [ { "color": "#a8a8a8" } ] }, { "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] }, { "featureType": "administrative", "elementType": "geometry", "stylers": [ { "color": "#7b7b7b" }, { "lightness": 35 } ] }, { "featureType": "administrative", "elementType": "labels.text.fill", "stylers": [ { "lightness": 20 } ] }, { "featureType": "administrative", "elementType": "labels.text.stroke", "stylers": [ { "lightness": -30 } ] }, { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [ { "color": "#5e5e5e" }, { "lightness": 30 }, { "weight": 1 } ] }, { "featureType": "administrative.country", "elementType": "labels.text.fill", "stylers": [ { "color": "#d2d2d2" }, { "lightness": -10 } ] }, { "featureType": "administrative.country", "elementType": "labels.text.stroke", "stylers": [ { "color": "#7e7e7e" }, { "weight": 2 } ] }, { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [ { "color": "#efefef" } ] }, { "featureType": "administrative.locality", "elementType": "labels.text.stroke", "stylers": [ { "color": "#5e5e5e" }, { "weight": 2.5 } ] }, { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [ { "weight": 1 } ] }, { "featureType": "administrative.province", "elementType": "labels.text.fill", "stylers": [ { "color": "#c9c9c9" } ] }, { "featureType": "administrative.province", "elementType": "labels.text.stroke", "stylers": [ { "color": "#8e8e8e" }, { "weight": 2 } ] }, { "featureType": "landscape", "elementType": "geometry", "stylers": [ { "color": "#a8a8a8" } ] }, { "featureType": "landscape.man_made", "elementType": "geometry", "stylers": [ { "color": "#a6a6a6" } ] }, { "featureType": "landscape.man_made", "elementType": "geometry.fill", "stylers": [ { "lightness": 15 } ] }, { "featureType": "landscape.natural", "elementType": "geometry", "stylers": [ { "color": "#b7b7b7" } ] }, { "featureType": "landscape.natural", "elementType": "labels", "stylers": [ { "color": "#5e5e5e" }, { "lightness": 35 } ] }, { "featureType": "landscape.natural", "elementType": "labels.text.fill", "stylers": [ { "lightness": 35 } ] }, { "featureType": "landscape.natural", "elementType": "labels.text.stroke", "stylers": [ { "lightness": -10 } ] }, { "featureType": "poi", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road", "elementType": "geometry", "stylers": [ { "color": "#9c9c9c" } ] }, { "featureType": "road", "elementType": "geometry.stroke", "stylers": [ { "color": "#aaaaaa" } ] }, { "featureType": "road", "elementType": "labels", "stylers": [ { "visibility": "off" } ] }, { "featureType": "road.arterial", "elementType": "geometry", "stylers": [ { "color": "#9b9b9b" } ] }, { "featureType": "road.highway", "elementType": "geometry", "stylers": [ { "color": "#969696" }, { "lightness": 15 } ] }, { "featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [ { "color": "#aaaaaa" } ] }, { "featureType": "road.local", "elementType": "geometry", "stylers": [ { "color": "#a0a0a0" } ] }, { "featureType": "transit", "stylers": [ { "visibility": "off" } ] }, { "featureType": "water", "elementType": "geometry", "stylers": [ { "color": "#a1a1a1" } ] }, { "featureType": "water", "elementType": "labels", "stylers": [ { "visibility": "off" } ] } ]; },
 };
 
 // RainViewer map options (feel free to change these to suit your taste)...
@@ -1865,14 +1879,14 @@ var betterMapCorsProxies = [
 ];
 
 // Function to fetch a URL through the public CORS proxies, trying each in turn until one answers...
-async function fetchWithBetterMapCorsProxy(targetUrl, dataLabel) {
+async function fetchWithBetterMapCorsProxy(targetUrl, dataLabel, timeoutMs = 0) {
 	const separator = targetUrl.includes("?") ? "&" : "?";
 	const urlWithCacheBust = targetUrl + separator + "v=" + Date.now();
 	for (let i = 0; i < betterMapCorsProxies.length; i++) {
 		const proxy = betterMapCorsProxies[i];
 		const proxyUrl = proxy.url + (proxy.encode ? encodeURIComponent(urlWithCacheBust) : urlWithCacheBust);
 		try {
-			const response = await fetch(proxyUrl, { cache: "no-store" });
+			const response = await fetch(proxyUrl, { cache: "no-store", ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}) });
 			if (response.ok) {
 				console.debug(`Map ${widgetID}: ${dataLabel || "Overlay data"} fetched successfully using CORS proxy ${i + 1}`);
 				return response;
@@ -3248,8 +3262,8 @@ function createWeatherRefreshControl() {
 		id: "weatherRefreshButton",
 		title: "Force refresh the map data",
 		innerHTML: '<svg viewBox="-0.5 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M7.1998 10.8799L3.9998 14.0799L0.799805 10.8799" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M17.72 6.77007C16.6086 5.63347 15.1839 4.85371 13.6275 4.53032C12.0711 4.20693 10.4536 4.35459 8.98145 4.95439C7.5093 5.5542 6.24924 6.57899 5.362 7.898C4.47476 9.21701 4.0006 10.7703 4 12.3599V14.0901" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M16.7998 13.96L19.9998 10.75L23.1998 13.96" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M6.28027 18.0801C7.39163 19.2167 8.8164 19.9962 10.3728 20.3196C11.9292 20.643 13.5467 20.4956 15.0188 19.8958C16.491 19.2959 17.751 18.2712 18.6383 16.9521C19.5255 15.6331 19.9997 14.0796 20.0003 12.49V10.76" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-		// Wrapped so the click event is not passed through as refreshGroupData's timedRefresh flag...
-		onClick: () => refreshGroupData()
+		// Fully rebuild the data while honoring Auto-zoom; do not pass the click event as the timedRefresh flag...
+		onClick: () => refreshGroupData(false, true)
 	});
 }
 
@@ -3536,7 +3550,7 @@ async function fetchPaginatedLMItems({ resourcePath, buildQueryParams, signal, l
 }
 
 // Function to load our LogicMonitor data and add pins to the map...
-async function refreshGroupData(timedRefresh = false) {
+async function refreshGroupData(timedRefresh = false, respectAutoZoom = false) {
 	// Cancel any in-progress refresh operation
 	if (_currentRefreshController) {
 		if (!_currentRefreshController.signal.aborted) {
@@ -3666,9 +3680,8 @@ async function refreshGroupData(timedRefresh = false) {
 		statusFilter = statusFilter + ',sdtStatus:"none-none-*"';
 	}
 
-	// Reset our zoom level when the filter options change...
-	// (User-initiated refreshes always refit; the auto-zoom checkbox only governs timed refreshes.)
-	if (centerCalculated && !timedRefresh) {
+	// Filter changes refit the map; forced data refreshes honor the Auto-zoom checkbox...
+	if (centerCalculated && !timedRefresh && !respectAutoZoom) {
 		centerCalculated = false;
 	}
 
@@ -3755,8 +3768,10 @@ async function refreshGroupData(timedRefresh = false) {
 		if (_dom.weatherRefreshButton) _dom.weatherRefreshButton.classList.remove("disabled");
 		clearAllMarkers();
 		bounds = new google.maps.LatLngBounds();
-		resetZoom();
-		centerCalculated = false;
+		if (!respectAutoZoom || autoResetMapOnRefresh) {
+			resetZoom();
+			centerCalculated = false;
+		}
 	}
 
 	// If we've finished fetching all the group/resource data...
@@ -3848,7 +3863,7 @@ async function refreshGroupData(timedRefresh = false) {
 		// Function called when all items have been processed...
 		async function onRefreshComplete() {
 			if (!isBetterMapInstanceActive() || refreshSignal.aborted || !map) return;
-			if (!centerCalculated || (timedRefresh && autoResetMapOnRefresh)) {
+			if (!centerCalculated || ((timedRefresh || respectAutoZoom) && autoResetMapOnRefresh)) {
 				resetZoom();
 				centerCalculated = true;
 			}
@@ -4070,6 +4085,10 @@ async function refreshGroupData(timedRefresh = false) {
 							groupDescription = address;
 						}
 						groupDescription = escapeHtml(groupDescription);
+						// A type with nothing to show is disabled so it cannot be toggled...
+						const standardCount = Number(thisItem.numOfHosts) || 0;
+						const cloudCount = (Number(thisItem.numOfAWSDevices) || 0) + (Number(thisItem.numOfAzureDevices) || 0) + (Number(thisItem.numOfGcpDevices) || 0);
+						const kubernetesCount = Number(thisItem.numOfKubernetesDevices) || 0;
 
 						content.innerHTML = `
 							<div class="icon ${highestSeverity}">
@@ -4079,19 +4098,23 @@ async function refreshGroupData(timedRefresh = false) {
 								<div class="groupName"><a href="/santaba/uiv4/resources/treeNodes/t-dg,id-${itemId}?source=details" target="_blank">${escapeHtml(thisItem.name)}</a></div>
 								<div class="description">${groupDescription}${customContent}</div>
 								<div class="features">
-									<div title="${thisItem.numOfHosts} Standard Devices">
+									<button type="button" class="resource-type-toggle" data-resource-type="standard" aria-pressed="true"${standardCount > 0 ? "" : " disabled"} title="${standardCount} Standard Devices">
 										<svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M160 96C124.7 96 96 124.7 96 160L96 224C96 259.3 124.7 288 160 288L480 288C515.3 288 544 259.3 544 224L544 160C544 124.7 515.3 96 480 96L160 96zM376 168C389.3 168 400 178.7 400 192C400 205.3 389.3 216 376 216C362.7 216 352 205.3 352 192C352 178.7 362.7 168 376 168zM432 192C432 178.7 442.7 168 456 168C469.3 168 480 178.7 480 192C480 205.3 469.3 216 456 216C442.7 216 432 205.3 432 192zM160 352C124.7 352 96 380.7 96 416L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 416C544 380.7 515.3 352 480 352L160 352zM376 424C389.3 424 400 434.7 400 448C400 461.3 389.3 472 376 472C362.7 472 352 461.3 352 448C352 434.7 362.7 424 376 424zM432 448C432 434.7 442.7 424 456 424C469.3 424 480 434.7 480 448C480 461.3 469.3 472 456 472C442.7 472 432 461.3 432 448z"/></svg>
 
-										<span>${thisItem.numOfHosts}</span>
-									</div>
-									<div title="${thisItem.numOfAWSDevices + thisItem.numOfAzureDevices + thisItem.numOfGcpDevices} Cloud Devices">
+										<span>${standardCount}</span>
+									</button>
+									<button type="button" class="resource-type-toggle" data-resource-type="cloud" aria-pressed="true"${cloudCount > 0 ? "" : " disabled"} title="${cloudCount} Cloud Devices">
 										<svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M32 400C32 479.5 96.5 544 176 544L480 544C550.7 544 608 486.7 608 416C608 364.4 577.5 319.9 533.5 299.7C540.2 286.6 544 271.7 544 256C544 203 501 160 448 160C430.3 160 413.8 164.8 399.6 173.1C375.5 127.3 327.4 96 272 96C192.5 96 128 160.5 128 240C128 248 128.7 255.9 129.9 263.5C73 282.7 32 336.6 32 400z"/></svg>
-										<span>${thisItem.numOfAWSDevices + thisItem.numOfAzureDevices + thisItem.numOfGcpDevices}</span>
-									</div>
-									<div title="${thisItem.numOfKubernetesDevices} Kubernetes Devices">
+										<span>${cloudCount}</span>
+									</button>
+									<button type="button" class="resource-type-toggle" data-resource-type="kubernetes" aria-pressed="true"${kubernetesCount > 0 ? "" : " disabled"} title="${kubernetesCount} Kubernetes Devices">
 										<svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M401.8 269.7L450.4 227.2C464.2 246.5 473.8 269.1 477.8 293.4L413.4 297.7C411 287.6 407 278.2 401.8 269.7zM541.9 289.2C536.6 250.4 521.3 214.7 498.7 184.9L499.5 184.2C513 172.4 513.7 151.6 501 139C488.3 126.4 467.6 127 455.8 140.5L455.1 141.3C425.3 118.7 389.6 103.4 350.8 98.1L350.9 97C352.1 79.1 337.9 64 320 64C302.1 64 287.9 79.2 289.1 97L289.2 98.1C250.4 103.4 214.7 118.7 184.9 141.3L184.2 140.5C172.4 127 151.6 126.3 139 139C126.4 151.7 127 172.4 140.5 184.2L141.3 184.9C118.7 214.7 103.4 250.4 98.1 289.2L97 289.1C79.1 287.9 64 302.1 64 320C64 337.9 79.2 352.1 97 350.9L98.1 350.8C103.4 389.6 118.7 425.3 141.3 455.1L140.5 455.8C127 467.6 126.3 488.4 139 501C151.7 513.6 172.4 513 184.2 499.5L184.9 498.7C214.7 521.3 250.4 536.6 289.2 541.9L289.1 543C287.9 560.9 302.1 576 320 576C337.9 576 352.1 560.8 350.9 543L350.8 541.9C389.6 536.6 425.3 521.3 455.1 498.7L455.8 499.5C467.6 513 488.3 513.7 501 501C513.7 488.3 513 467.6 499.5 455.8L498.7 455.1C521.3 425.3 536.6 389.6 541.9 350.8L543 350.9C560.9 352.1 576 337.9 576 320C576 302.1 560.8 287.9 543 289.1L541.9 289.2zM227.2 189.6C246.5 175.8 269.1 166.2 293.4 162.1L297.7 226.5C287.7 228.9 278.2 232.9 269.7 238.1L227.2 189.5zM162.2 293.4C166.3 269 175.9 246.5 189.7 227.2L238.3 269.7C233 278.2 229.1 287.7 226.7 297.7L162.3 293.4zM189.7 412.8C175.9 393.5 166.3 370.9 162.2 346.6L226.6 342.3C229 352.4 233 361.8 238.2 370.3L189.6 412.8zM293.5 477.8C269.1 473.7 246.6 464.1 227.3 450.4L269.8 401.8C278.3 407.1 287.8 411 297.8 413.4L293.5 477.8zM412.9 450.4C393.6 464.2 371 473.8 346.7 477.8L342.4 413.4C352.4 411 361.9 407 370.4 401.8L412.9 450.4zM477.9 346.6C473.8 371 464.2 393.5 450.5 412.8L401.9 370.3C407.2 361.7 411.1 352.3 413.5 342.3L477.9 346.6zM412.9 189.7L370.4 238.3C361.8 233 352.4 229.1 342.4 226.7L346.7 162.3C371.1 166.4 393.6 176 412.9 189.8zM320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320C288 302.3 302.3 288 320 288z"/></svg>
-										<span>${thisItem.numOfKubernetesDevices}</span>
-									</div>
+										<span>${kubernetesCount}</span>
+									</button>
+									<button type="button" class="resource-type-toggle" data-resource-type="webcheck" aria-pressed="true" disabled title="Web Checks">
+										<svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 20 20"><path fill-opacity="0.01" d="M0 0h20v20H0z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M5.333 6.667a.667.667 0 1 0 0-1.334.667.667 0 0 0 0 1.334ZM8.667 6a.667.667 0 1 1-1.334 0 .667.667 0 0 1 1.334 0Zm2 .667a.667.667 0 1 0 0-1.334.667.667 0 0 0 0 1.334Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M3.333 3C2.597 3 2 3.597 2 4.333V15c0 .736.597 1.333 1.333 1.333h13.334c.736 0 1.333-.597 1.333-1.333V4.333C18 3.597 17.403 3 16.667 3H3.333Zm13.334 1.333H3.333V15h13.334V8.833H3.333V7.5h13.334V4.333Z"/></svg>
+										<span data-resource-type-count>-</span>
+									</button>
 									<div class="drillDownButton" title="Open group in new tab">
 										<a href="/santaba/uiv4/resources/treeNodes/t-dg,id-${itemId}?source=details" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path fill="white" d="M384 64C366.3 64 352 78.3 352 96C352 113.7 366.3 128 384 128L466.7 128L265.3 329.4C252.8 341.9 252.8 362.2 265.3 374.7C277.8 387.2 298.1 387.2 310.6 374.7L512 173.3L512 256C512 273.7 526.3 288 544 288C561.7 288 576 273.7 576 256L576 96C576 78.3 561.7 64 544 64L384 64zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 416C480 398.3 465.7 384 448 384C430.3 384 416 398.3 416 416L416 496C416 504.8 408.8 512 400 512L144 512C135.2 512 128 504.8 128 496L128 240C128 231.2 135.2 224 144 224L224 224C241.7 224 256 209.7 256 192C256 174.3 241.7 160 224 160L144 160z"/></svg></a>
 									</div>
@@ -4309,7 +4332,37 @@ function writeGroupResourceList(infoWindow, groupId, writer) {
 function applyGroupResourceRows(listEl, devices) {
 	var statusNames = { critical: "critical", error: "error", warn: "warning", sdt: "sdt", clear: "clear" };
 	var statusRanks = { critical: 4, error: 3, warning: 2, sdt: 1, clear: 0 };
-	var rows = devices.map(function(device) {
+	// Chips start pressed. A chip that is off hides that type, and any type without a chip stays in the list...
+	var typeEnabled = { standard: true, cloud: true, kubernetes: true, webcheck: true };
+	var details = listEl.closest(".details");
+	if (details) {
+		details.querySelectorAll(".resource-type-toggle").forEach(function(button) {
+			var typeName = button.getAttribute("data-resource-type");
+			if (typeName) typeEnabled[typeName] = button.getAttribute("aria-pressed") !== "false";
+		});
+		// Groups do not report a web check total, so that chip is counted from the fetched list and enabled only when it has some...
+		var webcheckButton = details.querySelector('.resource-type-toggle[data-resource-type="webcheck"]');
+		if (webcheckButton) {
+			var webcheckCount = devices.filter(function(device) {
+				return Number(device.deviceType) === 18;
+			}).length;
+			var webcheckCountEl = webcheckButton.querySelector("[data-resource-type-count]");
+			if (webcheckCountEl) webcheckCountEl.textContent = String(webcheckCount);
+			webcheckButton.title = webcheckCount + " Web Checks";
+			webcheckButton.disabled = webcheckCount === 0;
+		}
+	}
+	var visibleDevices = devices.filter(function(device) {
+		var deviceType = Number(device.deviceType);
+		var category = "";
+		if (deviceType === 0) category = "standard";
+		else if (deviceType === 2 || deviceType === 4 || deviceType === 7) category = "cloud";
+		else if (deviceType === 8) category = "kubernetes";
+		else if (deviceType === 18) category = "webcheck";
+		if (!category) return true;
+		return typeEnabled[category] !== false;
+	});
+	var rows = visibleDevices.map(function(device) {
 		var parsed = parseSeverity(device);
 		var status = statusNames[parsed.severity] || "clear";
 		var id = encodeURIComponent(device.id);
@@ -4330,7 +4383,14 @@ function applyGroupResourceRows(listEl, devices) {
 		title.textContent = "Resources (" + rows.length + ")";
 	}
 	if (!rows.length) {
-		listEl.textContent = "No resources";
+		// Disabled chips have nothing to show, so only the chips the user can press decide whether every type was turned off...
+		var activeChips = details ? Array.prototype.filter.call(details.querySelectorAll(".resource-type-toggle"), function(button) {
+			return !button.disabled;
+		}) : [];
+		var noTypesSelected = activeChips.length > 0 && activeChips.every(function(button) {
+			return button.getAttribute("aria-pressed") === "false";
+		});
+		listEl.textContent = noTypesSelected ? "No resource types selected" : "No resources";
 		return;
 	}
 	listEl.innerHTML = rows.map(buildClusterDeviceRowHtml).join("");
@@ -4413,6 +4473,33 @@ async function toggleHighlight(markerView, group) {
 	}
 	var infoWindow = markerInfoWindow;
 	var groupId = group.id;
+	// Attach the type-chip clicks once the popup is on the map. Presses are not saved, and a later open rebuilds every chip on...
+	function bindGroupResourceTypeToggles() {
+		if (!infoWindow || !infoWindow.isOpen || String(infoWindow.markerId) !== String(groupId) || !infoWindow.div) {
+			return false;
+		}
+		var features = infoWindow.div.querySelector(".features");
+		if (!features || features.getAttribute("data-type-toggles-bound") === "1") return true;
+		features.setAttribute("data-type-toggles-bound", "1");
+		features.addEventListener("click", function(event) {
+			var button = event.target.closest(".resource-type-toggle");
+			if (!button || button.disabled || !features.contains(button)) return;
+			event.preventDefault();
+			var pressed = button.getAttribute("aria-pressed") !== "false";
+			button.setAttribute("aria-pressed", pressed ? "false" : "true");
+			var cachedDevices = _groupResourceCache.get(groupId);
+			if (!cachedDevices) return;
+			writeGroupResourceList(infoWindow, groupId, function(listEl) {
+				applyGroupResourceRows(listEl, cachedDevices);
+			});
+		});
+		return true;
+	}
+	if (!bindGroupResourceTypeToggles()) {
+		requestAnimationFrame(function() {
+			bindGroupResourceTypeToggles();
+		});
+	}
 	var fullPath = group.fullPath;
 	if (!fullPath) {
 		console.warn("Map " + widgetID + ": group resource list skipped because the group path is missing.", groupId);
@@ -4438,7 +4525,7 @@ async function toggleHighlight(markerView, group) {
 			buildQueryParams: function(offset) {
 				var safePath = String(fullPath).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 				var filterValue = 'systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + safePath + '*\\"}"';
-				var fields = "id,displayName,name,alertStatus,sdtStatus";
+				var fields = "id,displayName,name,alertStatus,sdtStatus,deviceType";
 				return "?v=3&size=1000&offset=" + offset + "&fields=" + fields + "&filter=" + encodeURIComponent(filterValue);
 			},
 			signal: controller.signal,
@@ -5252,17 +5339,24 @@ function hurricaneTrackPointContent(severityText, color, size) {
 	return content;
 }
 
-// Returns the display name from an ArcGIS storm record...
+// Returns the display name from the current storm record...
 function hurricaneDisplayName(properties) {
-	const value = Object.keys(properties || {}).find(key => /name|title|storm/i.test(key) && properties[key]);
-	return value ? String(properties[value]) : "Tropical cyclone";
+	return String(properties.STORMNAME || properties.stormname || properties.name || properties.title || "Tropical cyclone");
 }
 
-// Builds the hurricane infowindow contents for a storm...
-function hurricaneInfoHtml(storm) {
+// Builds the hurricane infowindow contents for a storm, with its current position and latest report time...
+function hurricaneInfoHtml(storm, position) {
 	const properties = storm.properties || {};
 	const development = properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || "";
 	const measurements = [];
+	// Use the current marker's report time so it describes the displayed position and measurements...
+	const latestTimestamp = hurricaneArcgisDate(properties) || (storm.points || [])
+		.filter(item => item.current || (item.feature.properties && item.feature.properties._actual === true))
+		.map(item => hurricaneArcgisDate(item.feature.properties || {}))
+		.filter(Boolean)
+		.reduce((latest, date) => (!latest || date > latest ? date : latest), null);
+	// Kept out of the measurements list, whose bolding stops at the first colon and would catch the colon in the time...
+	const timestampLine = latestTimestamp ? `<div style="font-weight:normal;color:slategray;padding-bottom:5px;">As of ${escapeHtml(latestTimestamp.toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }))}...</div>` : "";
 	const wind = Number(properties.MAXWIND);
 	const observedIntensity = Number(properties.INTENSITY);
 	const gust = Number(properties.GUST);
@@ -5275,11 +5369,14 @@ function hurricaneInfoHtml(storm) {
 	const speed = Number(properties.TCSPD);
 	if (properties.TCDIR != null && properties.TCDIR !== "" && Number.isFinite(direction) && direction >= 0 && direction <= 360 && !(direction === 0 && speed === 0)) measurements.push(`Direction: ${direction}\u00b0`);
 	if (properties.TCSPD != null && properties.TCSPD !== "" && Number.isFinite(speed) && speed >= 0 && speed < 9999 && !(direction === 0 && speed === 0)) measurements.push(`Speed: ${hurricaneKnotsWithConversions(speed)}`);
+	if (position && Number.isFinite(position.lat) && Number.isFinite(position.lng)) {
+		measurements.push(`Location: ${Math.abs(position.lat).toFixed(2)}\u00b0${position.lat >= 0 ? "N" : "S"}, ${Math.abs(position.lng).toFixed(2)}\u00b0${position.lng >= 0 ? "E" : "W"}`);
+	}
 	const infoIcon = hurricaneIconSvg(80);
 	const reportUrl = properties.url && typeof properties.url === "object" ? properties.url.report : properties["url.report"];
 	const reportLink = /^https?:\/\//i.test(String(reportUrl || "")) ? `<div style="border-top:1px solid #eee;padding:6px 0;"><a href="${escapeHtml(reportUrl)}" target="_blank" rel="noopener noreferrer">Storm Report</a></div>` : "";
 	const developmentBlock = development ? `<div style="border-bottom:1px solid #eee;padding-bottom:6px;margin-bottom:0;font-weight:500;">${escapeHtml(development)}</div>` : "";
-	const measurementsBlock = measurements.length ? `<div style="padding:6px 0;font-size:0.95em;color:darkslategray;line-height:1.4;">${measurements.map(value => `<div>${escapeHtml(value).replace(/^([^:]+):/, '<strong style="color:slategray;">$1:</strong>')}</div>`).join("")}</div>` : "";
+	const measurementsBlock = (timestampLine || measurements.length) ? `<div style="padding:6px 0;font-size:0.95em;color:darkslategray;line-height:1.4;">${timestampLine}${measurements.map(value => `<div>${escapeHtml(value).replace(/^([^:]+):/, '<strong style="color:slategray;">$1:</strong>')}</div>`).join("")}</div>` : "";
 	return `<div style="position:relative;line-height:1.35;color:#222;min-width:250px;max-width:360px;padding:4px 80px 4px 0;user-select:none;"><div style="position:absolute;top:0;right:0;width:80px;height:80px;display:flex;align-items:flex-start;justify-content:flex-end;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);">${infoIcon}</div><div style="font-size:1.4em;font-weight:700;color:#1261a0;margin-bottom:7px;">${escapeHtml(hurricaneDisplayName(properties))}</div>${developmentBlock}${measurementsBlock}${reportLink}</div>`;
 }
 
@@ -5332,7 +5429,7 @@ function hurricaneShowStormTracks(storm) {
 // Opens a storm's infowindow, held to the width the storm details are laid out for...
 function hurricaneOpenStormInfo(storm, position) {
 	closeAllInfoWindows();
-	overlayInfoWindow.setContent(hurricaneInfoHtml(storm));
+	overlayInfoWindow.setContent(hurricaneInfoHtml(storm, position));
 	overlayInfoWindow.setPosition(position);
 	overlayInfoWindow.open(map);
 	if (overlayInfoWindow.div) overlayInfoWindow.div.style.maxWidth = "360px";
@@ -5364,6 +5461,8 @@ function plotHurricanes(geojson) {
 		if (!point || !point.feature.geometry || point.feature.geometry.coordinates.length < 2) return;
 		const position = { lat: Number(point.feature.geometry.coordinates[1]), lng: Number(point.feature.geometry.coordinates[0]) };
 		if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
+		// Track and cone properties must not override the current point's intensity or report time, and a track point's DTG must not stand in for a current point that has none...
+		storm.properties = hurricaneArcgisPointProperties(storm.properties, point.feature.properties);
 		const markerSize = hurricaneIsHurricaneClass(storm.properties) ? 35 : 30;
 		const markerContent = hurricaneMarkerContent(hurricaneIconOpacity(storm.properties), markerSize);
 		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: markerContent, anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), gmpClickable: true, zIndex: 1000 });
@@ -5387,6 +5486,18 @@ function plotHurricanes(geojson) {
 			hurricaneTrackPointMarkers.push(trackMarker);
 		});
 		storm.historical.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: HURRICANE_HISTORICAL_COLOR, strokeOpacity: .9, strokeWeight: 2 })));
+		// The observed track ends at the last 6-hourly fix, which is older than the current position, so join the two in the historical style...
+		const latestObserved = storm.points
+			.filter(item => item !== point && item.feature.properties && item.feature.properties._actual === true && item.feature.properties._trackPoint)
+			.map(item => ({ coordinates: item.feature.geometry.coordinates, timestamp: hurricaneArcgisDate(item.feature.properties) }))
+			.filter(entry => entry.timestamp && Array.isArray(entry.coordinates) && entry.coordinates.length >= 2)
+			.sort((first, second) => second.timestamp - first.timestamp)[0];
+		if (latestObserved) {
+			const lastFix = { lat: Number(latestObserved.coordinates[1]), lng: Number(latestObserved.coordinates[0]) };
+			if (Number.isFinite(lastFix.lat) && Number.isFinite(lastFix.lng) && (lastFix.lat !== position.lat || lastFix.lng !== position.lng)) {
+				storm.pathOverlays.push(new google.maps.Polyline({ map: null, path: [lastFix, position], strokeColor: HURRICANE_HISTORICAL_COLOR, strokeOpacity: .9, strokeWeight: 2 }));
+			}
+		}
 		storm.forecast.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: HURRICANE_PROJECTED_COLOR, strokeOpacity: .95, strokeWeight: 2, icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 2 }, offset: "0", repeat: "12px" }] })));
 		storm.cones.forEach(paths => {
 			storm.pathOverlays.push(new google.maps.Polygon({ map: null, paths, fillColor: "#f6b44b", fillOpacity: .24, strokeColor: "#d98b1e", strokeOpacity: .7, strokeWeight: 1 }));
@@ -5430,21 +5541,31 @@ function gdacsValue(properties, names) {
 }
 
 const HURRICANE_JSON_CACHE = new Map();
+let hurricaneRequestSequence = 0;
 const HURRICANE_ARCGIS_CACHE_MS = 120000;
+const HURRICANE_ADVISORY_CACHE_MS = 120000;
+// Advisories older than this belong to a storm that has stopped receiving them...
+const HURRICANE_ADVISORY_MAX_AGE_MS = 43200000;
 const HURRICANE_GDACS_CACHE_MS = 600000;
 const HURRICANE_ARCGIS_BASE_URL = "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services/Active_Hurricanes_v1/FeatureServer";
+// The National Weather Service API republishes NHC, CPHC, and NWS Guam advisories with browser CORS headers...
+const HURRICANE_ADVISORY_LIST_URL = "https://api.weather.gov/products?type=TCP,TCU&limit=50";
 const HURRICANE_GDACS_EVENT_URL = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/map?eventtype=TC";
 
 // Fetches and caches a JSON response while sharing in-flight requests...
-async function hurricaneFetchJson(url, cacheDurationMs = HURRICANE_GDACS_CACHE_MS) {
+// api.weather.gov rejects unrecognized query parameters, so its requests pass uniqueRequestUrl as false...
+async function hurricaneFetchJson(url, cacheDurationMs = HURRICANE_GDACS_CACHE_MS, uniqueRequestUrl = true) {
 	const cached = HURRICANE_JSON_CACHE.get(url);
 	if (cached && Date.now() - cached.timestamp < cacheDurationMs) return cached.promise;
-	const promise = fetch(url, { cache: "no-store" }).then(async response => {
+	const promise = (async () => {
+		// Keep the logical cache key stable, but give every outgoing storm request a unique URL...
+		const requestUrl = uniqueRequestUrl ? url + (url.includes("?") ? "&" : "?") + "_lmbmwStormRequest=" + Date.now() + "-" + (++hurricaneRequestSequence) : url;
+		const response = await fetch(requestUrl, { cache: "no-store" });
 		if (!response.ok) throw new Error(`Hurricane data request failed: ${response.status}`);
 		const data = await response.json();
 		if (data && data.error) throw new Error(data.error.message || "Hurricane data endpoint returned an error");
 		return data;
-	}).catch(error => {
+	})().catch(error => {
 		HURRICANE_JSON_CACHE.delete(url);
 		throw error;
 	});
@@ -5471,6 +5592,13 @@ function hurricaneArcgisDate(properties) {
 	if (Number.isFinite(epoch) && epoch > 100000000000) return new Date(epoch);
 	const directDate = properties.FLDATELBL || properties.fldatelbl;
 	if (directDate) {
+		// ArcGIS labels such as "2026-10-07 1:00 PM Wed CDT" are not portable JavaScript date strings...
+		const label = String(directDate).match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})\s+(AM|PM)(?:\s+[A-Za-z]{3})?\s+([A-Z]+)$/i);
+		const utcOffsets = { UTC: 0, GMT: 0, EDT: -4, EST: -5, CDT: -5, CST: -6, MDT: -6, MST: -7, PDT: -7, PST: -8, HST: -10, AST: -4 };
+		if (label && Object.prototype.hasOwnProperty.call(utcOffsets, label[7].toUpperCase())) {
+			const hour = Number(label[4]) % 12 + (label[6].toUpperCase() === "PM" ? 12 : 0);
+			return new Date(Date.UTC(Number(label[1]), Number(label[2]) - 1, Number(label[3]), hour - utcOffsets[label[7].toUpperCase()], Number(label[5])));
+		}
 		const parsed = new Date(directDate);
 		if (Number.isFinite(parsed.getTime())) return parsed;
 	}
@@ -5545,7 +5673,8 @@ function hurricaneBuildArcgisFeatures(layers) {
 		const forecast = group.forecastPoints.filter(point => Array.isArray(point.coordinates) && point.coordinates.length >= 2).sort((first, second) => Number(first.properties.TAU || 0) - Number(second.properties.TAU || 0));
 		const current = forecast.find(point => Number(point.properties.TAU) === 0) || observed[observed.length - 1] || forecast[0];
 		if (!current) return;
-		const baseProperties = Object.assign({}, group.properties, current.properties, { _stormKey: group.key });
+		// The current point must not inherit a historical DTG that masks its own report timestamp...
+		const baseProperties = Object.assign({}, hurricaneArcgisPointProperties(group.properties, current.properties), { _stormKey: group.key });
 		features.push({ type: "Feature", geometry: { type: "Point", coordinates: current.coordinates }, properties: Object.assign({}, baseProperties, { _current: true, _mapAnchor: true }) });
 		observed.filter(point => point !== current).forEach(point => features.push({ type: "Feature", geometry: { type: "Point", coordinates: point.coordinates }, properties: Object.assign({}, hurricaneArcgisPointProperties(baseProperties, point.properties), { _actual: true, _current: false, _trackPoint: true, _stormKey: group.key }) }));
 		forecast.filter(point => !hurricaneCoordinatesEqual(point.coordinates, current.coordinates)).forEach(point => features.push({ type: "Feature", geometry: { type: "Point", coordinates: point.coordinates }, properties: Object.assign({}, hurricaneArcgisPointProperties(baseProperties, point.properties), { _actual: false, _current: false, _trackPoint: true, _stormKey: group.key }) }));
@@ -5565,6 +5694,87 @@ function hurricaneBuildArcgisFeatures(layers) {
 		group.cones.forEach(cone => features.push({ type: "Feature", geometry: cone.geometry, properties: Object.assign({}, baseProperties, cone.properties || {}, { _stormKey: group.key }) }));
 	});
 	return features;
+}
+
+// Replaces current markers with equally recent or newer NWS advisory reports, leaving ArcGIS track geometry intact...
+function hurricaneApplyAdvisoryReports(features, products) {
+	const reports = new Map();
+	// Longer names come first so "Tropical Storm" is not mistaken for part of "Subtropical Storm"...
+	const classifications = [["Potential Tropical Cyclone", "PTC"], ["Post-Tropical Cyclone", "PT"], ["Subtropical Depression", "SD"], ["Subtropical Storm", "SS"], ["Tropical Depression", "TD"], ["Tropical Storm", "TS"], ["Super Typhoon", "ST"], ["Typhoon", "TY"], ["Hurricane", "HU"]];
+	(Array.isArray(products) ? products : []).forEach(product => {
+		const text = String(product && product.productText || "").replace(/\r/g, "");
+		const issued = new Date(product && product.issuanceTime || "");
+		const id = text.match(/\b(AL|EP|CP|WP)(\d{2})(\d{4})\b/);
+		const titleLine = text.split("\n").map(line => line.trim()).find(line => /\s(?:Intermediate\s+|Special\s+)?Advisory Number\s|\sTropical Cyclone Update$/i.test(line)) || "";
+		const classificationEntry = classifications.find(entry => titleLine.toLowerCase().startsWith(entry[0].toLowerCase() + " "));
+		// A final advisory or a "Remnants Of" title describes a storm that has dissipated, so it must not create or move a marker...
+		if (!id || !classificationEntry || !Number.isFinite(issued.getTime()) || /LAST PUBLIC ADVISORY/i.test(text)) return;
+		const heading = text.match(/^SUMMARY OF .*?(\d{2})(\d{2}) UTC.*INFORMATION\s*$/im);
+		if (!heading) return;
+		const summary = text.slice(heading.index, heading.index + 1500);
+		const location = summary.match(/^LOCATION\.{3}\s*(\d+(?:\.\d+)?)\s*([NS])\s+(\d+(?:\.\d+)?)\s*([EW])/im);
+		const windMph = summary.match(/^MAXIMUM SUSTAINED WINDS\.{3}\s*(\d+)\s*MPH/im);
+		if (!location || !windMph) return;
+		const latitude = Number(location[1]) * (location[2].toUpperCase() === "S" ? -1 : 1);
+		const longitude = Number(location[3]) * (location[4].toUpperCase() === "W" ? -1 : 1);
+		if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return;
+		// Advisories round knots to the nearest 5 before converting to mph, so rounding back recovers the official knot value...
+		const wind = Math.round(Number(windMph[1]) / 1.150779448 / 5) * 5;
+		// The summary gives only the UTC hour, so place it on the day nearest the issuance time...
+		const timestamp = new Date(Date.UTC(issued.getUTCFullYear(), issued.getUTCMonth(), issued.getUTCDate(), Number(heading[1]), Number(heading[2])));
+		if (timestamp.getTime() - issued.getTime() > 43200000) timestamp.setUTCDate(timestamp.getUTCDate() - 1);
+		else if (issued.getTime() - timestamp.getTime() > 43200000) timestamp.setUTCDate(timestamp.getUTCDate() + 1);
+		const classification = classificationEntry[0];
+		const classificationCode = classificationEntry[1];
+		const category = classificationCode === "HU" ? hurricaneSaffirSimpsonCategory({ ITCDVLP: classification, MAXWIND: wind }) : 0;
+		const name = titleLine.slice(classification.length).replace(/\s*\(\d+[A-Z]\)/i, "").replace(/\s+(?:Intermediate\s+|Special\s+)?Advisory Number.*$|\s+Tropical Cyclone Update$/i, "").trim();
+		const advisoryNumber = titleLine.match(/Advisory Number\s+(\w+)/i);
+		const basin = id[1].toUpperCase();
+		const stormNumber = Number(id[2]);
+		const key = `${basin}|${stormNumber}`;
+		const properties = {
+			_stormKey: `nws-${(id[1] + id[2] + id[3]).toLowerCase()}`, _current: true, _mapAnchor: true, _actual: true, _trackPoint: false,
+			STORMNAME: name || classification, BASIN: basin, STORMNUM: stormNumber, STORMTYPE: classificationCode,
+			ITCDVLP: category ? `Category ${category} Hurricane` : classification, TCDVLP: classification, IDVLBL: classification,
+			SSNUM: category, SS: category, MAXWIND: wind, INTENSITY: null,
+			LAT: latitude, LON: longitude, DTG: timestamp.getTime(), FLDATELBL: timestamp.toISOString(),
+			ADVDATE: issued.getTime(), ADVISNUM: advisoryNumber ? advisoryNumber[1] : "", TAU: 0
+		};
+		// Values the text leaves out stay absent so an equally recent ArcGIS report can still supply them...
+		const pressure = summary.match(/^MINIMUM CENTRAL PRESSURE\.{3}\s*(\d+)\s*MB/im);
+		if (pressure && Number(pressure[1]) > 0 && Number(pressure[1]) < 9999) properties.MSLP = Number(pressure[1]);
+		const movement = summary.match(/^PRESENT MOVEMENT\.{3}.*?(\d+)\s*DEGREES\s+AT\s+(\d+)\s*MPH/im);
+		if (movement && Number(movement[1]) <= 360) {
+			properties.TCDIR = Number(movement[1]);
+			// Movement is reported in mph; the renderer expects knots...
+			properties.TCSPD = Number((Number(movement[2]) / 1.150779448).toFixed(2));
+		} else if (/^PRESENT MOVEMENT\.{3}\s*STATIONARY/im.test(summary)) {
+			properties.TCDIR = 0;
+			properties.TCSPD = 0;
+		}
+		const report = { type: "Feature", geometry: { type: "Point", coordinates: [longitude, latitude] }, properties };
+		if (!reports.has(key) || timestamp.getTime() > reports.get(key).properties.DTG) reports.set(key, report);
+	});
+	const matched = new Set();
+	const result = features.map(feature => {
+		const properties = feature.properties || {};
+		if (!feature.geometry || feature.geometry.type !== "Point" || !properties._current) return feature;
+		const key = `${String(properties.BASIN || "").toUpperCase()}|${Number(properties.STORMNUM)}`;
+		const report = reports.get(key);
+		if (!report) return feature;
+		matched.add(key);
+		const currentTimestamp = hurricaneArcgisDate(properties);
+		if (currentTimestamp && currentTimestamp.getTime() > report.properties.DTG) return feature;
+		// At the same report time ArcGIS can add values the advisory omits, such as gusts, but a newer advisory makes them stale...
+		const staleValues = currentTimestamp && currentTimestamp.getTime() === report.properties.DTG ? {} : { GUST: null, MSLP: null, TCDIR: null, TCSPD: null };
+		return Object.assign({}, feature, {
+			geometry: report.geometry,
+			properties: Object.assign({}, properties, staleValues, report.properties, { _stormKey: properties._stormKey || report.properties._stormKey })
+		});
+	});
+	// A newly named storm may get an advisory before ArcGIS has it; show that report until tracks become available...
+	reports.forEach((report, key) => { if (!matched.has(key)) result.push(report); });
+	return result;
 }
 
 // Builds a compact GDACS index containing report and descriptive metadata for active storms...
@@ -5608,11 +5818,17 @@ function hurricaneEnrichArcgisFeatures(features, gdacsEntries) {
 		const stormKey = properties._stormKey || hurricaneArcgisStormKey(properties);
 		if (!matchedProperties.has(stormKey)) matchedProperties.set(stormKey, hurricaneMatchGdacsMetadata(properties, gdacsEntries, feature.geometry && feature.geometry.type === "Point" ? feature.geometry.coordinates : null));
 		const gdacsProperties = matchedProperties.get(stormKey);
-		return gdacsProperties ? Object.assign({}, feature, { properties: Object.assign({}, properties, gdacsProperties, { _stormKey: stormKey }) }) : feature;
+		if (!gdacsProperties) return feature;
+		// Descriptive metadata must not supply or overwrite position, intensity, or report timestamps...
+		const metadata = {};
+		["description", "url", "url.report"].forEach(key => {
+			if (Object.prototype.hasOwnProperty.call(gdacsProperties, key)) metadata[key] = gdacsProperties[key];
+		});
+		return Object.keys(metadata).length ? Object.assign({}, feature, { properties: Object.assign({}, properties, metadata) }) : feature;
 	});
 }
 
-// Fetches ArcGIS hurricane geometry and enriches it with GDACS report metadata...
+// Fetches storm sources in parallel and displays each response without replacing newer current reports...
 async function loadHurricanesFromArcgisApi() {
 	const requestGeneration = ++hurricaneDataLoadGeneration;
 	// Builds the query URL for one ArcGIS hurricane layer...
@@ -5623,18 +5839,82 @@ async function loadHurricanesFromArcgisApi() {
 		hurricaneFetchJson(layerUrl(3), HURRICANE_ARCGIS_CACHE_MS),
 		hurricaneFetchJson(layerUrl(2), HURRICANE_ARCGIS_CACHE_MS),
 		hurricaneFetchJson(layerUrl(4), HURRICANE_ARCGIS_CACHE_MS)
-	]).then(([observedPoints, forecastPoints, observedLines, forecastLines, cones]) => ({ observedPoints, forecastPoints, observedLines, forecastLines, cones }));
-	const gdacsPromise = hurricaneFetchJson(HURRICANE_GDACS_EVENT_URL, HURRICANE_GDACS_CACHE_MS).then(hurricaneBuildGdacsIndex).catch(error => {
-		console.warn(`Map ${widgetID}: GDACS metadata enrichment unavailable:`, error.message);
+	]).then(([observedPoints, forecastPoints, observedLines, forecastLines, cones]) => ({ observedPoints, forecastPoints, observedLines, forecastLines, cones })).catch(() => {
+		// Storm request errors can carry text from the remote service, so warnings name only the source that failed...
+		console.warn(`Map ${widgetID}: ArcGIS hurricane geometry unavailable; retaining existing tracks and loading NWS advisories.`);
+		return null;
+	});
+	const advisoryPromise = hurricaneFetchJson(HURRICANE_ADVISORY_LIST_URL, HURRICANE_ADVISORY_CACHE_MS, false).then(list => {
+		// The WMO header's region and last digit identify the storm slot (WTNT34 and WTNT64 are both Atlantic storm 4), so only each slot's newest product is fetched...
+		const newestBySlot = new Map();
+		const oldestAllowed = Date.now() - HURRICANE_ADVISORY_MAX_AGE_MS;
+		(list && Array.isArray(list["@graph"]) ? list["@graph"] : []).forEach(product => {
+			const issued = new Date(product.issuanceTime || "").getTime();
+			const slot = String(product.wmoCollectiveId || "").match(/^WT([A-Z]{2})\d(\d)$/);
+			const url = String(product["@id"] || "");
+			if (!slot || !Number.isFinite(issued) || issued < oldestAllowed || !url.startsWith("https://api.weather.gov/products/")) return;
+			const key = slot[1] + slot[2];
+			if (!newestBySlot.has(key) || issued > newestBySlot.get(key).issued) newestBySlot.set(key, { url, issued });
+		});
+		// An issued advisory never changes, so its text is cached for as long as it can be used...
+		return Promise.all(Array.from(newestBySlot.values()).map(entry => hurricaneFetchJson(entry.url, HURRICANE_ADVISORY_MAX_AGE_MS, false).catch(() => {
+			console.warn(`Map ${widgetID}: An NWS advisory could not be loaded; that storm keeps its latest available report.`);
+			return null;
+		}))).then(products => products.filter(Boolean));
+	}).catch(() => {
+		console.warn(`Map ${widgetID}: NWS advisories unavailable; retaining the latest available storm reports.`);
+		return null;
+	});
+	const gdacsPromise = hurricaneFetchJson(HURRICANE_GDACS_EVENT_URL, HURRICANE_GDACS_CACHE_MS).then(hurricaneBuildGdacsIndex).catch(() => {
+		console.warn(`Map ${widgetID}: GDACS metadata enrichment unavailable.`);
 		return [];
 	});
-	const layers = await arcgisPromise;
-	const initialFeatures = hurricaneBuildArcgisFeatures(layers);
-	console.debug(`Map ${widgetID}: ArcGIS returned ${initialFeatures.length} plottable hurricane feature(s); GDACS metadata is loading in parallel`);
-	hurricaneBaseFeatures = initialFeatures;
-	hurricaneReplotFeatures(initialFeatures);
-	gdacsPromise.then(gdacsEntries => {
-		if (requestGeneration !== hurricaneDataLoadGeneration || _dom.otherWeatherOverlays.value !== "hurricanes" || !gdacsEntries.length) return;
+	let advisoryProducts = null;
+	let gdacsEntries = [];
+
+	// Publishes available data immediately, preserving the freshest complete report already displayed for each storm...
+	function publishFeatures(features, source) {
+		if (requestGeneration !== hurricaneDataLoadGeneration || !map || !_dom.weather.checked || _dom.otherWeatherOverlays.value !== "hurricanes") return;
+		// Match reports independently of display grouping so an advisory-only storm can later acquire ArcGIS tracks...
+		const reportKey = properties => properties.BASIN && properties.STORMNUM != null && properties.STORMNUM !== ""
+			? `${String(properties.BASIN).toUpperCase()}|${Number(properties.STORMNUM)}` : properties._stormKey;
+		const previousReports = new Map();
+		hurricaneBaseFeatures.forEach(feature => {
+			const properties = feature.properties || {};
+			if (feature.geometry && feature.geometry.type === "Point" && properties._current) previousReports.set(reportKey(properties), feature);
+		});
+		const updatedFeatures = hurricaneApplyAdvisoryReports(features, advisoryProducts).map(feature => {
+			const properties = feature.properties || {};
+			if (!feature.geometry || feature.geometry.type !== "Point" || !properties._current) return feature;
+			const previous = previousReports.get(reportKey(properties));
+			if (!previous) return feature;
+			if (hurricaneSelectedStormId === previous.properties._stormKey) hurricaneSelectedStormId = properties._stormKey;
+			const previousTimestamp = hurricaneArcgisDate(previous.properties);
+			const currentTimestamp = hurricaneArcgisDate(properties);
+			if (!previousTimestamp || (currentTimestamp && currentTimestamp >= previousTimestamp)) return feature;
+			// Preserve the entire newer report, including position and intensity, while refreshing track geometry...
+			return Object.assign({}, previous, { properties: Object.assign({}, previous.properties, { _stormKey: properties._stormKey }) });
+		});
+		// Storm names and times come from the feeds, so the log reports counts only...
+		const currentReportCount = updatedFeatures.filter(feature => feature.geometry && feature.geometry.type === "Point" && feature.properties._current).length;
+		console.debug(`Map ${widgetID}: Loaded ${updatedFeatures.length} hurricane feature(s), including ${currentReportCount} current storm report(s), after ${source} responded`);
+		hurricaneBaseFeatures = gdacsEntries.length ? hurricaneEnrichArcgisFeatures(updatedFeatures, gdacsEntries) : updatedFeatures;
+		hurricaneReplotFeatures(hurricaneBaseFeatures);
+	}
+
+	// Neither current-data source waits for the other before showing usable storm data...
+	const arcgisUpdate = arcgisPromise.then(layers => {
+		if (layers) publishFeatures(hurricaneBuildArcgisFeatures(layers), "ArcGIS");
+	});
+	const advisoryUpdate = advisoryPromise.then(products => {
+		if (!products) return;
+		advisoryProducts = products;
+		publishFeatures(hurricaneBaseFeatures, "NWS advisories");
+	});
+	gdacsPromise.then(entries => {
+		if (requestGeneration !== hurricaneDataLoadGeneration || !map || !_dom.weather.checked || _dom.otherWeatherOverlays.value !== "hurricanes" || !entries.length) return;
+		// Also retain early metadata for storm features that arrive later in this refresh...
+		gdacsEntries = entries;
 		const enrichedFeatures = hurricaneEnrichArcgisFeatures(hurricaneBaseFeatures, gdacsEntries);
 		const enrichmentChanged = enrichedFeatures.some((feature, index) => feature.properties !== hurricaneBaseFeatures[index].properties);
 		if (!enrichmentChanged) return;
@@ -5642,6 +5922,7 @@ async function loadHurricanesFromArcgisApi() {
 		hurricaneReplotFeatures(enrichedFeatures);
 		console.debug(`Map ${widgetID}: Enriched ArcGIS hurricane data with GDACS metadata for ${gdacsEntries.length} active event(s)`);
 	});
+	await Promise.all([arcgisUpdate, advisoryUpdate]);
 }
 
 // Orchestrates the selected weather and optional map overlays...
