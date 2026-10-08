@@ -75,7 +75,6 @@
 				<li>Storm data now appears as each source responds, while retaining newer reports so open info windows do not revert to older timestamps.</li>
 				<li>The force-refresh button now preserves map zoom when Auto-zoom is unchecked.</li>
 				<li>Hurricane info windows now show the storm's current latitude and longitude, plus the time of its latest report in your local time.</li>
-				<li>Storm data requests now use unique cache-busting URLs to avoid stale browser and upstream responses.</li>
 				<li>Hurricane markers and info windows now use the latest NHC, Central Pacific, and NWS Guam advisories (including intermediate advisories and updates) from the National Weather Service API when they are newer than ArcGIS, while retaining ArcGIS tracks and cones. No CORS proxy is needed.</li>
 				<li>Fixed current storm reports inheriting timestamps from older track points.</li>
 				<li>Added a "Grey" map style option.</li>
@@ -6254,6 +6253,18 @@ if (window.RProfiler) {
 				hurricaneTrackPointMarkers.push(trackMarker);
 			});
 			storm.historical.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: HURRICANE_HISTORICAL_COLOR, strokeOpacity: .9, strokeWeight: 2 })));
+			// The observed track ends at the last 6-hourly fix, which is older than the current position, so join the two in the historical style...
+			const latestObserved = storm.points
+				.filter(item => item !== point && item.feature.properties && item.feature.properties._actual === true && item.feature.properties._trackPoint)
+				.map(item => ({ coordinates: item.feature.geometry.coordinates, timestamp: hurricaneArcgisDate(item.feature.properties) }))
+				.filter(entry => entry.timestamp && Array.isArray(entry.coordinates) && entry.coordinates.length >= 2)
+				.sort((first, second) => second.timestamp - first.timestamp)[0];
+			if (latestObserved) {
+				const lastFix = { lat: Number(latestObserved.coordinates[1]), lng: Number(latestObserved.coordinates[0]) };
+				if (Number.isFinite(lastFix.lat) && Number.isFinite(lastFix.lng) && (lastFix.lat !== position.lat || lastFix.lng !== position.lng)) {
+					storm.pathOverlays.push(new google.maps.Polyline({ map: null, path: [lastFix, position], strokeColor: HURRICANE_HISTORICAL_COLOR, strokeOpacity: .9, strokeWeight: 2 }));
+				}
+			}
 			storm.forecast.forEach(path => storm.pathOverlays.push(new google.maps.Polyline({ map: null, path, strokeColor: HURRICANE_PROJECTED_COLOR, strokeOpacity: .95, strokeWeight: 2 })));
 			storm.cones.forEach(paths => storm.pathOverlays.push(new google.maps.Polygon({ map: null, paths, fillColor: "#f6b44b", fillOpacity: .24, strokeColor: "#d98b1e", strokeOpacity: .7, strokeWeight: 1 })));
 			hurricanePathOverlays.push(...storm.pathOverlays);
