@@ -14,10 +14,14 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis...
 
 // ------------------------------------------------------------
-var version = "3.79 CDN";
+var version = "3.81 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.81</h3>
+	<ul>
+		<li>The standard, cloud, Kubernetes, and web check counts on a group marker can be toggled to filter that group's resource list. A count of zero is disabled.</li>
+	</ul>
 	<h3>Version 3.79</h3>
 	<ul>
 		<li>Storm data now appears as each source responds, while retaining newer reports so open info windows do not revert to older timestamps.</li>
@@ -4081,6 +4085,10 @@ async function refreshGroupData(timedRefresh = false, respectAutoZoom = false) {
 							groupDescription = address;
 						}
 						groupDescription = escapeHtml(groupDescription);
+						// A type with nothing to show is disabled so it cannot be toggled...
+						const standardCount = Number(thisItem.numOfHosts) || 0;
+						const cloudCount = (Number(thisItem.numOfAWSDevices) || 0) + (Number(thisItem.numOfAzureDevices) || 0) + (Number(thisItem.numOfGcpDevices) || 0);
+						const kubernetesCount = Number(thisItem.numOfKubernetesDevices) || 0;
 
 						content.innerHTML = `
 							<div class="icon ${highestSeverity}">
@@ -4090,19 +4098,23 @@ async function refreshGroupData(timedRefresh = false, respectAutoZoom = false) {
 								<div class="groupName"><a href="/santaba/uiv4/resources/treeNodes/t-dg,id-${itemId}?source=details" target="_blank">${escapeHtml(thisItem.name)}</a></div>
 								<div class="description">${groupDescription}${customContent}</div>
 								<div class="features">
-									<div title="${thisItem.numOfHosts} Standard Devices">
+									<button type="button" class="resource-type-toggle" data-resource-type="standard" aria-pressed="true"${standardCount > 0 ? "" : " disabled"} title="${standardCount} Standard Devices">
 										<svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M160 96C124.7 96 96 124.7 96 160L96 224C96 259.3 124.7 288 160 288L480 288C515.3 288 544 259.3 544 224L544 160C544 124.7 515.3 96 480 96L160 96zM376 168C389.3 168 400 178.7 400 192C400 205.3 389.3 216 376 216C362.7 216 352 205.3 352 192C352 178.7 362.7 168 376 168zM432 192C432 178.7 442.7 168 456 168C469.3 168 480 178.7 480 192C480 205.3 469.3 216 456 216C442.7 216 432 205.3 432 192zM160 352C124.7 352 96 380.7 96 416L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 416C544 380.7 515.3 352 480 352L160 352zM376 424C389.3 424 400 434.7 400 448C400 461.3 389.3 472 376 472C362.7 472 352 461.3 352 448C352 434.7 362.7 424 376 424zM432 448C432 434.7 442.7 424 456 424C469.3 424 480 434.7 480 448C480 461.3 469.3 472 456 472C442.7 472 432 461.3 432 448z"/></svg>
 
-										<span>${thisItem.numOfHosts}</span>
-									</div>
-									<div title="${thisItem.numOfAWSDevices + thisItem.numOfAzureDevices + thisItem.numOfGcpDevices} Cloud Devices">
+										<span>${standardCount}</span>
+									</button>
+									<button type="button" class="resource-type-toggle" data-resource-type="cloud" aria-pressed="true"${cloudCount > 0 ? "" : " disabled"} title="${cloudCount} Cloud Devices">
 										<svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M32 400C32 479.5 96.5 544 176 544L480 544C550.7 544 608 486.7 608 416C608 364.4 577.5 319.9 533.5 299.7C540.2 286.6 544 271.7 544 256C544 203 501 160 448 160C430.3 160 413.8 164.8 399.6 173.1C375.5 127.3 327.4 96 272 96C192.5 96 128 160.5 128 240C128 248 128.7 255.9 129.9 263.5C73 282.7 32 336.6 32 400z"/></svg>
-										<span>${thisItem.numOfAWSDevices + thisItem.numOfAzureDevices + thisItem.numOfGcpDevices}</span>
-									</div>
-									<div title="${thisItem.numOfKubernetesDevices} Kubernetes Devices">
+										<span>${cloudCount}</span>
+									</button>
+									<button type="button" class="resource-type-toggle" data-resource-type="kubernetes" aria-pressed="true"${kubernetesCount > 0 ? "" : " disabled"} title="${kubernetesCount} Kubernetes Devices">
 										<svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M401.8 269.7L450.4 227.2C464.2 246.5 473.8 269.1 477.8 293.4L413.4 297.7C411 287.6 407 278.2 401.8 269.7zM541.9 289.2C536.6 250.4 521.3 214.7 498.7 184.9L499.5 184.2C513 172.4 513.7 151.6 501 139C488.3 126.4 467.6 127 455.8 140.5L455.1 141.3C425.3 118.7 389.6 103.4 350.8 98.1L350.9 97C352.1 79.1 337.9 64 320 64C302.1 64 287.9 79.2 289.1 97L289.2 98.1C250.4 103.4 214.7 118.7 184.9 141.3L184.2 140.5C172.4 127 151.6 126.3 139 139C126.4 151.7 127 172.4 140.5 184.2L141.3 184.9C118.7 214.7 103.4 250.4 98.1 289.2L97 289.1C79.1 287.9 64 302.1 64 320C64 337.9 79.2 352.1 97 350.9L98.1 350.8C103.4 389.6 118.7 425.3 141.3 455.1L140.5 455.8C127 467.6 126.3 488.4 139 501C151.7 513.6 172.4 513 184.2 499.5L184.9 498.7C214.7 521.3 250.4 536.6 289.2 541.9L289.1 543C287.9 560.9 302.1 576 320 576C337.9 576 352.1 560.8 350.9 543L350.8 541.9C389.6 536.6 425.3 521.3 455.1 498.7L455.8 499.5C467.6 513 488.3 513.7 501 501C513.7 488.3 513 467.6 499.5 455.8L498.7 455.1C521.3 425.3 536.6 389.6 541.9 350.8L543 350.9C560.9 352.1 576 337.9 576 320C576 302.1 560.8 287.9 543 289.1L541.9 289.2zM227.2 189.6C246.5 175.8 269.1 166.2 293.4 162.1L297.7 226.5C287.7 228.9 278.2 232.9 269.7 238.1L227.2 189.5zM162.2 293.4C166.3 269 175.9 246.5 189.7 227.2L238.3 269.7C233 278.2 229.1 287.7 226.7 297.7L162.3 293.4zM189.7 412.8C175.9 393.5 166.3 370.9 162.2 346.6L226.6 342.3C229 352.4 233 361.8 238.2 370.3L189.6 412.8zM293.5 477.8C269.1 473.7 246.6 464.1 227.3 450.4L269.8 401.8C278.3 407.1 287.8 411 297.8 413.4L293.5 477.8zM412.9 450.4C393.6 464.2 371 473.8 346.7 477.8L342.4 413.4C352.4 411 361.9 407 370.4 401.8L412.9 450.4zM477.9 346.6C473.8 371 464.2 393.5 450.5 412.8L401.9 370.3C407.2 361.7 411.1 352.3 413.5 342.3L477.9 346.6zM412.9 189.7L370.4 238.3C361.8 233 352.4 229.1 342.4 226.7L346.7 162.3C371.1 166.4 393.6 176 412.9 189.8zM320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320C288 302.3 302.3 288 320 288z"/></svg>
-										<span>${thisItem.numOfKubernetesDevices}</span>
-									</div>
+										<span>${kubernetesCount}</span>
+									</button>
+									<button type="button" class="resource-type-toggle" data-resource-type="webcheck" aria-pressed="true" disabled title="Web Checks">
+										<svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 20 20"><path fill-opacity="0.01" d="M0 0h20v20H0z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M5.333 6.667a.667.667 0 1 0 0-1.334.667.667 0 0 0 0 1.334ZM8.667 6a.667.667 0 1 1-1.334 0 .667.667 0 0 1 1.334 0Zm2 .667a.667.667 0 1 0 0-1.334.667.667 0 0 0 0 1.334Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M3.333 3C2.597 3 2 3.597 2 4.333V15c0 .736.597 1.333 1.333 1.333h13.334c.736 0 1.333-.597 1.333-1.333V4.333C18 3.597 17.403 3 16.667 3H3.333Zm13.334 1.333H3.333V15h13.334V8.833H3.333V7.5h13.334V4.333Z"/></svg>
+										<span data-resource-type-count>-</span>
+									</button>
 									<div class="drillDownButton" title="Open group in new tab">
 										<a href="/santaba/uiv4/resources/treeNodes/t-dg,id-${itemId}?source=details" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path fill="white" d="M384 64C366.3 64 352 78.3 352 96C352 113.7 366.3 128 384 128L466.7 128L265.3 329.4C252.8 341.9 252.8 362.2 265.3 374.7C277.8 387.2 298.1 387.2 310.6 374.7L512 173.3L512 256C512 273.7 526.3 288 544 288C561.7 288 576 273.7 576 256L576 96C576 78.3 561.7 64 544 64L384 64zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 416C480 398.3 465.7 384 448 384C430.3 384 416 398.3 416 416L416 496C416 504.8 408.8 512 400 512L144 512C135.2 512 128 504.8 128 496L128 240C128 231.2 135.2 224 144 224L224 224C241.7 224 256 209.7 256 192C256 174.3 241.7 160 224 160L144 160z"/></svg></a>
 									</div>
@@ -4320,7 +4332,37 @@ function writeGroupResourceList(infoWindow, groupId, writer) {
 function applyGroupResourceRows(listEl, devices) {
 	var statusNames = { critical: "critical", error: "error", warn: "warning", sdt: "sdt", clear: "clear" };
 	var statusRanks = { critical: 4, error: 3, warning: 2, sdt: 1, clear: 0 };
-	var rows = devices.map(function(device) {
+	// Chips start pressed. A chip that is off hides that type, and any type without a chip stays in the list...
+	var typeEnabled = { standard: true, cloud: true, kubernetes: true, webcheck: true };
+	var details = listEl.closest(".details");
+	if (details) {
+		details.querySelectorAll(".resource-type-toggle").forEach(function(button) {
+			var typeName = button.getAttribute("data-resource-type");
+			if (typeName) typeEnabled[typeName] = button.getAttribute("aria-pressed") !== "false";
+		});
+		// Groups do not report a web check total, so that chip is counted from the fetched list and enabled only when it has some...
+		var webcheckButton = details.querySelector('.resource-type-toggle[data-resource-type="webcheck"]');
+		if (webcheckButton) {
+			var webcheckCount = devices.filter(function(device) {
+				return Number(device.deviceType) === 18;
+			}).length;
+			var webcheckCountEl = webcheckButton.querySelector("[data-resource-type-count]");
+			if (webcheckCountEl) webcheckCountEl.textContent = String(webcheckCount);
+			webcheckButton.title = webcheckCount + " Web Checks";
+			webcheckButton.disabled = webcheckCount === 0;
+		}
+	}
+	var visibleDevices = devices.filter(function(device) {
+		var deviceType = Number(device.deviceType);
+		var category = "";
+		if (deviceType === 0) category = "standard";
+		else if (deviceType === 2 || deviceType === 4 || deviceType === 7) category = "cloud";
+		else if (deviceType === 8) category = "kubernetes";
+		else if (deviceType === 18) category = "webcheck";
+		if (!category) return true;
+		return typeEnabled[category] !== false;
+	});
+	var rows = visibleDevices.map(function(device) {
 		var parsed = parseSeverity(device);
 		var status = statusNames[parsed.severity] || "clear";
 		var id = encodeURIComponent(device.id);
@@ -4341,7 +4383,14 @@ function applyGroupResourceRows(listEl, devices) {
 		title.textContent = "Resources (" + rows.length + ")";
 	}
 	if (!rows.length) {
-		listEl.textContent = "No resources";
+		// Disabled chips have nothing to show, so only the chips the user can press decide whether every type was turned off...
+		var activeChips = details ? Array.prototype.filter.call(details.querySelectorAll(".resource-type-toggle"), function(button) {
+			return !button.disabled;
+		}) : [];
+		var noTypesSelected = activeChips.length > 0 && activeChips.every(function(button) {
+			return button.getAttribute("aria-pressed") === "false";
+		});
+		listEl.textContent = noTypesSelected ? "No resource types selected" : "No resources";
 		return;
 	}
 	listEl.innerHTML = rows.map(buildClusterDeviceRowHtml).join("");
@@ -4424,6 +4473,33 @@ async function toggleHighlight(markerView, group) {
 	}
 	var infoWindow = markerInfoWindow;
 	var groupId = group.id;
+	// Attach the type-chip clicks once the popup is on the map. Presses are not saved, and a later open rebuilds every chip on...
+	function bindGroupResourceTypeToggles() {
+		if (!infoWindow || !infoWindow.isOpen || String(infoWindow.markerId) !== String(groupId) || !infoWindow.div) {
+			return false;
+		}
+		var features = infoWindow.div.querySelector(".features");
+		if (!features || features.getAttribute("data-type-toggles-bound") === "1") return true;
+		features.setAttribute("data-type-toggles-bound", "1");
+		features.addEventListener("click", function(event) {
+			var button = event.target.closest(".resource-type-toggle");
+			if (!button || button.disabled || !features.contains(button)) return;
+			event.preventDefault();
+			var pressed = button.getAttribute("aria-pressed") !== "false";
+			button.setAttribute("aria-pressed", pressed ? "false" : "true");
+			var cachedDevices = _groupResourceCache.get(groupId);
+			if (!cachedDevices) return;
+			writeGroupResourceList(infoWindow, groupId, function(listEl) {
+				applyGroupResourceRows(listEl, cachedDevices);
+			});
+		});
+		return true;
+	}
+	if (!bindGroupResourceTypeToggles()) {
+		requestAnimationFrame(function() {
+			bindGroupResourceTypeToggles();
+		});
+	}
 	var fullPath = group.fullPath;
 	if (!fullPath) {
 		console.warn("Map " + widgetID + ": group resource list skipped because the group path is missing.", groupId);
@@ -4449,7 +4525,7 @@ async function toggleHighlight(markerView, group) {
 			buildQueryParams: function(offset) {
 				var safePath = String(fullPath).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 				var filterValue = 'systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*' + safePath + '*\\"}"';
-				var fields = "id,displayName,name,alertStatus,sdtStatus";
+				var fields = "id,displayName,name,alertStatus,sdtStatus,deviceType";
 				return "?v=3&size=1000&offset=" + offset + "&fields=" + fields + "&filter=" + encodeURIComponent(filterValue);
 			},
 			signal: controller.signal,

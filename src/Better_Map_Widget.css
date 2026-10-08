@@ -524,7 +524,8 @@ body {
 	gap: 8px;
 	flex-wrap: wrap;
 }
-.group .features > div {
+.group .features > div,
+.group .features > button.resource-type-toggle {
 	align-items: center;
 	background: #f8f9fa;
 	border-radius: 4px;
@@ -535,6 +536,28 @@ body {
 	padding: 4px 8px;
 	color: #3c4043;
 	font-size: 13px;
+}
+.group .features > button.resource-type-toggle {
+	appearance: none;
+	-webkit-appearance: none;
+	margin: 0;
+	font: inherit;
+	font-size: 13px;
+	cursor: pointer;
+	text-align: inherit;
+}
+.group .features > button.resource-type-toggle:hover {
+	background: #eef1f4;
+}
+.group .features > button.resource-type-toggle[aria-pressed="false"],
+.group .features > button.resource-type-toggle:disabled {
+	opacity: 0.45;
+	background: #fff;
+}
+.group .features > button.resource-type-toggle:disabled,
+.group .features > button.resource-type-toggle:disabled:hover {
+	cursor: default;
+	background: #fff;
 }
 .group .features > div.drillDownButton {
 	background-color: #4195fe;
