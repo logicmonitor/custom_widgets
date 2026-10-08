@@ -85,7 +85,7 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **MapOverlayOption**: Which optional overlay to default to when weather is shown. Options are:
 	- **`none`**: Shows weather with no additional overlay (no earthquakes, hurricanes, wildfires, power outages, or flooding).
 	- **`earthquakes`** _(the default)_: Displays significant earthquakes. By default it shows quakes from the past 7 days and the icons fade based on age. There's an option to instead show quakes from the past 24 hours, which case the icon's boldness indicates the earthquake's magnitude. Clicking an earthquake's icon display more details.
-	- **`hurricanes`**: Plots active tropical cyclones worldwide using ArcGIS tracks and uncertainty cones. For Atlantic and eastern/central Pacific storms, current markers and info windows use equally recent or newer NOAA National Hurricane Center (NHC) position and intensity reports when available, including intermediate advisories. ArcGIS remains the fallback if NHC is unavailable. Current reports are checked on the normal weather refresh; NHC responses are cached for two minutes.
+	- **`hurricanes`**: Plots active tropical cyclones worldwide using ArcGIS tracks and uncertainty cones. For Atlantic, eastern/central Pacific, and Guam-area western Pacific storms, current markers and info windows use equally recent or newer advisories from the National Weather Service API (NHC, Central Pacific Hurricane Center, and NWS Guam), including intermediate advisories and tropical cyclone updates. ArcGIS remains the fallback when no newer advisory is available. Current reports are checked on the normal weather refresh; the advisory list is cached for two minutes.
  	- **`wildfires`**: Displays active wildfires in the US and Australia. Clicking a wildfire displays additional info.
   	- **`us-poweroutages`** (or just "`outages`" for short): Color-codes US counties by current number of customers without power (darker colors = higher % of customers affected). Clicking a county displays more info.
   	- **`us-flooding`**: Plots blue dots for areas with active US flood alerts. Clicking a dot displays more details about the flooding.
@@ -149,7 +149,7 @@ Below is a domain list for external APIs used by Better Map Widget for various d
 - `tile.openweathermap.org` — OpenWeather radar tiles
 - `maps.aerisapi.com` — Xweather radar tiles
 - `earthquake.usgs.gov` — earthquake GeoJSON data
-- `www.nhc.noaa.gov` — current tropical cyclone position, intensity, and movement reports (using the public CORS proxy fallback when direct browser access is blocked)
+- `api.weather.gov` — current tropical cyclone advisories (NHC, Central Pacific Hurricane Center, and NWS Guam) for position, intensity, and movement
 - `www.gdacs.org` — tropical cyclone descriptions, alert metadata, and report links
 - `api.waterdata.usgs.gov` — US flooding data
 - `services9.arcgis.com` — active tropical cyclone geometry/intensity and US wildfire data
