@@ -14,10 +14,14 @@
 // * Use hyphen-minus (-) instead of em/en dashes, straight ' and " for quotes, and ... for ellipsis...
 
 // ------------------------------------------------------------
-var version = "3.81 CDN";
+var version = "3.82 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.82</h3>
+	<ul>
+		<li>Hurricane markers and info windows now show the storm's Saffir-Simpson category in the eye when it is a hurricane.</li>
+	</ul>
 	<h3>Version 3.81</h3>
 	<ul>
 		<li>The standard, cloud, Kubernetes, and web check counts on a group marker can be toggled to filter that group's resource list. A count of zero is disabled.</li>
