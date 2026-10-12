@@ -5375,7 +5375,7 @@ function hurricaneTrackPointContent(severityText, color, size, label) {
 	const content = document.createElement("div");
 	const pointSize = Number.isFinite(Number(size)) ? Number(size) : 8;
 	const pointLabel = String(label || "");
-	content.style.cssText = `width:${pointSize}px;height:${pointSize}px;border-radius:50%;background:${color || "#263238"};border:1px solid white;display:flex;align-items:center;justify-content:center;color:white;font:700 ${Math.round(pointSize * (pointLabel.length > 1 ? 0.55 : 0.8))}px/1 Arial,Helvetica,sans-serif;text-shadow:0 0 2px rgba(0,0,0,.7);user-select:none;`;
+	content.style.cssText = `width:${pointSize}px;height:${pointSize}px;border-radius:50%;background:${color || "#263238"};border:1px solid white;display:flex;align-items:center;justify-content:center;color:white;font:700 ${Math.round(pointSize * (pointLabel.length > 1 ? 0.55 : 0.8))}px/1 Arial,Helvetica,sans-serif;user-select:none;`;
 	content.textContent = pointLabel;
 	content.title = severityText || "Track point";
 	content.setAttribute("aria-label", severityText || "Track point");
