@@ -5217,21 +5217,26 @@ function setOverlayCollectionMap(overlays, targetMap) {
 	});
 }
 
-const HURRICANE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="30" height="30" fill="#FF0000" role="img" aria-label="Tropical cyclone"><path stroke="white" stroke-width="14" stroke-linejoin="round" d="M128 272C128 168.4 203.7 82.5 302.9 66.6C312 65.2 320 72.6 320 81.9L320 145.2C320 153.6 326.5 160.5 334.7 161.7C435 176.6 512 263 512 367.4C512 471 436.3 556.9 337.1 572.8C327.9 574.3 320 566.9 320 557.6L320 494.3C320 485.9 313.5 479 305.3 477.7C205 462.9 128 376.4 128 272zM416 320C416 267 373 224 320 224C267 224 224 267 224 320C224 373 267 416 320 416C373 416 416 373 416 320zM320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320C288 302.3 302.3 288 320 288z"/></svg>';
+const HURRICANE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="30" height="30" fill="#FF0000" role="img" aria-label="Tropical cyclone"><path stroke="white" stroke-width="14" stroke-linejoin="round" d="M128 272C128 168.4 203.7 82.5 302.9 66.6C312 65.2 320 72.6 320 81.9L320 145.2C320 153.6 326.5 160.5 334.7 161.7C435 176.6 512 263 512 367.4C512 471 436.3 556.9 337.1 572.8C327.9 574.3 320 566.9 320 557.6L320 494.3C320 485.9 313.5 479 305.3 477.7C205 462.9 128 376.4 128 272zM416 320C416 267 373 224 320 224C267 224 224 267 224 320C224 373 267 416 320 416C373 416 416 373 416 320z"/></svg>';
+const HURRICANE_ICON_EYE_DOT = '<path stroke="white" stroke-width="14" stroke-linejoin="round" d="M320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320C288 302.3 302.3 288 320 288z"/>';
 const HURRICANE_HISTORICAL_COLOR = "rgb(170 170 170)";
 const HURRICANE_PROJECTED_COLOR = "#e2a957";
 
-// Returns the reusable red hurricane SVG at the requested size...
-function hurricaneIconSvg(size = 30) {
+// Returns the reusable red hurricane SVG at the requested size, with the Saffir-Simpson category in the eye when it is a hurricane...
+function hurricaneIconSvg(size = 30, category = 0) {
 	const iconSize = Number.isFinite(Number(size)) ? Number(size) : 30;
-	return HURRICANE_ICON_SVG.replace('width="30" height="30"', `width="${iconSize}" height="${iconSize}"`);
+	const categoryNumber = Number(category);
+	const eye = categoryNumber >= 1 && categoryNumber <= 5
+		? `<text x="320" y="320" text-anchor="middle" dominant-baseline="central" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="210" stroke="white" stroke-width="16" stroke-linejoin="round" paint-order="stroke">${categoryNumber}</text>`
+		: HURRICANE_ICON_EYE_DOT;
+	return HURRICANE_ICON_SVG.replace('width="30" height="30"', `width="${iconSize}" height="${iconSize}"`).replace("</svg>", `${eye}</svg>`);
 }
 
 // Creates map marker content with opacity scaled to storm intensity...
-function hurricaneMarkerContent(opacity, size) {
+function hurricaneMarkerContent(opacity, size, category) {
 	const content = document.createElement("div");
 	content.style.cssText = "display:flex;align-items:center;justify-content:center;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);";
-	content.innerHTML = hurricaneIconSvg(size);
+	content.innerHTML = hurricaneIconSvg(size, category);
 	content.firstElementChild.setAttribute("opacity", String(opacity));
 	content.title = "Tropical cyclone";
 	return content;
@@ -5258,9 +5263,25 @@ function hurricaneKnotsWithConversions(knots) {
 	return `${knots} kt (${mph} mph / ${kph} kph)`;
 }
 
+// Returns the Saffir-Simpson category for a sustained wind speed in knots, or 0 when the wind is unknown...
+function hurricaneWindCategory(windKnots) {
+	const wind = Number(windKnots);
+	if (!Number.isFinite(wind) || wind <= 0 || wind >= 9999) return 0;
+	if (wind >= 137) return 5;
+	if (wind >= 113) return 4;
+	if (wind >= 96) return 3;
+	if (wind >= 83) return 2;
+	return 1;
+}
+
 // Returns the ArcGIS-only storm classification used in track-point tooltips...
 function hurricaneArcgisSeverityText(properties) {
-	return String(properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || properties.STORMTYPE || "");
+	const classification = String(properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || properties.STORMTYPE || "").trim();
+	// The observed-track layer reports "Hurricane4" or a bare "Hurricane" instead of the forecast layer's "Category 4 Hurricane"...
+	const hurricaneMatch = classification.match(/^hurricane\s*([1-5])?$/i);
+	if (!hurricaneMatch) return classification;
+	const category = hurricaneMatch[1] ? Number(hurricaneMatch[1]) : hurricaneWindCategory(properties.MAXWIND || properties.INTENSITY);
+	return category ? `Category ${category} Hurricane` : "Hurricane";
 }
 
 // Returns an ordered intensity level for an ArcGIS storm classification...
@@ -5276,20 +5297,15 @@ function hurricaneClassificationLevel(properties) {
 // Returns the Saffir-Simpson category encoded by an ArcGIS storm record...
 function hurricaneSaffirSimpsonCategory(properties) {
 	const classification = hurricaneArcgisSeverityText(properties).toLowerCase();
+	// A point classified below hurricane strength has no category, even if a stale category value is present...
+	if (/depression|tropical storm|subtropical|post-tropical|remnant|disturbance|^(?:td|ts|sd|ss|pt|ptc|lo|db|ex|wv)$/.test(classification)) return 0;
 	const categoryMatch = classification.match(/category\s*([1-5])/);
 	const categoryValue = properties.SSNUM != null ? properties.SSNUM : properties.SS;
 	const category = categoryMatch ? Number(categoryMatch[1]) : Number(categoryValue);
 	if (Number.isFinite(category) && category >= 1 && category <= 5) return category;
 	if (/super typhoon/.test(classification)) return 5;
 	if (/major hurricane/.test(classification)) return 3;
-	if (/hurricane|typhoon/.test(classification)) {
-		const wind = Number(properties.MAXWIND || properties.INTENSITY);
-		if (Number.isFinite(wind) && wind >= 137) return 5;
-		if (Number.isFinite(wind) && wind >= 113) return 4;
-		if (Number.isFinite(wind) && wind >= 96) return 3;
-		if (Number.isFinite(wind) && wind >= 83) return 2;
-		return 1;
-	}
+	if (/hurricane|typhoon/.test(classification)) return hurricaneWindCategory(properties.MAXWIND || properties.INTENSITY) || 1;
 	return 0;
 }
 
@@ -5332,11 +5348,13 @@ function hurricaneTrackPointTooltip(properties) {
 	return [localDate, severity, intensity].filter(Boolean).join("\n") || "Track point";
 }
 
-// Creates a styled storm-track point marker with accessible hover text...
-function hurricaneTrackPointContent(severityText, color, size) {
+// Creates a styled storm-track point marker with accessible hover text, labeled with its Saffir-Simpson category when it is a hurricane...
+function hurricaneTrackPointContent(severityText, color, size, category) {
 	const content = document.createElement("div");
 	const pointSize = Number.isFinite(Number(size)) ? Number(size) : 8;
-	content.style.cssText = `width:${pointSize}px;height:${pointSize}px;border-radius:50%;background:${color || "#263238"};border:1px solid white;`;
+	content.style.cssText = `width:${pointSize}px;height:${pointSize}px;border-radius:50%;background:${color || "#263238"};border:1px solid white;display:flex;align-items:center;justify-content:center;color:white;font:700 ${Math.round(pointSize * 0.8)}px/1 Arial,Helvetica,sans-serif;text-shadow:0 0 2px rgba(0,0,0,.7);user-select:none;`;
+	const categoryNumber = Number(category);
+	if (categoryNumber >= 1 && categoryNumber <= 5) content.textContent = String(categoryNumber);
 	content.title = severityText || "Track point";
 	content.setAttribute("aria-label", severityText || "Track point");
 	return content;
@@ -5375,7 +5393,7 @@ function hurricaneInfoHtml(storm, position) {
 	if (position && Number.isFinite(position.lat) && Number.isFinite(position.lng)) {
 		measurements.push(`Location: ${Math.abs(position.lat).toFixed(2)}\u00b0${position.lat >= 0 ? "N" : "S"}, ${Math.abs(position.lng).toFixed(2)}\u00b0${position.lng >= 0 ? "E" : "W"}`);
 	}
-	const infoIcon = hurricaneIconSvg(80);
+	const infoIcon = hurricaneIconSvg(80, hurricaneSaffirSimpsonCategory(properties));
 	const reportUrl = properties.url && typeof properties.url === "object" ? properties.url.report : properties["url.report"];
 	const reportLink = /^https?:\/\//i.test(String(reportUrl || "")) ? `<div style="border-top:1px solid #eee;padding:6px 0;"><a href="${escapeHtml(reportUrl)}" target="_blank" rel="noopener noreferrer">Storm Report</a></div>` : "";
 	const developmentBlock = development ? `<div style="border-bottom:1px solid #eee;padding-bottom:6px;margin-bottom:0;font-weight:500;">${escapeHtml(development)}</div>` : "";
@@ -5467,7 +5485,7 @@ function plotHurricanes(geojson) {
 		// Track and cone properties must not override the current point's intensity or report time, and a track point's DTG must not stand in for a current point that has none...
 		storm.properties = hurricaneArcgisPointProperties(storm.properties, point.feature.properties);
 		const markerSize = hurricaneIsHurricaneClass(storm.properties) ? 35 : 30;
-		const markerContent = hurricaneMarkerContent(hurricaneIconOpacity(storm.properties), markerSize);
+		const markerContent = hurricaneMarkerContent(hurricaneIconOpacity(storm.properties), markerSize, hurricaneSaffirSimpsonCategory(storm.properties));
 		const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content: markerContent, anchorLeft: "-50%", anchorTop: "-50%", title: hurricaneDisplayName(storm.properties), gmpClickable: true, zIndex: 1000 });
 		plottedStorms.set(groupId, { storm, marker, position });
 		markerContent.addEventListener("dblclick", event => { event.stopPropagation(); hurricaneFitStormBounds(storm, position); });
@@ -5484,7 +5502,7 @@ function plotHurricanes(geojson) {
 			const severityText = hurricaneTrackPointTooltip(trackPoint.feature.properties || {});
 			const trackProperties = trackPoint.feature.properties || {};
 			const trackColor = hurricaneTrackPointColor(trackProperties);
-			const trackMarker = new google.maps.marker.AdvancedMarkerElement({ map: null, position: trackPosition, content: hurricaneTrackPointContent(severityText, trackColor, hurricaneTrackPointSize(trackProperties)), anchorLeft: "-50%", anchorTop: "-50%", title: severityText || "Track point", zIndex: 999 });
+			const trackMarker = new google.maps.marker.AdvancedMarkerElement({ map: null, position: trackPosition, content: hurricaneTrackPointContent(severityText, trackColor, hurricaneTrackPointSize(trackProperties), hurricaneSaffirSimpsonCategory(trackProperties)), anchorLeft: "-50%", anchorTop: "-50%", title: severityText || "Track point", zIndex: 999 });
 			storm.trackPointMarkers.push(trackMarker);
 			hurricaneTrackPointMarkers.push(trackMarker);
 		});
@@ -5637,7 +5655,7 @@ function hurricaneCoordinatesEqual(first, second) {
 // Merges an ArcGIS point with storm defaults without inheriting another point's timestamp...
 function hurricaneArcgisPointProperties(baseProperties, pointProperties) {
 	const merged = Object.assign({}, baseProperties, pointProperties);
-	["FLDATELBL", "fldatelbl", "DTG", "dtg", "VALIDTIME", "validtime", "DATELBL", "datelbl", "MAXWIND", "maxwind", "GUST", "gust", "ITCDVLP", "itcdvlp", "TCDVLP", "tcdvlp", "IDVLBL", "idvlbl"].forEach(key => {
+	["FLDATELBL", "fldatelbl", "DTG", "dtg", "VALIDTIME", "validtime", "DATELBL", "datelbl", "MAXWIND", "maxwind", "GUST", "gust", "ITCDVLP", "itcdvlp", "TCDVLP", "tcdvlp", "IDVLBL", "idvlbl", "SSNUM", "ssnum", "SS", "ss", "STORMTYPE", "stormtype", "INTENSITY", "intensity", "MSLP", "mslp"].forEach(key => {
 		if (!Object.prototype.hasOwnProperty.call(pointProperties || {}, key)) delete merged[key];
 	});
 	return merged;
