@@ -6222,8 +6222,8 @@ if (window.RProfiler) {
 	const HURRICANE_ICON_EYE_DOT = '<path stroke="white" stroke-width="14" stroke-linejoin="round" d="M320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320C288 302.3 302.3 288 320 288z"/>';
 	const HURRICANE_HISTORICAL_COLOR = "rgb(170 170 170)";
 	const HURRICANE_PROJECTED_COLOR = "#e2a957";
-	// Returns the reusable red hurricane SVG at the requested size, with the Saffir-Simpson category in the eye when it is a hurricane...
-	function hurricaneIconSvg(size, category) { const iconSize = Number.isFinite(Number(size)) ? Number(size) : 30; const categoryNumber = Number(category); const eye = categoryNumber >= 1 && categoryNumber <= 5 ? `<text x="320" y="320" text-anchor="middle" dominant-baseline="central" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="210" stroke="white" stroke-width="16" stroke-linejoin="round" paint-order="stroke">${categoryNumber}</text>` : HURRICANE_ICON_EYE_DOT; return HURRICANE_ICON_SVG.replace('width="30" height="30"', `width="${iconSize}" height="${iconSize}"`).replace("</svg>", `${eye}</svg>`); }
+	// Returns the reusable red hurricane SVG at the requested size, with the storm's eye label on a white eye when it has one...
+	function hurricaneIconSvg(size, label) { const iconSize = Number.isFinite(Number(size)) ? Number(size) : 30; const eyeLabel = String(label || ""); const eye = eyeLabel ? `<circle cx="320" cy="320" r="96" fill="white"/><text x="320" y="320" text-anchor="middle" dominant-baseline="central" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="${eyeLabel.length > 1 ? 130 : 210}">${escapeHtml(eyeLabel)}</text>` : HURRICANE_ICON_EYE_DOT; return HURRICANE_ICON_SVG.replace('width="30" height="30"', `width="${iconSize}" height="${iconSize}"`).replace("</svg>", `${eye}</svg>`); }
 	// Applies a Google Maps instance to every overlay in a collection...
 	function setOverlayCollectionMap(overlays, targetMap) { (overlays || []).forEach(overlay => { try { overlay.setMap(targetMap); } catch (error) {} }); }
 	// Formats ArcGIS wind, gust, and pressure values without repeating the storm classification...
@@ -6234,11 +6234,14 @@ if (window.RProfiler) {
 	function hurricaneWindCategory(windKnots) { const wind = Number(windKnots); if (!Number.isFinite(wind) || wind <= 0 || wind >= 9999) return 0; if (wind >= 137) return 5; if (wind >= 113) return 4; if (wind >= 96) return 3; if (wind >= 83) return 2; return 1; }
 	// Returns the ArcGIS-only storm classification used in track-point tooltips...
 	// The observed-track layer reports "Hurricane4" or a bare "Hurricane" instead of the forecast layer's "Category 4 Hurricane"...
-	function hurricaneArcgisSeverityText(properties) { const classification = String(properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || properties.STORMTYPE || "").trim(); const hurricaneMatch = classification.match(/^hurricane\s*([1-5])?$/i); if (!hurricaneMatch) return classification; const category = hurricaneMatch[1] ? Number(hurricaneMatch[1]) : hurricaneWindCategory(properties.MAXWIND || properties.INTENSITY); return category ? `Category ${category} Hurricane` : "Hurricane"; }
+	// It also labels every hurricane-strength storm a hurricane, so storms outside the Saffir-Simpson basins get their regional name...
+	function hurricaneArcgisSeverityText(properties) { const classification = String(properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || properties.STORMTYPE || "").trim(); const hurricaneMatch = classification.match(/^hurricane\s*([1-5])?$/i); if (!hurricaneMatch) return classification; const wind = Number(properties.MAXWIND || properties.INTENSITY); const basin = String(properties.BASIN || "").trim().toUpperCase(); if (basin && !/^(?:AL|EP|CP)$/.test(basin)) return basin === "WP" ? (wind >= 130 ? "Super Typhoon" : "Typhoon") : "Tropical Cyclone"; const category = hurricaneMatch[1] ? Number(hurricaneMatch[1]) : hurricaneWindCategory(wind); return category ? `Category ${category} Hurricane` : "Hurricane"; }
 	// Returns an ordered intensity level for an ArcGIS storm classification...
-	function hurricaneClassificationLevel(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); if (/major hurricane|category\s*[3-5]|super typhoon/.test(classification)) return 4; if (/hurricane|typhoon/.test(classification)) return 3; if (/tropical storm|subtropical storm/.test(classification)) return 2; if (/depression/.test(classification)) return 1; return 0; }
+	function hurricaneClassificationLevel(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); if (/major hurricane|category\s*[3-5]|super typhoon/.test(classification)) return 4; if (/hurricane|typhoon/.test(classification)) return 3; if (/tropical cyclone/.test(classification) && !/post-tropical|potential/.test(classification)) { const category = hurricaneSaffirSimpsonCategory(properties); return category >= 3 ? 4 : category ? 3 : 2; } if (/tropical storm|subtropical storm/.test(classification)) return 2; if (/depression/.test(classification)) return 1; return 0; }
 	// Returns the Saffir-Simpson category encoded by an ArcGIS storm record...
-	function hurricaneSaffirSimpsonCategory(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); if (/depression|tropical storm|subtropical|post-tropical|remnant|disturbance|^(?:td|ts|sd|ss|pt|ptc|lo|db|ex|wv)$/.test(classification)) return 0; const categoryMatch = classification.match(/category\s*([1-5])/); const categoryValue = properties.SSNUM != null ? properties.SSNUM : properties.SS; const category = categoryMatch ? Number(categoryMatch[1]) : Number(categoryValue); if (Number.isFinite(category) && category >= 1 && category <= 5) return category; if (/super typhoon/.test(classification)) return 5; if (/major hurricane/.test(classification)) return 3; if (/hurricane|typhoon/.test(classification)) return hurricaneWindCategory(properties.MAXWIND || properties.INTENSITY) || 1; return 0; }
+	function hurricaneSaffirSimpsonCategory(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); if (/depression|tropical storm|subtropical|post-tropical|potential|remnant|disturbance|^(?:td|ts|sd|ss|pt|ptc|lo|db|ex|wv)$/.test(classification)) return 0; const categoryMatch = classification.match(/category\s*([1-5])/); const categoryValue = properties.SSNUM != null ? properties.SSNUM : properties.SS; const category = categoryMatch ? Number(categoryMatch[1]) : Number(categoryValue); if (Number.isFinite(category) && category >= 1 && category <= 5) return category; if (/super typhoon/.test(classification)) return 5; if (/major hurricane/.test(classification)) return 3; if (/hurricane|typhoon/.test(classification)) return hurricaneWindCategory(properties.MAXWIND || properties.INTENSITY) || 1; if (/tropical cyclone/.test(classification)) return Number(properties.MAXWIND || properties.INTENSITY) >= 64 ? hurricaneWindCategory(properties.MAXWIND || properties.INTENSITY) : 0; return 0; }
+	// Returns the eye label for a storm: its Saffir-Simpson category for hurricanes, or "" for typhoons, cyclones, and weaker storms...
+	function hurricaneIconLabel(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); if (!/hurricane/.test(classification)) return ""; const category = hurricaneSaffirSimpsonCategory(properties); return category ? String(category) : ""; }
 	// Returns true when the current storm is classified as a hurricane or typhoon...
 	function hurricaneIsHurricaneClass(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); return /hurricane|typhoon/.test(classification) || hurricaneSaffirSimpsonCategory(properties) >= 1; }
 	// Returns map-icon opacity from 30 percent for the weakest storms to 100 percent for Category 3 and stronger...
@@ -6281,7 +6284,7 @@ if (window.RProfiler) {
 		if (position && Number.isFinite(position.lat) && Number.isFinite(position.lng)) {
 			measurements.push(`Location: ${Math.abs(position.lat).toFixed(2)}\u00b0${position.lat >= 0 ? "N" : "S"}, ${Math.abs(position.lng).toFixed(2)}\u00b0${position.lng >= 0 ? "E" : "W"}`);
 		}
-		const infoIcon = hurricaneIconSvg(80, hurricaneSaffirSimpsonCategory(properties));
+		const infoIcon = hurricaneIconSvg(80, hurricaneIconLabel(properties));
 		const reportUrl = properties.url && typeof properties.url === "object" ? properties.url.report : properties["url.report"];
 		const reportLink = /^https?:\/\//i.test(String(reportUrl || "")) ? `<div style="border-top:1px solid #eee;padding:6px 0;"><a href="${escapeHtml(reportUrl)}" target="_blank" rel="noopener noreferrer">Storm Report</a></div>` : "";
 		const developmentBlock = development ? `<div style="border-bottom:1px solid #eee;padding-bottom:6px;margin-bottom:0;font-weight:500;">${escapeHtml(development)}</div>` : "";
@@ -6337,7 +6340,7 @@ if (window.RProfiler) {
 			storm.properties = hurricaneArcgisPointProperties(storm.properties, point.feature.properties);
 			const content = document.createElement("div");
 			content.style.cssText = "display:flex;align-items:center;justify-content:center;filter:drop-shadow(rgba(0,0,0,.35) 0px 1px 2px);";
-			content.innerHTML = hurricaneIconSvg(hurricaneIsHurricaneClass(storm.properties) ? 35 : 30, hurricaneSaffirSimpsonCategory(storm.properties));
+			content.innerHTML = hurricaneIconSvg(hurricaneIsHurricaneClass(storm.properties) ? 35 : 30, hurricaneIconLabel(storm.properties));
 			content.firstElementChild.setAttribute("opacity", String(hurricaneIconOpacity(storm.properties)));
 			const marker = new google.maps.marker.AdvancedMarkerElement({ map, position, content, anchorLeft: "-50%", anchorTop: "-50%", title: String(storm.properties.STORMNAME || storm.properties.stormname || storm.properties.name || storm.properties.title || "Tropical cyclone"), gmpClickable: true, zIndex: 1000 });
 			plottedStorms.set(id, { storm, marker, position });
@@ -6353,10 +6356,10 @@ if (window.RProfiler) {
 				const trackProperties = trackPoint.feature.properties || {};
 				const trackColor = hurricaneTrackPointColor(trackProperties);
 				const pointSize = hurricaneTrackPointSize(trackProperties);
-				content.style.cssText = `width:${pointSize}px;height:${pointSize}px;border-radius:50%;background:${trackColor};border:1px solid white;display:flex;align-items:center;justify-content:center;color:white;font:700 ${Math.round(pointSize * 0.8)}px/1 Arial,Helvetica,sans-serif;text-shadow:0 0 2px rgba(0,0,0,.7);user-select:none;`;
-				// Hurricane-strength points are labeled with their Saffir-Simpson category...
-				const trackCategory = hurricaneSaffirSimpsonCategory(trackProperties);
-				if (trackCategory >= 1) content.textContent = String(trackCategory);
+				// Hurricane-strength points are labeled with their category or storm-type letter...
+				const trackLabel = hurricaneIconLabel(trackProperties);
+				content.style.cssText = `width:${pointSize}px;height:${pointSize}px;border-radius:50%;background:${trackColor};border:1px solid white;display:flex;align-items:center;justify-content:center;color:white;font:700 ${Math.round(pointSize * (trackLabel.length > 1 ? 0.55 : 0.8))}px/1 Arial,Helvetica,sans-serif;text-shadow:0 0 2px rgba(0,0,0,.7);user-select:none;`;
+				content.textContent = trackLabel;
 				content.title = tooltipText;
 				content.setAttribute("aria-label", tooltipText);
 				const trackMarker = new google.maps.marker.AdvancedMarkerElement({ map: null, position: trackPosition, content, anchorLeft: "-50%", anchorTop: "-50%", title: tooltipText, zIndex: 999 });
