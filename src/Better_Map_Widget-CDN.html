@@ -190,13 +190,16 @@
 				// Whether the opacity of an earthquake's icon reflects "time" since the event, or "magnitude"...
 				quakeMode: "time"
 			};
+
 			if (script) {
 				script.__betterMapDefaults = defaults;
 			} else {
 				registry.pendingDefaults.push(defaults);
 			}
+
 		})(document.currentScript);
-	</script>
+	
+</script>
 
 <!-- Load our Javascript from the CDN... -->
 <!-- <script>document.write('<script src="https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/src/Better_Map_Widget.js?ts=' + Date.now() + '" defer><\/script>');</script> -->
@@ -250,15 +253,17 @@
 	(function loadBetterMapAssets(loaderScript) {
 		var widgetBase = "https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/src/";
 		window.__betterMapWidgetBase = widgetBase;
-		// var catchpointBeacon = "https://g.3gl.net/jp/14586/latest/InitialLoadScript.js";
+		// var catchpointBeacon = "https://g.3gl.net/jp/14586/latest/InitialLoadScript.js";...
 		var registry = window.__betterMapWidgetRegistry = window.__betterMapWidgetRegistry || { instances: Object.create(null) };
 		if (!registry.instances) {
 			registry.instances = Object.create(null);
 		}
+
 		// One cache-busting stamp per page load, held on the shared registry so that every widget instance on the dashboard requests the same URL. A full page refresh starts with a new registry and therefore always pulls the currently published JS and CSS, while additional instances on that same page reuse what the first one already fetched rather than each pulling another ~294 KB. Do not replace this with a fixed version string: this loader is pasted into a dashboard once, so a hard-coded version would freeze that dashboard on whatever assets were current the day it was pasted...
 		if (!registry.assetCacheBuster) {
 			registry.assetCacheBuster = String(Date.now());
 		}
+
 		var assetCacheBuster = registry.assetCacheBuster;
 
 		// Function to find a previous sibling element matching the supplied test...
@@ -266,6 +271,7 @@
 			if (!start) {
 				return null;
 			}
+
 			var element = start.previousElementSibling;
 			while (element) {
 				if (predicate(element)) {
@@ -273,6 +279,7 @@
 				}
 				element = element.previousElementSibling;
 			}
+
 			return null;
 		}
 
@@ -297,6 +304,7 @@
 			if (root) {
 				return root;
 			}
+
 			root = document.createElement("div");
 			root.className = "customMapBody";
 			root.innerHTML = "&nbsp;";
@@ -305,6 +313,7 @@
 			} else {
 				(document.body || document.documentElement).appendChild(root);
 			}
+
 			return root;
 		}
 
@@ -317,18 +326,23 @@
 				if (options.defer) {
 					script.defer = true;
 				}
+
 				if (options.async) {
 					script.async = true;
 				}
+
 				if (options.instanceId) {
 					script.setAttribute("data-better-map-instance-id", options.instanceId);
 				}
+
 				script.onload = function() {
 					resolve();
 				};
+
 				script.onerror = function() {
 					reject(new Error("Failed to load script: " + url));
 				};
+
 				appendToHead(script);
 			});
 		}
@@ -342,9 +356,11 @@
 					if (existing.getAttribute("href") !== url) {
 						existing.setAttribute("href", url);
 					}
+
 					resolve();
 					return;
 				}
+
 				var link = document.createElement("link");
 				link.rel = "stylesheet";
 				link.setAttribute("data-better-map-stylesheet", "");
@@ -352,9 +368,11 @@
 				link.onload = function() {
 					resolve();
 				};
+
 				link.onerror = function() {
 					reject(new Error("Failed to load stylesheet: " + url));
 				};
+
 				appendToHead(link);
 			});
 		}
@@ -374,6 +392,7 @@
 		if (previousInstance && typeof previousInstance.cleanup === "function") {
 			previousInstance.cleanup();
 		}
+
 		if (previousInstanceId) {
 			delete registry.instances[previousInstanceId];
 		}
@@ -382,6 +401,7 @@
 		if (mapBody) {
 			mapBody.setAttribute("data-better-map-instance-id", instanceId);
 		}
+
 		if (tokenArea) {
 			tokenArea.setAttribute("data-better-map-instance-id", instanceId);
 		}
@@ -417,6 +437,6 @@
 
 		loadStylesheet(widgetBase + "Better_Map_Widget.css?ts=" + assetCacheBuster);
 		loadScript(widgetBase + "Better_Map_Widget.js?ts=" + assetCacheBuster, { defer: true, instanceId: instanceId });
-		// loadScript(catchpointBeacon + "?ts=" + assetCacheBuster, { defer: true });
+		// loadScript(catchpointBeacon + "?ts=" + assetCacheBuster, { defer: true });...
 	})(document.currentScript);
 </script>
