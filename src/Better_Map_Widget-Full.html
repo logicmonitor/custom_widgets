@@ -66,10 +66,15 @@
 		registry.pendingDefaults = registry.pendingDefaults || [];
 		var defaults = {};
 
-		defaults.version = "3.82";
+		defaults.version = "3.83";
 		defaults.releaseNotes = `
 			<h2>Release Notes</h2>
 			<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+			<h3>Version 3.73</h3>
+			<ul>
+				<li>Added numerical category indicators to storm markers for those applicable to the Australian tropical cyclone scale.</li>
+				<li>Some minor code cleanup.</li>
+			</ul>
 			<h3>Version 3.82</h3>
 			<ul>
 				<li>Hurricane markers and info windows now show the storm's Saffir-Simpson category in the eye when it is a hurricane.</li>
@@ -6389,24 +6394,25 @@ if (window.RProfiler) {
 	function hurricaneWindCategory(windKnots) { const wind = Number(windKnots); if (!Number.isFinite(wind) || wind <= 0 || wind >= 9999) return 0; if (wind >= 137) return 5; if (wind >= 113) return 4; if (wind >= 96) return 3; if (wind >= 83) return 2; return 1; }
 
 	// Returns the ArcGIS-only storm classification used in track-point tooltips...
+	// The observed-track layer has no regional cyclone categories, so Southern Hemisphere points get the forecast layer's Australian-scale label from their wind...
 	// The observed-track layer reports "Hurricane4" or a bare "Hurricane" instead of the forecast layer's "Category 4 Hurricane"...
 	// It also labels every hurricane-strength storm a hurricane, so storms outside the Saffir-Simpson basins get their regional name...
-	function hurricaneArcgisSeverityText(properties) { const classification = String(properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || properties.STORMTYPE || "").trim(); const hurricaneMatch = classification.match(/^hurricane\s*([1-5])?$/i); if (!hurricaneMatch) return classification; const wind = Number(properties.MAXWIND || properties.INTENSITY); const basin = String(properties.BASIN || "").trim().toUpperCase(); if (basin && !/^(?:AL|EP|CP)$/.test(basin)) return basin === "WP" ? (wind >= 130 ? "Super Typhoon" : "Typhoon") : "Tropical Cyclone"; const category = hurricaneMatch[1] ? Number(hurricaneMatch[1]) : hurricaneWindCategory(wind); return category ? `Category ${category} Hurricane` : "Hurricane"; }
+	function hurricaneArcgisSeverityText(properties) { const classification = String(properties.ITCDVLP || properties.TCDVLP || properties.IDVLBL || properties.STORMTYPE || "").trim(); const wind = Number(properties.MAXWIND || properties.INTENSITY); const basin = String(properties.BASIN || "").trim().toUpperCase(); if (basin === "SH" && !properties.ITCDVLP && /^(?:tropical storm|hurricane\s*[1-5]?)$/i.test(classification) && Number.isFinite(wind) && wind < 9999) { const cycloneCategory = wind >= 108 ? 5 : wind >= 86 ? 4 : wind >= 64 ? 3 : wind >= 48 ? 2 : wind >= 34 ? 1 : 0; if (cycloneCategory) return `Category ${cycloneCategory} ${cycloneCategory >= 3 ? "Severe " : ""}Tropical Cyclone`; } const hurricaneMatch = classification.match(/^hurricane\s*([1-5])?$/i); if (!hurricaneMatch) return classification; if (basin && !/^(?:AL|EP|CP)$/.test(basin)) return basin === "WP" ? (wind >= 130 ? "Super Typhoon" : "Typhoon") : "Tropical Cyclone"; const category = hurricaneMatch[1] ? Number(hurricaneMatch[1]) : hurricaneWindCategory(wind); return category ? `Category ${category} Hurricane` : "Hurricane"; }
 
-	// Returns an ordered intensity level for an ArcGIS storm classification...
-	function hurricaneClassificationLevel(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); if (/major hurricane|category\s*[3-5]|super typhoon/.test(classification)) return 4; if (/hurricane|typhoon/.test(classification)) return 3; if (/tropical cyclone/.test(classification) && !/post-tropical|potential/.test(classification)) { const category = hurricaneSaffirSimpsonCategory(properties); return category >= 3 ? 4 : category ? 3 : 2; } if (/tropical storm|subtropical storm/.test(classification)) return 2; if (/depression/.test(classification)) return 1; return 0; }
+	// Returns an ordered intensity level for an ArcGIS storm classification, checking cyclones first because an Australian-scale "Category 3" cyclone is not a major hurricane...
+	function hurricaneClassificationLevel(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); if (/tropical cyclone/.test(classification) && !/post-tropical|potential/.test(classification)) { const category = hurricaneSaffirSimpsonCategory(properties); return category >= 3 ? 4 : category ? 3 : 2; } if (/major hurricane|category\s*[3-5]|super typhoon/.test(classification)) return 4; if (/hurricane|typhoon/.test(classification)) return 3; if (/tropical storm|subtropical storm/.test(classification)) return 2; if (/depression/.test(classification)) return 1; return 0; }
 
 	// Returns the Saffir-Simpson category encoded by an ArcGIS storm record...
-	function hurricaneSaffirSimpsonCategory(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); if (/depression|tropical storm|subtropical|post-tropical|potential|remnant|disturbance|^(?:td|ts|sd|ss|pt|ptc|lo|db|ex|wv)$/.test(classification)) return 0; const categoryMatch = classification.match(/category\s*([1-5])/); const categoryValue = properties.SSNUM != null ? properties.SSNUM : properties.SS; const category = categoryMatch ? Number(categoryMatch[1]) : Number(categoryValue); if (Number.isFinite(category) && category >= 1 && category <= 5) return category; if (/super typhoon/.test(classification)) return 5; if (/major hurricane/.test(classification)) return 3; if (/hurricane|typhoon/.test(classification)) return hurricaneWindCategory(properties.MAXWIND || properties.INTENSITY) || 1; if (/tropical cyclone/.test(classification)) return Number(properties.MAXWIND || properties.INTENSITY) >= 64 ? hurricaneWindCategory(properties.MAXWIND || properties.INTENSITY) : 0; return 0; }
+	function hurricaneSaffirSimpsonCategory(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); if (/depression|tropical storm|subtropical|post-tropical|potential|remnant|disturbance|^(?:td|ts|sd|ss|pt|ptc|lo|db|ex|wv)$/.test(classification)) return 0; if (/tropical cyclone/.test(classification)) { const wind = Number(properties.MAXWIND || properties.INTENSITY); return wind >= 64 ? hurricaneWindCategory(wind) : 0; } const categoryMatch = classification.match(/category\s*([1-5])/); const categoryValue = properties.SSNUM != null ? properties.SSNUM : properties.SS; const category = categoryMatch ? Number(categoryMatch[1]) : Number(categoryValue); if (Number.isFinite(category) && category >= 1 && category <= 5) return category; if (/super typhoon/.test(classification)) return 5; if (/major hurricane/.test(classification)) return 3; if (/hurricane|typhoon/.test(classification)) return hurricaneWindCategory(properties.MAXWIND || properties.INTENSITY) || 1; return 0; }
 
-	// Returns the eye label for a storm: its Saffir-Simpson category for hurricanes, or "" for typhoons, cyclones, and weaker storms...
-	function hurricaneIconLabel(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); if (!/hurricane/.test(classification)) return ""; const category = hurricaneSaffirSimpsonCategory(properties); return category ? String(category) : ""; }
+	// Returns the eye label for a storm: its Saffir-Simpson category for hurricanes, its Australian-scale category for cyclones, or "" for typhoons and weaker storms...
+	function hurricaneIconLabel(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); const cycloneMatch = classification.match(/category\s*([1-5])\b.*tropical cyclone/); if (cycloneMatch && !/post-tropical|potential/.test(classification)) return cycloneMatch[1]; if (!/hurricane/.test(classification)) return ""; const category = hurricaneSaffirSimpsonCategory(properties); return category ? String(category) : ""; }
 
 	// Returns true when the current storm is classified as a hurricane or typhoon...
 	function hurricaneIsHurricaneClass(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); return /hurricane|typhoon/.test(classification) || hurricaneSaffirSimpsonCategory(properties) >= 1; }
 
 	// Returns map-icon opacity from 30 percent for the weakest storms to 100 percent for Category 3 and stronger...
-	function hurricaneIconOpacity(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); if (/depression/.test(classification)) return 0.3; if (/tropical storm|subtropical storm/.test(classification)) return 0.475; const category = hurricaneSaffirSimpsonCategory(properties); if (category >= 3) return 1; if (category === 2) return 0.825; if (category === 1) return 0.65; return 0.3; }
+	function hurricaneIconOpacity(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); if (/depression/.test(classification)) return 0.3; if (/tropical storm|subtropical storm/.test(classification)) return 0.475; const category = hurricaneSaffirSimpsonCategory(properties); if (!category && /tropical cyclone/.test(classification) && !/post-tropical|potential/.test(classification)) return 0.475; if (category >= 3) return 1; if (category === 2) return 0.825; if (category === 1) return 0.65; return 0.3; }
 
 	// Returns the fixed historical or projected point color...
 	function hurricaneTrackPointColor(properties) { const actual = properties && (properties._actual === true || String(properties.actual || "").toLowerCase() === "true"); return actual ? HURRICANE_HISTORICAL_COLOR : HURRICANE_PROJECTED_COLOR; }
