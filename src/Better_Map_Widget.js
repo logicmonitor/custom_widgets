@@ -1224,11 +1224,6 @@ function getContainingWidgetId() {
 	}
 }
 
-// Function to sanitize a widget ID for use in a cookie name...
-function sanitizeWidgetIdForCookie(id) {
-	return String(id).replace(/[^A-Za-z0-9_-]/g, "_");
-}
-
 // Function to build the legacy per-dashboard cookie name for saved map options...
 function getLegacyMapOptionsCookieName() {
 	const id = dashboardID || "default";
@@ -1239,7 +1234,7 @@ function getLegacyMapOptionsCookieName() {
 function getMapOptionsCookieName() {
 	const id = dashboardID || "default";
 	if (widgetID) {
-		return `${__LMBMW_MAPOPTS_COOKIE_BASE}_${id}_${sanitizeWidgetIdForCookie(widgetID)}`;
+		return `${__LMBMW_MAPOPTS_COOKIE_BASE}_${id}_${String(widgetID).replace(/[^A-Za-z0-9_-]/g, "_")}`;
 	}
 
 	return getLegacyMapOptionsCookieName();
@@ -2143,12 +2138,6 @@ function assignParallelConnectionOffsets() {
 	});
 }
 
-// Function to determine how far off-center a connection line should be curved...
-function getConnectionPathOffsetIndex(connection) {
-	// A lone connection has nothing to separate itself from, so it stays at offset 0 and buildConnectionPath returns a two-point straight line instead of interpolating a curve on every map idle. Curvature exists to fan out overlapping parallel links...
-	return Number((connection && connection.parallelOffsetIndex) || 0);
-}
-
 // Function to estimate ground meters per screen pixel at a latitude and zoom level...
 function getMetersPerPixel(latLng, zoom) {
 	const lat = typeof latLng.lat === "function" ? latLng.lat() : latLng.lat;
@@ -2244,7 +2233,8 @@ function buildGeodesicConnectionPath(sourcePos, targetPos, connection, offsetInd
 // Function to build a curved LatLng path for a connection...
 // TY ES & CH for your feedback!...
 function buildConnectionPath(sourcePos, targetPos, connection) {
-	const offsetIndex = getConnectionPathOffsetIndex(connection);
+	// Keep lone connections straight; curvature only separates parallel links...
+	const offsetIndex = Number((connection && connection.parallelOffsetIndex) || 0);
 	if (!offsetIndex) return [sourcePos, targetPos];
 	if (useGeodesicLines) {
 		return buildGeodesicConnectionPath(sourcePos, targetPos, connection, offsetIndex);
@@ -4979,19 +4969,13 @@ function renderSidebarList() {
 	sidebar.innerHTML = html;
 }
 
-// Function to check whether the sidebar is currently expanded...
-function isSidebarVisible() {
-	const sidebar = _dom.sidebarArea;
-	return Boolean(sidebar && !sidebar.classList.contains("sidebar-hidden"));
-}
-
 // Function to populate the sidebar with all plotted items...
 function populateSidebar() {
 	const sidebar = _dom.sidebarArea;
 	if (!sidebar) return;
 
 	// Building the item list walks every item and its display properties, and rendering rewrites the entire list markup, so skip both while the sidebar is collapsed and catch up when the user opens it...
-	if (isSidebarVisible()) {
+	if (!sidebar.classList.contains("sidebar-hidden")) {
 		_sidebarNeedsRebuild = false;
 		buildSidebarItems();
 		renderSidebarList();
@@ -5572,11 +5556,6 @@ function hurricaneIconOpacity(properties) {
 	return 0.3;
 }
 
-// Returns the point content size for an ArcGIS storm classification...
-function hurricaneTrackPointSize(properties) {
-	return 6 + (hurricaneClassificationLevel(properties) * 2);
-}
-
 // Returns the fixed historical or projected point color...
 function hurricaneTrackPointColor(properties) {
 	const actual = properties && (properties._actual === true || String(properties.actual || "").toLowerCase() === "true");
@@ -5748,7 +5727,7 @@ function plotHurricanes(geojson) {
 			const severityText = hurricaneTrackPointTooltip(trackPoint.feature.properties || {});
 			const trackProperties = trackPoint.feature.properties || {};
 			const trackColor = hurricaneTrackPointColor(trackProperties);
-			const trackMarker = new google.maps.marker.AdvancedMarkerElement({ map: null, position: trackPosition, content: hurricaneTrackPointContent(severityText, trackColor, hurricaneTrackPointSize(trackProperties), hurricaneIconLabel(trackProperties)), anchorLeft: "-50%", anchorTop: "-50%", title: severityText || "Track point", zIndex: 999 });
+			const trackMarker = new google.maps.marker.AdvancedMarkerElement({ map: null, position: trackPosition, content: hurricaneTrackPointContent(severityText, trackColor, (6 + (hurricaneClassificationLevel(trackProperties) * 2)), hurricaneIconLabel(trackProperties)), anchorLeft: "-50%", anchorTop: "-50%", title: severityText || "Track point", zIndex: 999 });
 			storm.trackPointMarkers.push(trackMarker);
 			hurricaneTrackPointMarkers.push(trackMarker);
 		});
@@ -5796,11 +5775,6 @@ function gdacsItems(data) {
 	if (data.channel && Array.isArray(data.channel.item)) return data.channel.item;
 	if (data.data) return gdacsItems(data.data);
 	return [];
-}
-
-// Normalizes a GDACS item into its property object...
-function gdacsStormProperties(item) {
-	return Object.assign({}, item.properties || item);
 }
 
 // Reads a property using case-insensitive candidate names...
@@ -6058,7 +6032,7 @@ function hurricaneApplyAdvisoryReports(features, products) {
 function hurricaneBuildGdacsIndex(data) {
 	const entries = new Map();
 	gdacsItems(data).forEach(item => {
-		const properties = gdacsStormProperties(item);
+		const properties = Object.assign({}, item.properties || item);
 		if (String(gdacsValue(properties, ["eventtype", "event_type"])).toUpperCase() !== "TC") return;
 		if (String(gdacsValue(properties, ["iscurrent", "is_current"])).toLowerCase() !== "true") return;
 		const eventId = gdacsValue(properties, ["eventid", "event_id"]);

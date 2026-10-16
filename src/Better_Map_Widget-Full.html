@@ -2047,11 +2047,6 @@ if (window.RProfiler) {
 		}
 	}
 
-	// Function to sanitize a widget ID for use in a cookie name...
-	function sanitizeWidgetIdForCookie(id) {
-		return String(id).replace(/[^A-Za-z0-9_-]/g, "_");
-	}
-
 	// Function to build the legacy per-dashboard cookie name for saved map options...
 	function getLegacyMapOptionsCookieName() {
 		const id = dashboardID || "default";
@@ -2062,7 +2057,7 @@ if (window.RProfiler) {
 	function getMapOptionsCookieName() {
 		const id = dashboardID || "default";
 		if (widgetID) {
-			return `${__LMBMW_MAPOPTS_COOKIE_BASE}_${id}_${sanitizeWidgetIdForCookie(widgetID)}`;
+			return `${__LMBMW_MAPOPTS_COOKIE_BASE}_${id}_${String(widgetID).replace(/[^A-Za-z0-9_-]/g, "_")}`;
 		}
 
 		return getLegacyMapOptionsCookieName();
@@ -3168,12 +3163,6 @@ if (window.RProfiler) {
 		});
 	}
 
-	// Function to determine how far off-center a connection line should be curved...
-	function getConnectionPathOffsetIndex(connection) {
-		// A lone connection has nothing to separate itself from, so it stays at offset 0 and buildConnectionPath returns a two-point straight line instead of interpolating a curve on every map idle. Curvature exists to fan out overlapping parallel links...
-		return Number((connection && connection.parallelOffsetIndex) || 0);
-	}
-
 	// Function to estimate ground meters per screen pixel at a latitude and zoom level...
 	function getMetersPerPixel(latLng, zoom) {
 		const lat = typeof latLng.lat === "function" ? latLng.lat() : latLng.lat;
@@ -3269,7 +3258,8 @@ if (window.RProfiler) {
 	// Function to build a curved LatLng path for a connection...
 	// TY ES & CH for your feedback!...
 	function buildConnectionPath(sourcePos, targetPos, connection) {
-		const offsetIndex = getConnectionPathOffsetIndex(connection);
+		// Keep lone connections straight; curvature only separates parallel links...
+		const offsetIndex = Number((connection && connection.parallelOffsetIndex) || 0);
 		if (!offsetIndex) return [sourcePos, targetPos];
 		if (useGeodesicLines) {
 			return buildGeodesicConnectionPath(sourcePos, targetPos, connection, offsetIndex);
@@ -5985,19 +5975,13 @@ if (window.RProfiler) {
 		sidebar.innerHTML = html;
 	}
 
-	// Function to check whether the sidebar is currently expanded...
-	function isSidebarVisible() {
-		const sidebar = _dom.sidebarArea;
-		return Boolean(sidebar && !sidebar.classList.contains("sidebar-hidden"));
-	}
-
 	// Function to populate the sidebar with all plotted items...
 	function populateSidebar() {
 		const sidebar = _dom.sidebarArea;
 		if (!sidebar) return;
 
 		// Building the item list walks every item and its display properties, and rendering rewrites the entire list markup, so skip both while the sidebar is collapsed and catch up when the user opens it...
-		if (isSidebarVisible()) {
+		if (!sidebar.classList.contains("sidebar-hidden")) {
 			_sidebarNeedsRebuild = false;
 			buildSidebarItems();
 			renderSidebarList();
@@ -6424,9 +6408,6 @@ if (window.RProfiler) {
 	// Returns map-icon opacity from 30 percent for the weakest storms to 100 percent for Category 3 and stronger...
 	function hurricaneIconOpacity(properties) { const classification = hurricaneArcgisSeverityText(properties).toLowerCase(); if (/depression/.test(classification)) return 0.3; if (/tropical storm|subtropical storm/.test(classification)) return 0.475; const category = hurricaneSaffirSimpsonCategory(properties); if (category >= 3) return 1; if (category === 2) return 0.825; if (category === 1) return 0.65; return 0.3; }
 
-	// Returns the point content size for an ArcGIS storm classification...
-	function hurricaneTrackPointSize(properties) { return 6 + (hurricaneClassificationLevel(properties) * 2); }
-
 	// Returns the fixed historical or projected point color...
 	function hurricaneTrackPointColor(properties) { const actual = properties && (properties._actual === true || String(properties.actual || "").toLowerCase() === "true"); return actual ? HURRICANE_HISTORICAL_COLOR : HURRICANE_PROJECTED_COLOR; }
 
@@ -6542,7 +6523,7 @@ if (window.RProfiler) {
 				const content = document.createElement("div");
 				const trackProperties = trackPoint.feature.properties || {};
 				const trackColor = hurricaneTrackPointColor(trackProperties);
-				const pointSize = hurricaneTrackPointSize(trackProperties);
+				const pointSize = 6 + (hurricaneClassificationLevel(trackProperties) * 2);
 				// Hurricane points are labeled with their Saffir-Simpson category...
 				const trackLabel = hurricaneIconLabel(trackProperties);
 				content.style.cssText = `width:${pointSize}px;height:${pointSize}px;border-radius:50%;background:${trackColor};border:1px solid white;display:flex;align-items:center;justify-content:center;color:white;font:700 ${Math.round(pointSize * (trackLabel.length > 1 ? 0.55 : 0.8))}px/1 Arial,Helvetica,sans-serif;user-select:none;`;
