@@ -1,6 +1,6 @@
 # LogicMonitor Widget SDK (`lm`)
 
-A single-file, no-build JavaScript library that simplifies common [LogicMonitor REST API v3](https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/) operations inside custom dashboard widgets. Its conventions are modeled on ServiceNow's GlideScript (`lm.info()`, `lm.query().addQuery()`, `lm.nil()`).
+A single-file, no-build JavaScript library that simplifies common [LogicMonitor REST API v3](https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/) operations inside custom dashboard widgets.
 
 The file is ASCII only (required by LogicMonitor's HTML sanitizer) and has no dependencies.
 
@@ -32,7 +32,7 @@ Chosen automatically, highest priority first:
 
 1. **Bearer token** - `lm.configure({ bearerToken })`
 2. **LMv1** - `lm.configure({ accessId, accessKey })` (HMAC-SHA256, signature is base64 of the hex digest)
-3. **Integrated session** (default) - fetches and caches a CSRF token (5 minute TTL, one shared in-flight request, one refresh on 401/403). Requires no configuration inside the portal.
+3. **Integrated session** (default) - API calls will use the current user's permissions. Requires no configuration inside the portal.
 
 `lm.auth.fromTokens()` reads hidden widget token elements (`apiBearerTokenToken`, `apiIDToken`, `apiKeyToken` by default) and ignores unresolved `##token##` placeholders. `lm.auth.mode()` returns `'bearer'`, `'lmv1'` or `'session'`.
 

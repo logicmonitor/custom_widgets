@@ -12,8 +12,7 @@
  *   2. LMv1 API ID and key (lm.configure({ accessId, accessKey }))
  *   3. Integrated portal session with a CSRF token (default, no configuration needed)
  *
- * Logging note: the LogicMonitor REST API has no endpoint for writing to the audit log (it is
- * read-only). lm.info/warn/error/debug always write to the browser console and can optionally
+ * Logging note: lm.info/warn/error/debug always write to the browser console and can optionally
  * be forwarded to LM Logs through the log ingest endpoint (see the "logs" configuration).
  *
  * Portions of the auth and request logic were adapted from Better_Map_Widget.js (original
