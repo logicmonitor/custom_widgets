@@ -1,0 +1,43 @@
+<!-- Example LogicMonitor Text/Custom HTML widget using the lm SDK. ASCII only. -->
+<div id="apiBearerTokenToken" style="display:none">##apiBearerToken##</div>
+<div id="apiIDToken" style="display:none">##apiID##</div>
+<div id="apiKeyToken" style="display:none">##apiKey##</div>
+
+<h3>Devices in alert</h3>
+<ul id="deviceList"></ul>
+<div id="status"></div>
+
+<script src="https://cdn.jsdelivr.net/gh/YOUR_ORG/custom_widgets@main/sdk/lm-sdk.js"></script>
+<script>
+(async function () {
+	lm.configure({ widgetName: "Device List Example", logLevel: "info" });
+
+	// Uses the credentials above when supplied; otherwise falls back to the integrated portal session...
+	lm.info("Auth mode: " + lm.auth.fromTokens());
+
+	var list = document.getElementById("deviceList");
+	var status = document.getElementById("status");
+
+	try {
+		var devices = await lm.query("devices")
+			.addQuery("alertStatus", "!=", "none")
+			.fields("id,displayName,alertStatus")
+			.orderBy("displayName")
+			.limit(200)
+			.getItems();
+
+		devices.forEach(function (d) {
+			var li = document.createElement("li");
+			li.textContent = d.displayName + " (" + d.alertStatus + ")";
+			list.appendChild(li);
+		});
+
+		var active = await lm.getAlerts({ filter: [["cleared", "=", false]], maxItems: 100, fields: "id,monitorObjectName,severity" });
+		status.textContent = devices.length + " devices, " + active.length + " active alerts (latest 100).";
+		lm.info("Rendered " + devices.length + " devices.");
+	} catch (e) {
+		status.textContent = "Error: " + e.message;
+		lm.error(e);
+	}
+})();
+</script>
