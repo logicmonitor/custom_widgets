@@ -7,10 +7,14 @@ The file is ASCII only (required by LogicMonitor's HTML sanitizer) and has no de
 ## Install
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/YOUR_ORG/custom_widgets@main/sdk/lm-sdk.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js"></script>
 ```
 
-Replace `YOUR_ORG` and pin a tag or commit instead of `main` for production widgets. The script exposes a global `lm`. Use `lm.create(config)` to get an independent instance.
+Pin a tag or commit instead of `main` for production widgets. The script exposes a global `lm`. Use `lm.create(config)` to get an independent instance.
+
+## Widget markup notes
+
+LogicMonitor's widget editor strips empty elements, such as an empty `<ul></ul>` or `<div></div>`, when the widget is saved. A script that looks one up with `document.getElementById` will then get `null`. Give placeholder containers some content (for example `<div id="list">Loading...</div>` or `&nbsp;`) and have the script replace it. See `examples/device-list-widget.html`.
 
 ## Quick start
 
