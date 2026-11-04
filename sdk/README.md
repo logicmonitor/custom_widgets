@@ -76,8 +76,10 @@ List shortcuts return arrays and take `{ filter, fields, sort, size, maxItems, o
 - `getDevices`, `getDeviceGroups`, `getAlerts`, `getWebsites`, `getWebsiteGroups`, `getCollectors`, `getCollectorGroups`, `getDashboards`, `getDashboardGroups`, `getWidgets`, `getSDTs`, `getAuditLogs`, `getDatasources`, `getAlertRules`, `getEscalationChains`, `getIntegrations`
 - By id: `getDevice(id)`, `getDeviceGroup`, `getAlert`, `getWebsite`, `getCollector`, `getDashboard`, `getWidget`, `getDatasource`
 - Sub-collections: `getDeviceDataSources(deviceId)`, `getDeviceInstances(deviceId, deviceDataSourceId)`, `getProperties(deviceId)`, `getDeviceGroupDevices(groupId)`, `getDashboardWidgets(dashboardId)`
+- Instances by datasource name or id: `getDatasourceInstances(deviceId, datasource, opts)` takes a datasource name (for example `"WinCPU"`) or numeric datasource id and returns the resource's instances (an empty array if the datasource isn't applied to it). Helpers: `getDatasourceId(datasource)` resolves a name to the datasource `id`, and `getDeviceDataSource(deviceId, datasource)` returns the resource's device datasource record. `getDeviceInstances` still takes the device datasource id directly.
 - Data: `getInstanceData(deviceId, deviceDataSourceId, instanceId, { start, end })`, `getGraphData(deviceId, ddsId, instanceId, graphId, { start, end })`, `getWidgetData(widgetId)`
 - `lm.getProperty(device, name, fallback)` searches custom, system, auto and inherited properties.
+- `lm.getStatusColor(status, fallback)` returns the LogicMonitor color for a status (case-insensitive): Critical `#DA331A`, Error `#F57202`, Warning `#F5CA1E`, SDT `#74D4E5`, Acknowledged `#AD36BF`, Cleared or None `#6BAE3A`. `warn`, `ack`, `acked` and `clear` are accepted as aliases. Numeric alert severities are accepted too: `2` Warning, `3` Error, `4` Critical (number or string). Unknown values return `fallback` (default `null`).
 
 ### Context
 

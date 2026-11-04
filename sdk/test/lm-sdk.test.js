@@ -184,10 +184,58 @@ test('shortcuts build correct paths and filters', async () => {
 	assert.match(calls[2].url, /\/instances\/3\/data\?start=10&end=20$/);
 });
 
+test('getDatasourceInstances resolves a datasource name to its instances', async () => {
+	const { lm, calls } = makeLM((url) => {
+		const u = decodeURIComponent(url);
+		if (u.indexOf('/setting/datasources') !== -1) return fakeResponse(200, { total: 1, items: [{ id: 42, name: 'WinCPU' }] });
+		if (u.indexOf('/devicedatasources?') !== -1) return fakeResponse(200, { total: 1, items: [{ id: 900 }] });
+		return fakeResponse(200, { total: 2, items: [{ id: 1 }, { id: 2 }] });
+	}, { bearerToken: 't' });
+	const items = await lm.getDatasourceInstances(5, 'WinCPU');
+	assert.strictEqual(items.length, 2);
+	assert.match(decodeURIComponent(calls[0].url), /\/setting\/datasources\?.*filter=name:"WinCPU"/);
+	assert.match(decodeURIComponent(calls[1].url), /\/device\/devices\/5\/devicedatasources\?.*filter=dataSourceId:42/);
+	assert.match(calls[2].url, /\/device\/devices\/5\/devicedatasources\/900\/instances\?/);
+});
+
+test('getDatasourceInstances skips the name lookup for a numeric id and handles missing data', async () => {
+	const { lm, calls } = makeLM((url) => {
+		if (url.indexOf('/devicedatasources?') !== -1) return fakeResponse(200, { total: 0, items: [] });
+		return fakeResponse(200, { total: 0, items: [] });
+	}, { bearerToken: 't' });
+	assert.strictEqual(await lm.getDatasourceId('42'), 42);
+	assert.deepStrictEqual(await lm.getDatasourceInstances(5, 42), []);
+	assert.strictEqual(calls.length, 1);
+	assert.match(decodeURIComponent(calls[0].url), /dataSourceId:42/);
+	await assert.rejects(lm.getDatasourceId(''), /required/);
+	await assert.rejects(lm.getDatasourceId('Nope'), /Datasource not found: Nope/);
+});
+
 test('getProperty searches property arrays', () => {
 	const device = { customProperties: [{ name: 'a', value: '1' }], systemProperties: [{ name: 'b', value: '2' }] };
 	assert.strictEqual(lmDefault.getProperty(device, 'b'), '2');
 	assert.strictEqual(lmDefault.getProperty(device, 'zzz', 'dflt'), 'dflt');
+});
+
+test('getStatusColor maps status names to LogicMonitor colors', () => {
+	assert.strictEqual(lmDefault.getStatusColor('Critical'), '#DA331A');
+	assert.strictEqual(lmDefault.getStatusColor('error'), '#F57202');
+	assert.strictEqual(lmDefault.getStatusColor(' WARNING '), '#F5CA1E');
+	assert.strictEqual(lmDefault.getStatusColor('warn'), '#F5CA1E');
+	assert.strictEqual(lmDefault.getStatusColor('SDT'), '#74D4E5');
+	assert.strictEqual(lmDefault.getStatusColor('Acknowledged'), '#AD36BF');
+	assert.strictEqual(lmDefault.getStatusColor('acked'), '#AD36BF');
+	assert.strictEqual(lmDefault.getStatusColor('Cleared'), '#6BAE3A');
+	assert.strictEqual(lmDefault.getStatusColor('clear'), '#6BAE3A');
+	assert.strictEqual(lmDefault.getStatusColor('none'), '#6BAE3A');
+	assert.strictEqual(lmDefault.getStatusColor(4), '#DA331A');
+	assert.strictEqual(lmDefault.getStatusColor('3'), '#F57202');
+	assert.strictEqual(lmDefault.getStatusColor(2), '#F5CA1E');
+	assert.strictEqual(lmDefault.getStatusColor(1, '#000'), '#000');
+	assert.strictEqual(lmDefault.getStatusColor(0), null);
+	assert.strictEqual(lmDefault.getStatusColor('bogus'), null);
+	assert.strictEqual(lmDefault.getStatusColor('toString', '#000'), '#000');
+	assert.strictEqual(lmDefault.getStatusColor(undefined, '#000'), '#000');
 });
 
 test('logging honors level, redacts secrets and forwards to transports', () => {

@@ -51,6 +51,7 @@
 
 			// Fetch up to 100 alerts that have not cleared, requesting only the fields we need...
 			var active = await lm.getAlerts({ filter: [["cleared", "=", false]], maxItems: 100, fields: "id,monitorObjectName,severity" });
+			var active = await lm.getAlerts({ maxItems: 100 });
 			// Show a summary of the counts below the list...
 			status.textContent = devices.length + " devices, " + active.length + " active alerts (latest 100).";
 			lm.info("Rendered " + devices.length + " devices.");

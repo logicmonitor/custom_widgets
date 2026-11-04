@@ -50,6 +50,32 @@
 		roles: '/setting/roles' // GET (list/by id), POST (create), PUT/PATCH (update)...
 	};
 
+	// LogicMonitor status names (lowercase) mapped to the colors the portal uses for them...
+	var STATUS_COLORS = {
+		critical: '#DA331A',
+		error: '#F57202',
+		warning: '#F5CA1E',
+		sdt: '#74D4E5',
+		acknowledged: '#AD36BF',
+		cleared: '#6BAE3A',
+		none: '#6BAE3A'
+	};
+
+	// Common alternate spellings of the status names above, mapped to their canonical key...
+	var STATUS_ALIASES = {
+		warn: 'warning',
+		ack: 'acknowledged',
+		acked: 'acknowledged',
+		clear: 'cleared'
+	};
+
+	// LogicMonitor numeric alert severities mapped to their status key. Severity 1 (info) has no color and is not mapped...
+	var STATUS_SEVERITIES = {
+		2: 'warning',
+		3: 'error',
+		4: 'critical'
+	};
+
 	// Filter operators mapped to LogicMonitor filter syntax...
 	var FILTER_OPERATORS = {
 		'=': ':',
@@ -1102,6 +1128,83 @@
 		}, 1);
 
 		/**
+		 * Tests whether a value is a numeric id (a finite number or a string of digits).
+		 *
+		 * @param {*} value - Value to test.
+		 * @returns {boolean} True for numeric ids.
+		 */
+		function isNumericId(value) {
+			if (typeof value === 'number') return isFinite(value);
+			return typeof value === 'string' && /^\d+$/.test(value.trim());
+		}
+
+		/**
+		 * Resolves a datasource name or id to the datasource id. A numeric value is treated as the id and
+		 * returned without a request. Anything else is treated as the exact datasource name and looked up
+		 * in /setting/datasources to read its "id" field.
+		 *
+		 * @async
+		 * @param {string|number} datasource - Datasource name (for example "WinCPU") or datasource id.
+		 * @param {object} [opts] - signal.
+		 * @returns {Promise<number>} The datasource id.
+		 * @throws {LMError} When no datasource is given or no datasource has that name.
+		 */
+		lm.getDatasourceId = async function (datasource, opts) {
+			var o = opts || {};
+			if (isNil(datasource) || String(datasource).trim() === '') {
+				throw new LMError('A datasource name or id is required.');
+			}
+			if (isNumericId(datasource)) return Number(String(datasource).trim());
+			var name = String(datasource).trim();
+			var q = lm.query('datasources').addQuery('name', name).fields('id,name');
+			if (o.signal) q.signal(o.signal);
+			var found = await q.first();
+			if (!found || isNil(found.id)) throw new LMError('Datasource not found: ' + name);
+			return found.id;
+		};
+
+		/**
+		 * Gets the record linking a resource to a datasource (the "device datasource"), which holds the
+		 * id the instances endpoint needs. The datasource may be given by name or id. This id is different
+		 * from the datasource id.
+		 *
+		 * @async
+		 * @param {string|number} deviceId - Resource (device) id.
+		 * @param {string|number} datasource - Datasource name or datasource id.
+		 * @param {object} [opts] - signal.
+		 * @returns {Promise<object|null>} The device datasource, or null when the datasource is not applied to the resource.
+		 */
+		lm.getDeviceDataSource = async function (deviceId, datasource, opts) {
+			var o = opts || {};
+			var datasourceId = await lm.getDatasourceId(datasource, o);
+			var q = new LMQuery('/device/devices/' + encodeURIComponent(deviceId) + '/devicedatasources').addQuery('dataSourceId', datasourceId);
+			if (o.signal) q.signal(o.signal);
+			return q.first();
+		};
+
+		/**
+		 * Gets the instances of a datasource on a resource. The datasource may be given by name or id. A name
+		 * is first looked up to get the datasource id, then the resource's device datasource is found, then
+		 * its instances are listed.
+		 *
+		 * @async
+		 * @param {string|number} deviceId - Resource (device) id.
+		 * @param {string|number} datasource - Datasource name (for example "WinCPU") or datasource id.
+		 * @param {object} [opts] - Same options as the list shortcuts (filter, fields, sort, size, maxItems, onProgress, signal).
+		 * @returns {Promise<Array>} Instances, or an empty array when the datasource is not applied to the resource.
+		 * @throws {LMError} When the datasource name is not found.
+		 */
+		lm.getDatasourceInstances = async function (deviceId, datasource, opts) {
+			var o = opts || {};
+			var deviceDataSource = await lm.getDeviceDataSource(deviceId, datasource, { signal: o.signal });
+			if (!deviceDataSource) {
+				lm.debug('Datasource "' + datasource + '" is not applied to resource ' + deviceId + '.');
+				return [];
+			}
+			return lm.getDeviceInstances(deviceId, deviceDataSource.id, o);
+		};
+
+		/**
 		 * Gets time series data for an instance.
 		 *
 		 * @param {string|number} deviceId - Device id.
@@ -1175,6 +1278,25 @@
 				}
 			}
 			return fallback;
+		};
+
+		/**
+		 * Returns the LogicMonitor color for a status type or numeric alert severity. Name matching is
+		 * case-insensitive and ignores surrounding whitespace. "warn" is accepted for Warning, "ack"
+		 * or "acked" for Acknowledged, and "clear" for Cleared ("none" has the same color as Cleared). Severities 2, 3 and 4 map to Warning, Error and Critical (as a
+		 * number or numeric string).
+		 *
+		 * @param {string|number} status - One of Critical, Error, Warning, SDT, Acknowledged, Cleared, None, or 2, 3 or 4.
+		 * @param {*} [fallback=null] - Value returned when the status is not recognized.
+		 * @returns {string|*} Hex color such as "#DA331A", or the fallback.
+		 */
+		lm.getStatusColor = function (status, fallback) {
+			var fb = fallback === undefined ? null : fallback;
+			if (isNil(status)) return fb;
+			var key = String(status).trim().toLowerCase();
+			if (Object.prototype.hasOwnProperty.call(STATUS_SEVERITIES, key)) key = STATUS_SEVERITIES[key];
+			key = STATUS_ALIASES[key] || key;
+			return Object.prototype.hasOwnProperty.call(STATUS_COLORS, key) ? STATUS_COLORS[key] : fb;
 		};
 
 		// ------------------------------------------------------------
