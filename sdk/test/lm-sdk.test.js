@@ -198,6 +198,19 @@ test('getDatasourceInstances resolves a datasource name to its instances', async
 	assert.match(calls[2].url, /\/device\/devices\/5\/devicedatasources\/900\/instances\?/);
 });
 
+test('getDatasourceInstances accepts a single options object', async () => {
+	const { lm, calls } = makeLM((url) => {
+		const u = decodeURIComponent(url);
+		if (u.indexOf('/setting/datasources') !== -1) return fakeResponse(200, { total: 1, items: [{ id: 42 }] });
+		if (u.indexOf('/devicedatasources?') !== -1) return fakeResponse(200, { total: 1, items: [{ id: 900 }] });
+		return fakeResponse(200, { total: 1, items: [{ id: 1 }] });
+	}, { bearerToken: 't' });
+	const items = await lm.getDatasourceInstances({ deviceId: 1694, datasource: 'SNMP_Network_Interfaces', maxItems: 100 });
+	assert.strictEqual(items.length, 1);
+	assert.match(calls[2].url, /\/device\/devices\/1694\/devicedatasources\/900\/instances\?/);
+	await assert.rejects(lm.getDatasourceInstances({ datasource: 'x' }), /resource \(device\) id is required/);
+});
+
 test('getDatasourceInstances skips the name lookup for a numeric id and handles missing data', async () => {
 	const { lm, calls } = makeLM((url) => {
 		if (url.indexOf('/devicedatasources?') !== -1) return fakeResponse(200, { total: 0, items: [] });

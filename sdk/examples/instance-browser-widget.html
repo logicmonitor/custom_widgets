@@ -1,0 +1,187 @@
+<!-- Example LogicMonitor Text/Custom HTML widget using the lm SDK: pick a resource, then a datasource, then see its instances. ASCII only. -->
+<div id="apiBearerTokenToken" style="display:none">##apiBearerToken##</div>
+<div id="apiIDToken" style="display:none">##apiID##</div>
+<div id="apiKeyToken" style="display:none">##apiKey##</div>
+
+<!-- Containers are not empty because LogicMonitor's editor strips empty elements. The script replaces this content... -->
+<div style="margin-bottom: 8px;">
+	<select id="resourceSelect"><option value="">Loading resources...</option></select>
+	<select id="datasourceSelect" disabled><option value="">Choose a datasource...</option></select>
+</div>
+<div id="status">&nbsp;</div>
+<div id="instanceList">Choose a resource and a datasource to list its instances.</div>
+
+<!-- Load the lm SDK, which exposes a global "lm" object... -->
+<script src="https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@widget_sdk/sdk/lm-sdk.js"></script>
+
+<script>
+	// Runs after the document has finished loading...
+	lm.context.onReady(async function () {
+		// Set a name for log messages and the minimum log level to write to the console...
+		lm.configure({ widgetName: "Instance Browser Example", logLevel: "info" });
+
+		// Uses the credentials above when supplied; otherwise falls back to the integrated portal session...
+		lm.info("Auth mode: " + lm.auth.fromTokens());
+
+		// Get the elements we will use...
+		var resourceSelect = document.getElementById("resourceSelect");
+		var datasourceSelect = document.getElementById("datasourceSelect");
+		var instanceList = document.getElementById("instanceList");
+		var status = document.getElementById("status");
+
+		// Counters used to ignore slow responses from a previous selection...
+		var datasourceRequest = 0;
+		var instanceRequest = 0;
+
+		// Replaces all options in a drop-down with a default option, followed by any supplied options...
+		function fillSelect(select, defaultText, options) {
+			select.textContent = "";
+			var defaultOption = document.createElement("option");
+			defaultOption.value = "";
+			defaultOption.textContent = defaultText;
+			select.appendChild(defaultOption);
+			options.forEach(function (o) {
+				var option = document.createElement("option");
+				option.value = o.value;
+				option.textContent = o.text;
+				select.appendChild(option);
+			});
+		}
+
+		// Picks the status color for an instance's alertStatus (for example "none" or "unconfirmed-critical")...
+		function statusColor(alertStatus) {
+			var parts = String(alertStatus || "none").toLowerCase().split("-");
+			var order = ["critical", "error", "warn", "sdt", "ack"];
+			for (var i = 0; i < order.length; i++) {
+				if (parts.indexOf(order[i]) !== -1) return lm.getStatusColor(order[i]);
+			}
+			return lm.getStatusColor("none");
+		}
+
+		// Shows a message in place of the instance list...
+		function showMessage(text) {
+			instanceList.textContent = text;
+		}
+
+		// Adds a cell to a table row and returns the cell...
+		function addCell(row, tag, text) {
+			var cell = document.createElement(tag);
+			cell.textContent = text;
+			cell.style.textAlign = "left";
+			cell.style.padding = "4px 8px";
+			cell.style.borderBottom = "1px solid #ccc";
+			row.appendChild(cell);
+			return cell;
+		}
+
+		// Builds a table with a row per instance showing its display name, description and alert status...
+		function showInstances(instances) {
+			if (!instances.length) {
+				showMessage("No instances found.");
+				return;
+			}
+			instanceList.textContent = "";
+			var table = document.createElement("table");
+			table.style.borderCollapse = "collapse";
+			table.style.width = "100%";
+
+			var headerRow = document.createElement("tr");
+			addCell(headerRow, "th", "Display name");
+			addCell(headerRow, "th", "Description");
+			addCell(headerRow, "th", "Alert status");
+			var thead = document.createElement("thead");
+			thead.appendChild(headerRow);
+			table.appendChild(thead);
+
+			var tbody = document.createElement("tbody");
+			instances.forEach(function (instance) {
+				var row = document.createElement("tr");
+				addCell(row, "td", instance.displayName);
+				addCell(row, "td", instance.description || "");
+
+				// Color the alert status cell using the SDK's status colors...
+				var statusCell = addCell(row, "td", instance.alertStatus || "none");
+				statusCell.style.backgroundColor = statusColor(instance.alertStatus);
+
+				tbody.appendChild(row);
+			});
+			table.appendChild(tbody);
+			instanceList.appendChild(table);
+		}
+
+		// When a resource is chosen, load that resource's datasources into the second drop-down...
+		async function onResourceChanged() {
+			var requestId = ++datasourceRequest;
+			++instanceRequest;
+			fillSelect(datasourceSelect, "Choose a datasource...", []);
+			datasourceSelect.disabled = true;
+			showMessage("Choose a resource and a datasource to list its instances.");
+			status.textContent = "\u00a0";
+			if (!resourceSelect.value) return;
+
+			status.textContent = "Loading datasources...";
+			try {
+				var datasources = await lm.getDeviceDataSources(resourceSelect.value, {
+					fields: "id,dataSourceName,dataSourceDisplayName",
+					sort: "dataSourceDisplayName"
+				});
+				// Ignore this result if the user picked another resource in the meantime...
+				if (requestId !== datasourceRequest) return;
+
+				fillSelect(datasourceSelect, "Choose a datasource...", datasources.map(function (d) {
+					// The value is the device datasource id, which is what the instances endpoint needs...
+					return { value: d.id, text: d.dataSourceDisplayName || d.dataSourceName };
+				}));
+				datasourceSelect.disabled = false;
+				status.textContent = datasources.length + " datasources.";
+			} catch (e) {
+				if (requestId !== datasourceRequest) return;
+				status.textContent = "Error: " + e.message;
+				lm.error(e);
+			}
+		}
+
+		// When a datasource is chosen, load its instances for the chosen resource...
+		async function onDatasourceChanged() {
+			var requestId = ++instanceRequest;
+			if (!datasourceSelect.value) {
+				showMessage("Choose a datasource to list its instances.");
+				return;
+			}
+
+			showMessage("Loading instances...");
+			try {
+				// We already have the device datasource id from the drop-down, so no name lookup is needed.
+				// (lm.getDatasourceInstances can instead look the datasource up by name or datasource id.)
+				var instances = await lm.getDeviceInstances(resourceSelect.value, datasourceSelect.value, {
+					fields: "id,displayName,description,alertStatus",
+					sort: "displayName"
+				});
+				// Ignore this result if the user picked something else in the meantime...
+				if (requestId !== instanceRequest) return;
+
+				showInstances(instances);
+				status.textContent = instances.length + " instances.";
+			} catch (e) {
+				if (requestId !== instanceRequest) return;
+				showMessage("Error: " + e.message);
+				lm.error(e);
+			}
+		}
+
+		resourceSelect.addEventListener("change", onResourceChanged);
+		datasourceSelect.addEventListener("change", onDatasourceChanged);
+
+		// Populate the resource drop-down with device names (limited to the first 1000 for this example)...
+		try {
+			var devices = await lm.getDevices({ fields: "id,displayName", sort: "displayName", maxItems: 1000 });
+			fillSelect(resourceSelect, "Choose a resource...", devices.map(function (d) {
+				return { value: d.id, text: d.displayName };
+			}));
+			status.textContent = devices.length + " resources.";
+		} catch (e) {
+			status.textContent = "Error: " + e.message;
+			lm.error(e);
+		}
+	});
+</script>
