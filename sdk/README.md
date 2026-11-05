@@ -12,10 +12,6 @@ The file is ASCII only (required by LogicMonitor's HTML sanitizer) and has no de
 
 Pin a tag or commit instead of `main` for production widgets. The script exposes a global `lm`. Use `lm.create(config)` to get an independent instance.
 
-## Widget markup notes
-
-LogicMonitor's widget editor strips empty elements, such as an empty `<ul></ul>` or `<div></div>`, when the widget is saved. A script that looks one up with `document.getElementById` will then get `null`. Give placeholder containers some content (for example `<div id="list">Loading...</div>` or `&nbsp;`) and have the script replace it. See `examples/device-list-widget.html`.
-
 ## Quick start
 
 ```js
@@ -25,6 +21,13 @@ lm.auth.fromTokens();                       // optional, see Authentication
 var devices = await lm.getDevices({ filter: { hostStatus: "normal" }, fields: "id,displayName" });
 lm.info("Loaded " + devices.length + " devices");
 ```
+
+### Examples
+
+Some examples are provided. These are complete widgets you can paste into a Text widget's Source view to experiment with:
+
+- [examples/device-list-widget.html](examples/device-list-widget.html) is a minimal widget that lists devices with active alerts using the query builder and `lm.getAlerts`.
+- [examples/instance-browser-widget.html](examples/instance-browser-widget.html) is a drill-down widget: choose a resource, then a datasource, and it lists that datasource's instances. It uses `lm.auth.fromTokens`, `lm.context.onReady`, `lm.getDevices`, `lm.getDeviceDataSources`, `lm.getDeviceInstances` and `lm.getStatusColor`, and ignores slow responses from an earlier selection.
 
 ## Authentication
 
@@ -947,10 +950,3 @@ var filter = "displayName:" + lm.buildFilterValue(userInput);
 node --test sdk/test        # unit tests (Node 18+)
 node tools/check-sdk.js     # ASCII-only and syntax check
 ```
-
-### Examples
-
-Both examples are complete widgets you can paste into a Text widget's Source view:
-
-- [examples/device-list-widget.html](examples/device-list-widget.html) is a minimal widget that lists devices with active alerts using the query builder and `lm.getAlerts`.
-- [examples/instance-browser-widget.html](examples/instance-browser-widget.html) is a drill-down widget: choose a resource, then a datasource, and it lists that datasource's instances. It uses `lm.auth.fromTokens`, `lm.context.onReady`, `lm.getDevices`, `lm.getDeviceDataSources`, `lm.getDeviceInstances` and `lm.getStatusColor`, and ignores slow responses from an earlier selection.
