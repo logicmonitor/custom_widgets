@@ -1,16 +1,16 @@
 # LogicMonitor Widget SDK (`lm`)
 
-A single-file, no-build JavaScript library that simplifies common [LogicMonitor REST API v3](https://www.logicmonitor.com/swagger-ui-master/api-v3/dist/) operations inside custom dashboard widgets.
+A single-file, no-build JavaScript library that helps simplify development of custom LogicMonitor dashboard widgets.
 
-The file is ASCII only (required by LogicMonitor's HTML sanitizer) and has no dependencies.
+## Installation
 
-## Install
+Include the following line in the source view of your LogicMonitor Text widget:
 
 ```html
 <script src="https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js"></script>
 ```
 
-Pin a tag or commit instead of `main` for production widgets. The script exposes a global `lm`. Use `lm.create(config)` to get an independent instance.
+The script exposes a global `lm` JavaScript object. You can then use `lm.create(config)` to create an independent instance.
 
 ## Quick start
 
@@ -24,14 +24,14 @@ lm.info("Loaded " + devices.length + " devices");
 
 ### Examples
 
-Some examples are provided. These are complete widgets you can paste into a Text widget's Source view to experiment with:
+These are complete example widgets you can paste into a Text widget's Source view to experiment with:
 
 - [examples/device-list-widget.html](examples/device-list-widget.html) is a minimal widget that lists devices with active alerts using the query builder and `lm.getAlerts`.
 - [examples/instance-browser-widget.html](examples/instance-browser-widget.html) is a drill-down widget: choose a resource, then a datasource, and it lists that datasource's instances. It uses `lm.auth.fromTokens`, `lm.context.onReady`, `lm.getDevices`, `lm.getDeviceDataSources`, `lm.getDeviceInstances` and `lm.getStatusColor`, and ignores slow responses from an earlier selection.
 
 ## Authentication
 
-Chosen automatically, highest priority first:
+The SDK supports multiple forms of LogicMonitor's API authentication to allow for different scenarios. These are chosen in the following order:
 
 1. **Bearer token** - `lm.configure({ bearerToken })`
 2. **LMv1** - `lm.configure({ accessId, accessKey })` (HMAC-SHA256, signature is base64 of the hex digest)
@@ -44,7 +44,7 @@ Chosen automatically, highest priority first:
 Conventions used below:
 
 - Functions marked **async** return a promise; use `await` or `.then()`.
-- API failures throw an [`LMError`](#lmlmerror). Aborting with an `AbortSignal` throws a standard `AbortError` instead.
+- API failures throw an [`LMError`](#errors). Aborting with an `AbortSignal` throws a standard `AbortError` instead.
 - "Epoch seconds" are Unix timestamps in seconds, which is what LogicMonitor's API uses.
 - Examples assume they run inside an `async` function.
 - Functions marked **Read only** send only `GET` requests (or no request at all) and never create, change or delete anything in your LogicMonitor portal. See [Read-only and write-capable functions](#read-only-and-write-capable-functions).
@@ -72,7 +72,8 @@ Tip: to be certain a widget can never change portal data, use an API token whose
 
 ### Configuration
 
-#### `lm.configure(options)`
+<details>
+<summary><strong><code>lm.configure(options)</code></strong></summary>
 
 Updates the SDK configuration and returns `lm`, so calls can be chained. Unknown keys are ignored, and placeholder values such as `##apiKey##` are treated as not set. Changing credentials clears the cached CSRF token.
 
@@ -94,11 +95,17 @@ Updates the SDK configuration and returns `lm`, so calls can be chained. Unknown
 lm.configure({ widgetName: "Capacity Widget", logLevel: "debug", retry: { max: 4 } });
 ```
 
-#### `lm.version`
+</details>
 
-The SDK version string, for example `"1.0.0"`.
+#### Properties
 
-#### `lm.create(config)`
+| Property | Description |
+| --- | --- |
+| `lm.version` | The SDK version string, for example `"1.0.0"`. |
+| `lm.LMError` | The error class thrown by the SDK. See [Errors](#errors). |
+
+<details>
+<summary><strong><code>lm.create(config)</code></strong></summary>
 
 Creates a new, independent SDK instance with its own configuration, token cache, logger and queues. Use it when one page needs to talk to the API with different credentials, or when you want logging settings that do not affect other scripts. The global `lm` is itself a default instance.
 
@@ -107,13 +114,12 @@ var other = lm.create({ bearerToken: "...", widgetName: "Other" });
 var alerts = await other.getAlerts({ maxItems: 10 });
 ```
 
-#### `lm.LMError`
-
-The error class thrown by the SDK. See [Errors](#errors).
+</details>
 
 ### Authentication functions
 
-#### `lm.auth.mode()`
+<details>
+<summary><strong><code>lm.auth.mode()</code></strong></summary>
 
 Returns the active auth mode: `'bearer'`, `'lmv1'` or `'session'`.
 
@@ -122,11 +128,20 @@ lm.configure({ accessId: "id", accessKey: "key" });
 lm.auth.mode();   // "lmv1"
 ```
 
-#### `lm.auth.fromTokens(elementIds)`
+</details>
+
+<details>
+<summary><strong><code>lm.auth.fromTokens(elementIds)</code></strong></summary>
 
 Reads credentials from hidden widget token elements, applies them with `lm.configure()`, and returns the resulting auth mode. Elements are looked up with `lm.context.getToken`, so unresolved `##token##` placeholders are ignored and the integrated session is used when no credentials were supplied.
 
-`elementIds` is optional: `{ bearerToken: "apiBearerTokenToken", accessId: "apiIDToken", accessKey: "apiKeyToken" }` are the defaults.
+`elementIds` is optional. Each key is the id of a hidden element holding the token:
+
+| Key | Default element id |
+| --- | --- |
+| `bearerToken` | `apiBearerTokenToken` |
+| `accessId` | `apiIDToken` |
+| `accessKey` | `apiKeyToken` |
 
 ```html
 <div id="apiBearerTokenToken" style="display:none">##apiBearerToken##</div>
@@ -136,7 +151,10 @@ Reads credentials from hidden widget token elements, applies them with `lm.confi
 </script>
 ```
 
-#### `lm.auth.getCsrfToken(forceRefresh)` (async)
+</details>
+
+<details>
+<summary><strong><code>lm.auth.getCsrfToken(forceRefresh)</code> (async)</strong></summary>
 
 Returns the CSRF token used by session auth. The token is cached (see `csrfTtlMs`), and concurrent callers share one request. Pass `true` to bypass the cache. You rarely need this directly because `lm.client.request` calls it for you and refreshes once automatically on a 401 or 403.
 
@@ -145,7 +163,10 @@ var token = await lm.auth.getCsrfToken();
 var fresh = await lm.auth.getCsrfToken(true);
 ```
 
-#### `lm.auth.signLMv1(verb, resourcePath, body, epoch)` (async)
+</details>
+
+<details>
+<summary><strong><code>lm.auth.signLMv1(verb, resourcePath, body, epoch)</code> (async)</strong></summary>
 
 Returns an LMv1 `Authorization` header value. The signature is the base64 encoding of the hex-encoded HMAC-SHA256 of `verb + epoch + body + resourcePath`. The body is included only for `POST`, `PUT` and `PATCH`. `resourcePath` is the path without the base and query string (for example `/device/devices`). `epoch` is in milliseconds and defaults to now.
 
@@ -155,9 +176,12 @@ var header = await lm.auth.signLMv1("GET", "/device/devices");
 // "LMv1 id:<signature>:<epoch>"
 ```
 
+</details>
+
 ### Client
 
-#### `lm.client.request(opts)` (async)
+<details>
+<summary><strong><code>lm.client.request(opts)</code> (async)</strong></summary>
 
 **Write capable:** read only when `verb` is `GET` (the default); `POST`, `PUT` and `PATCH` can change portal data. **NOTE:** `DELETE` operations are not allowed by default - the SDK will reject it with an `LMError` before sending anything.
 
@@ -186,7 +210,10 @@ await lm.client.request({
 });
 ```
 
-#### `lm.get(path, query, opts)` (async)
+</details>
+
+<details>
+<summary><strong><code>lm.get(path, query, opts)</code> (async)</strong></summary>
 
 Shorthand for a single `GET`. `opts` may contain `version`, `signal` and `retry`.
 
@@ -195,7 +222,10 @@ var response = await lm.get("/device/devices", { size: 5, fields: "id,displayNam
 // response.items, response.total
 ```
 
-#### `lm.getAll(path, opts)` (async)
+</details>
+
+<details>
+<summary><strong><code>lm.getAll(path, opts)</code> (async)</strong></summary>
 
 Fetches every page of a list endpoint and returns `{ items, total }`. It starts at offset 0 and keeps requesting pages until the reported total is reached. It copes with endpoints that report a negative total (alerts) by continuing until a short page arrives, and it stops, with a warning, if a page comes back empty, so it can never loop forever.
 
@@ -219,11 +249,22 @@ var result = await lm.getAll("/device/devices", {
 lm.info(result.items.length + " of " + result.total + " devices");
 ```
 
+</details>
+
 ### Query builder
+
+`lm.query(resource)` returns a builder, modeled on ServiceNow's GlideRecord, for list endpoints. Builder methods return the same query so calls chain; terminal methods send requests.
 
 **Read only:** the builder only sends `GET` requests.
 
-`lm.query(resource)` returns a builder, modeled on ServiceNow's GlideRecord, for list endpoints. Builder methods return the same query so calls chain; terminal methods send requests.
+| Method | Type | Purpose |
+| --- | --- | --- |
+| `addQuery`, `addOrQuery`, `addRawFilter` | Builder | Add filter conditions (AND, OR, raw). |
+| `fields`, `orderBy`, `orderByDesc` | Builder | Choose returned fields and sort order. |
+| `limit`, `pageSize` | Builder | Limit total items and set the page size. |
+| `param`, `signal`, `onProgress` | Builder | Extra parameters, cancellation and progress callback. |
+| `getFilter`, `getParams` | Inspect | Show what will be sent; no request. |
+| `get`, `getAll`, `getItems`, `first`, `getById`, `count` | Terminal (async) | Send requests and return results. |
 
 ```js
 var items = await lm.query("devices")
@@ -236,7 +277,8 @@ var items = await lm.query("devices")
 	.getItems();
 ```
 
-#### `lm.query(resource)`
+<details>
+<summary><strong><code>lm.query(resource)</code></strong></summary>
 
 Starts a query. `resource` is a friendly name from the table below or any path beginning with `/`. An unknown name throws an `LMError`.
 
@@ -266,11 +308,25 @@ var q = lm.query("devices");
 var custom = lm.query("/device/devices/42/properties");
 ```
 
-#### `.addQuery(field, value)` / `.addQuery(field, operator, value)`
+</details>
+
+<details>
+<summary><strong><code>.addQuery(field, value)</code> / <code>.addQuery(field, operator, value)</code></strong></summary>
 
 Adds a condition that is ANDed with the others. With two arguments the operator is equals. Strings are quoted and escaped; numbers and booleans are sent bare.
 
-Operators: `=` (or `==`), `!=`, `>`, `>=`, `<`, `<=`, `~` (or `contains`), `!~` (or `!contains`). LogicMonitor's own operators (`:`, `!:`, `>:`, `<:`) are accepted too. An unsupported operator throws an `LMError`.
+| Operator | Meaning | Sent as |
+| --- | --- | --- |
+| `=` (or `==`) | Equals | `:` |
+| `!=` | Not equals | `!:` |
+| `>` | Greater than | `>` |
+| `>=` | Greater than or equal | `>:` |
+| `<` | Less than | `<` |
+| `<=` | Less than or equal | `<:` |
+| `~` (or `contains`) | Contains | `~` |
+| `!~` (or `!contains`) | Does not contain | `!~` |
+
+LogicMonitor's own operators (`:`, `!:`, `>:`, `<:`) are accepted too. An unsupported operator throws an `LMError`.
 
 ```js
 lm.query("devices")
@@ -280,7 +336,10 @@ lm.query("devices")
 // filter: hostStatus:"normal",id>:100,displayName~"prod"
 ```
 
-#### `.addOrQuery(field, value)` / `.addOrQuery(field, operator, value)`
+</details>
+
+<details>
+<summary><strong><code>.addOrQuery(field, value)</code> / <code>.addOrQuery(field, operator, value)</code></strong></summary>
 
 Same as `addQuery`, but joins the condition to the previous one with LogicMonitor's OR (`||`).
 
@@ -289,7 +348,10 @@ lm.query("devices").addQuery("name", "~", "web").addOrQuery("name", "~", "app");
 // filter: name~"web"||name~"app"
 ```
 
-#### `.addRawFilter(filter)`
+</details>
+
+<details>
+<summary><strong><code>.addRawFilter(filter)</code></strong></summary>
 
 Adds a raw LogicMonitor filter expression as an AND condition. Use it for syntax the builder doesn't cover. An empty value is ignored.
 
@@ -297,7 +359,10 @@ Adds a raw LogicMonitor filter expression as an AND condition. Use it for syntax
 lm.query("alerts").addRawFilter("severity>:3,cleared:false");
 ```
 
-#### `.fields(list)`
+</details>
+
+<details>
+<summary><strong><code>.fields(list)</code></strong></summary>
 
 Sets the fields to return, as a comma separated string or an array. Requesting fewer fields makes responses much smaller.
 
@@ -305,7 +370,10 @@ Sets the fields to return, as a comma separated string or an array. Requesting f
 lm.query("devices").fields(["id", "displayName"]);
 ```
 
-#### `.orderBy(field)` / `.orderByDesc(field)`
+</details>
+
+<details>
+<summary><strong><code>.orderBy(field)</code> / <code>.orderByDesc(field)</code></strong></summary>
 
 Sorts ascending (`+field`) or descending (`-field`). Only one sort field is kept; the last call wins.
 
@@ -313,7 +381,10 @@ Sorts ascending (`+field`) or descending (`-field`). Only one sort field is kept
 lm.query("alerts").orderByDesc("startEpoch");
 ```
 
-#### `.limit(n)`
+</details>
+
+<details>
+<summary><strong><code>.limit(n)</code></strong></summary>
 
 Limits the total number of items returned by `getAll()` and `getItems()`. When `n` is smaller than the page size, the page size is reduced to `n` too, so no extra items are downloaded.
 
@@ -321,7 +392,10 @@ Limits the total number of items returned by `getAll()` and `getItems()`. When `
 var newest = await lm.query("alerts").orderByDesc("startEpoch").limit(10).getItems();
 ```
 
-#### `.pageSize(n)`
+</details>
+
+<details>
+<summary><strong><code>.pageSize(n)</code></strong></summary>
 
 Sets the page size used for requests (1 to 1000, default 1000).
 
@@ -329,7 +403,10 @@ Sets the page size used for requests (1 to 1000, default 1000).
 lm.query("devices").pageSize(200);
 ```
 
-#### `.param(key, value)`
+</details>
+
+<details>
+<summary><strong><code>.param(key, value)</code></strong></summary>
 
 Adds an extra query parameter sent with every request (for example `format` or `start`).
 
@@ -337,7 +414,10 @@ Adds an extra query parameter sent with every request (for example `format` or `
 lm.query("alerts").param("needMessage", true);
 ```
 
-#### `.signal(abortSignal)`
+</details>
+
+<details>
+<summary><strong><code>.signal(abortSignal)</code></strong></summary>
 
 Attaches an `AbortSignal` so the request (and any further pages) can be cancelled.
 
@@ -347,7 +427,10 @@ var pending = lm.query("devices").signal(controller.signal).getItems();
 controller.abort();    // pending rejects with an AbortError
 ```
 
-#### `.onProgress(fn)`
+</details>
+
+<details>
+<summary><strong><code>.onProgress(fn)</code></strong></summary>
 
 Sets a callback for `getAll()` and `getItems()`, called after each page with `(loaded, total)`.
 
@@ -357,7 +440,10 @@ lm.query("devices").onProgress(function (loaded, total) {
 });
 ```
 
-#### `.getFilter()` / `.getParams(offset)`
+</details>
+
+<details>
+<summary><strong><code>.getFilter()</code> / <code>.getParams(offset)</code></strong></summary>
 
 Inspect what will be sent without making a request. `getFilter()` returns the assembled filter string. `getParams(offset)` returns the query parameter object (`size`, `offset`, `fields`, `sort`, `filter`, plus anything added with `param`). Useful for debugging.
 
@@ -367,7 +453,10 @@ q.getFilter();     // 'hostStatus:"normal"'
 q.getParams(0);    // { size: 1000, offset: 0, fields: "id", sort: "+id", filter: 'hostStatus:"normal"' }
 ```
 
-#### `.get(offset)` (async)
+</details>
+
+<details>
+<summary><strong><code>.get(offset)</code> (async)</strong></summary>
 
 Fetches a single page, starting at `offset` (default 0), and returns `{ items, total }`. `total` is LogicMonitor's reported total, which can be negative for endpoints such as alerts.
 
@@ -375,7 +464,10 @@ Fetches a single page, starting at `offset` (default 0), and returns `{ items, t
 var page = await lm.query("devices").pageSize(50).get(100);
 ```
 
-#### `.getAll()` (async)
+</details>
+
+<details>
+<summary><strong><code>.getAll()</code> (async)</strong></summary>
 
 Fetches every page (see `lm.getAll`) and returns `{ items, total }`.
 
@@ -383,7 +475,10 @@ Fetches every page (see `lm.getAll`) and returns `{ items, total }`.
 var result = await lm.query("devices").addQuery("hostStatus", "dead").getAll();
 ```
 
-#### `.getItems()` (async)
+</details>
+
+<details>
+<summary><strong><code>.getItems()</code> (async)</strong></summary>
 
 Like `getAll()` but returns only the item array. This is the most common terminal method.
 
@@ -391,7 +486,10 @@ Like `getAll()` but returns only the item array. This is the most common termina
 var devices = await lm.query("devices").fields("id,displayName").getItems();
 ```
 
-#### `.first()` (async)
+</details>
+
+<details>
+<summary><strong><code>.first()</code> (async)</strong></summary>
 
 Returns the first matching item, or `null` when nothing matches. Requests only one item.
 
@@ -399,7 +497,10 @@ Returns the first matching item, or `null` when nothing matches. Requests only o
 var device = await lm.query("devices").addQuery("displayName", "web01").first();
 ```
 
-#### `.getById(id)` (async)
+</details>
+
+<details>
+<summary><strong><code>.getById(id)</code> (async)</strong></summary>
 
 Fetches one item by id (`<path>/<id>`). Honors `.fields()`. Filters are not applied.
 
@@ -407,13 +508,18 @@ Fetches one item by id (`<path>/<id>`). Honors `.fields()`. Filters are not appl
 var device = await lm.query("devices").fields("id,displayName,hostStatus").getById(42);
 ```
 
-#### `.count()` (async)
+</details>
+
+<details>
+<summary><strong><code>.count()</code> (async)</strong></summary>
 
 Returns the number of matching items without downloading them. If the API doesn't report a usable total (alerts), it pages through the ids and counts them.
 
 ```js
 var critical = await lm.query("alerts").addQuery("severity", 4).addQuery("cleared", false).count();
 ```
+
+</details>
 
 ### Errors
 
@@ -486,7 +592,16 @@ var prod = await lm.getDevices({ filter: 'displayName~"prod"' });
 
 **By-id shortcuts** return one item. They take the id and the same `opts` (only `fields` and `signal` apply):
 
-`lm.getDevice(id, opts)`, `lm.getDeviceGroup(id, opts)`, `lm.getAlert(id, opts)`, `lm.getWebsite(id, opts)`, `lm.getCollector(id, opts)`, `lm.getDashboard(id, opts)`, `lm.getWidget(id, opts)`, `lm.getDatasource(id, opts)`
+| Shortcut | Returns |
+| --- | --- |
+| `lm.getDevice(id, opts)` | One device (resource). |
+| `lm.getDeviceGroup(id, opts)` | One device group. |
+| `lm.getAlert(id, opts)` | One alert. |
+| `lm.getWebsite(id, opts)` | One website. |
+| `lm.getCollector(id, opts)` | One collector. |
+| `lm.getDashboard(id, opts)` | One dashboard. |
+| `lm.getWidget(id, opts)` | One widget. |
+| `lm.getDatasource(id, opts)` | One datasource definition. |
 
 ```js
 var device = await lm.getDevice(42, { fields: "id,displayName,customProperties" });
@@ -510,7 +625,12 @@ var dds = await lm.getDeviceDataSources(42, { filter: { dataSourceName: "WinCPU"
 var instances = await lm.getDeviceInstances(42, dds[0].id);
 ```
 
-#### `lm.getDatasourceId(datasource, opts)` (async)
+#### Datasource and data helpers
+
+Helpers for finding a resource's datasource instances by name, reading time series data, and working with property and status values.
+
+<details>
+<summary><strong><code>lm.getDatasourceId(datasource, opts)</code> (async)</strong></summary>
 
 Resolves a datasource name to the datasource `id`. A numeric value (number or digit string) is treated as an id and returned without a request. A name is matched exactly against `/setting/datasources`. Throws an `LMError` if the value is empty or no datasource has that name. `opts` may contain `signal`.
 
@@ -519,7 +639,10 @@ var id = await lm.getDatasourceId("WinCPU");   // 1234 (looked up)
 var same = await lm.getDatasourceId(1234);     // 1234 (no request)
 ```
 
-#### `lm.getDeviceDataSource(deviceId, datasource, opts)` (async)
+</details>
+
+<details>
+<summary><strong><code>lm.getDeviceDataSource(deviceId, datasource, opts)</code> (async)</strong></summary>
 
 Returns the record linking a resource to a datasource (the "device datasource"), or `null` when the datasource is not applied to the resource. `datasource` is a name or datasource id. The record's `id` is what `getDeviceInstances`, `getInstanceData` and `getGraphData` need, and it is different from the datasource id.
 
@@ -528,7 +651,10 @@ var dds = await lm.getDeviceDataSource(42, "WinCPU");
 if (dds) lm.info("Device datasource id: " + dds.id);
 ```
 
-#### `lm.getDatasourceInstances(deviceId, datasource, opts)` (async)
+</details>
+
+<details>
+<summary><strong><code>lm.getDatasourceInstances(deviceId, datasource, opts)</code> (async)</strong></summary>
 
 The easiest way to list a datasource's instances on a resource. It resolves the datasource name to an id, finds the resource's device datasource, and lists its instances. Returns an empty array if the datasource is not applied to the resource, and throws if the datasource name doesn't exist. `opts` takes the usual list options.
 
@@ -536,9 +662,18 @@ The easiest way to list a datasource's instances on a resource. It resolves the 
 var cpus = await lm.getDatasourceInstances(42, "WinCPU", { fields: "id,name,alertStatus" });
 ```
 
-#### `lm.getInstanceData(deviceId, deviceDataSourceId, instanceId, opts)` (async)
+</details>
 
-Returns time series data for one instance. `opts`: `start` and `end` (epoch seconds), `datapoints` (comma separated datapoint names), `signal`. Without `start` and `end`, LogicMonitor returns its default recent window.
+<details>
+<summary><strong><code>lm.getInstanceData(deviceId, deviceDataSourceId, instanceId, opts)</code> (async)</strong></summary>
+
+Returns time series data for one instance. Without `start` and `end`, LogicMonitor returns its default recent window.
+
+| Option | Description |
+| --- | --- |
+| `start`, `end` | Time range in epoch seconds. |
+| `datapoints` | Comma separated datapoint names to return. |
+| `signal` | An `AbortSignal`. |
 
 ```js
 var now = Math.floor(Date.now() / 1000);
@@ -546,23 +681,42 @@ var data = await lm.getInstanceData(42, dds.id, instance.id, { start: now - 3600
 // data.dataPoints, data.time, data.values
 ```
 
-#### `lm.getGraphData(deviceId, deviceDataSourceId, instanceId, graphId, opts)` (async)
+</details>
 
-Returns data for one instance graph. `opts`: `start`, `end` (epoch seconds), `signal`.
+<details>
+<summary><strong><code>lm.getGraphData(deviceId, deviceDataSourceId, instanceId, graphId, opts)</code> (async)</strong></summary>
+
+Returns data for one instance graph.
+
+| Option | Description |
+| --- | --- |
+| `start`, `end` | Time range in epoch seconds. |
+| `signal` | An `AbortSignal`. |
 
 ```js
 var graph = await lm.getGraphData(42, dds.id, instance.id, 7, { start: now - 86400, end: now });
 ```
 
-#### `lm.getWidgetData(widgetId, opts)` (async)
+</details>
 
-Returns the data behind a dashboard widget. `opts`: `start`, `end` (epoch seconds), `signal`.
+<details>
+<summary><strong><code>lm.getWidgetData(widgetId, opts)</code> (async)</strong></summary>
+
+Returns the data behind a dashboard widget.
+
+| Option | Description |
+| --- | --- |
+| `start`, `end` | Time range in epoch seconds. |
+| `signal` | An `AbortSignal`. |
 
 ```js
 var data = await lm.getWidgetData(1234);
 ```
 
-#### `lm.getProperty(device, name, fallback)`
+</details>
+
+<details>
+<summary><strong><code>lm.getProperty(device, name, fallback)</code></strong></summary>
 
 Reads a property from a device object that was fetched with property fields. Searches `customProperties`, `systemProperties`, `autoProperties`, then `inheritedProperties`, in that order, and returns the first match. Returns `fallback` if not found. This is synchronous and makes no request.
 
@@ -571,7 +725,10 @@ var device = await lm.getDevice(42, { fields: "id,customProperties,systemPropert
 var site = lm.getProperty(device, "location", "Unknown");
 ```
 
-#### `lm.getStatusColor(status, fallback)`
+</details>
+
+<details>
+<summary><strong><code>lm.getStatusColor(status, fallback)</code></strong></summary>
 
 Returns LogicMonitor's color for a status. Matching ignores case and surrounding whitespace.
 
@@ -593,6 +750,8 @@ lm.getStatusColor("bogus", "#999"); // "#999"
 row.style.backgroundColor = lm.getStatusColor(alert.severity, "transparent");
 ```
 
+</details>
+
 ### Context Helpers
 
 Useful helpers for capturing information about a widget itself and the dashboard it's running in.
@@ -601,7 +760,34 @@ Useful helpers for capturing information about a widget itself and the dashboard
 
 Each returns `null`, `''` or `false` instead of throwing when the parent page is unreachable. Reading or styling the parent page requires the portal's **Allow Scripts in Dashboard Text Widgets** setting, and the iframe must be same-origin with the portal.
 
-#### `lm.context.dashboardId()`
+| Function | Purpose |
+| --- | --- |
+| `dashboardId()`, `portal()` | Current dashboard id and portal host name. |
+| `isEmbedded()`, `parentDocument()` | Whether the parent page is readable, and its document. |
+| `widgetFrame()`, `widgetElement()`, `widgetId()` | This widget's iframe, the element around it, and that element's id. |
+| `widgetContainer()`, `widgetTitle()`, `widgetParent()` | The widget card, its title, and the grid cell holding it. |
+| `globalData(path, fallback)` | Read from the portal's `LMGlobalData`. |
+| `getToken(elementId, fallback)` | Read a widget token, ignoring unresolved placeholders. |
+| `sanitizeId(id)`, `scopedKey(base)` | Build safe, per-widget keys. |
+| `getCookie`, `setCookie`, `deleteCookie`, `getJsonCookie` | Cookie helpers. |
+| `injectParentStyle(id, css)`, `setStyleIfChanged(el, prop, value)` | Style the parent page. |
+| `contentHeight()`, `resizeFrame(px)`, `onReady(fn)`, `observeSize(fn, el)` | Size and lifecycle helpers. |
+
+#### `lm.context.selectors`
+
+An object holding the CSS selectors for LogicMonitor's generated markup. If a portal update breaks `widgetContainer()` or `widgetTitle()`, override them here.
+
+| Key | Default | Used by |
+| --- | --- | --- |
+| `widget` | `div[id][class*="DashboardWidgetsGrid__StyledWidget"]` | `widgetContainer()` |
+| `title` | `p.MuiTypography-root` | `widgetTitle()` |
+
+```js
+lm.context.selectors.title = "h2.newTitleClass";
+```
+
+<details>
+<summary><strong><code>lm.context.dashboardId()</code></strong></summary>
 
 Returns the numeric id of the current dashboard, taken from the parent page's URL (for example `/dashboards-2338`), or `''` if it can't be determined.
 
@@ -610,7 +796,10 @@ var id = lm.context.dashboardId();   // "2338"
 var dashboard = await lm.getDashboard(id);
 ```
 
-#### `lm.context.portal()`
+</details>
+
+<details>
+<summary><strong><code>lm.context.portal()</code></strong></summary>
 
 Returns the portal host name.
 
@@ -618,7 +807,10 @@ Returns the portal host name.
 lm.context.portal();   // "company.logicmonitor.com"
 ```
 
-#### `lm.context.isEmbedded()`
+</details>
+
+<details>
+<summary><strong><code>lm.context.isEmbedded()</code></strong></summary>
 
 Returns `true` when the script runs inside an iframe whose parent page is readable. Returns `false` when it runs standalone or the parent is cross-origin.
 
@@ -626,7 +818,10 @@ Returns `true` when the script runs inside an iframe whose parent page is readab
 if (!lm.context.isEmbedded()) lm.warn("Running outside a dashboard; parent helpers are unavailable.");
 ```
 
-#### `lm.context.parentDocument()`
+</details>
+
+<details>
+<summary><strong><code>lm.context.parentDocument()</code></strong></summary>
 
 Returns the dashboard page's `document`, or `null` when not embedded.
 
@@ -635,7 +830,10 @@ var doc = lm.context.parentDocument();
 var gridCount = doc ? doc.querySelectorAll("iframe").length : 0;
 ```
 
-#### `lm.context.widgetFrame()`
+</details>
+
+<details>
+<summary><strong><code>lm.context.widgetFrame()</code></strong></summary>
 
 Returns this widget's `<iframe>` element in the parent page. Uses `window.frameElement` and falls back to searching the parent page for the iframe whose window is this one. Returns `null` when unavailable.
 
@@ -644,11 +842,21 @@ var frame = lm.context.widgetFrame();
 if (frame) frame.style.border = "none";
 ```
 
-#### `lm.context.widgetElement()`
+</details>
+
+<details>
+<summary><strong><code>lm.context.widgetElement()</code></strong></summary>
 
 Returns the nearest element with an `id` that contains the widget iframe, or `null`.
 
-#### `lm.context.widgetId()`
+```js
+var element = lm.context.widgetElement();
+```
+
+</details>
+
+<details>
+<summary><strong><code>lm.context.widgetId()</code></strong></summary>
 
 Returns the `id` of that element (the widget id), or `null`.
 
@@ -656,7 +864,10 @@ Returns the `id` of that element (the widget id), or `null`.
 var widgetId = lm.context.widgetId();
 ```
 
-#### `lm.context.widgetContainer()`
+</details>
+
+<details>
+<summary><strong><code>lm.context.widgetContainer()</code></strong></summary>
 
 Returns the outer styled widget card in the parent page. This is the element to style when you want to change how the widget looks (background, border, height). If LogicMonitor's markup no longer matches `lm.context.selectors.widget`, it falls back to `widgetElement()`.
 
@@ -665,7 +876,10 @@ var card = lm.context.widgetContainer();
 if (card) card.style.backgroundColor = "unset";
 ```
 
-#### `lm.context.widgetTitle()`
+</details>
+
+<details>
+<summary><strong><code>lm.context.widgetTitle()</code></strong></summary>
 
 Returns the widget's title element in the parent page, or `null`.
 
@@ -674,7 +888,10 @@ var title = lm.context.widgetTitle();
 if (title) title.style.fontSize = "xx-large";
 ```
 
-#### `lm.context.widgetParent()`
+</details>
+
+<details>
+<summary><strong><code>lm.context.widgetParent()</code></strong></summary>
 
 Returns the parent element of the widget card (the dashboard grid cell), or `null`.
 
@@ -683,15 +900,10 @@ var cell = lm.context.widgetParent();
 if (cell) cell.style.alignItems = "flex-end";
 ```
 
-#### `lm.context.selectors`
+</details>
 
-An object holding the CSS selectors for LogicMonitor's generated markup: `widget` and `title`. If a portal update breaks `widgetContainer()` or `widgetTitle()`, override them here.
-
-```js
-lm.context.selectors.title = "h2.newTitleClass";
-```
-
-#### `lm.context.globalData(path, fallback)`
+<details>
+<summary><strong><code>lm.context.globalData(path, fallback)</code></strong></summary>
 
 Reads a value from the portal's `LMGlobalData` object using a dotted path, returning `fallback` (default `null`) when the path is missing. It never throws.
 
@@ -699,7 +911,10 @@ Reads a value from the portal's `LMGlobalData` object using a dotted path, retur
 var mapsKey = lm.context.globalData("googleMapInfo.key", "");
 ```
 
-#### `lm.context.getToken(elementId, fallback)`
+</details>
+
+<details>
+<summary><strong><code>lm.context.getToken(elementId, fallback)</code></strong></summary>
 
 Reads the text of a hidden element that holds a widget token (for example `##apiKey##`). Returns `fallback` (default `null`) if the element is missing, empty, or still contains an unresolved placeholder.
 
@@ -710,7 +925,10 @@ Reads the text of a hidden element that holds a widget token (for example `##api
 </script>
 ```
 
-#### `lm.context.sanitizeId(id)`
+</details>
+
+<details>
+<summary><strong><code>lm.context.sanitizeId(id)</code></strong></summary>
 
 Replaces every character other than letters, digits, `_` and `-` with `_`, so a value is safe in a cookie name or key.
 
@@ -718,7 +936,10 @@ Replaces every character other than letters, digits, `_` and `-` with `_`, so a 
 lm.context.sanitizeId("widget 12:3");   // "widget_12_3"
 ```
 
-#### `lm.context.scopedKey(base)`
+</details>
+
+<details>
+<summary><strong><code>lm.context.scopedKey(base)</code></strong></summary>
 
 Builds a key unique to the current dashboard and widget: `base_dashboardId_widgetId` (`default` replaces the dashboard id when unknown, and the widget part is omitted when unknown). Use it so several widgets, or several copies of one widget, don't overwrite each other's saved settings.
 
@@ -726,19 +947,49 @@ Builds a key unique to the current dashboard and widget: `base_dashboardId_widge
 var key = lm.context.scopedKey("mapOptions");   // "mapOptions_2338_w123"
 ```
 
-#### `lm.context.getCookie(name)`
+</details>
+
+<details>
+<summary><strong><code>lm.context.getCookie(name)</code></strong></summary>
 
 Returns the decoded value of a cookie, or `null` if it doesn't exist.
 
-#### `lm.context.setCookie(name, value, opts)`
+```js
+var raw = lm.context.getCookie("myPrefs");
+```
 
-Writes a cookie. Non-string values are stored as JSON. `opts`: `maxAge` in seconds (default one year), `path` (default `/`), `sameSite` (default `Lax`).
+</details>
 
-#### `lm.context.deleteCookie(name, path)`
+<details>
+<summary><strong><code>lm.context.setCookie(name, value, opts)</code></strong></summary>
+
+Writes a cookie. Non-string values are stored as JSON.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `maxAge` | one year | Lifetime in seconds. |
+| `path` | `/` | Cookie path. |
+| `sameSite` | `Lax` | SameSite attribute. |
+
+```js
+lm.context.setCookie("myPrefs", { zoom: 5 }, { maxAge: 86400 });
+```
+
+</details>
+
+<details>
+<summary><strong><code>lm.context.deleteCookie(name, path)</code></strong></summary>
 
 Deletes a cookie (`path` defaults to `/`).
 
-#### `lm.context.getJsonCookie(name, fallback)`
+```js
+lm.context.deleteCookie("myPrefs");
+```
+
+</details>
+
+<details>
+<summary><strong><code>lm.context.getJsonCookie(name, fallback)</code></strong></summary>
 
 Reads a cookie and parses it as JSON, returning `fallback` (default `null`) if the cookie is missing or isn't valid JSON.
 
@@ -749,7 +1000,10 @@ var prefs = lm.context.getJsonCookie(key, { zoom: 3 });
 lm.context.deleteCookie(key);
 ```
 
-#### `lm.context.injectParentStyle(id, css)`
+</details>
+
+<details>
+<summary><strong><code>lm.context.injectParentStyle(id, css)</code></strong></summary>
 
 Adds a `<style>` element to the parent page once, identified by `id`. The widget's card lives in the parent page, outside your iframe, so rules that target it (for example hover effects) must go there. Returns `true` if the style exists afterward (including when it was already added), `false` if the parent isn't reachable.
 
@@ -758,7 +1012,10 @@ lm.context.injectParentStyle("myWidgetStyle", ".myWidget:hover { border: 1px sol
 lm.context.widgetContainer().classList.add("myWidget");
 ```
 
-#### `lm.context.setStyleIfChanged(element, property, value)`
+</details>
+
+<details>
+<summary><strong><code>lm.context.setStyleIfChanged(element, property, value)</code></strong></summary>
 
 Sets an inline style (camelCase property) only if it differs from the current value, and returns `true` when it changed something. Avoids needless layout and resize cycles, especially inside size observers.
 
@@ -766,11 +1023,21 @@ Sets an inline style (camelCase property) only if it differs from the current va
 lm.context.setStyleIfChanged(card, "height", "80px");
 ```
 
-#### `lm.context.contentHeight()`
+</details>
+
+<details>
+<summary><strong><code>lm.context.contentHeight()</code></strong></summary>
 
 Returns the height of this document's `<html>` element in pixels. Because `<html>` is auto-height, it reflects the real content height and can shrink as well as grow, unlike `scrollHeight`.
 
-#### `lm.context.resizeFrame(height)`
+```js
+var px = lm.context.contentHeight();
+```
+
+</details>
+
+<details>
+<summary><strong><code>lm.context.resizeFrame(height)</code></strong></summary>
 
 Sets this widget's iframe height in pixels (rounded, never negative), only if it changed. Returns `true` when the height changed.
 
@@ -778,7 +1045,10 @@ Sets this widget's iframe height in pixels (rounded, never negative), only if it
 lm.context.resizeFrame(lm.context.contentHeight());
 ```
 
-#### `lm.context.onReady(fn)`
+</details>
+
+<details>
+<summary><strong><code>lm.context.onReady(fn)</code></strong></summary>
 
 Calls `fn` once the document has loaded, or immediately if it already has.
 
@@ -786,7 +1056,10 @@ Calls `fn` once the document has loaded, or immediately if it already has.
 lm.context.onReady(function () { init(); });
 ```
 
-#### `lm.context.observeSize(fn, element)`
+</details>
+
+<details>
+<summary><strong><code>lm.context.observeSize(fn, element)</code></strong></summary>
 
 Watches an element (default the `<html>` element) for size changes with a `ResizeObserver` and calls `fn` once per animation frame, no matter how many resize notifications arrive. Returns a function that stops observing. Returns a no-op function if `ResizeObserver` is unavailable.
 
@@ -797,13 +1070,23 @@ var stop = lm.context.observeSize(function () {
 // stop();
 ```
 
+</details>
+
 ### Logging
 
 **Writes log data only:** console logging has no portal effect. With LM Logs forwarding enabled, entries are `POST`ed to LM Logs (the only non-`GET` request the SDK sends on its own). It never changes portal configuration.
 
 Logging works like GlideScript's `gs.info`. Messages go to the browser console with a `[widgetName]` prefix, any registered transports, and optionally LM Logs. Entries are redacted before they go anywhere: bearer tokens and LMv1 headers in messages are replaced, and metadata keys such as `token`, `secret`, `password`, `authorization`, `accessKey` and `apiKey` are masked.
 
-#### `lm.debug(message, meta)`, `lm.info(message, meta)`, `lm.warn(message, meta)`, `lm.error(message, meta)`
+| Function | Purpose |
+| --- | --- |
+| `lm.debug`, `lm.info`, `lm.warn`, `lm.error` | Write a message at that level. |
+| `lm.setLevel`, `lm.getLevel` | Set or read the minimum level written. |
+| `lm.logger.addTransport` | Add a custom destination. |
+| `lm.logger.flush` | Send queued LM Logs entries now. |
+
+<details>
+<summary><strong><code>lm.debug(message, meta)</code>, <code>lm.info(message, meta)</code>, <code>lm.warn(message, meta)</code>, <code>lm.error(message, meta)</code></strong></summary>
 
 Write a message at that level. `message` can be a string, an `Error` or any object (non-strings are converted to text). `meta` is optional structured data shown next to the message in the console and sent with LM Logs entries. Messages below the current level are ignored.
 
@@ -818,7 +1101,10 @@ try {
 }
 ```
 
-#### `lm.setLevel(level)` / `lm.getLevel()`
+</details>
+
+<details>
+<summary><strong><code>lm.setLevel(level)</code> / <code>lm.getLevel()</code></strong></summary>
 
 `setLevel` sets the minimum level written: `'debug'`, `'info'`, `'warn'`, `'error'` or `'silent'`. It returns `lm`, and throws an `LMError` for an unknown level. `getLevel` returns the current level name. The default is `'info'`.
 
@@ -827,7 +1113,10 @@ lm.setLevel("debug");
 lm.getLevel();   // "debug"
 ```
 
-#### `lm.logger.addTransport(fn)`
+</details>
+
+<details>
+<summary><strong><code>lm.logger.addTransport(fn)</code></strong></summary>
 
 Registers a custom destination. `fn` receives each entry that passes the level filter: `{ level, msg, timestamp, widget, meta }`. Exceptions thrown by a transport are ignored so they can never break the widget. Returns a function that removes the transport.
 
@@ -838,7 +1127,9 @@ var remove = lm.logger.addTransport(function (entry) {
 // remove();
 ```
 
-#### LM Logs forwarding and `lm.logger.flush()` (async)
+</details>
+
+#### LM Logs forwarding
 
 **Audit log limitation:** the LogicMonitor REST API cannot write to the audit log (it is read-only; use `lm.getAuditLogs` to read it). To keep messages, forward them to LM Logs:
 
@@ -865,18 +1156,34 @@ lm.configure({
 
 Entries are batched and POSTed to the ingest endpoint, and flushed on batch size, the timer, `pagehide` and `visibilitychange`. Failed batches are dropped with a single console warning. The ingest endpoint requires bearer or LMv1 credentials with log ingest permission; it may not accept integrated session auth.
 
-`lm.logger.flush()` sends the queue immediately and resolves to `true` when the batch was sent (or there was nothing to send) and `false` on failure. You rarely need it, but it is useful before navigating away.
+<details>
+<summary><strong><code>lm.logger.flush()</code> (async)</strong></summary>
+
+Sends the queue immediately and resolves to `true` when the batch was sent (or there was nothing to send) and `false` on failure. You rarely need it, but it is useful before navigating away.
 
 ```js
 lm.info("Widget finished loading");
 var ok = await lm.logger.flush();
 ```
 
+</details>
+
 ### Utilities
 
 General-purpose helpers that do not call the API. All are read only.
 
-#### `lm.nil(value)`
+| Function | Purpose |
+| --- | --- |
+| `lm.nil(value)` | True for null, empty or unresolved `##token##` values. |
+| `lm.isTruthy(value)` | Interpret `true`, `yes`, `y`, `1` and `on` as true. |
+| `lm.escapeHtml(value)` | Escape text for safe insertion into HTML. |
+| `lm.debounce(fn, delay)` | Delay a function until calls stop. |
+| `lm.sleep(ms, signal)` | Promise that resolves after a delay. |
+| `lm.formatDate(epoch)` | Format epoch seconds or milliseconds as local time. |
+| `lm.buildFilterValue(value)` | Quote a value for a raw filter string. |
+
+<details>
+<summary><strong><code>lm.nil(value)</code></strong></summary>
 
 Returns `true` when the value is `null`, `undefined`, an empty or whitespace-only string, or an unresolved `##token##` placeholder. Use it to test widget token values. Numbers, `0` and `false` are not nil.
 
@@ -887,7 +1194,10 @@ lm.nil("abc");            // false
 lm.nil(0);                // false
 ```
 
-#### `lm.isTruthy(value)`
+</details>
+
+<details>
+<summary><strong><code>lm.isTruthy(value)</code></strong></summary>
 
 Returns `true` for `true` or the strings `true`, `yes`, `y`, `1` and `on` (case-insensitive, trimmed). Everything else, including nil values and unresolved placeholders, returns `false`. Handy for checkbox-style widget tokens.
 
@@ -897,7 +1207,10 @@ lm.isTruthy("off");            // false
 lm.isTruthy("##showLegend##"); // false
 ```
 
-#### `lm.escapeHtml(value)`
+</details>
+
+<details>
+<summary><strong><code>lm.escapeHtml(value)</code></strong></summary>
 
 Escapes `&`, `<`, `>`, `"` and `'` so a value can be inserted into HTML as text. `null` and `undefined` become an empty string. Use it before building HTML with `innerHTML` from API data such as device names.
 
@@ -905,7 +1218,10 @@ Escapes `&`, `<`, `>`, `"` and `'` so a value can be inserted into HTML as text.
 el.innerHTML = "<b>" + lm.escapeHtml(device.displayName) + "</b>";
 ```
 
-#### `lm.debounce(fn, delay = 300)`
+</details>
+
+<details>
+<summary><strong><code>lm.debounce(fn, delay = 300)</code></strong></summary>
 
 Returns a wrapper that calls `fn` only after `delay` milliseconds have passed without another call, using the most recent arguments. The wrapper has a `cancel()` method that drops a pending call, for example when the widget is torn down.
 
@@ -915,7 +1231,10 @@ searchBox.addEventListener("input", refresh);
 // refresh.cancel();
 ```
 
-#### `lm.sleep(ms, signal)`
+</details>
+
+<details>
+<summary><strong><code>lm.sleep(ms, signal)</code></strong></summary>
 
 Returns a promise that resolves after `ms` milliseconds. If an optional `AbortSignal` aborts first, the promise rejects with an `AbortError`. Use it for polling loops and manual backoff.
 
@@ -924,7 +1243,10 @@ await lm.sleep(2000);
 await lm.sleep(10000, controller.signal);   // rejects if controller.abort() is called
 ```
 
-#### `lm.formatDate(epoch)`
+</details>
+
+<details>
+<summary><strong><code>lm.formatDate(epoch)</code></strong></summary>
 
 Formats an epoch timestamp as a local date and time string (`toLocaleString`). Values below `1e12` are treated as seconds, which is what the LogicMonitor API returns; larger values are treated as milliseconds. Invalid, zero or negative input returns an empty string.
 
@@ -934,7 +1256,10 @@ lm.formatDate(Date.now());      // milliseconds
 lm.formatDate("bad");           // ""
 ```
 
-#### `lm.buildFilterValue(value)`
+</details>
+
+<details>
+<summary><strong><code>lm.buildFilterValue(value)</code></strong></summary>
 
 Formats a value as the right-hand side of a LogicMonitor filter term. Numbers and booleans are returned bare; everything else is converted to a string, wrapped in double quotes, with backslashes and quotes escaped. The query builder uses this internally; use it when assembling a raw filter string by hand.
 
@@ -944,9 +1269,4 @@ lm.buildFilterValue('a"b');      // "a\"b"
 var filter = "displayName:" + lm.buildFilterValue(userInput);
 ```
 
-## Development
-
-```
-node --test sdk/test        # unit tests (Node 18+)
-node tools/check-sdk.js     # ASCII-only and syntax check
-```
+</details>
