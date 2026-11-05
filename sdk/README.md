@@ -129,7 +129,65 @@ Entries are batched and POSTed to `/rest/log/ingest` (flushed on batch size, tim
 
 ### Utilities
 
-`lm.nil`, `lm.isTruthy`, `lm.escapeHtml`, `lm.debounce`, `lm.sleep`, `lm.formatDate`.
+General-purpose helpers that do not call the API.
+
+#### `lm.nil(value)`
+
+Returns `true` when the value is `null`, `undefined`, an empty or whitespace-only string, or an unresolved `##token##` placeholder. Use it to test widget token values. Numbers, `0` and `false` are not nil.
+
+```js
+lm.nil("");               // true
+lm.nil("##apiKey##");     // true (placeholder LogicMonitor did not replace)
+lm.nil("abc");            // false
+lm.nil(0);                // false
+```
+
+#### `lm.isTruthy(value)`
+
+Returns `true` for `true` or the strings `true`, `yes`, `y`, `1` and `on` (case-insensitive, trimmed). Everything else, including nil values and unresolved placeholders, returns `false`. Handy for checkbox-style widget tokens.
+
+```js
+lm.isTruthy("Yes");            // true
+lm.isTruthy("off");            // false
+lm.isTruthy("##showLegend##"); // false
+```
+
+#### `lm.escapeHtml(value)`
+
+Escapes `&`, `<`, `>`, `"` and `'` so a value can be inserted into HTML as text. `null` and `undefined` become an empty string. Use it before building HTML with `innerHTML` from API data such as device names.
+
+```js
+el.innerHTML = "<b>" + lm.escapeHtml(device.displayName) + "</b>";
+```
+
+#### `lm.debounce(fn, delay = 300)`
+
+Returns a wrapper that calls `fn` only after `delay` milliseconds have passed without another call, using the most recent arguments. The wrapper has a `cancel()` method that drops a pending call, for example when the widget is torn down.
+
+```js
+var refresh = lm.debounce(loadDevices, 500);
+searchBox.addEventListener("input", refresh);
+// refresh.cancel();
+```
+
+#### `lm.sleep(ms, signal)`
+
+Returns a promise that resolves after `ms` milliseconds. If an optional `AbortSignal` aborts first, the promise rejects with an `AbortError`. Use it for polling loops and manual backoff.
+
+```js
+await lm.sleep(2000);
+await lm.sleep(10000, controller.signal);   // rejects if controller.abort() is called
+```
+
+#### `lm.formatDate(epoch)`
+
+Formats an epoch timestamp as a local date and time string (`toLocaleString`). Values below `1e12` are treated as seconds, which is what the LogicMonitor API returns; larger values are treated as milliseconds. Invalid, zero or negative input returns an empty string.
+
+```js
+lm.formatDate(1700000000);      // seconds, as returned by alerts (startEpoch)
+lm.formatDate(Date.now());      // milliseconds
+lm.formatDate("bad");           // ""
+```
 
 ## Development
 
