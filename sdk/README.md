@@ -65,7 +65,7 @@ Everything else falls into one of these groups:
 | **Read only (API)** | `lm.get`, `lm.getAll`, `lm.query(...)` and its terminal methods `get`, `getAll`, `getItems`, `first`, `getById`, `count`, every list, by-id and sub-collection shortcut (`getDevices`, `getAlert`, `getDeviceInstances`, ...), `getDatasourceId`, `getDeviceDataSource`, `getDatasourceInstances`, `getInstanceData`, `getGraphData`, `getWidgetData`, `lm.auth.getCsrfToken` | Only `GET` requests. |
 | **Read only (no request)** | `lm.query` builder methods (`addQuery`, `addOrQuery`, `addRawFilter`, `fields`, `orderBy`, `orderByDesc`, `limit`, `pageSize`, `param`, `signal`, `onProgress`, `getFilter`, `getParams`), `lm.getProperty`, `lm.getStatusColor`, `lm.auth.mode`, `lm.auth.signLMv1`, `lm.auth.fromTokens`, `lm.configure`, `lm.setLevel`, `lm.getLevel`, `lm.buildFilterValue`, and all [Utilities](#utilities) | Make no API calls. `configure`, `setLevel` and `fromTokens` only change the SDK's own settings. |
 | **Read only (page)** | `lm.context.dashboardId`, `portal`, `isEmbedded`, `parentDocument`, `widgetFrame`, `widgetElement`, `widgetId`, `widgetContainer`, `widgetTitle`, `widgetParent`, `globalData`, `getToken`, `sanitizeId`, `scopedKey`, `getCookie`, `getJsonCookie`, `contentHeight` | Only read the page. |
-| **Temporarily changes the page** | `lm.context.setCookie`, `deleteCookie`, `injectParentStyle`, `setStyleIfChanged`, `resizeFrame`, `onReady`, `observeSize` | Modify cookies, styles or the iframe size in the browser only. Nothing is sent to LogicMonitor. |
+| **Temporarily changes the page** | `lm.context.setCookie`, `deleteCookie`, `injectParentStyle`, `injectStyle`, `setStyleIfChanged`, `resizeFrame`, `onReady`, `observeSize` | Modify cookies, styles or the iframe size in the browser only. Nothing is sent to LogicMonitor. |
 | **Console and transports** | `lm.debug`, `info`, `warn`, `error`, `lm.logger.addTransport` | Write to the browser console and your own transports; they reach LM Logs only if forwarding is enabled. |
 
 Tip: to be certain a widget can never change portal data, use an API token whose role only has view permissions, and avoid calling `lm.client.request` with a non-`GET` verb.
@@ -756,7 +756,7 @@ var data = await lm.getWidgetData(1234);
 
 Useful helpers for capturing information about a widget itself and the dashboard it's running in.
 
-**Read only with respect to the portal:** these helpers make no API calls. Most only read the page. The exceptions that change the page (cookies, styles, iframe size) are `setCookie`, `deleteCookie`, `injectParentStyle`, `setStyleIfChanged`, `resizeFrame`, `onReady` and `observeSize`; they affect the browser only.
+**Read only with respect to the portal:** these helpers make no API calls. Most only read the page. The exceptions that change the page (cookies, styles, iframe size) are `setCookie`, `deleteCookie`, `injectParentStyle`, `injectStyle`, `setStyleIfChanged`, `resizeFrame`, `onReady` and `observeSize`; they affect the browser only.
 
 Each returns `null`, `''` or `false` instead of throwing when the parent page is unreachable. Reading or styling the parent page requires the portal's **Allow Scripts in Dashboard Text Widgets** setting, and the iframe must be same-origin with the portal.
 
@@ -770,6 +770,7 @@ Each returns `null`, `''` or `false` instead of throwing when the parent page is
 | `getToken(elementId, fallback)` | Read a widget token, ignoring unresolved placeholders. |
 | `sanitizeId(id)`, `scopedKey(base)` | Build safe, per-widget keys. |
 | `getCookie`, `setCookie`, `deleteCookie`, `getJsonCookie` | Cookie helpers. |
+| `injectStyle(id, css)` | Add a style to this widget's own document. |
 | `injectParentStyle(id, css)`, `setStyleIfChanged(el, prop, value)` | Style the parent page. |
 | `contentHeight()`, `resizeFrame(px)`, `onReady(fn)`, `observeSize(fn, el)` | Size and lifecycle helpers. |
 
@@ -869,6 +870,19 @@ Adds a `<style>` element to the parent page once, identified by `id`. The widget
 ```js
 lm.context.injectParentStyle("myWidgetStyle", ".myWidget:hover { border: 1px solid #ddd !important; }");
 lm.context.widgetContainer().classList.add("myWidget");
+```
+
+To style content your widget renders itself, use `lm.context.injectStyle` instead: a style added to the parent page cannot reach inside the widget's iframe.
+
+</details>
+
+<details>
+<summary><strong><code>lm.context.injectStyle(id, css)</code></strong></summary>
+
+Adds a `<style>` element to this widget's own document once, identified by `id`. Use it to style the content your widget renders (tables, lists and so on), including overriding LogicMonitor's default text widget styles. Rules that target the widget card or other parent page elements belong in `injectParentStyle` instead, because CSS does not cross the iframe boundary in either direction. Returns `true` if the style exists afterward (including when it was already added), `false` if the document is unavailable.
+
+```js
+lm.context.injectStyle("deviceTableStyle", "#deviceList table, #deviceList th, #deviceList td { border: 1px solid #ccc; }");
 ```
 
 </details>

@@ -347,7 +347,16 @@ test('context frame resize, parent style injection and no-parent behavior', () =
 	assert.ok(lm.context.injectParentStyle('s1', '.a{}'));
 	assert.ok(lm.context.injectParentStyle('s1', '.b{}'));
 	assert.strictEqual(styles.s1.textContent, '.a{}');
+	const own = {};
+	win.document.getElementById = (id) => own[id] || null;
+	win.document.createElement = () => ({});
+	win.document.head = { appendChild: (el) => { own[el.id] = el; } };
+	assert.ok(lm.context.injectStyle('own1', '.x{}'));
+	assert.ok(lm.context.injectStyle('own1', '.y{}'));
+	assert.strictEqual(own.own1.textContent, '.x{}');
+	assert.strictEqual(styles.own1, undefined);
 	const bare = makeLM(() => fakeResponse(200, {}), { window: { document: {}, location: { pathname: '/', hostname: 'h' } } }).lm;
+	assert.ok(!bare.context.injectStyle('b', '.b{}'));
 	assert.ok(!bare.context.isEmbedded());
 	assert.strictEqual(bare.context.widgetId(), null);
 	assert.strictEqual(bare.context.dashboardId(), '');
