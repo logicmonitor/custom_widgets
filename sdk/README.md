@@ -1042,7 +1042,7 @@ lm.context.resizeFrame(lm.context.contentHeight());
 <details>
 <summary><strong><code>lm.context.onReady(fn)</code></strong></summary>
 
-Calls `fn` once the document has loaded, or immediately if it already has.
+Calls `fn` once the document has loaded, or immediately if it already has. This is very useful if your script performs any DOM lookups (example: `document.getElementById("resourceSelect")`) since LogicMonitor Text widgets may start to run the script before the widget's elements are fully rendered.
 
 ```js
 lm.context.onReady(function () { init(); });
