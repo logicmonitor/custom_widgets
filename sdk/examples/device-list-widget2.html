@@ -1,0 +1,116 @@
+<!--
+	A more elaborate example of a LogicMonitor Text/Custom HTML widget using the lm SDK.
+	This widget will display a table of devices in alert status (i.e. alert status is something other than "none"), with columns for a colored icon indicating the highest severity for each device, the device name, and its system info. Each device name will be a link to the device's alert details page. It will also show a summary of the number of devices in alert status and the number of alerts that have not cleared.
+
+	SDK commands this script helps demonstrate:
+	- lm.auth.fromTokens()
+	- lm.configure()
+	- lm.context.injectStyle()
+	- lm.context.onReady()
+	- lm.error()
+	- lm.escapeHtml()
+	- lm.getAlerts()
+	- lm.getProperty()
+	- lm.getStatusColor()
+	- lm.info()
+	- lm.query()
+-->
+
+<!-- Capture optional API tokens containing LogicMonitorAPI credentials or a bearer token. If not specified then the widget will use integrated authentication. -->
+<div id="apiBearerTokenToken" style="display:none">##apiBearerToken##</div>
+<div id="apiIDToken" style="display:none">##apiID##</div>
+<div id="apiKeyToken" style="display:none">##apiKey##</div>
+
+<h3>Devices in alert</h3>
+<!-- Containers are not empty because LogicMonitor's editor strips empty elements. The script replaces this text... -->
+<div id="deviceList">Loading devices...</div>
+<div id="status">&nbsp;</div>
+
+<!-- Load the lm SDK, which exposes a global "lm" object... -->
+<script src="https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js"></script>
+
+<script>
+	// Runs after the widget has finished rendering...
+	lm.context.onReady(async function () {
+		// Set a name for log messages and the minimum log level to write to the console...
+		lm.configure({ widgetName: "Device List Example", logLevel: "info" });
+
+		// Uses the credentials above when supplied; otherwise falls back to the integrated portal session...
+		lm.info("Auth mode: " + lm.auth.fromTokens());
+
+		// Get the document elements we will fill in...
+		var container = document.getElementById("deviceList");
+		var status = document.getElementById("status");
+
+		try {
+			// Build a devices API query: only devices whose alert status is not "none", returning just three fields, sorted by name, max 200...
+			// getItems() pages through the API as needed and returns a flat array of devices...
+			var devices = await lm.query("devices")
+				.addQuery("alertStatus", "!=", "none")
+				.fields("id,displayName,alertStatus,systemProperties")
+				.orderBy("displayName")
+				.limit(200)
+				.getItems();
+
+			// Replace the loading text with a table built here, with one row per device and columns for the alert icon, device name and system info. First we'll create the table with a header row and a body...
+			var table = document.createElement("table");
+			table.style.borderCollapse = "collapse";
+			table.innerHTML = "<thead><tr><th>Icon</th><th style='text-align:left;'>Device</th><th style='text-align:left;'>System info</th></tr></thead><tbody></tbody>";
+			var tbody = table.querySelector("tbody");
+
+			// Change LogicMonitor's default table style (.fr-view table, .fr-view th, .fr-view td). The table lives in this widget's own document, so the style must be added here (a style added to the parent page cannot reach inside the widget's iframe)...
+			lm.context.injectStyle("deviceListTableStyle", "#deviceList table, #deviceList th, #deviceList td { border: 1px solid #ccc !important; padding: 3px; }");
+
+			// Then we'll clear the container's content and append the table to it...
+			container.textContent = "";
+			container.appendChild(table);
+			
+			// Then we'll loop through the devices and create a row for each one, counting the rows as we go...
+			var rowCount = 0;
+			devices.forEach(function (d) {
+				// Only show devices that are in alert status...
+				if (d.alertStatus != "none") {
+					// Create a default alert icon for the device using the normal text color (black in this example)...
+					let alertIcon = "&#11044;";
+
+					// Parse the device's alert information to get the alert status and severity (example: "unconfirmed-error-none")...
+					let alertStatusArray = String(d.alertStatus || "").match(/([\w]+)-([\w]+)-([\w]+)/);
+					
+					// If the alert status matches the expected format, extract the status and severity...
+					if (alertStatusArray) {
+						let alertStatus = alertStatusArray[1];		// Example: "unconfirmed"
+						let alertSeverity = alertStatusArray[2];	// Example: "error"
+						if (alertSeverity != "") {
+							// If the severity is not empty, create an alert icon with the severity's color (it'd be more efficient to use CSS classes instead of inline styles, but this demonstrates use of the 'lm.getStatusColor()' function)...
+							alertIcon = "<span style='color:" + lm.getStatusColor(alertSeverity) + ";'>&#11044;</span>";
+						}
+					}
+
+					// Get the device's sysinfo from the system properties (escaped because it is text from the API)...
+					let sysInfoString = lm.escapeHtml(lm.getProperty(d, "system.sysinfo", ""));
+
+					// Create the table row. The first cell holds the icon, the second the device name linking to the device's alert details page, and the third the system info...
+					let tr = document.createElement("tr");
+					tr.innerHTML = `<td style="text-align:center;">${alertIcon}</td>` +
+						`<td><a href="/santaba/uiv4/resources/treeNodes/t-d,id-${d.id}?source=details&tab=alert" target="_blank" class="link">${lm.escapeHtml(d.displayName)}</a></td>` +
+						`<td><small>${sysInfoString}</small></td>`;
+
+					// Append the row to the table body...
+					tbody.appendChild(tr);
+					rowCount++;
+				}
+			});
+
+			// Fetch up to 500 alerts that have not cleared, requesting only the fields we need...
+			var active = await lm.getAlerts({ filter: [["cleared", "=", false]], maxItems: 500, fields: "id,monitorObjectName,severity" });
+			
+			// Show a summary of the counts below the table...
+			status.textContent = rowCount + " devices, " + active.length + " active alerts.";
+			lm.info("Rendered " + devices.length + " devices.");
+		} catch (e) {
+			// Show the error on the widget and also log it through the SDK...
+			status.textContent = "Error: " + e.message;
+			lm.error(e);
+		}
+	});
+</script>

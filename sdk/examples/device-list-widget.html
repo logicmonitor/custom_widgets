@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js"></script>
 
 <script>
-	// Runs after the document has finished loading...
+	// Runs after the widget has finished rendering...
 	lm.context.onReady(async function () {
 		// Set a name for log messages and the minimum log level to write to the console...
 		lm.configure({ widgetName: "Device List Example", logLevel: "info" });
@@ -51,7 +51,7 @@
 
 			// Fetch up to 100 alerts that have not cleared, requesting only the fields we need...
 			var active = await lm.getAlerts({ filter: [["cleared", "=", false]], maxItems: 100, fields: "id,monitorObjectName,severity" });
-			var active = await lm.getAlerts({ maxItems: 100 });
+			
 			// Show a summary of the counts below the list...
 			status.textContent = devices.length + " devices, " + active.length + " active alerts (latest 100).";
 			lm.info("Rendered " + devices.length + " devices.");
