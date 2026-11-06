@@ -1,6 +1,19 @@
 <!--
 	A more elaborate example of a LogicMonitor Text/Custom HTML widget using the lm SDK.
 	This widget will display a table of devices in alert status (i.e. alert status is something other than "none"), with columns for a colored icon indicating the highest severity for each device, the device name, and its system info. Each device name will be a link to the device's alert details page. It will also show a summary of the number of devices in alert status and the number of alerts that have not cleared.
+
+	SDK commands this script helps demonstrate:
+	- lm.auth.fromTokens()
+	- lm.configure()
+	- lm.context.injectStyle()
+	- lm.context.onReady()
+	- lm.error()
+	- lm.escapeHtml()
+	- lm.getAlerts()
+	- lm.getProperty()
+	- lm.getStatusColor()
+	- lm.info()
+	- lm.query()
 -->
 
 <!-- Capture optional API tokens containing LogicMonitorAPI credentials or a bearer token. If not specified then the widget will use integrated authentication. -->
