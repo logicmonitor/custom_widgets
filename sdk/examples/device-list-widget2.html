@@ -1,0 +1,89 @@
+<!--
+	A more elaborate example of a LogicMonitor Text/Custom HTML widget using the lm SDK.
+	This widget will display a list of devices in alert status (i.e. alert status is something other than "none"), along with a colored icon indicating the highest severity for each device. Each device in the list will be a link to the device's alert details page. It will also show a summary of the number of devices in alert status and the number of alerts that have not cleared.
+-->
+
+<!-- Capture optional API tokens containing LogicMonitorAPI credentials or a bearer token. If not specified then the widget will use integrated authentication. -->
+<div id="apiBearerTokenToken" style="display:none">##apiBearerToken##</div>
+<div id="apiIDToken" style="display:none">##apiID##</div>
+<div id="apiKeyToken" style="display:none">##apiKey##</div>
+
+<h3>Devices in alert</h3>
+<!-- Containers are not empty because LogicMonitor's editor strips empty elements. The script replaces this text... -->
+<div id="deviceList">Loading devices...</div>
+<div id="status">&nbsp;</div>
+
+<!-- Load the lm SDK, which exposes a global "lm" object... -->
+<script src="https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js"></script>
+
+<script>
+	// Runs after the widget has finished rendering...
+	lm.context.onReady(async function () {
+		// Set a name for log messages and the minimum log level to write to the console...
+		lm.configure({ widgetName: "Device List Example", logLevel: "info" });
+
+		// Uses the credentials above when supplied; otherwise falls back to the integrated portal session...
+		lm.info("Auth mode: " + lm.auth.fromTokens());
+
+		// Get the document elements we will fill in...
+		var container = document.getElementById("deviceList");
+		var status = document.getElementById("status");
+
+		try {
+			// Build a devices API query: only devices whose alert status is not "none", returning just three fields, sorted by name, max 200...
+			// getItems() pages through the API as needed and returns a flat array of devices...
+			var devices = await lm.query("devices")
+				.addQuery("alertStatus", "!=", "none")
+				.fields("id,displayName,alertStatus")
+				.orderBy("displayName")
+				.limit(200)
+				.getItems();
+
+			// Replace the loading text with a list built here, with one item per device showing its name and alert status. First we'll create an unordered list element...
+			var list = document.createElement("ul");
+			// Then we'll set its list style type to none to remove the default bullet points...
+			list.style.listStyleType = "none";
+			// Then we'll clear the container's content and append the list to it...
+			container.textContent = "";
+			container.appendChild(list);
+			// Then we'll loop through the devices and create a list item for each one...
+			devices.forEach(function (d) {
+				// Create a list item for the device...
+				var li = document.createElement("li");
+
+				// First we'll check if the device is in alert status...
+				if (d.alertStatus != "none") {
+					// Create a default alert icon for the device using the normal text color (black in this example)...
+					let alertIcon = "&#11044;";
+					// Parse the device's alert information to get the alert status and severity (example: "unconfirmed-error-none")...
+					let alertStatusArray = String(d.alertStatus || "").match(/([\w]+)-([\w]+)-([\w]+)/);
+					// If the alert status matches the expected format, extract the status and severity...
+					if (alertStatusArray) {
+						alertStatus = alertStatusArray[1];		// Example: "unconfirmed"
+						alertSeverity = alertStatusArray[2];	// Example: "error"
+						if (alertSeverity != "") {
+							// If the severity is not empty, create an alert icon with the severity's color (it'd be more efficient to use CSS classes instead of inline styles, but this demonstrates use of the 'lm.getStatusColor()' function)...
+							alertIcon = "<span style='color:" + lm.getStatusColor(alertSeverity) + ";'>&#11044;</span>";
+						}
+					}
+					// Set the list item's text content to the device's alert icon and display name, including a link to the device's alert details page...
+					li.innerHTML = `${alertIcon} <a href="/santaba/uiv4/resources/treeNodes/t-d,id-${d.id}?source=details&tab=alert" target="_blank" class="link">${d.displayName}</a>`;
+					// Append the list item to the list...
+					list.appendChild(li);
+				}
+			});
+
+			// Fetch up to 500 alerts that have not cleared, requesting only the fields we need...
+			var active = await lm.getAlerts({ filter: [["cleared", "=", false]], maxItems: 500, fields: "id,monitorObjectName,severity" });
+			
+			// Show a summary of the counts below the list...
+			status.textContent = list.querySelectorAll("li").length + " devices, " + active.length + " active alerts.";
+			// status.textContent = devices.length + " devices, " + active.length + " active alerts.";
+			lm.info("Rendered " + devices.length + " devices.");
+		} catch (e) {
+			// Show the error on the widget and also log it through the SDK...
+			status.textContent = "Error: " + e.message;
+			lm.error(e);
+		}
+	});
+</script>
