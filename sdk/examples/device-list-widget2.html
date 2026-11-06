@@ -82,7 +82,7 @@
 						let alertSeverity = alertStatusArray[2];	// Example: "error"
 						if (alertSeverity != "") {
 							// If the severity is not empty, create an alert icon with the severity's color (it'd be more efficient to use CSS classes instead of inline styles, but this demonstrates use of the 'lm.getStatusColor()' function)...
-							alertIcon = "<span style='color:" + lm.getStatusColor(alertSeverity) + ";'>&#11044;</span>";
+							alertIcon = `<span title='${alertSeverity}' style='color:${lm.getStatusColor(alertSeverity)};'>&#11044;</span>`;
 						}
 					}
 
