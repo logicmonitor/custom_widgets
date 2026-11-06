@@ -65,7 +65,7 @@ Everything else falls into one of these groups:
 | **Read only (API)** | `lm.get`, `lm.getAll`, `lm.query(...)` and its terminal methods `get`, `getAll`, `getItems`, `first`, `getById`, `count`, every list, by-id and sub-collection shortcut (`getDevices`, `getAlert`, `getDeviceInstances`, ...), `getDatasourceId`, `getDeviceDataSource`, `getDatasourceInstances`, `getInstanceData`, `getGraphData`, `getWidgetData`, `lm.auth.getCsrfToken` | Only `GET` requests. |
 | **Read only (no request)** | `lm.query` builder methods (`addQuery`, `addOrQuery`, `addRawFilter`, `fields`, `orderBy`, `orderByDesc`, `limit`, `pageSize`, `param`, `signal`, `onProgress`, `getFilter`, `getParams`), `lm.getProperty`, `lm.getStatusColor`, `lm.auth.mode`, `lm.auth.signLMv1`, `lm.auth.fromTokens`, `lm.configure`, `lm.setLevel`, `lm.getLevel`, `lm.buildFilterValue`, and all [Utilities](#utilities) | Make no API calls. `configure`, `setLevel` and `fromTokens` only change the SDK's own settings. |
 | **Read only (page)** | `lm.context.dashboardId`, `portal`, `isEmbedded`, `parentDocument`, `widgetFrame`, `widgetElement`, `widgetId`, `widgetContainer`, `widgetTitle`, `widgetParent`, `globalData`, `getToken`, `sanitizeId`, `scopedKey`, `getCookie`, `getJsonCookie`, `contentHeight` | Only read the page. |
-| **Changes the page, not the portal** | `lm.context.setCookie`, `deleteCookie`, `injectParentStyle`, `setStyleIfChanged`, `resizeFrame`, `onReady`, `observeSize` | Modify cookies, styles or the iframe size in the browser only. Nothing is sent to LogicMonitor. |
+| **Temporarily changes the page** | `lm.context.setCookie`, `deleteCookie`, `injectParentStyle`, `setStyleIfChanged`, `resizeFrame`, `onReady`, `observeSize` | Modify cookies, styles or the iframe size in the browser only. Nothing is sent to LogicMonitor. |
 | **Console and transports** | `lm.debug`, `info`, `warn`, `error`, `lm.logger.addTransport` | Write to the browser console and your own transports; they reach LM Logs only if forwarding is enabled. |
 
 Tip: to be certain a widget can never change portal data, use an API token whose role only has view permissions, and avoid calling `lm.client.request` with a non-`GET` verb.
@@ -75,7 +75,7 @@ Tip: to be certain a widget can never change portal data, use an API token whose
 <details>
 <summary><strong><code>lm.configure(options)</code></strong></summary>
 
-Updates the SDK configuration and returns `lm`, so calls can be chained. Unknown keys are ignored, and placeholder values such as `##apiKey##` are treated as not set. Changing credentials clears the cached CSRF token.
+Updates the SDK configuration and returns `lm`, so calls can be chained. Unknown keys are ignored, and placeholder values such as `##apiKey##` are treated as not set since those need to be directly captured from HTML elements (the included SDK won't see them at runtime).
 
 | Option | Default | Description |
 | --- | --- | --- |
@@ -183,9 +183,9 @@ var header = await lm.auth.signLMv1("GET", "/device/devices");
 <details>
 <summary><strong><code>lm.client.request(opts)</code> (async)</strong></summary>
 
-**Write capable:** read only when `verb` is `GET` (the default); `POST`, `PUT` and `PATCH` can change portal data. **NOTE:** `DELETE` operations are not allowed by default - the SDK will reject it with an `LMError` before sending anything.
-
 The generalized request function that everything else is built on. Returns the parsed JSON response, or `{}` for a 204 or empty body.
+
+**Write capable:** read only when `verb` is `GET` (the default); `POST`, `PUT` and `PATCH` can change portal data. **NOTE:** `DELETE` operations are not allowed by default - the SDK will reject it with an `LMError` before sending anything.
 
 | Option | Description |
 | --- | --- |
@@ -227,7 +227,7 @@ var response = await lm.get("/device/devices", { size: 5, fields: "id,displayNam
 <details>
 <summary><strong><code>lm.getAll(path, opts)</code> (async)</strong></summary>
 
-Fetches every page of a list endpoint and returns `{ items, total }`. It starts at offset 0 and keeps requesting pages until the reported total is reached. It copes with endpoints that report a negative total (alerts) by continuing until a short page arrives, and it stops, with a warning, if a page comes back empty, so it can never loop forever.
+Fetches every page of a list endpoint and returns `{ items, total }`. It starts at offset 0 and keeps requesting pages until the reported total is reached. It copes with endpoints that report a negative total (alerts) by continuing until a short page arrives, and it stops (with a warning) if a page comes back empty, so it can never loop forever.
 
 | Option | Description |
 | --- | --- |
@@ -364,7 +364,7 @@ lm.query("alerts").addRawFilter("severity>:3,cleared:false");
 <details>
 <summary><strong><code>.fields(list)</code></strong></summary>
 
-Sets the fields to return, as a comma separated string or an array. Requesting fewer fields makes responses much smaller.
+Sets the fields to return, as a comma separated string or an array. Requesting fewer fields makes responses much smaller. If unspecified then all fields will be returned.
 
 ```js
 lm.query("devices").fields(["id", "displayName"]);
@@ -480,7 +480,7 @@ var result = await lm.query("devices").addQuery("hostStatus", "dead").getAll();
 <details>
 <summary><strong><code>.getItems()</code> (async)</strong></summary>
 
-Like `getAll()` but returns only the item array. This is the most common terminal method.
+Returns the same data as getAll() but with less to unwrap. Using `.getAll()` will return `{items, total}`, while `.getItems()` returns just `items` (a plain array). Both make the same requests and page the same way, so there is no performance difference.
 
 ```js
 var devices = await lm.query("devices").fields("id,displayName").getItems();
@@ -621,7 +621,7 @@ These take a parent id first and then the usual list `opts`, and return arrays.
 | `lm.getDashboardWidgets(dashboardId, opts)` | Widgets on a dashboard. |
 
 ```js
-var dds = await lm.getDeviceDataSources(42, { filter: { dataSourceName: "WinCPU" } });
+var dds = await lm.getDeviceDataSources(42, { filter: { dataSourceName: "SNMP_Network_Interfaces" } });
 var instances = await lm.getDeviceInstances(42, dds[0].id);
 ```
 
@@ -635,20 +635,8 @@ Helpers for finding a resource's datasource instances by name, reading time seri
 Resolves a datasource name to the datasource `id`. A numeric value (number or digit string) is treated as an id and returned without a request. A name is matched exactly against `/setting/datasources`. Throws an `LMError` if the value is empty or no datasource has that name. `opts` may contain `signal`.
 
 ```js
-var id = await lm.getDatasourceId("WinCPU");   // 1234 (looked up)
+var id = await lm.getDatasourceId("SNMP_Network_Interfaces");   // 1234 (looked up)
 var same = await lm.getDatasourceId(1234);     // 1234 (no request)
-```
-
-</details>
-
-<details>
-<summary><strong><code>lm.getDeviceDataSource(deviceId, datasource, opts)</code> (async)</strong></summary>
-
-Returns the record linking a resource to a datasource (the "device datasource"), or `null` when the datasource is not applied to the resource. `datasource` is a name or datasource id. The record's `id` is what `getDeviceInstances`, `getInstanceData` and `getGraphData` need, and it is different from the datasource id.
-
-```js
-var dds = await lm.getDeviceDataSource(42, "WinCPU");
-if (dds) lm.info("Device datasource id: " + dds.id);
 ```
 
 </details>
@@ -659,7 +647,19 @@ if (dds) lm.info("Device datasource id: " + dds.id);
 The easiest way to list a datasource's instances on a resource. It resolves the datasource name to an id, finds the resource's device datasource, and lists its instances. Returns an empty array if the datasource is not applied to the resource, and throws if the datasource name doesn't exist. `opts` takes the usual list options.
 
 ```js
-var cpus = await lm.getDatasourceInstances(42, "WinCPU", { fields: "id,name,alertStatus" });
+var cpus = await lm.getDatasourceInstances(42, "SNMP_Network_Interfaces", { fields: "id,name,alertStatus" });
+```
+
+</details>
+
+<details>
+<summary><strong><code>lm.getDeviceDataSource(deviceId, datasource, opts)</code> (async)</strong></summary>
+
+Returns the record linking a resource to a datasource (the "device datasource"), or `null` when the datasource is not applied to the resource. `datasource` is a name or datasource id. The record's `id` is what `getDeviceInstances`, `getInstanceData` and `getGraphData` need, and it is different from the datasource id.
+
+```js
+var dds = await lm.getDeviceDataSource(42, "SNMP_Network_Interfaces");
+if (dds) lm.info("Device datasource id: " + dds.id);
 ```
 
 </details>
@@ -903,17 +903,6 @@ if (cell) cell.style.alignItems = "flex-end";
 </details>
 
 <details>
-<summary><strong><code>lm.context.globalData(path, fallback)</code></strong></summary>
-
-Reads a value from the portal's `LMGlobalData` object using a dotted path, returning `fallback` (default `null`) when the path is missing. It never throws.
-
-```js
-var mapsKey = lm.context.globalData("googleMapInfo.key", "");
-```
-
-</details>
-
-<details>
 <summary><strong><code>lm.context.getToken(elementId, fallback)</code></strong></summary>
 
 Reads the text of a hidden element that holds a widget token (for example `##apiKey##`). Returns `fallback` (default `null`) if the element is missing, empty, or still contains an unresolved placeholder.
@@ -955,7 +944,8 @@ var key = lm.context.scopedKey("mapOptions");   // "mapOptions_2338_w123"
 Returns the decoded value of a cookie, or `null` if it doesn't exist.
 
 ```js
-var raw = lm.context.getCookie("myPrefs");
+var widgetId = lm.context.widgetId();
+var raw = lm.context.getCookie("myPrefs_" + widgetId);
 ```
 
 </details>
@@ -972,7 +962,8 @@ Writes a cookie. Non-string values are stored as JSON.
 | `sameSite` | `Lax` | SameSite attribute. |
 
 ```js
-lm.context.setCookie("myPrefs", { zoom: 5 }, { maxAge: 86400 });
+var widgetId = lm.context.widgetId();
+lm.context.setCookie("myPrefs_" + widgetId, { zoom: 5 }, { maxAge: 86400 });
 ```
 
 </details>
@@ -983,7 +974,8 @@ lm.context.setCookie("myPrefs", { zoom: 5 }, { maxAge: 86400 });
 Deletes a cookie (`path` defaults to `/`).
 
 ```js
-lm.context.deleteCookie("myPrefs");
+var widgetId = lm.context.widgetId();
+lm.context.deleteCookie("myPrefs_" + widgetId);
 ```
 
 </details>
@@ -1074,9 +1066,10 @@ var stop = lm.context.observeSize(function () {
 
 ### Logging
 
-**Writes log data only:** console logging has no portal effect. With LM Logs forwarding enabled, entries are `POST`ed to LM Logs (the only non-`GET` request the SDK sends on its own). It never changes portal configuration.
 
-Logging works like GlideScript's `gs.info`. Messages go to the browser console with a `[widgetName]` prefix, any registered transports, and optionally LM Logs. Entries are redacted before they go anywhere: bearer tokens and LMv1 headers in messages are replaced, and metadata keys such as `token`, `secret`, `password`, `authorization`, `accessKey` and `apiKey` are masked.
+Messages go to the browser console with a `[widgetName]` prefix, any registered transports, and optionally LM Logs. Entries are redacted before they go anywhere: bearer tokens and LMv1 headers in messages are replaced, and metadata keys such as `token`, `secret`, `password`, `authorization`, `accessKey` and `apiKey` are masked.
+
+**Writes log data only:** console logging has no portal effect. With LM Logs forwarding enabled, entries are `POST`ed to LM Logs (the only non-`GET` request the SDK sends on its own). It never changes portal configuration.
 
 | Function | Purpose |
 | --- | --- |
@@ -1131,7 +1124,7 @@ var remove = lm.logger.addTransport(function (entry) {
 
 #### LM Logs forwarding
 
-**Audit log limitation:** the LogicMonitor REST API cannot write to the audit log (it is read-only; use `lm.getAuditLogs` to read it). To keep messages, forward them to LM Logs:
+To keep log messages, configure your widget to forward them to LM Logs using the following:
 
 ```js
 lm.configure({
@@ -1170,7 +1163,7 @@ var ok = await lm.logger.flush();
 
 ### Utilities
 
-General-purpose helpers that do not call the API. All are read only.
+General-purpose helpers useful during widget development. All are read only.
 
 | Function | Purpose |
 | --- | --- |
