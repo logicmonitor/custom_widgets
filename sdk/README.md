@@ -1209,7 +1209,7 @@ To keep log messages, configure your widget to forward them to LM Logs using the
 lm.configure({
 	logs: {
 		enabled: true,
-		resourceId: { "system.hostname": "dashboard-widgets" },  // must match a monitored resource
+		resourceId: { "system.hostname": "dashboard-widgets" },  // to match to a monitored resource
 		batchSize: 50,
 		flushMs: 5000
 	}
