@@ -1,6 +1,6 @@
 # LogicMonitor Widget SDK (`lm`)
 
-A single-file, no-build JavaScript library that helps simplify development of custom LogicMonitor dashboard widgets.
+A single-file JavaScript library that helps simplify development of custom LogicMonitor dashboard widgets.
 
 ## Installation
 
@@ -16,7 +16,7 @@ The script exposes a global `lm` JavaScript object. You can then use `lm.create(
 
 ```js
 lm.configure({ widgetName: "My Widget" });
-lm.auth.fromTokens();                       // optional, see Authentication
+lm.auth.fromTokens();  // optional, see Authentication
 
 var devices = await lm.getDevices({ filter: { hostStatus: "normal" }, fields: "id,displayName" });
 lm.info("Loaded " + devices.length + " devices");
@@ -24,10 +24,11 @@ lm.info("Loaded " + devices.length + " devices");
 
 ### Examples
 
-These are complete example widgets you can paste into a Text widget's Source view to experiment with:
+These are complete example widgets demonstrating use of the SDK that you can paste into a Text widget's 'Source' view to experiment with:
 
 - [examples/device-list-widget.html](examples/device-list-widget.html) is a minimal widget that lists devices with active alerts using the query builder and `lm.getAlerts`.
-- [examples/instance-browser-widget.html](examples/instance-browser-widget.html) is a drill-down widget: choose a resource, then a datasource, and it lists that datasource's instances. It uses `lm.auth.fromTokens`, `lm.context.onReady`, `lm.getDevices`, `lm.getDeviceDataSources`, `lm.getDeviceInstances` and `lm.getStatusColor`, and ignores slow responses from an earlier selection.
+- [examples/device-list-widget2.html](examples/device-list-widget2.html) is a more elaborate version of the above **device-list-widget** example. This widget will display a table of devices in alert status (i.e. alert status is something other than "none"), with columns for a colored icon indicating the highest severity for each device, the device name, and its system info. Each device name will be a link to the device's alert details page.
+- [examples/instance-browser-widget.html](examples/instance-browser-widget.html) is a drill-down widget: choose a resource, then a datasource, and it lists that datasource's instances.
 
 ## Authentication
 
