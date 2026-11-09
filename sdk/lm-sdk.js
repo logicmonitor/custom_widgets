@@ -716,7 +716,7 @@
 		};
 
 		// ------------------------------------------------------------
-		// Fluent query builder (GlideRecord style)...
+		// Fluent query builder (chainable)...
 
 		/**
 		 * Fluent query builder for list endpoints.

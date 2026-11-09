@@ -2,7 +2,29 @@
 
 A single-file JavaScript library that helps simplify development of custom LogicMonitor dashboard widgets.
 
+## Contents
+
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Examples](#examples)
+- [Authentication](#authentication)
+- [Widget markup notes](#widget-markup-notes)
+- [API reference](#api-reference)
+  - [Read-only and write-capable functions](#read-only-and-write-capable-functions)
+  - [Configuration](#configuration)
+  - [Authentication functions](#authentication-functions)
+  - [Client](#client)
+  - [Errors](#errors)
+  - [Query builder](#query-builder)
+  - [Shortcuts](#shortcuts)
+  - [Context helpers](#context-helpers)
+  - [Logging](#logging)
+  - [Utilities](#utilities)
+- [Troubleshooting](#troubleshooting)
+
 ## Installation
+
+**Prerequisite:** the **Allow Scripts in Dashboard Text Widgets** setting must be enabled in your portal's Settings > Security section. Without it, scripts in Text widgets (including this SDK) will not run.
 
 Include the following line in the source view of your LogicMonitor Text widget:
 
@@ -10,19 +32,39 @@ Include the following line in the source view of your LogicMonitor Text widget:
 <script src="https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js"></script>
 ```
 
-The script exposes a global `lm` JavaScript object. You can then use `lm.create(config)` to create an independent instance.
+The script exposes a global `lm` object.
 
 ## Quick start
 
-```js
-lm.configure({ widgetName: "My Widget" });
-lm.auth.fromTokens();  // optional, see Authentication
+This is a complete, minimal widget. Paste it into a Text widget's 'Source' view. It lists the number of resources that are currently in a normal state.
 
-var devices = await lm.getDevices({ filter: { hostStatus: "normal" }, fields: "id,displayName" });
-lm.info("Loaded " + devices.length + " devices");
+```html
+<!-- Optional API credentials. If left as-is, the widget uses integrated authentication. -->
+<div id="apiBearerTokenToken" style="display:none">##apiBearerToken##</div>
+
+<!-- Not empty, because LogicMonitor's text editor strips empty elements. The script replaces this text. -->
+<div id="summary">Loading...</div>
+
+<script src="https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js"></script>
+<script>
+	// Wait until the widget has finished rendering before touching its elements...
+	lm.context.onReady(async function () {
+		// Give the widget a name for use when debugging...
+		lm.configure({ widgetName: "My Widget" });
+		// Set our LogicMonitor API authentication...
+		lm.auth.fromTokens();
+
+		// Fetch a subset of LogicMonitor devices...
+		var devices = await lm.getDevices({ filter: { hostStatus: "normal" }, fields: "id,displayName" });
+		// Show a summary of the devices...
+		document.getElementById("summary").textContent = devices.length + " resources are normal.";
+		// Log a message...
+		lm.info("Loaded " + devices.length + " devices");
+	});
+</script>
 ```
 
-### Examples
+## Examples
 
 These are complete example widgets demonstrating use of the SDK that you can paste into a Text widget's 'Source' view to experiment with:
 
@@ -38,7 +80,13 @@ The SDK supports multiple forms of LogicMonitor's API authentication to allow fo
 2. **LMv1** - `lm.configure({ accessId, accessKey })` (HMAC-SHA256, signature is base64 of the hex digest)
 3. **Integrated session** (default) - API calls will use the current user's permissions. Requires no configuration inside the portal.
 
-`lm.auth.fromTokens()` reads hidden widget token elements (`apiBearerTokenToken`, `apiIDToken`, `apiKeyToken` by default) and ignores unresolved `##token##` placeholders. `lm.auth.mode()` returns `'bearer'`, `'lmv1'` or `'session'`.
+To supply credentials without putting them in the script, add hidden elements to the widget containing the widget tokens (`##apiBearerToken##`, `##apiID##`, `##apiKey##`) and call `lm.auth.fromTokens()`. It reads those elements (`apiBearerTokenToken`, `apiIDToken`, `apiKeyToken` by default) and ignores any token that LogicMonitor left unresolved, so the widget falls back to integrated authentication when no credentials were provided. `lm.auth.mode()` returns `'bearer'`, `'lmv1'` or `'session'`.
+
+## Widget markup notes
+
+- **Wait for the widget with `lm.context.onReady`.** In testing, a LogicMonitor Text widget can run its scripts before the widget's own elements exist, so a script that looks up elements immediately may find nothing. Run your code inside `lm.context.onReady(function () { ... })`, which waits until the document has loaded.
+- **Do not leave elements empty.** LogicMonitor's widget editor strips empty elements, such as an empty `<ul></ul>` or `<div></div>`, when the widget is saved, and `document.getElementById` then returns `null`. Give placeholder containers some content (for example `<div id="list">Loading...</div>` or `&nbsp;`) and have the script replace it.
+- **Style the right document.** Your widget runs inside an iframe. Use `lm.context.injectStyle` for content the widget renders and `lm.context.injectParentStyle` for the widget card on the dashboard. See [Troubleshooting](#troubleshooting).
 
 ## API reference
 
@@ -47,7 +95,8 @@ Conventions used below:
 - Functions marked **async** return a promise; use `await` or `.then()`.
 - API failures throw an [`LMError`](#errors). Aborting with an `AbortSignal` throws a standard `AbortError` instead.
 - "Epoch seconds" are Unix timestamps in seconds, which is what LogicMonitor's API uses.
-- Examples assume they run inside an `async` function.
+- Examples assume they run inside an `async` function (such as the one passed to `lm.context.onReady`), and some reuse variables from earlier examples in the same section (for example `dds`, `instance` and `now`).
+- LogicMonitor's interface calls devices "resources", but the API and the SDK's function and field names still say "device" (`lm.getDevices`, `displayName`). This guide says "resource" in prose and "device" in names.
 - Functions marked **Read only** send only `GET` requests (or no request at all) and never create, change or delete anything in your LogicMonitor portal. See [Read-only and write-capable functions](#read-only-and-write-capable-functions).
 
 ### Read-only and write-capable functions
@@ -56,27 +105,26 @@ The SDK is built around `GET` operations, so nearly everything is read only. Onl
 
 | Function | Behavior |
 | --- | --- |
-| `lm.client.request(opts)` | **Write capable.** Sends the `verb` you give it: `POST`, `PUT` and `PATCH` can change portal data (with whatever permissions your credentials have). It is read only when `verb` is `GET` (the default). **NOTE:** `DELETE` operations are not allowed by default - the SDK will reject it with an `LMError` before sending anything. |
+| `lm.client.request(opts)` | **Write capable.** Sends the `verb` you give it: `POST`, `PUT` and `PATCH` can change portal data (with whatever permissions your credentials have). It is read only when `verb` is `GET` (the default). **`DELETE` is not supported:** the SDK rejects it with an `LMError` before sending anything, and there is no setting to enable it. |
 | LM Logs forwarding / `lm.logger.flush()` | **Writes log entries.** When `logs.enabled` is set, queued log messages are `POST`ed to LM Logs. This adds log data but does not change any portal configuration. It is off by default. |
 
-Everything else falls into one of these groups:
+Everything else is read only as far as your portal is concerned:
 
-| Group | Functions | Notes |
-| --- | --- | --- |
-| **Read only (API)** | `lm.get`, `lm.getAll`, `lm.query(...)` and its terminal methods `get`, `getAll`, `getItems`, `first`, `getById`, `count`, every list, by-id and sub-collection shortcut (`getDevices`, `getAlert`, `getDeviceInstances`, ...), `getDatasourceId`, `getDeviceDataSource`, `getDatasourceInstances`, `getInstanceData`, `getGraphData`, `getWidgetData`, `lm.auth.getCsrfToken` | Only `GET` requests. |
-| **Read only (no request)** | `lm.query` builder methods (`addQuery`, `addOrQuery`, `addRawFilter`, `fields`, `orderBy`, `orderByDesc`, `limit`, `pageSize`, `param`, `signal`, `onProgress`, `getFilter`, `getParams`), `lm.getProperty`, `lm.getStatusColor`, `lm.auth.mode`, `lm.auth.signLMv1`, `lm.auth.fromTokens`, `lm.configure`, `lm.setLevel`, `lm.getLevel`, `lm.buildFilterValue`, and all [Utilities](#utilities) | Make no API calls. `configure`, `setLevel` and `fromTokens` only change the SDK's own settings. |
-| **Read only (page)** | `lm.context.dashboardId`, `portal`, `isEmbedded`, `parentDocument`, `widgetFrame`, `widgetElement`, `widgetId`, `widgetContainer`, `widgetTitle`, `widgetParent`, `globalData`, `getToken`, `sanitizeId`, `scopedKey`, `getCookie`, `getJsonCookie`, `contentHeight` | Only read the page. |
-| **Temporarily changes the page** | `lm.context.setCookie`, `deleteCookie`, `injectParentStyle`, `injectStyle`, `setStyleIfChanged`, `resizeFrame`, `onReady`, `observeSize` | Modify cookies, styles or the iframe size in the browser only. Nothing is sent to LogicMonitor. |
-| **Console and transports** | `lm.debug`, `info`, `warn`, `error`, `lm.logger.addTransport` | Write to the browser console and your own transports; they reach LM Logs only if forwarding is enabled. |
+- **Only `GET` requests:** `lm.get`, `lm.getAll`, the query builder's methods that run the query, every shortcut, the datasource and data helpers, and `lm.auth.getCsrfToken`.
+- **No request at all:** the query builder's other methods, `lm.getProperty`, `lm.getStatusColor`, `lm.auth.mode`, `lm.auth.signLMv1`, `lm.auth.fromTokens`, the logging level functions, `lm.configure` (which only changes the SDK's own settings) and everything in [Utilities](#utilities).
+- **Context helpers:** they only read the page, except a few that change cookies, styles or the iframe size in the browser. Nothing is sent to LogicMonitor. See [Context helpers](#context-helpers).
+- **Logging:** messages go to the browser console and any destinations you add. They reach LM Logs only if forwarding is enabled.
 
 Tip: to be certain a widget can never change portal data, use an API token whose role only has view permissions, and avoid calling `lm.client.request` with a non-`GET` verb.
 
 ### Configuration
 
+This section covers `lm.configure`, the `lm.version` and `lm.LMError` properties, and `lm.create`.
+
 <details>
 <summary><strong><code>lm.configure(options)</code></strong></summary>
 
-Updates the SDK configuration and returns `lm`, so calls can be chained. Unknown keys are ignored, and placeholder values such as `##apiKey##` are treated as not set since those need to be directly captured from HTML elements (the included SDK won't see them at runtime).
+Updates the SDK configuration and returns `lm`, so calls can be chained. Unknown keys are ignored, and values that are still an unresolved placeholder, such as `##apiKey##`, are treated as not set. (LogicMonitor only fills in widget tokens inside the widget's HTML, so the SDK cannot see them in a script file. Use `lm.auth.fromTokens()` to read them from hidden elements instead.)
 
 | Option | Default | Description |
 | --- | --- | --- |
@@ -136,7 +184,7 @@ Reads credentials from hidden widget token elements, applies them with `lm.confi
 <div id="apiBearerTokenToken" style="display:none">##apiBearerToken##</div>
 <script>
 	lm.auth.fromTokens();                                   // default element ids
-	lm.auth.fromTokens({ bearerToken: "myTokenElement" });  // custom element id
+	lm.auth.fromTokens({ bearerToken: "myTokenElement" });  // custom element id (not shown in this example)
 </script>
 ```
 
@@ -186,12 +234,12 @@ var header = await lm.auth.signLMv1("GET", "/device/devices");
 
 The generalized request function that everything else is built on. Returns the parsed JSON response, or `{}` for a 204 or empty body.
 
-**Write capable:** read only when `verb` is `GET` (the default); `POST`, `PUT` and `PATCH` can change portal data. **NOTE:** `DELETE` operations are not allowed by default - the SDK will reject it with an `LMError` before sending anything.
+**Write capable:** read only when `verb` is `GET` (the default); `POST`, `PUT` and `PATCH` can change portal data. **`DELETE` is not supported:** the SDK rejects it with an `LMError` before sending anything, and there is no setting to enable it.
 
 | Option | Description |
 | --- | --- |
 | `path` | Required. Resource path such as `/device/devices`. A leading `/` is added if missing. |
-| `verb` | `GET` (default), `POST`, `PUT` or `PATCH`. `DELETE` is not allowed by default. |
+| `verb` | `GET` (default), `POST`, `PUT` or `PATCH`. `DELETE` is not supported and throws an `LMError`. |
 | `query` | Query string (with or without `?`) or an object. Empty, `null` and `undefined` values are skipped; values are URL-encoded. |
 | `body` | JSON body for `POST`, `PUT` and `PATCH`. Objects are stringified. |
 | `version` | API version override for this call. |
@@ -199,7 +247,12 @@ The generalized request function that everything else is built on. Returns the p
 | `base` | Override the REST base for this call (the SDK uses it for log ingest). |
 | `retry` | Set `false` to disable retries. |
 
-Retries: `429` responses are retried for every verb (waiting for the `X-Rate-Limit-Window` header when it is 60 seconds or less). Network errors and `502`/`503`/`504` are retried for `GET` only. Session auth refreshes the CSRF token once on a 401 or 403. Throws an [`LMError`](#errors) for any other failure.
+Retries and failures:
+
+- `429` (rate limit) responses are retried for every verb, waiting for the `X-Rate-Limit-Window` header when it is 60 seconds or less.
+- Network errors and `502`/`503`/`504` responses are retried for `GET` only.
+- With integrated (session) authentication, a `401` or `403` refreshes the CSRF token and retries once.
+- Any other failure throws an [`LMError`](#errors).
 
 ```js
 var device = await lm.client.request({ path: "/device/devices/42", query: { fields: "id,displayName" } });
@@ -228,7 +281,10 @@ var response = await lm.get("/device/devices", { size: 5, fields: "id,displayNam
 <details>
 <summary><strong><code>lm.getAll(path, opts)</code> (async)</strong></summary>
 
-Fetches every page of a list endpoint and returns `{ items, total }`. It starts at offset 0 and keeps requesting pages until the reported total is reached. It copes with endpoints that report a negative total (alerts) by continuing until a short page arrives, and it stops (with a warning) if a page comes back empty, so it can never loop forever.
+Fetches every page of a list endpoint and returns `{ items, total }`. It starts at offset 0 and keeps requesting pages until the reported total is reached.
+
+- Endpoints that report a negative total (alerts) are read until a short page arrives.
+- If a page comes back empty it stops, with a warning, so it can never loop forever.
 
 | Option | Description |
 | --- | --- |
@@ -252,9 +308,33 @@ lm.info(result.items.length + " of " + result.total + " devices");
 
 </details>
 
+### Errors
+
+#### `lm.LMError`
+
+Every SDK failure (bad usage, network failure, HTTP error status, unparsable JSON) is an `LMError`, which extends `Error`.
+
+| Property | Description |
+| --- | --- |
+| `message` | For HTTP errors, `API Error: <status> <statusText>` plus LogicMonitor's `errorMessage` when present. |
+| `status`, `statusText` | HTTP status, when the error came from a response. |
+| `body` | Raw response body text (or a placeholder when unreadable). |
+| `code` | LogicMonitor's `errorCode`, when present. |
+| `path`, `verb` | The request that failed. |
+| `cause` | The underlying error for network and JSON failures. |
+
+```js
+try {
+	await lm.getDevice(999999999);
+} catch (e) {
+	if (e instanceof lm.LMError && e.status === 404) lm.warn("No such device");
+	else throw e;
+}
+```
+
 ### Query builder
 
-`lm.query(resource)` returns a builder, modeled on ServiceNow's GlideRecord, for list endpoints. Builder methods return the same query so calls chain; terminal methods send requests.
+`lm.query(resource)` returns a chainable query builder for list endpoints. Builder methods return the same query so calls chain; the last method in the chain (`getItems()`, `first()` and so on) is the one that runs the query and sends the request.
 
 **Read only:** the builder only sends `GET` requests.
 
@@ -265,7 +345,7 @@ lm.info(result.items.length + " of " + result.total + " devices");
 | `limit`, `pageSize` | Builder | Limit total items and set the page size. |
 | `param`, `signal`, `onProgress` | Builder | Extra parameters, cancellation and progress callback. |
 | `getFilter`, `getParams` | Inspect | Show what will be sent; no request. |
-| `get`, `getAll`, `getItems`, `first`, `getById`, `count` | Terminal (async) | Send requests and return results. |
+| `get`, `getAll`, `getItems`, `first`, `getById`, `count` | Run (async) | Send the request and return results. |
 
 ```js
 var items = await lm.query("devices")
@@ -522,30 +602,6 @@ controller.abort();    // pending rejects with an AbortError
 
 </details>
 
-### Errors
-
-#### `lm.LMError`
-
-Every SDK failure (bad usage, network failure, HTTP error status, unparsable JSON) is an `LMError`, which extends `Error`.
-
-| Property | Description |
-| --- | --- |
-| `message` | For HTTP errors, `API Error: <status> <statusText>` plus LogicMonitor's `errorMessage` when present. |
-| `status`, `statusText` | HTTP status, when the error came from a response. |
-| `body` | Raw response body text (or a placeholder when unreadable). |
-| `code` | LogicMonitor's `errorCode`, when present. |
-| `path`, `verb` | The request that failed. |
-| `cause` | The underlying error for network and JSON failures. |
-
-```js
-try {
-	await lm.getDevice(999999999);
-} catch (e) {
-	if (e instanceof lm.LMError && e.status === 404) lm.warn("No such device");
-	else throw e;
-}
-```
-
 ### Shortcuts
 
 Shortcuts are thin wrappers over the query builder for common requests. **All shortcuts are read only** (they send only `GET` requests), as is the whole query builder.
@@ -629,6 +685,14 @@ var instances = await lm.getDeviceInstances(42, dds[0].id);
 #### Datasource and data helpers
 
 Helpers for finding a resource's datasource instances by name, reading time series data, and working with property and status values.
+
+These helpers use three related terms that are easy to mix up:
+
+| Term | Meaning |
+| --- | --- |
+| Datasource | The monitoring definition, for example `SNMP_Network_Interfaces`. It has its own `id` (the datasource id). |
+| Device datasource | The link between one resource and one datasource. It has a different `id`, which `getDeviceInstances`, `getInstanceData` and `getGraphData` need. |
+| Instance | One monitored item within a device datasource, for example a single network interface. |
 
 <details>
 <summary><strong><code>lm.getDatasourceId(datasource, opts)</code> (async)</strong></summary>
@@ -753,13 +817,13 @@ var data = await lm.getWidgetData(1234);
 
 </details>
 
-### Context Helpers
+### Context helpers
 
 Useful helpers for capturing information about a widget itself and the dashboard it's running in.
 
 **Read only with respect to the portal:** these helpers make no API calls. Most only read the page. The exceptions that change the page (cookies, styles, iframe size) are `setCookie`, `deleteCookie`, `injectParentStyle`, `injectStyle`, `setStyleIfChanged`, `resizeFrame`, `onReady` and `observeSize`; they affect the browser only.
 
-Each returns `null`, `''` or `false` instead of throwing when the parent page is unreachable. Reading or styling the parent page requires the portal's **Allow Scripts in Dashboard Text Widgets** setting, and the iframe must be same-origin with the portal.
+When the parent page is unreachable, these helpers return `null`, `''` or `false` instead of throwing. Reading or styling the parent page requires the portal's **Allow Scripts in Dashboard Text Widgets** setting, and the iframe must be same-origin with the portal.
 
 | Function | Purpose |
 | --- | --- |
@@ -1082,7 +1146,7 @@ if (title) title.style.fontSize = "xx-large";
 ### Logging
 
 
-Messages go to the browser console with a `[widgetName]` prefix, any registered transports, and optionally LM Logs. Entries are redacted before they go anywhere: bearer tokens and LMv1 headers in messages are replaced, and metadata keys such as `token`, `secret`, `password`, `authorization`, `accessKey` and `apiKey` are masked.
+Messages go to the browser console with a `[widgetName]` prefix, any custom destinations you register (called "transports"), and optionally LM Logs (see [LM Logs forwarding](#lm-logs-forwarding) below). Entries are redacted before they go anywhere: bearer tokens and LMv1 headers in messages are replaced, and metadata keys such as `token`, `secret`, `password`, `authorization`, `accessKey` and `apiKey` are masked.
 
 **Writes log data only:** console logging has no portal effect. With LM Logs forwarding enabled, entries are `POST`ed to LM Logs (the only non-`GET` request the SDK sends on its own). It never changes portal configuration.
 
@@ -1094,7 +1158,7 @@ Messages go to the browser console with a `[widgetName]` prefix, any registered 
 | `lm.logger.flush` | Send queued LM Logs entries now. |
 
 <details>
-<summary><strong><code>lm.debug(message, meta)</code>, <code>lm.info(message, meta)</code>, <code>lm.warn(message, meta)</code>, <code>lm.error(message, meta)</code></strong></summary>
+<summary><strong><code>lm.debug(message, meta)</code> (also <code>info</code>, <code>warn</code>, <code>error</code>)</strong></summary>
 
 Write a message at that level. `message` can be a string, an `Error` or any object (non-strings are converted to text). `meta` is optional structured data shown next to the message in the console and sent with LM Logs entries. Messages below the current level are ignored.
 
@@ -1114,7 +1178,7 @@ try {
 <details>
 <summary><strong><code>lm.logger.addTransport(fn)</code></strong></summary>
 
-Registers a custom destination. `fn` receives each entry that passes the level filter: `{ level, msg, timestamp, widget, meta }`. Exceptions thrown by a transport are ignored so they can never break the widget. Returns a function that removes the transport.
+Registers a custom destination. `fn` receives each entry that passes the level filter: `{ level, msg, timestamp, widget, meta }`. Exceptions thrown by a transport (a custom log destination) are ignored so they can never break the widget. Returns a function that removes the transport.
 
 ```js
 var remove = lm.logger.addTransport(function (entry) {
@@ -1278,3 +1342,15 @@ await lm.sleep(10000, controller.signal);   // rejects if controller.abort() is 
 ```
 
 </details>
+
+## Troubleshooting
+
+| Symptom | Likely cause and fix |
+| --- | --- |
+| Nothing happens, or the script never seems to run | The **Allow Scripts in Dashboard Text Widgets** setting is off. Enable it in your portal's Settings > Security section. |
+| `document.getElementById` returns `null` | Either the script ran before the widget's elements existed (wrap your code in `lm.context.onReady`), or LogicMonitor's editor stripped an empty element when the widget was saved (give placeholder elements some content). |
+| Styles you added do not apply | Your widget runs inside an iframe, and CSS does not cross the iframe boundary. Use `lm.context.injectStyle` for content your widget renders, and `lm.context.injectParentStyle` only for the widget card and other parent page elements. LogicMonitor's own text widget styles (such as `.fr-view table`) may need a more specific selector or `!important`. |
+| `lm.context` helpers return `null`, `''` or `false` | The parent page is not reachable (the widget is running outside a dashboard, or the iframe is not same-origin with the portal). Check `lm.context.isEmbedded()`. |
+| `401` or `403` errors | With integrated authentication the SDK uses your own permissions, so the logged-in user may lack access. With a bearer token or LMv1 credentials, check the token's role permissions. Add `logLevel: "debug"` to `lm.configure` to see more detail. |
+| `Invalid verb: DELETE` | `DELETE` is not supported by the SDK and cannot be enabled. |
+| Log messages never reach LM Logs | Forwarding is off by default. Set `logs.enabled` and a `logs.resourceId` that matches a monitored resource. The ingest endpoint needs bearer or LMv1 credentials and may not accept integrated authentication. |
