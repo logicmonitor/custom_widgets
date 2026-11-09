@@ -1275,7 +1275,9 @@ Returns a wrapper that calls `fn` only after `delay` milliseconds have passed wi
 ```js
 var refresh = lm.debounce(loadDevices, 500);
 searchBox.addEventListener("input", refresh);
-// refresh.cancel();
+
+// Later, for example when the widget is removed, drop any call that is still waiting:
+refresh.cancel();
 ```
 
 </details>
@@ -1283,7 +1285,7 @@ searchBox.addEventListener("input", refresh);
 <details>
 <summary><strong><code>lm.escapeHtml(value)</code></strong></summary>
 
-Escapes `&`, `<`, `>`, `"` and `'` so a value can be inserted into HTML as text. `null` and `undefined` become an empty string. Use it before building HTML with `innerHTML` from API data such as device names.
+Escapes `&`, `<`, `>`, `"` and `'` so a value can be inserted into HTML as text. `null` and `undefined` become an empty string. Use it before building HTML with `innerHTML` from API data such as device names or descriptions.
 
 ```js
 el.innerHTML = "<b>" + lm.escapeHtml(device.displayName) + "</b>";
@@ -1294,7 +1296,7 @@ el.innerHTML = "<b>" + lm.escapeHtml(device.displayName) + "</b>";
 <details>
 <summary><strong><code>lm.formatDate(epoch)</code></strong></summary>
 
-Formats an epoch timestamp as a local date and time string (`toLocaleString`). Values below `1e12` are treated as seconds, which is what the LogicMonitor API returns; larger values are treated as milliseconds. Invalid, zero or negative input returns an empty string.
+Formats an epoch timestamp as a local date and time string (`toLocaleString`). The function works out the unit from the size of the number: values below "1000000000000" (current timestamps in seconds have 10 digits) are treated as seconds, which is what the LogicMonitor API returns, and larger values (13 digits) are treated as milliseconds. Invalid, zero or negative input returns an empty string.
 
 ```js
 lm.formatDate(1700000000);      // seconds, as returned by alerts (startEpoch)
@@ -1352,5 +1354,5 @@ await lm.sleep(10000, controller.signal);   // rejects if controller.abort() is 
 | Styles you added do not apply | Your widget runs inside an iframe, and CSS does not cross the iframe boundary. Use `lm.context.injectStyle` for content your widget renders, and `lm.context.injectParentStyle` only for the widget card and other parent page elements. LogicMonitor's own text widget styles (such as `.fr-view table`) may need a more specific selector or `!important`. |
 | `lm.context` helpers return `null`, `''` or `false` | The parent page is not reachable (the widget is running outside a dashboard, or the iframe is not same-origin with the portal). Check `lm.context.isEmbedded()`. |
 | `401` or `403` errors | With integrated authentication the SDK uses your own permissions, so the logged-in user may lack access. With a bearer token or LMv1 credentials, check the token's role permissions. Add `logLevel: "debug"` to `lm.configure` to see more detail. |
-| `Invalid verb: DELETE` | `DELETE` is not supported by the SDK and cannot be enabled. |
-| Log messages never reach LM Logs | Forwarding is off by default. Set `logs.enabled` and a `logs.resourceId` that matches a monitored resource. The ingest endpoint needs bearer or LMv1 credentials and may not accept integrated authentication. |
+| `Invalid verb: DELETE` | `DELETE` is intentionally not enabled in the SDK. |
+| Log messages never reach LM Logs | Forwarding is off by default. Set `logs.enabled` and a `logs.resourceId` that matches a monitored resource. The ingest endpoint needs bearer or LMv1 credentials and might not accept integrated authentication. |
