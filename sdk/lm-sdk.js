@@ -716,7 +716,7 @@
 		};
 
 		// ------------------------------------------------------------
-		// Fluent query builder (GlideRecord style)...
+		// Fluent query builder (chainable)...
 
 		/**
 		 * Fluent query builder for list endpoints.
@@ -1019,8 +1019,8 @@
 
 		/**
 		 * Applies shortcut options (filter, fields, sort, size, maxItems, onProgress, signal) to a query.
-		 * A filter may be a raw string, an object of field/value equality pairs, or an array of
-		 * [field, operator, value] triples.
+		 * A filter may be a raw string, an object of field names and the values they must
+		 * equal, or an array of [field, operator, value] entries.
 		 *
 		 * @param {LMQuery} q - Query to configure.
 		 * @param {object} [opts] - Shortcut options.
