@@ -554,7 +554,7 @@ Shortcuts are thin wrappers over the query builder for common requests. **All sh
 
 | Option | Description |
 | --- | --- |
-| `filter` | A raw filter string, an object of equality pairs (`{ hostStatus: "normal" }`), or an array of `[field, operator, value]` triples. |
+| `filter` | A raw filter string, an object of field names and the values they must equal (`{ hostStatus: "normal" }`), or an array of `[field, operator, value]` entries. |
 | `fields` | Comma separated fields to return. |
 | `sort` | Raw sort expression, for example `"-startEpoch"`. |
 | `size` | Page size. |
@@ -577,7 +577,7 @@ Shortcuts are thin wrappers over the query builder for common requests. **All sh
 | `lm.getWidgets(opts)` | widgets |
 
 ```js
-// Object of equality pairs
+// Object of field/value matches
 var normal = await lm.getDevices({ filter: { hostStatus: "normal" }, fields: "id,displayName" });
 
 // Array of [field, operator, value]
