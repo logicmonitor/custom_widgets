@@ -1,6 +1,15 @@
 <!--
-	Basic example of a LogicMonitor Text/Custom HTML widget using the lm SDK.
+	Basic example of a LogicMonitor Text/Custom HTML widget using the LogicMonitor Widget SDK.
 	This widget will display a list of devices in alert status, as well as a summary of the number of devices in alert status and the number of alerts that have not cleared.
+
+	SDK commands this script helps demonstrate:
+	- lm.auth.fromTokens()
+	- lm.configure()
+	- lm.context.onReady()
+	- lm.error()
+	- lm.getAlerts()
+	- lm.info()
+	- lm.query()
 -->
 
 <!-- Capture optional API tokens containing LogicMonitorAPI credentials or a bearer token. If not specified then the widget will use integrated authentication. -->
@@ -17,7 +26,7 @@
 <script src="https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js"></script>
 
 <script>
-	// Runs after the document has finished loading...
+	// Runs after the widget has finished rendering...
 	lm.context.onReady(async function () {
 		// Set a name for log messages and the minimum log level to write to the console...
 		lm.configure({ widgetName: "Device List Example", logLevel: "info" });
@@ -51,7 +60,7 @@
 
 			// Fetch up to 100 alerts that have not cleared, requesting only the fields we need...
 			var active = await lm.getAlerts({ filter: [["cleared", "=", false]], maxItems: 100, fields: "id,monitorObjectName,severity" });
-			var active = await lm.getAlerts({ maxItems: 100 });
+			
 			// Show a summary of the counts below the list...
 			status.textContent = devices.length + " devices, " + active.length + " active alerts (latest 100).";
 			lm.info("Rendered " + devices.length + " devices.");

@@ -1585,6 +1585,30 @@
 		};
 
 		/**
+		 * Injects a style element into this widget's own document once (identified by id). Use it to
+		 * style content the widget itself renders; a style added to the parent page cannot reach inside
+		 * the widget's iframe (use injectParentStyle for the widget card and other parent page elements).
+		 *
+		 * @param {string} id - Id for the style element.
+		 * @param {string} css - CSS text.
+		 * @returns {boolean} True when the style exists after the call, false when the document is unavailable.
+		 */
+		lm.context.injectStyle = function (id, css) {
+			var doc = W().document;
+			if (!doc || !doc.createElement) return false;
+			try {
+				if (doc.getElementById(id)) return true;
+				var style = doc.createElement('style');
+				style.id = id;
+				style.textContent = css;
+				(doc.head || doc.documentElement).appendChild(style);
+				return true;
+			} catch (e) {
+				return false;
+			}
+		};
+
+		/**
 		 * Sets an inline style only when it differs, avoiding needless layout and resize cycles.
 		 *
 		 * @param {Element} element - Target element.

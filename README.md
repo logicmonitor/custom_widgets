@@ -12,7 +12,8 @@
   	- [Showing Connections between Locations](#showing-connections-between-locations)
 - ### [Dynamic Dashboard List](#dynamic-dashboard-list)
 	- [Customizing Dynamic Dashboard List](#customizing-dynamic-dashboard-list)
-- ### [Dashboard Themer](#dashboard-themer)
+- ### [Dashboard Themer Widget](#dashboard-themer)
+- ### [LogicMonitor Widget SDK](sdk/README.md)
 
 ---
 # Better Map Widget

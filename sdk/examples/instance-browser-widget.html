@@ -1,4 +1,17 @@
-<!-- Example LogicMonitor Text/Custom HTML widget using the lm SDK: pick a resource, then a datasource, then see its instances. ASCII only. -->
+<!--
+	Example LogicMonitor Text/Custom HTML widget using the LogicMonitor Widget SDK that allows you to pick a resource, then a datasource, then see its instances.
+
+	SDK commands this script helps demonstrate:
+	- lm.auth.fromTokens()
+	- lm.configure()
+	- lm.context.onReady()
+	- lm.error()
+	- lm.getDevices()
+	- lm.getDeviceDataSources()
+	- lm.getDeviceInstances()
+	- lm.getStatusColor()
+	- lm.info()
+-->
 <div id="apiBearerTokenToken" style="display:none">##apiBearerToken##</div>
 <div id="apiIDToken" style="display:none">##apiID##</div>
 <div id="apiKeyToken" style="display:none">##apiKey##</div>
@@ -15,7 +28,7 @@
 <script src="https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js"></script>
 
 <script>
-	// Runs after the document has finished loading...
+	// Runs after the widget has finished rendering...
 	lm.context.onReady(async function () {
 		// Set a name for log messages and the minimum log level to write to the console...
 		lm.configure({ widgetName: "Instance Browser Example", logLevel: "info" });
