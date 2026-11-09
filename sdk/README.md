@@ -36,7 +36,7 @@ The script exposes a global `lm` object.
 
 ## Quick start
 
-This is a complete, minimal widget. Paste it into a Text widget's 'Source' view. It lists the number of resources that are currently in a normal state.
+This is a complete, minimal widget. Paste it into a Text widget's 'Code View'. It lists the number of resources that are currently in a normal state.
 
 ```html
 <!-- Optional API credentials. If left as-is, the widget uses integrated authentication. -->
@@ -63,6 +63,14 @@ This is a complete, minimal widget. Paste it into a Text widget's 'Source' view.
 	});
 </script>
 ```
+
+#### To use the example:
+
+1. Add a new Text widget to a LogicMonitor dashboard.
+2. Give the widget whatever name whatever name you choose, such as "SDK Example".
+3. On the toolbar above the widget's text editor, click the '**Code View**' button (looks like "< >").
+4. Delete any existing HTML from the editor, then paste in the contents of the example script.
+5. Save or preview the widget.
 
 ## Examples
 
