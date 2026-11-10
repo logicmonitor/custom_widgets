@@ -1,205 +1,150 @@
 
 
 <!--
-	LogicMonitor Header Widget
-	Version 1.0.0
+	LogicMonitor Header Widget (SDK version)
+	Version 2.0.0
 	Developed by Kevin Ford
 
-	For the longest time I've wanted a "header" widget type to help separate vertical sections of a LogicMonitor dashboard. Using a Text widget with a different background color works but it's not a very clean looking solution. This widget just adds some simple Javascript to a Text widget to make it behave like a more like a seamless section header.
+	A "header" widget type to help separate vertical sections of a LogicMonitor dashboard. This version is built on the LogicMonitor Widget SDK (lm) and doubles as an example of the SDK's styling and size-watching functions in lm.context.
 
 	What the script does:
-	* Hides the widget's background so it blends seamlessly with the dashboard itself, and visually separates it from the important widgets.
+	* Hides the widget's background so it blends seamlessly with the dashboard itself.
 	* Enlarges the widget's title so it can act as the section header (the text in the widget body can be used for extra detail).
 	* Adds a bottom border to the widget so it's visually separated from the widgets below it.
 	* Adds a hover effect to the widget so it's easy to tell when the widget is being hovered over.
+	* Watches for size changes and resizes the widget to fit its content.
+
+	SDK functions demonstrated:
+	* lm.context.onReady          - wait for the widget to finish rendering.
+	* lm.context.widgetContainer / widgetTitle / widgetParent / widgetFrame - locate the widget's elements in the dashboard.
+	* lm.context.setStyleIfChanged - change inline styles without triggering needless layout cycles.
+	* lm.context.injectParentStyle - add CSS to the dashboard page (the widget card lives outside this iframe).
+	* lm.context.injectStyle      - add CSS to this widget's own content.
+	* lm.context.observeSize      - react to size changes (throttled to once per animation frame).
+	* lm.context.fitFrameToContent / resizeFrame - size the iframe to match its content (growing and shrinking).
 
 	Prerequisites:
 	* The 'Allow Scripts in Dashboard Text Widgets' setting must be enabled in your portal's Settings > Security section.
 
 	TO USE:
-	1. Create a new Text widget to the dashboard. I highly recommend making it the full width of the dashboard and the smallest height necessary.
-	2. On the Text widget's edit dialog, click the "Source" button and paste in the contents of this script, then save the widget.
-	3. At this point you can edit the text of the widget using LogicMonitor usual Text widget editing tools. LogicMonitor's HTML editor should leave the script intact, but you might have to re-paste the script if the editor accidentally removes it.
+	1. Add a new Text widget to the dashboard. I highly recommend making it the full width of the dashboard and the smallest height necessary.
+	2. On the Text widget's edit dialog, click the "Source" button and paste in the contents of this file, then save the widget.
+	3. You can then edit the text of the widget using LogicMonitor's usual Text widget editing tools. LogicMonitor's HTML editor should leave the scripts intact, but you might have to re-paste them if the editor accidentally removes them.
 -->
 
+<script src="https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js"></script>
 <script>
 	// Configuration...
 	var CONFIG = {
 		minWidgetHeight: "50px",     // Widget height when there is no content.
 		widgetPadding: 40,           // Extra height (px) to allow for the header.
-		titleHeight: "35px",		 // Height of the title text (this is also the height of the widget).
+		titleHeight: "35px",         // Height of the title text (this is also the height of the widget).
 		titleFontSize: "xx-large",   // Font size of the title text.
 		borderColor: "black",        // Color of the border below the widget.
-		hoverBorderColor: "#ddd"	 // Color of the border when the widget is hovered over.
+		hoverBorderColor: "#ddd"     // Color of the border when the widget is hovered over.
 	};
 
-	// LogicMonitor's generated markup. If a LogicMonitor update breaks this widget, these are the first things to check...
-	var SELECTORS = {
-		widget: 'div[id][class*="DashboardWidgetsGrid__StyledWidget"]',
-		title: 'p.MuiTypography-root'
-	};
+	// If a LogicMonitor update breaks widget or title lookups, override the SDK's selectors here, e.g.:
+	// lm.context.selectors.title = "h2.newTitleClass";
 
-	var thisWidget = getContainingWidgetId();
-	var initialIframeHeight = null;
-	var resizeObserver = null;
-	var syncScheduled = false;
+	var ctx = lm.context;
+	var stopObserving = null;
 
-	// Function to return the ID of the LogicMonitor widget containing this iframe...
-	function getContainingWidgetId() {
-		try {
-			const parentDoc = window.parent.document;
-			const iframe = Array.from(parentDoc.querySelectorAll("iframe"))
-				.find(frame => frame.contentWindow === window);
-			return (iframe && iframe.closest("[id]")) || null;
-		} catch (e) {
-			return null;
-		}
-	}
+	lm.context.onReady(function () {
+		lm.configure({ widgetName: "Dashboard Header" });
+		initializeWidget();
+	});
 
-	// Returns the DOM object containing the title of the widget...
-	function getContainingWidgetTitle() {
-		try {
-			const widget = thisWidget.closest(SELECTORS.widget) || thisWidget;
-			return widget.querySelector(SELECTORS.title);
-		} catch (e) {
-			return null;
-		}
-	}
-
-	// Set a max height on the widget so it doesn't grow beyond the header bar...
 	function initializeWidget() {
-		if (!thisWidget) {
-			console.warn("Containing widget not found; aborting initialization.");
+		var card = ctx.widgetContainer();
+		if (!card || !ctx.isEmbedded()) {
+			lm.warn("Containing widget not found; aborting initialization.");
 			return;
 		}
 
-		// If max-height is already set on the widget, it was initialized by an earlier load of this iframe (e.g. after an edit).
-		// The widget keeps its styles, but this is a new document, so it still needs its own observer.
-		if (thisWidget.style.maxHeight) {
-			console.debug("Widget already initialized (max-height is " + thisWidget.style.maxHeight + ")");
-			syncWidgetHeight();
-			observeContentSize();
-			return;
-		}
-
-		// Capture the iframe's initial height before doing anything else.
-		const iframe = window.frameElement;
-		initialIframeHeight = iframe ? iframe.getBoundingClientRect().height : window.innerHeight;
-		console.debug("Initial iframe height: " + initialIframeHeight + "px");
-
-		// Set the max height of the widget to the initial height of the iframe...
-		thisWidget.style.maxHeight = initialIframeHeight + "px";
-		console.debug("Setting initial widget max height to " + initialIframeHeight + "px");
-
-		// Add a placeholder class to the widget so we can apply header-specific styles to it...
-		thisWidget.classList.add("dashboardHeaderWidget");
-		addHeaderHoverStyle();
-
-		resetWidget();
-		observeContentSize();
-	}
-
-	// The widget lives in the parent page, so the hover rule has to be injected into the parent document (once)...
-	function addHeaderHoverStyle() {
-		try {
-			const parentDoc = window.parent.document;
-			if (parentDoc.getElementById("dashboardHeaderWidgetStyle")) return;
-			const style = parentDoc.createElement("style");
-			style.id = "dashboardHeaderWidgetStyle";
-			// !important is needed because resetWidget() sets border: none as an inline style.
-			const border = "1px solid " + CONFIG.hoverBorderColor + " !important;";
-			style.textContent = ".dashboardHeaderWidget:hover { border-top: " + border + " border-left: " + border + " border-right: " + border + " }";
-			parentDoc.head.appendChild(style);
-		} catch (e) {
-			console.warn("Unable to add header hover style:", e);
-		}
-	}
-
-	// Apply our own styles to the widget...
-	function resetWidget() {
-		thisWidget.style.backgroundColor = "unset";
-		thisWidget.style.border = "none";
-		thisWidget.style.borderRadius = "0";
-		thisWidget.style.height = CONFIG.minWidgetHeight;
-		thisWidget.style.borderBottom = "1px solid " + CONFIG.borderColor;
-
-		// Style the widget title. (Previously: replaced the title text with a non-breaking space. Something must remain there for the widget to still be movable.)
-		// getContainingWidgetTitle().innerHTML = "&nbsp;";
-		const widgetTitle = getContainingWidgetTitle();
-		if (widgetTitle) {
-			widgetTitle.style.fontSize = CONFIG.titleFontSize;
-			widgetTitle.style.height = CONFIG.titleHeight;
-			widgetTitle.parentElement.style.height = CONFIG.titleHeight;
-			widgetTitle.parentElement.style.alignItems = "flex-end";
+		// If max-height is already set, an earlier load of this iframe (e.g. after an edit) initialized the card.
+		// The card keeps its styles, but this is a new document, so it still needs its own observer.
+		if (card.style.maxHeight) {
+			lm.debug("Widget already initialized (max-height is " + card.style.maxHeight + ")");
 		} else {
-			console.warn("Widget title element not found; skipping title styling.");
+			// Cap the card at the iframe's initial height so it can't grow beyond the header bar...
+			var frame = ctx.widgetFrame();
+			var initialHeight = frame ? frame.getBoundingClientRect().height : window.innerHeight;
+			lm.debug("Initial iframe height: " + initialHeight + "px");
+			card.style.maxHeight = initialHeight + "px";
+
+			// Style the dashboard page: the card lives outside this iframe, so its hover rule goes in the parent document.
+			// !important is needed because styleCard() sets the border as an inline style.
+			var border = "1px solid " + CONFIG.hoverBorderColor + " !important;";
+			ctx.injectParentStyle("dashboardHeaderWidgetStyle",
+				".dashboardHeaderWidget:hover { border-top: " + border + " border-left: " + border + " border-right: " + border + " }");
+			card.classList.add("dashboardHeaderWidget");
+
+			styleWidget();
 		}
 
-		// Restyle the parent element of the widget...
-		var thisWidgetParent = thisWidget.parentElement;
-		thisWidgetParent.style.border = "none";
-		thisWidgetParent.style.display = "flex";
-		thisWidgetParent.style.alignItems = "center";
-		thisWidgetParent.style.backgroundColor = "unset";
+		// Style this widget's own content (inside the iframe)...
+		ctx.injectStyle("dashboardHeaderContentStyle", "body { margin: 0; }");
 
 		syncWidgetHeight();
+
+		// Watch for size changes in the content and in the card (e.g. dashboard width changes)...
+		if (stopObserving) stopObserving();
+		var stopContent = ctx.observeSize(syncWidgetHeight);
+		var stopCard = ctx.observeSize(syncWidgetHeight, card);
+		stopObserving = function () { stopContent(); stopCard(); stopObserving = null; };
+		window.addEventListener("pagehide", function () { if (stopObserving) stopObserving(); }, { once: true });
 	}
 
-	// Watch the content for size changes. Only one observer is ever created per iframe document...
-	function observeContentSize() {
-		if (resizeObserver) return;
-		resizeObserver = new ResizeObserver(scheduleSync);
-		resizeObserver.observe(document.documentElement);
+	// Apply our own styles to the widget card, title and grid cell...
+	function styleWidget() {
+		var set = ctx.setStyleIfChanged;
+
+		var card = ctx.widgetContainer();
+		set(card, "backgroundColor", "unset");
+		set(card, "border", "none");
+		set(card, "borderRadius", "0");
+		set(card, "height", CONFIG.minWidgetHeight);
+		set(card, "borderBottom", "1px solid " + CONFIG.borderColor);
+
+		// Something must remain in the title for the widget to still be movable, so it is styled rather than removed.
+		var title = ctx.widgetTitle();
+		if (title) {
+			set(title, "fontSize", CONFIG.titleFontSize);
+			set(title, "height", CONFIG.titleHeight);
+			set(title.parentElement, "height", CONFIG.titleHeight);
+			set(title.parentElement, "alignItems", "flex-end");
+		} else {
+			lm.warn("Widget title element not found; skipping title styling.");
+		}
+
+		var cell = ctx.widgetParent();
+		if (cell) {
+			set(cell, "border", "none");
+			set(cell, "display", "flex");
+			set(cell, "alignItems", "flex-end"); // Align the header's content to the bottom of the widget.
+			set(cell, "backgroundColor", "unset");
+		}
 	}
 
-	// Coalesce bursts of resize notifications into a single sync per frame...
-	function scheduleSync() {
-		if (syncScheduled) return;
-		syncScheduled = true;
-		requestAnimationFrame(() => {
-			syncScheduled = false;
-			syncWidgetHeight();
-		});
-	}
-
-	// Run once the iframe is fully loaded (or immediately if it already is).
-	if (document.readyState === 'complete') {
-		initializeWidget();
-	} else {
-		window.addEventListener('load', initializeWidget, { once: true });
-	}
-
-	// Only write a style when it actually changes, so we don't trigger needless layout/resize cycles...
-	function setStyleIfChanged(element, property, value) {
-		if (element.style[property] !== value) element.style[property] = value;
-	}
-
-	// Sync the height of the widget to the height of the content...
+	// Sync the height of the card and iframe to the height of the content...
 	function syncWidgetHeight() {
-		// Treat the widget as empty only if there's no text and no visual content...
-		const hasText = document.body.innerText.trim() !== "";
-		const hasMedia = document.body.querySelector("img, video, iframe, canvas, svg, table, hr") !== null;
+		var card = ctx.widgetContainer();
+		if (!card) return;
 
-		// Make the header's content align to the bottom of the widget...
-		thisWidget.parentElement.style.alignItems = "flex-end";
+		// Treat the widget as empty only if there's no text and no visual content...
+		var hasText = document.body.innerText.trim() !== "";
+		var hasMedia = document.body.querySelector("img, video, iframe, canvas, svg, table, hr") !== null;
 
 		if (!hasText && !hasMedia) {
-			console.debug("Frame content is empty, setting height to 0");
-			setStyleIfChanged(thisWidget, "height", CONFIG.minWidgetHeight);
-			setStyleIfChanged(window.frameElement, "height", "0px");
+			lm.debug("Frame content is empty, collapsing frame");
+			ctx.setStyleIfChanged(card, "height", CONFIG.minWidgetHeight);
+			ctx.resizeFrame(0);
 		} else {
-			// <html> is auto-height, so offsetHeight is the real content height regardless of the iframe's current size
-			// (scrollHeight would never be smaller than the iframe's viewport, so it couldn't shrink).
-			const frameHeight = document.documentElement.offsetHeight;
-			setStyleIfChanged(window.frameElement, "height", frameHeight + "px");
-			console.debug("Frame has content, setting height to " + frameHeight + "px");
-
-			const contentHeight = frameHeight + CONFIG.widgetPadding;
-			setStyleIfChanged(thisWidget, "height", contentHeight + "px");
-			console.debug("Setting widget height to " + contentHeight + "px");
-
-			// const contentElement = window.frameElement.contentDocument.querySelector(".fr-view");
-			// const contentHeight = contentElement.scrollHeight + widgetPadding;
+			// Size the iframe to its content (growing or shrinking) and get the content height back...
+			var frameHeight = ctx.fitFrameToContent();
+			ctx.setStyleIfChanged(card, "height", (frameHeight + CONFIG.widgetPadding) + "px");
+			lm.debug("Frame height " + frameHeight + "px, widget height " + (frameHeight + CONFIG.widgetPadding) + "px");
 		}
 	}
 </script>

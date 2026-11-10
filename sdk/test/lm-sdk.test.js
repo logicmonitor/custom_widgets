@@ -344,6 +344,11 @@ test('context frame resize, parent style injection and no-parent behavior', () =
 	assert.ok(lm.context.resizeFrame(77.4));
 	assert.strictEqual(frame.style.height, '77px');
 	assert.ok(!lm.context.resizeFrame(77));
+	frame.style.height = '300px';
+	assert.strictEqual(lm.context.measureContentHeight(), 77);
+	assert.strictEqual(frame.style.height, '300px');
+	assert.strictEqual(lm.context.fitFrameToContent(), 77);
+	assert.strictEqual(frame.style.height, '77px');
 	assert.ok(lm.context.injectParentStyle('s1', '.a{}'));
 	assert.ok(lm.context.injectParentStyle('s1', '.b{}'));
 	assert.strictEqual(styles.s1.textContent, '.a{}');
