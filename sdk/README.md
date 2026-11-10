@@ -1,4 +1,4 @@
-# LogicMonitor Widget SDK (`lm`)
+# LogicMonitor Custom Widget SDK
 
 A single-file JavaScript library that helps simplify development of custom LogicMonitor dashboard widgets.
 

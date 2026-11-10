@@ -12,8 +12,9 @@
   	- [Showing Connections between Locations](#showing-connections-between-locations)
 - ### [Dynamic Dashboard List](#dynamic-dashboard-list)
 	- [Customizing Dynamic Dashboard List](#customizing-dynamic-dashboard-list)
+- ### [Dashboard Header Widget](#dashboard-header-widget)
 - ### [Dashboard Themer Widget](#dashboard-themer)
-- ### [LogicMonitor Widget SDK](sdk/README.md)
+- ### [LogicMonitor Custom Widget SDK](sdk/README.md)
 
 ---
 # Better Map Widget
@@ -178,6 +179,14 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **ShowFullDashboardPath**: Show the dashboard group's full path vs it's short name. Default: true.
 - **defaultDashboardGroup**: (optional) The "parent" dashboard group you want to list dashboards under. If not set then the script will default to showing all dashboard groups.
 - **DashboardsToExclude**: (optional) A regular expression to filter any dashboards you DON'T want listed. Example: .\*[Tt]+emplate.\*
+
+---
+# Dashboard Header Widget
+
+![Image](Sample%20Dashboards/Screenshots/Header_Widget.png?raw=true)
+[Widget source code](src/Dashboard_Header_Widget.html)
+
+A "header" widget type to help separate vertical sections of a LogicMonitor dashboard. This version is built on the LogicMonitor Widget SDK (lm) and doubles as an example of the [Widget SDK's](sdk/README.md) styling and size-watching functions.
 
 ---
 # Dashboard Themer
