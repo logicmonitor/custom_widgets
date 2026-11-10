@@ -1,4 +1,4 @@
-# LogicMonitor Widget SDK (`lm`)
+# LogicMonitor Custom Widget SDK
 
 A single-file JavaScript library that helps simplify development of custom LogicMonitor dashboard widgets.
 
@@ -79,6 +79,7 @@ These are complete example widgets demonstrating use of the SDK that you can pas
 - [examples/device-list-widget.html](examples/device-list-widget.html) is a minimal widget that lists devices with active alerts using the query builder and `lm.getAlerts`.
 - [examples/device-list-widget2.html](examples/device-list-widget2.html) is a more elaborate version of the above **device-list-widget** example. This widget will display a table of devices in alert status (i.e. alert status is something other than "none"), with columns for a colored icon indicating the highest severity for each device, the device name, and its system info. Each device name will be a link to the device's alert details page.
 - [examples/instance-browser-widget.html](examples/instance-browser-widget.html) is a drill-down widget: choose a resource, then a datasource, and it lists that datasource's instances.
+- [Dashboard_Header_Widget.html](../src/Dashboard_Header_Widget.html) demonstrates use of the SDK to completely restyle a Text widget into a header that's useful for visually separating sections of a dashboard.
 
 ## Authentication
 
@@ -845,7 +846,7 @@ When the parent page is unreachable, these helpers return `null`, `''` or `false
 | `getCookie`, `setCookie`, `deleteCookie`, `getJsonCookie` | Cookie helpers. |
 | `injectStyle(id, css)` | Add a style to this widget's own document. |
 | `injectParentStyle(id, css)`, `setStyleIfChanged(el, prop, value)` | Style the parent page. |
-| `contentHeight()`, `resizeFrame(px)`, `onReady(fn)`, `observeSize(fn, el)` | Size and lifecycle helpers. |
+| `contentHeight()`, `measureContentHeight()`, `resizeFrame(px)`, `fitFrameToContent()`, `onReady(fn)`, `observeSize(fn, el)` | Size and lifecycle helpers. |
 
 #### `lm.context.selectors`
 
@@ -863,10 +864,34 @@ lm.context.selectors.title = "h2.newTitleClass";
 <details>
 <summary><strong><code>lm.context.contentHeight()</code></strong></summary>
 
-Returns the height of this document's `<html>` element in pixels. Because `<html>` is auto-height, it reflects the real content height and can shrink as well as grow, unlike `scrollHeight`.
+Returns the current height of this document's `<html>` element in pixels. Unlike `scrollHeight`, it can be smaller than the iframe, but once the iframe has been sized the `<html>` element may be stretched to match it (for example in quirks mode), so the value can grow without shrinking. To resize a frame that may need to shrink, use `lm.context.measureContentHeight()` or `lm.context.fitFrameToContent()` instead.
 
 ```js
 var px = lm.context.contentHeight();
+```
+
+</details>
+
+<details>
+<summary><strong><code>lm.context.measureContentHeight()</code></strong></summary>
+
+Returns the real content height in pixels, even after the iframe has been sized. It falls back to `contentHeight()` if the iframe isn't reachable.
+
+Note: It briefly collapses the iframe to `0px`, measures the `<html>` element, and restores the previous height. This happens synchronously, so nothing is painted at the collapsed size. 
+
+```js
+var px = lm.context.measureContentHeight();
+```
+
+</details>
+
+<details>
+<summary><strong><code>lm.context.fitFrameToContent()</code></strong></summary>
+
+Resizes this widget's iframe to fit its content, growing or shrinking as needed, and returns the content height in pixels. This is `measureContentHeight()` followed by `resizeFrame()`.
+
+```js
+lm.context.observeSize(lm.context.fitFrameToContent);
 ```
 
 </details>
@@ -978,7 +1003,7 @@ Watches an element (default the `<html>` element) for size changes with a `Resiz
 
 ```js
 var stop = lm.context.observeSize(function () {
-	lm.context.resizeFrame(lm.context.contentHeight());
+	lm.context.fitFrameToContent();
 });
 // stop();
 ```
@@ -1025,7 +1050,7 @@ lm.context.portal();   // "company.logicmonitor.com"
 Sets this widget's iframe height in pixels (rounded, never negative), only if it changed. Returns `true` when the height changed.
 
 ```js
-lm.context.resizeFrame(lm.context.contentHeight());
+lm.context.resizeFrame(300);
 ```
 
 </details>

@@ -1633,14 +1633,44 @@
 		};
 
 		/**
-		 * Returns the content height of this document (the html element is auto-height, so this
-		 * can shrink as well as grow).
+		 * Returns the current height of this document's html element. If the iframe has already been
+		 * sized, the html element may be stretched to the iframe's height (for example in quirks mode),
+		 * so this value can grow but not shrink. Use measureContentHeight() after the frame has been resized.
 		 *
 		 * @returns {number} Height in pixels.
 		 */
 		lm.context.contentHeight = function () {
 			var doc = W().document;
 			return doc && doc.documentElement ? doc.documentElement.offsetHeight : 0;
+		};
+
+		/**
+		 * Measures the real content height, even after the iframe has been sized. The iframe is briefly
+		 * collapsed to 0px, the html element is measured, and the previous height is restored. This is
+		 * synchronous, so nothing is painted at the collapsed size. Falls back to contentHeight() when
+		 * the iframe isn't reachable.
+		 *
+		 * @returns {number} Height in pixels.
+		 */
+		lm.context.measureContentHeight = function () {
+			var frame = lm.context.widgetFrame();
+			if (!frame || !frame.style) return lm.context.contentHeight();
+			var previous = frame.style.height;
+			frame.style.height = '0px';
+			var height = lm.context.contentHeight();
+			frame.style.height = previous;
+			return height;
+		};
+
+		/**
+		 * Resizes this widget's iframe to fit its content (grows and shrinks).
+		 *
+		 * @returns {number} The content height in pixels.
+		 */
+		lm.context.fitFrameToContent = function () {
+			var height = lm.context.measureContentHeight();
+			lm.context.resizeFrame(height);
+			return height;
 		};
 
 		/**
