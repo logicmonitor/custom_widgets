@@ -12,7 +12,7 @@
   	- [Showing Connections between Locations](#showing-connections-between-locations)
 - ### [Dynamic Dashboard List](#dynamic-dashboard-list)
 	- [Customizing Dynamic Dashboard List](#customizing-dynamic-dashboard-list)
-- ### [Dashboard Header Widget](#dashboard-header-widget)
+- ### [Section Header Widget](#section-header)
 - ### [Dashboard Themer Widget](#dashboard-themer)
 - ### [LogicMonitor Custom Widget SDK](sdk/README.md)
 
@@ -181,7 +181,7 @@ Behavior of the widget can be customized using the following optional dashboard 
 - **DashboardsToExclude**: (optional) A regular expression to filter any dashboards you DON'T want listed. Example: .\*[Tt]+emplate.\*
 
 ---
-# Dashboard Header Widget
+# Section Header
 
 ![Image](Sample%20Dashboards/Screenshots/Header_Widget.png?raw=true)
 [Widget source code](src/Dashboard_Header_Widget.html)

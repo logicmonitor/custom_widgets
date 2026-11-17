@@ -36,8 +36,7 @@
 <script>
 	// Configuration...
 	var CONFIG = {
-		minWidgetHeight: "50px",     // Widget height when there is no content.
-		widgetPadding: 40,           // Extra height (px) to allow for the header.
+		minWidgetHeight: "50px",     // Smallest height the widget will shrink to.
 		titleHeight: "35px",         // Height of the title text (this is also the height of the widget).
 		titleFontSize: "xx-large",   // Font size of the title text.
 		borderColor: "black",        // Color of the border below the widget.
@@ -62,37 +61,27 @@
 			return;
 		}
 
-		// If max-height is already set, an earlier load of this iframe (e.g. after an edit) initialized the card.
-		// The card keeps its styles, but this is a new document, so it still needs its own observer.
-		if (card.style.maxHeight) {
-			lm.debug("Widget already initialized (max-height is " + card.style.maxHeight + ")");
-		} else {
-			// Cap the card at the iframe's initial height so it can't grow beyond the header bar...
-			var frame = ctx.widgetFrame();
-			var initialHeight = frame ? frame.getBoundingClientRect().height : window.innerHeight;
-			lm.debug("Initial iframe height: " + initialHeight + "px");
-			card.style.maxHeight = initialHeight + "px";
+		// Style the dashboard page: the card lives outside this iframe, so its hover rule goes in the parent document.
+		// !important is needed because styleWidget() sets the border as an inline style.
+		// Everything here is safe to repeat (the card keeps its styles when this iframe reloads, e.g. after an edit),
+		// and re-applying it on every load replaces any stale values left by an earlier version of this script.
+		var border = "1px solid " + CONFIG.hoverBorderColor + " !important;";
+		ctx.injectParentStyle("dashboardHeaderWidgetStyle",
+			".dashboardHeaderWidget:hover { border-top: " + border + " border-left: " + border + " border-right: " + border + " }");
+		card.classList.add("dashboardHeaderWidget");
 
-			// Style the dashboard page: the card lives outside this iframe, so its hover rule goes in the parent document.
-			// !important is needed because styleCard() sets the border as an inline style.
-			var border = "1px solid " + CONFIG.hoverBorderColor + " !important;";
-			ctx.injectParentStyle("dashboardHeaderWidgetStyle",
-				".dashboardHeaderWidget:hover { border-top: " + border + " border-left: " + border + " border-right: " + border + " }");
-			card.classList.add("dashboardHeaderWidget");
-
-			styleWidget();
-		}
+		styleWidget();
 
 		// Style this widget's own content (inside the iframe)...
 		ctx.injectStyle("dashboardHeaderContentStyle", "body { margin: 0; }");
 
 		syncWidgetHeight();
 
-		// Watch for size changes in the content and in the card (e.g. dashboard width changes)...
+		// Watch for size changes in the content (e.g. dashboard width changes that re-wrap the text)...
+		// Vertical resizing needs no watching: the card fills its grid cell by percentage (see styleWidget).
 		if (stopObserving) stopObserving();
 		var stopContent = ctx.observeSize(syncWidgetHeight);
-		var stopCard = ctx.observeSize(syncWidgetHeight, card);
-		stopObserving = function () { stopContent(); stopCard(); stopObserving = null; };
+		stopObserving = function () { stopContent(); stopObserving = null; };
 		window.addEventListener("pagehide", function () { if (stopObserving) stopObserving(); }, { once: true });
 	}
 
@@ -104,8 +93,15 @@
 		set(card, "backgroundColor", "unset");
 		set(card, "border", "none");
 		set(card, "borderRadius", "0");
-		set(card, "height", CONFIG.minWidgetHeight);
 		set(card, "borderBottom", "1px solid " + CONFIG.borderColor);
+
+		// Fill the grid cell exactly. A percentage height tracks the cell as the dashboard resizes it, so no resize
+		// watching is needed. The empty strings clear values left on the card by earlier versions of this script.
+		set(card, "height", "100%");
+		set(card, "minHeight", CONFIG.minWidgetHeight);
+		set(card, "maxHeight", "");
+		set(card, "alignSelf", "");
+		set(card, "flexShrink", "");
 
 		// Something must remain in the title for the widget to still be movable, so it is styled rather than removed.
 		var title = ctx.widgetTitle();
@@ -114,6 +110,17 @@
 			set(title, "height", CONFIG.titleHeight);
 			set(title.parentElement, "height", CONFIG.titleHeight);
 			set(title.parentElement, "alignItems", "flex-end");
+
+			// The title row and the widget's iframe sit in a flex column that fills the card. To keep the header text
+			// just above the bottom border when the card is taller than its content, push the title row (the column's
+			// first child) down with an auto top margin. Unlike justify-content: flex-end, an auto margin collapses to
+			// zero when the content is too tall, so the title stays at the top, in view, instead of being pushed out of
+			// the card. (The empty string clears the justify-content set by an earlier version of this script.)
+			var column = title.closest("section");
+			if (column) {
+				set(column, "justifyContent", "");
+				if (column.firstElementChild) set(column.firstElementChild, "marginTop", "auto");
+			}
 		} else {
 			lm.warn("Widget title element not found; skipping title styling.");
 		}
@@ -127,24 +134,19 @@
 		}
 	}
 
-	// Sync the height of the card and iframe to the height of the content...
+	// Size the iframe to the height of the content. (The card itself is sized by the dashboard, see styleWidget.)
 	function syncWidgetHeight() {
-		var card = ctx.widgetContainer();
-		if (!card) return;
-
 		// Treat the widget as empty only if there's no text and no visual content...
 		var hasText = document.body.innerText.trim() !== "";
 		var hasMedia = document.body.querySelector("img, video, iframe, canvas, svg, table, hr") !== null;
 
 		if (!hasText && !hasMedia) {
 			lm.debug("Frame content is empty, collapsing frame");
-			ctx.setStyleIfChanged(card, "height", CONFIG.minWidgetHeight);
 			ctx.resizeFrame(0);
 		} else {
-			// Size the iframe to its content (growing or shrinking) and get the content height back...
+			// Size the iframe to its content (growing or shrinking)...
 			var frameHeight = ctx.fitFrameToContent();
-			ctx.setStyleIfChanged(card, "height", (frameHeight + CONFIG.widgetPadding) + "px");
-			lm.debug("Frame height " + frameHeight + "px, widget height " + (frameHeight + CONFIG.widgetPadding) + "px");
+			lm.debug("Frame height " + frameHeight + "px");
 		}
 	}
 </script>
