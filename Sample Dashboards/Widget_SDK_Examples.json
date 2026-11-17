@@ -1,0 +1,185 @@
+{
+  "santabaRelease": 247,
+  "defaultDashboardFilters": {
+    "defaultDashboardFilterDetails": []
+  },
+  "widgetTokens": [],
+  "name": "Widget SDK Examples",
+  "description": "A dashboard that demonstrates the bundled LogicMonitor Custom Widget SDK examples.",
+  "overwriteGroupFields": false,
+  "widgetsConfigVersion": 2,
+  "type": "dashboard",
+  "widgets": [
+    {
+      "position": {
+        "col": 5,
+        "sizex": 8,
+        "row": 5,
+        "sizey": 4
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Fancier Device List Example",
+        "description": "",
+        "theme": "newBorderGray",
+        "interval": 15,
+        "type": "text",
+        "timescale": "day",
+        "version": 2,
+        "content": "<!--\n\tA more elaborate example of a LogicMonitor Text/Custom HTML widget using the lm SDK.\n\tThis widget will display a table of devices in alert status (i.e. alert status is something other than \"none\"), with columns for a colored icon indicating the highest severity for each device, the device name, and its system info. Each device name will be a link to the device's alert details page. It will also show a summary of the number of devices in alert status and the number of alerts that have not cleared.\n\n\tSDK commands this script helps demonstrate:\n\t- lm.auth.fromTokens()\n\t- lm.configure()\n\t- lm.context.injectStyle()\n\t- lm.context.onReady()\n\t- lm.error()\n\t- lm.escapeHtml()\n\t- lm.getAlerts()\n\t- lm.getProperty()\n\t- lm.getStatusColor()\n\t- lm.info()\n\t- lm.query()\n--><!-- Capture optional API tokens containing LogicMonitorAPI credentials or a bearer token. If not specified then the widget will use integrated authentication. --><div id=\"apiBearerTokenToken\" style=\"display:none;\">##apiBearerToken##</div><div id=\"apiIDToken\" style=\"display:none;\">##apiID##</div><div id=\"apiKeyToken\" style=\"display:none;\">##apiKey##</div><h3>Devices in alert</h3><!-- Containers are not empty because LogicMonitor's editor strips empty elements. The script replaces this text... --><div id=\"deviceList\">Loading devices...</div><div id=\"status\">&nbsp;</div><!-- Load the lm SDK, which exposes a global \"lm\" object... --><script src=\"https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@widget_sdk/sdk/lm-sdk.js\"></script><script>\n\t// Runs after the widget has finished rendering...\n\tlm.context.onReady(async function () {\n\t\t// Set a name for log messages and the minimum log level to write to the console...\n\t\tlm.configure({ widgetName: \"Device List Example\", logLevel: \"info\" });\n\n\t\t// Uses the credentials above when supplied; otherwise falls back to the integrated portal session...\n\t\tlm.info(\"Auth mode: \" + lm.auth.fromTokens());\n\n\t\t// Get the document elements we will fill in...\n\t\tvar container = document.getElementById(\"deviceList\");\n\t\tvar status = document.getElementById(\"status\");\n\n\t\ttry {\n\t\t\t// Build a devices API query: only devices whose alert status is not \"none\", returning just three fields, sorted by name, max 200...\n\t\t\t// getItems() pages through the API as needed and returns a flat array of devices...\n\t\t\tvar devices = await lm.query(\"devices\")\n\t\t\t\t.addQuery(\"alertStatus\", \"!=\", \"none\")\n\t\t\t\t.fields(\"id,displayName,alertStatus,systemProperties\")\n\t\t\t\t.orderBy(\"displayName\")\n\t\t\t\t.limit(200)\n\t\t\t\t.getItems();\n\n\t\t\t// Replace the loading text with a table built here, with one row per device and columns for the alert icon, device name and system info. First we'll create the table with a header row and a body...\n\t\t\tvar table = document.createElement(\"table\");\n\t\t\ttable.style.borderCollapse = \"collapse\";\n\t\t\ttable.innerHTML = \"<thead><tr><th>Icon</th><th style='text-align:left;'>Device</th><th style='text-align:left;'>System info</th></tr></thead><tbody></tbody>\";\n\t\t\tvar tbody = table.querySelector(\"tbody\");\n\n\t\t\t// Change LogicMonitor's default table style (.fr-view table, .fr-view th, .fr-view td). The table lives in this widget's own document, so the style must be added here (a style added to the parent page cannot reach inside the widget's iframe)...\n\t\t\tlm.context.injectStyle(\"deviceListTableStyle\", \"#deviceList table, #deviceList th, #deviceList td { border: 1px solid #ccc !important; padding: 3px; }\");\n\n\t\t\t// Then we'll clear the container's content and append the table to it...\n\t\t\tcontainer.textContent = \"\";\n\t\t\tcontainer.appendChild(table);\n\t\t\t\n\t\t\t// Then we'll loop through the devices and create a row for each one, counting the rows as we go...\n\t\t\tvar rowCount = 0;\n\t\t\tdevices.forEach(function (d) {\n\t\t\t\t// Only show devices that are in alert status...\n\t\t\t\tif (d.alertStatus != \"none\") {\n\t\t\t\t\t// Create a default alert icon for the device using the normal text color (black in this example)...\n\t\t\t\t\tlet alertIcon = \"&#11044;\";\n\n\t\t\t\t\t// Parse the device's alert information to get the alert status and severity (example: \"unconfirmed-error-none\")...\n\t\t\t\t\tlet alertStatusArray = String(d.alertStatus || \"\").match(/([\\w]+)-([\\w]+)-([\\w]+)/);\n\t\t\t\t\t\n\t\t\t\t\t// If the alert status matches the expected format, extract the status and severity...\n\t\t\t\t\tif (alertStatusArray) {\n\t\t\t\t\t\tlet alertStatus = alertStatusArray[1];\t\t// Example: \"unconfirmed\"\n\t\t\t\t\t\tlet alertSeverity = alertStatusArray[2];\t// Example: \"error\"\n\t\t\t\t\t\tif (alertSeverity != \"\") {\n\t\t\t\t\t\t\t// If the severity is not empty, create an alert icon with the severity's color (it'd be more efficient to use CSS classes instead of inline styles, but this demonstrates use of the 'lm.getStatusColor()' function)...\n\t\t\t\t\t\t\talertIcon = `<span title='${alertSeverity}' style='color:${lm.getStatusColor(alertSeverity)};'>&#11044;</span>`;\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\n\t\t\t\t\t// Get the device's sysinfo from the system properties (escaped because it is text from the API)...\n\t\t\t\t\tlet sysInfoString = lm.escapeHtml(lm.getProperty(d, \"system.sysinfo\", \"\"));\n\n\t\t\t\t\t// Create the table row. The first cell holds the icon, the second the device name linking to the device's alert details page, and the third the system info...\n\t\t\t\t\tlet tr = document.createElement(\"tr\");\n\t\t\t\t\ttr.innerHTML = `<td style=\"text-align:center;\">${alertIcon}</td>` +\n\t\t\t\t\t\t`<td><a href=\"/santaba/uiv4/resources/treeNodes/t-d,id-${d.id}?source=details&tab=alert\" target=\"_blank\" class=\"link\">${lm.escapeHtml(d.displayName)}</a></td>` +\n\t\t\t\t\t\t`<td><small>${sysInfoString}</small></td>`;\n\n\t\t\t\t\t// Append the row to the table body...\n\t\t\t\t\ttbody.appendChild(tr);\n\t\t\t\t\trowCount++;\n\t\t\t\t}\n\t\t\t});\n\n\t\t\t// Fetch up to 500 alerts that have not cleared, requesting only the fields we need...\n\t\t\tvar active = await lm.getAlerts({ filter: [[\"cleared\", \"=\", false]], maxItems: 500, fields: \"id,monitorObjectName,severity\" });\n\t\t\t\n\t\t\t// Show a summary of the counts below the table...\n\t\t\tstatus.textContent = rowCount + \" devices, \" + active.length + \" active alerts.\";\n\t\t\tlm.info(\"Rendered \" + devices.length + \" devices.\");\n\t\t} catch (e) {\n\t\t\t// Show the error on the widget and also log it through the SDK...\n\t\t\tstatus.textContent = \"Error: \" + e.message;\n\t\t\tlm.error(e);\n\t\t}\n\t});\n</script>"
+      }
+    },
+    {
+      "position": {
+        "col": 5,
+        "sizex": 8,
+        "row": 12,
+        "sizey": 4
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Instance Browser Example",
+        "description": "",
+        "theme": "newBorderGray",
+        "interval": 15,
+        "type": "text",
+        "timescale": "day",
+        "version": 2,
+        "content": "<!--\n\tExample LogicMonitor Text/Custom HTML widget using the LogicMonitor Widget SDK that allows you to pick a resource, then a datasource, then see its instances.\n\n\tSDK commands this script helps demonstrate:\n\t- lm.auth.fromTokens()\n\t- lm.configure()\n\t- lm.context.onReady()\n\t- lm.error()\n\t- lm.getDevices()\n\t- lm.getDeviceDataSources()\n\t- lm.getDeviceInstances()\n\t- lm.getStatusColor()\n\t- lm.info()\n--><div id=\"apiBearerTokenToken\" style=\"display:none;\">##apiBearerToken##</div><div id=\"apiIDToken\" style=\"display:none;\">##apiID##</div><div id=\"apiKeyToken\" style=\"display:none;\">##apiKey##</div><!-- Create our form and placeholders... --><div style=\"margin-bottom: 8px;\"><select id=\"resourceSelect\"><option value=\"\">Loading resources...</option></select> <select id=\"datasourceSelect\" disabled=\"\"><option value=\"\">Choose a datasource...</option></select></div><div id=\"status\">&nbsp;</div><div id=\"instanceList\">Choose a resource and a datasource to list its instances.</div><!-- Load the lm SDK, which exposes a global \"lm\" object... --><script src=\"https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js\"></script><script>\n\t// Runs after the widget has finished rendering...\n\tlm.context.onReady(async function () {\n\t\t// Set a name for log messages and the minimum log level to write to the console...\n\t\tlm.configure({ widgetName: \"Instance Browser Example\", logLevel: \"info\" });\n\n\t\t// Uses the credentials above when supplied; otherwise falls back to the integrated portal session...\n\t\tlm.info(\"Auth mode: \" + lm.auth.fromTokens());\n\n\t\t// Get the elements we will use...\n\t\tvar resourceSelect = document.getElementById(\"resourceSelect\");\n\t\tvar datasourceSelect = document.getElementById(\"datasourceSelect\");\n\t\tvar instanceList = document.getElementById(\"instanceList\");\n\t\tvar status = document.getElementById(\"status\");\n\n\t\t// Counters used to ignore slow responses from a previous selection...\n\t\tvar datasourceRequest = 0;\n\t\tvar instanceRequest = 0;\n\n\t\t// Replaces all options in a drop-down with a default option, followed by any supplied options...\n\t\tfunction fillSelect(select, defaultText, options) {\n\t\t\tselect.textContent = \"\";\n\t\t\tvar defaultOption = document.createElement(\"option\");\n\t\t\tdefaultOption.value = \"\";\n\t\t\tdefaultOption.textContent = defaultText;\n\t\t\tselect.appendChild(defaultOption);\n\t\t\toptions.forEach(function (o) {\n\t\t\t\tvar option = document.createElement(\"option\");\n\t\t\t\toption.value = o.value;\n\t\t\t\toption.textContent = o.text;\n\t\t\t\tselect.appendChild(option);\n\t\t\t});\n\t\t}\n\n\t\t// Picks the status color for an instance's alertStatus (for example \"none\" or \"unconfirmed-critical\")...\n\t\tfunction statusColor(alertStatus) {\n\t\t\tvar parts = String(alertStatus || \"none\").toLowerCase().split(\"-\");\n\t\t\tvar order = [\"critical\", \"error\", \"warn\", \"sdt\", \"ack\"];\n\t\t\tfor (var i = 0; i < order.length; i++) {\n\t\t\t\tif (parts.indexOf(order[i]) !== -1) return lm.getStatusColor(order[i]);\n\t\t\t}\n\t\t\treturn lm.getStatusColor(\"none\");\n\t\t}\n\n\t\t// Shows a message in place of the instance list...\n\t\tfunction showMessage(text) {\n\t\t\tinstanceList.textContent = text;\n\t\t}\n\n\t\t// Adds a cell to a table row and returns the cell...\n\t\tfunction addCell(row, tag, text) {\n\t\t\tvar cell = document.createElement(tag);\n\t\t\tcell.textContent = text;\n\t\t\tcell.style.textAlign = \"left\";\n\t\t\tcell.style.padding = \"4px 8px\";\n\t\t\tcell.style.borderBottom = \"1px solid #ccc\";\n\t\t\trow.appendChild(cell);\n\t\t\treturn cell;\n\t\t}\n\n\t\t// Builds a table with a row per instance showing its display name, description and alert status...\n\t\tfunction showInstances(instances) {\n\t\t\tif (!instances.length) {\n\t\t\t\tshowMessage(\"No instances found.\");\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tinstanceList.textContent = \"\";\n\t\t\tvar table = document.createElement(\"table\");\n\t\t\ttable.style.borderCollapse = \"collapse\";\n\t\t\ttable.style.width = \"100%\";\n\n\t\t\tvar headerRow = document.createElement(\"tr\");\n\t\t\taddCell(headerRow, \"th\", \"Display name\");\n\t\t\taddCell(headerRow, \"th\", \"Description\");\n\t\t\taddCell(headerRow, \"th\", \"Alert status\");\n\t\t\tvar thead = document.createElement(\"thead\");\n\t\t\tthead.appendChild(headerRow);\n\t\t\ttable.appendChild(thead);\n\n\t\t\tvar tbody = document.createElement(\"tbody\");\n\t\t\tinstances.forEach(function (instance) {\n\t\t\t\tvar row = document.createElement(\"tr\");\n\t\t\t\taddCell(row, \"td\", instance.displayName);\n\t\t\t\taddCell(row, \"td\", instance.description || \"\");\n\n\t\t\t\t// Color the alert status cell using the SDK's status colors...\n\t\t\t\tvar statusCell = addCell(row, \"td\", instance.alertStatus || \"none\");\n\t\t\t\tstatusCell.style.backgroundColor = statusColor(instance.alertStatus);\n\n\t\t\t\ttbody.appendChild(row);\n\t\t\t});\n\t\t\ttable.appendChild(tbody);\n\t\t\tinstanceList.appendChild(table);\n\t\t}\n\n\t\t// When a resource is chosen, load that resource's datasources into the second drop-down...\n\t\tasync function onResourceChanged() {\n\t\t\tvar requestId = ++datasourceRequest;\n\t\t\t++instanceRequest;\n\t\t\tfillSelect(datasourceSelect, \"Choose a datasource...\", []);\n\t\t\tdatasourceSelect.disabled = true;\n\t\t\tshowMessage(\"Choose a resource and a datasource to list its instances.\");\n\t\t\tstatus.textContent = \"\\u00a0\";\n\t\t\tif (!resourceSelect.value) return;\n\n\t\t\tstatus.textContent = \"Loading datasources...\";\n\t\t\ttry {\n\t\t\t\tvar datasources = await lm.getDeviceDataSources(resourceSelect.value, {\n\t\t\t\t\tfields: \"id,dataSourceName,dataSourceDisplayName\",\n\t\t\t\t\tsort: \"dataSourceDisplayName\"\n\t\t\t\t});\n\t\t\t\t// Ignore this result if the user picked another resource in the meantime...\n\t\t\t\tif (requestId !== datasourceRequest) return;\n\n\t\t\t\tfillSelect(datasourceSelect, \"Choose a datasource...\", datasources.map(function (d) {\n\t\t\t\t\t// The value is the device datasource id, which is what the instances endpoint needs...\n\t\t\t\t\treturn { value: d.id, text: d.dataSourceDisplayName || d.dataSourceName };\n\t\t\t\t}));\n\t\t\t\tdatasourceSelect.disabled = false;\n\t\t\t\tstatus.textContent = datasources.length + \" datasources.\";\n\t\t\t} catch (e) {\n\t\t\t\tif (requestId !== datasourceRequest) return;\n\t\t\t\tstatus.textContent = \"Error: \" + e.message;\n\t\t\t\tlm.error(e);\n\t\t\t}\n\t\t}\n\n\t\t// When a datasource is chosen, load its instances for the chosen resource...\n\t\tasync function onDatasourceChanged() {\n\t\t\tvar requestId = ++instanceRequest;\n\t\t\tif (!datasourceSelect.value) {\n\t\t\t\tshowMessage(\"Choose a datasource to list its instances.\");\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tshowMessage(\"Loading instances...\");\n\t\t\ttry {\n\t\t\t\t// We already have the device datasource id from the drop-down, so no name lookup is needed.\n\t\t\t\t// (lm.getDatasourceInstances can instead look the datasource up by name or datasource id.)\n\t\t\t\tvar instances = await lm.getDeviceInstances(resourceSelect.value, datasourceSelect.value, {\n\t\t\t\t\tfields: \"id,displayName,description,alertStatus\",\n\t\t\t\t\tsort: \"displayName\"\n\t\t\t\t});\n\t\t\t\t// Ignore this result if the user picked something else in the meantime...\n\t\t\t\tif (requestId !== instanceRequest) return;\n\n\t\t\t\tshowInstances(instances);\n\t\t\t\tstatus.textContent = instances.length + \" instances.\";\n\t\t\t} catch (e) {\n\t\t\t\tif (requestId !== instanceRequest) return;\n\t\t\t\tshowMessage(\"Error: \" + e.message);\n\t\t\t\tlm.error(e);\n\t\t\t}\n\t\t}\n\n\t\tresourceSelect.addEventListener(\"change\", onResourceChanged);\n\t\tdatasourceSelect.addEventListener(\"change\", onDatasourceChanged);\n\n\t\t// Populate the resource drop-down with device names (limited to the first 1000 for this example)...\n\t\ttry {\n\t\t\tvar devices = await lm.getDevices({ fields: \"id,displayName\", sort: \"displayName\", maxItems: 1500 });\n\t\t\tfillSelect(resourceSelect, \"Choose a resource...\", devices.map(function (d) {\n\t\t\t\treturn { value: d.id, text: d.displayName };\n\t\t\t}));\n\t\t\tstatus.textContent = devices.length + \" resources.\";\n\t\t} catch (e) {\n\t\t\tstatus.textContent = \"Error: \" + e.message;\n\t\t\tlm.error(e);\n\t\t}\n\t});\n</script>"
+      }
+    },
+    {
+      "position": {
+        "col": 5,
+        "sizex": 8,
+        "row": 1,
+        "sizey": 4
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Simple Device List Example",
+        "description": "",
+        "theme": "newBorderGray",
+        "interval": 15,
+        "type": "text",
+        "timescale": "day",
+        "version": 2,
+        "content": "<!--\n\tBasic example of a LogicMonitor Text/Custom HTML widget using the LogicMonitor Widget SDK.\n\tThis widget will display a list of devices in alert status, as well as a summary of the number of devices in alert status and the number of alerts that have not cleared.\n\n\tSDK commands this script helps demonstrate:\n\t- lm.auth.fromTokens()\n\t- lm.configure()\n\t- lm.context.onReady()\n\t- lm.error()\n\t- lm.getAlerts()\n\t- lm.info()\n\t- lm.query()\n--><!-- Capture optional API tokens containing LogicMonitorAPI credentials or a bearer token. If not specified then the widget will use integrated authentication. --><div id=\"apiBearerTokenToken\" style=\"display:none;\">##apiBearerToken##</div><div id=\"apiIDToken\" style=\"display:none;\">##apiID##</div><div id=\"apiKeyToken\" style=\"display:none;\">##apiKey##</div><h3>Devices in alert</h3><!-- Containers are not empty because LogicMonitor's editor strips empty elements. The script replaces this text... --><div id=\"deviceList\">Loading devices...</div><div id=\"status\">&nbsp;</div><!-- Load the lm SDK, which exposes a global \"lm\" object... --><script src=\"https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js\"></script><script>\n\t// Runs after the widget has finished rendering...\n\tlm.context.onReady(async function () {\n\t\t// Set a name for log messages and the minimum log level to write to the console...\n\t\tlm.configure({ widgetName: \"Device List Example\", logLevel: \"info\" });\n\n\t\t// Uses the credentials above when supplied; otherwise falls back to the integrated portal session...\n\t\tlm.info(\"Auth mode: \" + lm.auth.fromTokens());\n\n\t\t// Get the elements we will fill in...\n\t\tvar container = document.getElementById(\"deviceList\");\n\t\tvar status = document.getElementById(\"status\");\n\n\t\ttry {\n\t\t\t// Build a devices API query: only devices whose alert status is not \"none\", returning just three fields, sorted by name, max 200...\n\t\t\t// getItems() pages through the API as needed and returns a flat array of devices...\n\t\t\tvar devices = await lm.query(\"devices\")\n\t\t\t\t.addQuery(\"alertStatus\", \"!=\", \"none\")\n\t\t\t\t.fields(\"id,displayName,alertStatus\")\n\t\t\t\t.orderBy(\"displayName\")\n\t\t\t\t.limit(200)\n\t\t\t\t.getItems();\n\n\t\t\t// Replace the loading text with a list built here, with one item per device showing its name and alert status...\n\t\t\tvar list = document.createElement(\"ul\");\n\t\t\tcontainer.textContent = \"\";\n\t\t\tcontainer.appendChild(list);\n\t\t\tdevices.forEach(function (d) {\n\t\t\t\tvar li = document.createElement(\"li\");\n\t\t\t\tli.textContent = d.displayName + \" (\" + d.alertStatus + \")\";\n\t\t\t\tlist.appendChild(li);\n\t\t\t});\n\n\t\t\t// Fetch up to 100 alerts that have not cleared, requesting only the fields we need...\n\t\t\tvar active = await lm.getAlerts({ filter: [[\"cleared\", \"=\", false]], maxItems: 100, fields: \"id,monitorObjectName,severity\" });\n\t\t\t\n\t\t\t// Show a summary of the counts below the list...\n\t\t\tstatus.textContent = devices.length + \" devices, \" + active.length + \" active alerts (latest 100).\";\n\t\t\tlm.info(\"Rendered \" + devices.length + \" devices.\");\n\t\t} catch (e) {\n\t\t\t// Show the error on the widget and also log it through the SDK...\n\t\t\tstatus.textContent = \"Error: \" + e.message;\n\t\t\tlm.error(e);\n\t\t}\n\t});\n</script>"
+      }
+    },
+    {
+      "position": {
+        "col": 5,
+        "sizex": 8,
+        "row": 9,
+        "sizey": 3
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": "Section Header Widget",
+        "description": "",
+        "theme": "newBorderGray",
+        "interval": 3,
+        "type": "text",
+        "timescale": "day",
+        "version": 2,
+        "content": "<p><span style=\"color: rgb(124, 112, 107);\">What you&#39;re reading is the Section Header example in action. It was created using the LogicMonitor Custom Widget SDK to apply some custom styles to this Text widget and its parent container.</span></p><!-- Put any HTML you want to display here above the script. --><!--\n\tLogicMonitor Header Widget (SDK version)\n\tVersion 2.0.0\n\tDeveloped by Kevin Ford\n\n\tA \"header\" widget type to help separate vertical sections of a LogicMonitor dashboard. This version is built on the LogicMonitor Widget SDK (lm) and doubles as an example of the SDK's styling and size-watching functions in lm.context.\n\n\tWhat the script does:\n\t* Hides the widget's background so it blends seamlessly with the dashboard itself.\n\t* Enlarges the widget's title so it can act as the section header (the text in the widget body can be used for extra detail).\n\t* Adds a bottom border to the widget so it's visually separated from the widgets below it.\n\t* Adds a hover effect to the widget so it's easy to tell when the widget is being hovered over.\n\t* Watches for size changes and resizes the widget to fit its content.\n\n\tSDK functions demonstrated:\n\t* lm.context.onReady          - wait for the widget to finish rendering.\n\t* lm.context.widgetContainer / widgetTitle / widgetParent / widgetFrame - locate the widget's elements in the dashboard.\n\t* lm.context.setStyleIfChanged - change inline styles without triggering needless layout cycles.\n\t* lm.context.injectParentStyle - add CSS to the dashboard page (the widget card lives outside this iframe).\n\t* lm.context.injectStyle      - add CSS to this widget's own content.\n\t* lm.context.observeSize      - react to size changes (throttled to once per animation frame).\n\t* lm.context.fitFrameToContent / resizeFrame - size the iframe to match its content (growing and shrinking).\n\n\tPrerequisites:\n\t* The 'Allow Scripts in Dashboard Text Widgets' setting must be enabled in your portal's Settings > Security section.\n\n\tTO USE:\n\t1. Add a new Text widget to the dashboard. I highly recommend making it the full width of the dashboard and the smallest height necessary.\n\t2. On the Text widget's edit dialog, click the \"Source\" button and paste in the contents of this file, then save the widget.\n\t3. You can then edit the text of the widget using LogicMonitor's usual Text widget editing tools. LogicMonitor's HTML editor should leave the scripts intact, but you might have to re-paste them if the editor accidentally removes them.\n--><script src=\"https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js\"></script><script>\n\t// Configuration...\n\tvar CONFIG = {\n\t\tminWidgetHeight: \"50px\",     // Smallest height the widget will shrink to.\n\t\ttitleHeight: \"35px\",         // Height of the title text (this is also the height of the widget).\n\t\ttitleFontSize: \"xx-large\",   // Font size of the title text.\n\t\tborderColor: \"black\",        // Color of the border below the widget.\n\t\thoverBorderColor: \"#ddd\"     // Color of the border when the widget is hovered over.\n\t};\n\n\t// If a LogicMonitor update breaks widget or title lookups, override the SDK's selectors here, e.g.:\n\t// lm.context.selectors.title = \"h2.newTitleClass\";\n\n\tvar ctx = lm.context;\n\tvar stopObserving = null;\n\n\tlm.context.onReady(function () {\n\t\tlm.configure({ widgetName: \"Dashboard Header\" });\n\t\tinitializeWidget();\n\t});\n\n\tfunction initializeWidget() {\n\t\tvar card = ctx.widgetContainer();\n\t\tif (!card || !ctx.isEmbedded()) {\n\t\t\tlm.warn(\"Containing widget not found; aborting initialization.\");\n\t\t\treturn;\n\t\t}\n\n\t\t// Style the dashboard page: the card lives outside this iframe, so its hover rule goes in the parent document.\n\t\t// !important is needed because styleWidget() sets the border as an inline style.\n\t\t// Everything here is safe to repeat (the card keeps its styles when this iframe reloads, e.g. after an edit),\n\t\t// and re-applying it on every load replaces any stale values left by an earlier version of this script.\n\t\tvar border = \"1px solid \" + CONFIG.hoverBorderColor + \" !important;\";\n\t\tctx.injectParentStyle(\"dashboardHeaderWidgetStyle\",\n\t\t\t\".dashboardHeaderWidget:hover { border-top: \" + border + \" border-left: \" + border + \" border-right: \" + border + \" }\");\n\t\tcard.classList.add(\"dashboardHeaderWidget\");\n\n\t\tstyleWidget();\n\n\t\t// Style this widget's own content (inside the iframe)...\n\t\tctx.injectStyle(\"dashboardHeaderContentStyle\", \"body { margin: 0; }\");\n\n\t\tsyncWidgetHeight();\n\n\t\t// Watch for size changes in the content (e.g. dashboard width changes that re-wrap the text)...\n\t\t// Vertical resizing needs no watching: the card fills its grid cell by percentage (see styleWidget).\n\t\tif (stopObserving) stopObserving();\n\t\tvar stopContent = ctx.observeSize(syncWidgetHeight);\n\t\tstopObserving = function () { stopContent(); stopObserving = null; };\n\t\twindow.addEventListener(\"pagehide\", function () { if (stopObserving) stopObserving(); }, { once: true });\n\t}\n\n\t// Apply our own styles to the widget card, title and grid cell...\n\tfunction styleWidget() {\n\t\tvar set = ctx.setStyleIfChanged;\n\n\t\tvar card = ctx.widgetContainer();\n\t\tset(card, \"backgroundColor\", \"unset\");\n\t\tset(card, \"border\", \"none\");\n\t\tset(card, \"borderRadius\", \"0\");\n\t\tset(card, \"borderBottom\", \"1px solid \" + CONFIG.borderColor);\n\n\t\t// Fill the grid cell exactly. A percentage height tracks the cell as the dashboard resizes it, so no resize\n\t\t// watching is needed. The empty strings clear values left on the card by earlier versions of this script.\n\t\tset(card, \"height\", \"100%\");\n\t\tset(card, \"minHeight\", CONFIG.minWidgetHeight);\n\t\tset(card, \"maxHeight\", \"\");\n\t\tset(card, \"alignSelf\", \"\");\n\t\tset(card, \"flexShrink\", \"\");\n\n\t\t// Something must remain in the title for the widget to still be movable, so it is styled rather than removed.\n\t\tvar title = ctx.widgetTitle();\n\t\tif (title) {\n\t\t\tset(title, \"fontSize\", CONFIG.titleFontSize);\n\t\t\tset(title, \"height\", CONFIG.titleHeight);\n\t\t\tset(title.parentElement, \"height\", CONFIG.titleHeight);\n\t\t\tset(title.parentElement, \"alignItems\", \"flex-end\");\n\n\t\t\t// The title row and the widget's iframe sit in a flex column that fills the card. To keep the header text\n\t\t\t// just above the bottom border when the card is taller than its content, push the title row (the column's\n\t\t\t// first child) down with an auto top margin. Unlike justify-content: flex-end, an auto margin collapses to\n\t\t\t// zero when the content is too tall, so the title stays at the top, in view, instead of being pushed out of\n\t\t\t// the card. (The empty string clears the justify-content set by an earlier version of this script.)\n\t\t\tvar column = title.closest(\"section\");\n\t\t\tif (column) {\n\t\t\t\tset(column, \"justifyContent\", \"\");\n\t\t\t\tif (column.firstElementChild) set(column.firstElementChild, \"marginTop\", \"auto\");\n\t\t\t}\n\t\t} else {\n\t\t\tlm.warn(\"Widget title element not found; skipping title styling.\");\n\t\t}\n\n\t\tvar cell = ctx.widgetParent();\n\t\tif (cell) {\n\t\t\tset(cell, \"border\", \"none\");\n\t\t\tset(cell, \"display\", \"flex\");\n\t\t\tset(cell, \"alignItems\", \"flex-end\"); // Align the header's content to the bottom of the widget.\n\t\t\tset(cell, \"backgroundColor\", \"unset\");\n\t\t}\n\t}\n\n\t// Size the iframe to the height of the content. (The card itself is sized by the dashboard, see styleWidget.)\n\tfunction syncWidgetHeight() {\n\t\t// Treat the widget as empty only if there's no text and no visual content...\n\t\tvar hasText = document.body.innerText.trim() !== \"\";\n\t\tvar hasMedia = document.body.querySelector(\"img, video, iframe, canvas, svg, table, hr\") !== null;\n\n\t\tif (!hasText && !hasMedia) {\n\t\t\tlm.debug(\"Frame content is empty, collapsing frame\");\n\t\t\tctx.resizeFrame(0);\n\t\t} else {\n\t\t\t// Size the iframe to its content (growing or shrinking)...\n\t\t\tvar frameHeight = ctx.fitFrameToContent();\n\t\t\tlm.debug(\"Frame height \" + frameHeight + \"px\");\n\t\t}\n\t}\n</script>"
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 4,
+        "row": 1,
+        "sizey": 4
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": ".",
+        "description": "",
+        "theme": "newSolidBlue",
+        "interval": 15,
+        "type": "text",
+        "timescale": "day",
+        "version": 2,
+        "content": "<h2>Example #1</h2><p>Link to source: <a href=\"https://github.com/logicmonitor/custom_widgets/blob/main/sdk/examples/device-list-widget.html\" target=\"_blank\" rel=\"noopener noreferrer\"><span style=\"color: rgb(247, 218, 100);\">device_list_widget.html</span></a></p><p>Basic example of a LogicMonitor Text/Custom HTML widget using the LogicMonitor Widget SDK. This widget will display a list of devices in alert status, as well as a summary of the number of devices in alert status and the number of alerts that have not cleared.</p><p>SDK commands this script helps demonstrate:</p><ul><li>lm.auth.fromTokens()</li><li>lm.configure()</li><li>lm.context.onReady()</li><li>lm.error()</li><li>lm.getAlerts()</li><li>lm.info()</li><li>lm.query()</li></ul>"
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 4,
+        "row": 5,
+        "sizey": 4
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": ".",
+        "description": "",
+        "theme": "newSolidBlue",
+        "interval": 15,
+        "type": "text",
+        "timescale": "day",
+        "version": 2,
+        "content": "<h2>Fancier Device List</h2><p>Link to source: <a href=\"https://github.com/logicmonitor/custom_widgets/blob/main/sdk/examples/device-list-widget2.html\" target=\"_blank\" rel=\"noopener noreferrer\" id=\"isPasted\"><span style=\"color: rgb(247, 218, 100);\">device_list_widget2.html</span></a></p><p id=\"isPasted\">A more elaborate example of a LogicMonitor Text/Custom HTML widget using the LogicMonitor Widget SDK.</p><p>This widget will display a table of devices in alert status (i.e. alert status is something other than &quot;none&quot;), with columns for a colored icon indicating the highest severity for each device, the device name, and its system info. Each device name will be a link to the device&#39;s alert details page. It will also show a summary of the number of devices in alert status and the number of alerts that have not cleared.</p><p>SDK commands this script helps demonstrate:</p><ul><li>lm.auth.fromTokens()</li><li>lm.configure()</li><li>lm.context.injectStyle()</li><li>lm.context.onReady()</li><li>lm.error()</li><li>lm.escapeHtml()</li><li>lm.getAlerts()</li><li>lm.getProperty()</li><li>lm.getStatusColor()</li><li>lm.info()</li><li>lm.query()</li></ul>"
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 4,
+        "row": 12,
+        "sizey": 4
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": ".",
+        "description": "",
+        "theme": "newSolidBlue",
+        "interval": 15,
+        "type": "text",
+        "timescale": "day",
+        "version": 2,
+        "content": "<h2>Instance Browser</h2><p>Link to source:&nbsp;<strong><a href=\"https://github.com/logicmonitor/custom_widgets/blob/main/sdk/examples/instance-browser-widget.html\" target=\"_blank\" rel=\"noopener noreferrer\"><span style=\"color: rgb(247, 218, 100);\"></span></a></strong><a href=\"https://github.com/logicmonitor/custom_widgets/blob/main/sdk/examples/instance-browser-widget.html\" target=\"_blank\" rel=\"noopener noreferrer\"><span style=\"color: rgb(247, 218, 100);\"></span></a><a href=\"https://github.com/logicmonitor/custom_widgets/blob/main/sdk/examples/instance-browser-widget.html\" target=\"_blank\" rel=\"noopener noreferrer\"><span style=\"color: rgb(247, 218, 100);\">instance-browser-widget.html</span></a><a href=\"https://github.com/logicmonitor/custom_widgets/blob/main/sdk/examples/instance-browser-widget.html\" target=\"_blank\" rel=\"noopener noreferrer\"><span style=\"color: rgb(247, 218, 100);\"></span></a><strong><a href=\"https://github.com/logicmonitor/custom_widgets/blob/main/sdk/examples/instance-browser-widget.html\" target=\"_blank\" rel=\"noopener noreferrer\"><span style=\"color: rgb(247, 218, 100);\"></span></a></strong></p><p id=\"isPasted\">Example LogicMonitor Text/Custom HTML widget using the LogicMonitor Widget SDK that allows you to pick a resource, then a datasource, then see its instances.</p><p>SDK commands this script helps demonstrate:</p><ul><li>lm.auth.fromTokens()</li><li>lm.configure()</li><li>lm.context.onReady()</li><li>lm.error()</li><li>lm.getDevices()</li><li>lm.getDeviceDataSources()</li><li>lm.getDeviceInstances()</li><li>lm.getStatusColor()</li><li>lm.info()</li></ul>"
+      }
+    },
+    {
+      "position": {
+        "col": 1,
+        "sizex": 4,
+        "row": 9,
+        "sizey": 3
+      },
+      "config": {
+        "displaySettings": {},
+        "isSupportCustomProperty": false,
+        "supportCustomProperty": false,
+        "name": ".",
+        "description": "",
+        "theme": "newSolidBlue",
+        "interval": 15,
+        "type": "text",
+        "timescale": "day",
+        "version": 2,
+        "content": "<h2>Section Header</h2><p>Link to source: <a href=\"https://github.com/logicmonitor/custom_widgets/blob/main/src/Dashboard_Header_Widget.html\" target=\"_blank\" rel=\"noopener noreferrer\"><span style=\"color: rgb(247, 218, 100);\">Dashboard_Header_Widget.html</span></a></p><p id=\"isPasted\">What this example does:</p><ul><li>Hides the widget&#39;s background so it blends seamlessly with the dashboard itself.</li><li>Enlarges the widget&#39;s title so it can act as the section header (the text in the widget body can be used for extra detail).</li><li>Adds a bottom border to the widget so it&#39;s visually separated from the widgets below it.</li><li>Adds a hover effect to the widget so it&#39;s easy to tell when the widget is being hovered over.</li><li>Watches for size changes and resizes the widget to fit its content.</li></ul><p id=\"isPasted\">SDK functions demonstrated:</p><ul><li><strong>lm.context.onReady</strong> - wait for the widget to finish rendering.</li><li><strong>lm.context.widgetContainer</strong> / <strong>widgetTitle</strong> / <strong>widgetParent</strong> / <strong>widgetFrame</strong> - locate the widget&#39;s elements in the dashboard.</li><li><strong>lm.context.setStyleIfChanged</strong> - change inline styles without triggering needless layout cycles.</li><li><strong>lm.context.injectParentStyle</strong> - add CSS to the dashboard page (the widget card lives outside this iframe).</li><li><strong>lm.context.injectStyle</strong> - add CSS to this widget&#39;s own content.</li><li><strong>lm.context.observeSize</strong> - react to size changes (throttled to once per animation frame).</li><li><strong>lm.context.fitFrameToContent</strong> / <strong>resizeFrame</strong> - size the iframe to match its content (growing and shrinking).</li></ul><p><br></p><p><br></p><p><br></p>"
+      }
+    }
+  ],
+  "version": 2,
+  "effectiveTenantIdentifier": null,
+  "tenantIdentifier": null
+}

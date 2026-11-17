@@ -32,7 +32,7 @@ Include the following line in the source view of your LogicMonitor Text widget:
 <script src="https://cdn.jsdelivr.net/gh/logicmonitor/custom_widgets@main/sdk/lm-sdk.js"></script>
 ```
 
-The script exposes a global `lm` object.
+The script exposes a global `lm` object used for accessing the SDK's methods that are documented below.
 
 ## Quick start
 
@@ -58,7 +58,7 @@ This is a complete, minimal widget. Paste it into a Text widget's 'Code View'. I
 		var devices = await lm.getDevices({ filter: { hostStatus: "normal" }, fields: "id,displayName" });
 		// Show a summary of the devices...
 		document.getElementById("summary").textContent = devices.length + " resources are normal.";
-		// Log a message...
+		// Log a message to the browser console...
 		lm.info("Loaded " + devices.length + " devices");
 	});
 </script>
@@ -80,6 +80,8 @@ These are complete example widgets demonstrating use of the SDK that you can pas
 - [examples/device-list-widget2.html](examples/device-list-widget2.html) is a more elaborate version of the above **device-list-widget** example. This widget will display a table of devices in alert status (i.e. alert status is something other than "none"), with columns for a colored icon indicating the highest severity for each device, the device name, and its system info. Each device name will be a link to the device's alert details page.
 - [examples/instance-browser-widget.html](examples/instance-browser-widget.html) is a drill-down widget: choose a resource, then a datasource, and it lists that datasource's instances.
 - [Dashboard_Header_Widget.html](../src/Dashboard_Header_Widget.html) demonstrates use of the SDK to completely restyle a Text widget into a header that's useful for visually separating sections of a dashboard.
+
+A sample LogicMonitor dashboard containing all those examples can be downloaded [here](../Sample%20Dashboards/Widget_SDK_Examples.json). To use it, just download that JSON file to your workstation, then import it to your LogicMonitor portal's Dashboards area.
 
 ## Authentication
 
