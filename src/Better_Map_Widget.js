@@ -8,11 +8,11 @@
 // * Easy toggling of weather layers...
 // * Quick & easy filtering of what's displayed on the map...
 // ------------------------------------------------------------...
-var version = "3.83 CDN";
+var version = "3.84 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
-	<h3>Version 3.73</h3>
+	<h3>Version 3.84</h3>
 	<ul>
 		<li>Added numerical category indicators to storm markers for those applicable to the Australian tropical cyclone scale.</li>
 		<li>Some minor code cleanup.</li>
