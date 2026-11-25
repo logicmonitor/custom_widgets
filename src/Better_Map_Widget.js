@@ -8,10 +8,14 @@
 // * Easy toggling of weather layers...
 // * Quick & easy filtering of what's displayed on the map...
 // ------------------------------------------------------------...
-var version = "3.84 CDN";
+var version = "3.86 CDN";
 var releaseNotes = `
 	<h2>Release Notes</h2>
 	<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
+	<h3>Version 3.86</h3>
+	<ul>
+		<li>Minor style improvements to the map controls.</li>
+	</ul>
 	<h3>Version 3.84</h3>
 	<ul>
 		<li>Added numerical category indicators to storm markers for those applicable to the Australian tropical cyclone scale.</li>
@@ -1935,8 +1939,8 @@ const showConnectionsIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xml
 // Animated throbber for when we're updating data...
 var loadingSpinner = '<svg class="bmw-spinner" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle class="bmw-spinner-ring bmw-spinner-ring-1" cx="12" cy="12" r="0" fill="red"/><circle class="bmw-spinner-ring bmw-spinner-ring-2" cx="12" cy="12" r="0" fill="red"/><circle class="bmw-spinner-ring bmw-spinner-ring-3" cx="12" cy="12" r="0" fill="red"/></svg>';
 // Icons for toggling visiiblity of the top toolbar...
-var optionsToggleVisibleIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px;"><rect x="10" y="42" width="428" height="428" rx="54" ry="54" fill="none" stroke="#000000" stroke-width="20"/><path fill="#000000" d="M241.6 175.7C237.1 170.8 230.7 168 224 168S210.9 170.8 206.4 175.7l-96 104c-6.469 7-8.188 17.19-4.375 25.91C109.8 314.3 118.5 320 127.1 320h192c9.531 0 18.16-5.656 22-14.38c3.813-8.719 2.094-18.91-4.375-25.91L241.6 175.7z"/></svg>';
-var optionsToggleHiddenIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px;"><rect x="10" y="42" width="428" height="428" rx="54" ry="54" fill="none" stroke="#000000" stroke-width="20"/><path fill="#000000" d="M320 192H128C118.5 192 109.8 197.7 105.1 206.4C102.2 215.1 103.9 225.3 110.4 232.3l96 104C210.9 341.2 217.3 344 224 344s13.09-2.812 17.62-7.719l96-104c6.469-7 8.188-17.19 4.375-25.91C338.2 197.7 329.5 192 320 192z"/></svg>';
+var optionsToggleVisibleIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px;"><path fill="#000000" d="M241.6 175.7C237.1 170.8 230.7 168 224 168S210.9 170.8 206.4 175.7l-96 104c-6.469 7-8.188 17.19-4.375 25.91C109.8 314.3 118.5 320 127.1 320h192c9.531 0 18.16-5.656 22-14.38c3.813-8.719 2.094-18.91-4.375-25.91L241.6 175.7z"/></svg>';
+var optionsToggleHiddenIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px;"><path fill="#000000" d="M320 192H128C118.5 192 109.8 197.7 105.1 206.4C102.2 215.1 103.9 225.3 110.4 232.3l96 104C210.9 341.2 217.3 344 224 344s13.09-2.812 17.62-7.719l96-104c6.469-7 8.188-17.19 4.375-25.91C338.2 197.7 329.5 192 320 192z"/></svg>';
 
 
 // Map color schemes created using Google's style editor (https://mapstyle.withgoogle.com/). Wrapped in getters so only the selected style is allocated, and showRoadLabels is captured at call time...
@@ -3382,16 +3386,17 @@ function createWeatherToggleControl() {
 
 	weatherToggle.id = "weatherControlToggle";
 	weatherToggle.style.backgroundColor = "rgb(255 255 255)";
-	weatherToggle.style.border = "0";
-	weatherToggle.style.borderRadius = "3px";
-	weatherToggle.style.boxShadow = "0 1px 4px rgba(0,0,0,0.3)";
-	// weatherToggle.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";...
+	weatherToggle.style.borderWidth = "medium 1px 1px";
+	weatherToggle.style.borderStyle = "none solid solid";
+	weatherToggle.style.borderColor = "#bbb";
+	weatherToggle.style.borderRadius = "0 0 8px 8px";
 	weatherToggle.style.cursor = "pointer";
 	weatherToggle.style.fontSize = "x-large";
 	weatherToggle.style.textAlign = "center";
-	weatherToggle.style.margin = "10px";
-	weatherToggle.style.height = "40px";
+	weatherToggle.style.margin = "0 10px 10px";
+	weatherToggle.style.height = "25px";
 	weatherToggle.style.width = "40px";
+	weatherToggle.style.padding = "0";
 	weatherToggle.style.verticalAlign = "middle";
 	// weatherToggle.innerHTML = 'Toggle Controls';...
 	weatherToggle.title = "Toggle visibility of the map controls";
@@ -3445,19 +3450,22 @@ function createSidebarToggleControl() {
 	const btn = document.createElement("button");
 	btn.id = "sidebarToggleButton";
 	btn.style.backgroundColor = "rgb(255 255 255)";
-	btn.style.border = "0";
-	btn.style.borderRadius = "3px";
-	btn.style.boxShadow = "0 1px 4px rgba(0,0,0,0.3)";
+	btn.style.borderWidth = "1px 0 1px 1px";
+	btn.style.borderStyle = "solid";
+	btn.style.borderColor = "#bbb";
+	btn.style.borderRadius = "8px 0 0 8px";
 	btn.style.cursor = "pointer";
 	btn.style.textAlign = "center";
-	btn.style.margin = "0 10px 10px 10px";
+	btn.style.margin = "0";
 	btn.style.height = "40px";
-	btn.style.width = "40px";
+	btn.style.width = "25px";
+	btn.style.padding = "0";
+	btn.style.borderRight = "0";
 	btn.style.verticalAlign = "middle";
 	btn.title = "Toggle sidebar";
 	btn.type = "button";
 	const sidebarStartsVisible = showMapSidebarByDefault;
-	btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px; transform: rotate(' + (sidebarStartsVisible ? '90' : '-90') + 'deg);"><rect x="10" y="42" width="428" height="428" rx="54" ry="54" fill="none" stroke="#000000" stroke-width="20"/><path fill="#000000" d="M241.6 175.7C237.1 170.8 230.7 168 224 168S210.9 170.8 206.4 175.7l-96 104c-6.469 7-8.188 17.19-4.375 25.91C109.8 314.3 118.5 320 127.1 320h192c9.531 0 18.16-5.656 22-14.38c3.813-8.719 2.094-18.91-4.375-25.91L241.6 175.7z"/></svg>';
+	btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 25px; height: 25px; transform: rotate(' + (sidebarStartsVisible ? '90' : '-90') + 'deg);"><path fill="#000000" d="M241.6 175.7C237.1 170.8 230.7 168 224 168S210.9 170.8 206.4 175.7l-96 104c-6.469 7-8.188 17.19-4.375 25.91C109.8 314.3 118.5 320 127.1 320h192c9.531 0 18.16-5.656 22-14.38c3.813-8.719 2.094-18.91-4.375-25.91L241.6 175.7z"/></svg>';
 
 	if (!sidebarStartsVisible) {
 		const sidebar = _dom.sidebarArea;
