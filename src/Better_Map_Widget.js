@@ -4311,7 +4311,8 @@ async function refreshGroupData(timedRefresh = false, respectAutoZoom = false) {
 						const iconDiv = existingMarker.content.querySelector('.icon');
 						if (iconDiv) {
 							iconDiv.className = `icon ${highestSeverity}`;
-							iconDiv.innerHTML = sevIcon;
+							// sevIcon is one of our own constant SVG strings, parsed into nodes rather than assigned as markup...
+							iconDiv.replaceChildren(...new DOMParser().parseFromString(sevIcon, "text/html").body.childNodes);
 						}
 					}
 
