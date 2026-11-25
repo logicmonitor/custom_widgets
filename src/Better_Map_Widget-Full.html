@@ -24,6 +24,7 @@
 
 	OPTIONAL DASHBOARD TOKENS:
 	* 'MapGroupPathFilter': Allows setting a default group path to start. Default is "*".
+	* 'MapInstanceDatasource': The name of a DataSource whose instances can be plotted, using 'MapLocationProperty' set on each instance. Adds an "instances" option to the toolbar. Default is empty (disabled).
 	* 'MapLocationProperty': The property to use for the location of the items on the map. Default is "location".
 	* 'MapMarkerStyle': The style of marker to use for the items on the map. Use "pins" (default pin markers) or "circles" (color-coded circles). Legacy values "default", "pin", "dot", "dots", and "circle" are also accepted. Default is "pins".
 	* 'MapShowWeather': If weather should be shown by default. Options are "global", "nexrad", "xweather", or "openweather". The legacy values "true" and "yes" are also accepted as "global". Default is "no".
@@ -72,6 +73,7 @@
 			<p>Latest releases can be found at <a href="https://github.com/logicmonitor/custom_widgets" target="_blank">https://github.com/logicmonitor/custom_widgets</a></p>
 			<h3>Version 3.86</h3>
 			<ul>
+				<li>Added an &quot;instances&quot; map type. Set a datasource name via the &quot;MapInstanceDatasource&quot; token (or the hard-coded default) to plot that datasource's instances, located by the location property set on each instance.</li>
 				<li>Minor style improvements to the map controls.</li>
 			</ul>
 			<h3>Version 3.84</h3>
@@ -339,6 +341,10 @@
 		// The property to use for the location of the items on the map. Default is "location"...
 		// You can either set it here or in a dashboard token named 'MapLocationProperty'...
 		defaults.mapLocationProperty = "location";
+
+		// The name of a datasource whose instances can be plotted (the location is read from an instance-level property). Leave empty to disable the instances map type...
+		// You can either set it here or in a dashboard token named 'MapInstanceDatasource'...
+		defaults.mapInstanceDatasource = "";
 
 		// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", "grey", "silverblue", "satellite", or "satellite-light"...
 		defaults.mapStyle = "silverblue";
@@ -1673,13 +1679,17 @@
 				</span>
 				<button id="resetGroupFilterButton" type="button" data-title="Reset the group filter to the default value" data-bmw-action="resetGroupFilter"><svg width="15" height="15" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path id="Path" fill="#000000" stroke="none" d="M 16 1.25 C 15.987 1.25 15.971 1.25 15.956 1.25 C 11.466 1.25 7.448 3.276001 4.769 6.464001 L 4.751 6.486 L 4.751 1.716999 C 4.751 1.302999 4.415 0.966999 4.001 0.966999 C 3.587 0.966999 3.251 1.302999 3.251 1.716999 L 3.251 1.716999 L 3.251 8.788 C 3.255 8.818001 3.261 8.845001 3.268 8.869999 L 3.267 8.865 C 3.275 8.970001 3.307 9.067001 3.358 9.15 L 3.356 9.146999 C 3.381 9.193001 3.408 9.232 3.438 9.269001 L 3.437 9.268 C 3.471 9.306 3.508 9.34 3.548 9.369999 L 3.55 9.371 C 3.57 9.390999 3.59 9.41 3.612 9.428001 L 3.613 9.429001 C 3.628 9.438 3.645 9.438 3.661 9.445999 C 3.703 9.466999 3.751 9.485001 3.802 9.497 L 3.807 9.498001 C 3.847 9.511 3.894 9.521 3.942 9.526001 L 3.945 9.526001 C 3.964 9.527 3.981 9.536999 4.001 9.536999 L 11.072 9.536999 C 11.486 9.536999 11.822 9.201 11.822 8.786999 C 11.822 8.373001 11.486 8.036999 11.072 8.036999 L 11.072 8.036999 L 5.429 8.036999 C 7.848 4.813 11.662 2.749001 15.958 2.749001 C 15.973 2.749001 15.988 2.749001 16.003 2.749001 L 16.000999 2.749001 C 23.318001 2.750999 29.247999 8.681999 29.247999 15.999001 C 29.247999 23.316 23.316 29.249001 15.998 29.249001 C 10.743 29.249001 6.203 26.190001 4.061 21.756001 L 4.027 21.677 C 3.903 21.423 3.647 21.250999 3.35 21.250999 C 2.936 21.250999 2.6 21.587 2.6 22.000999 C 2.6 22.117001 2.626 22.226999 2.674 22.325001 L 2.672 22.32 C 5.095 27.344999 10.15 30.750999 16.000999 30.750999 C 24.148001 30.750999 30.752001 24.146999 30.752001 16 C 30.752001 7.853001 24.148001 1.249001 16.002001 1.249001 L 16.002001 1.249001 Z"/> </svg></button>
 
-				<span id="mapTypeOptions" data-title="Switch between viewing groups, resources, or services on the map">
+				<span id="mapTypeOptions" data-title="Switch between viewing groups, resources, services, or instances on the map">
 					<input type="radio" id="radioGroups" name="mapType" value="groups" checked data-bmw-action="selectMapType" data-bmw-arg="groups" />
 					<label for="radioGroups" id="mapTypeGroupsLabel" class="map-type-label"></label>
 					<input type="radio" id="radioResources" name="mapType" value="resources" data-bmw-action="selectMapType" data-bmw-arg="resources" />
 					<label for="radioResources" id="mapTypeResourcesLabel" class="map-type-label"></label>
 					<input type="radio" id="radioServices" name="mapType" value="services" data-bmw-action="selectMapType" data-bmw-arg="services" />
 					<label for="radioServices" id="mapTypeServicesLabel"></label>
+					<span id="mapTypeInstancesOption" style="display: flex; margin-left: 8px;">
+						<input type="radio" id="radioInstances" name="mapType" value="instances" data-bmw-action="selectMapType" data-bmw-arg="instances" />
+						<label for="radioInstances" id="mapTypeInstancesLabel"></label>
+					</span>
 				</span>
 
 				<span id="sevFilterOptions">
@@ -1952,6 +1962,7 @@ if (window.RProfiler) {
 	var lmAPIKey = getBetterMapGlobal("lmAPIKey", "");
 	var mapSourceType = getBetterMapGlobal("mapSourceType", "groups");
 	var mapLocationProperty = getBetterMapGlobal("mapLocationProperty", "location");
+	var mapInstanceDatasource = getBetterMapGlobal("mapInstanceDatasource", "");
 	var mapStyle = getBetterMapGlobal("mapStyle", "silverblue");
 	var showCleared = getBetterMapGlobal("showCleared", true);
 	var showWarnings = getBetterMapGlobal("showWarnings", true);
@@ -2027,7 +2038,7 @@ if (window.RProfiler) {
 	const __LMBMW_MAPOPTS_MAX_AGE = 60 * 60 * 24 * 400;
 	const __LMBMW_ALLOWED_OVERLAY_VALUES = ["none", "wildfires", "us-poweroutages", "earthquakes", "us-flooding", "hurricanes"];
 	const __LMBMW_ALLOWED_WEATHER_TYPES = ["radar", "nexrad-n0q-900913", "xweather", "openweather"];
-	const __LMBMW_ALLOWED_SOURCE_TYPES = ["groups", "resources", "services"];
+	const __LMBMW_ALLOWED_SOURCE_TYPES = ["groups", "resources", "services", "instances"];
 	const __LMBMW_MAPOPTS_ELEMENT_TO_KEY = {
 		customGroupFilterField: "groupPathFilter",
 		showCleared: "showCleared",
@@ -2139,12 +2150,13 @@ if (window.RProfiler) {
 	}
 
 	// Function to check the map type radio button matching the current source type...
-	// (Anything other than "groups" or "services" is queried as resources, so the radio follows suit.)...
+	// (Anything other than "groups", "services", or "instances" is queried as resources, so the radio follows suit.)...
 	function syncMapTypeRadiosFromSourceType() {
 		if (!_dom.radioGroups || !_dom.radioResources || !_dom.radioServices) return;
 		_dom.radioGroups.checked = mapSourceType === "groups";
 		_dom.radioServices.checked = mapSourceType === "services";
-		_dom.radioResources.checked = mapSourceType !== "groups" && mapSourceType !== "services";
+		if (_dom.radioInstances) _dom.radioInstances.checked = mapSourceType === "instances";
+		_dom.radioResources.checked = mapSourceType !== "groups" && mapSourceType !== "services" && mapSourceType !== "instances";
 	}
 
 	// Function to sync the selected overlay back to the overlay variable...
@@ -2178,7 +2190,8 @@ if (window.RProfiler) {
 			markerStyle = o.markerStyle;
 		}
 
-		if (typeof o.mapSourceType === "string" && __LMBMW_ALLOWED_SOURCE_TYPES.indexOf(o.mapSourceType) >= 0) {
+		// A saved "instances" choice is only valid while a datasource is configured...
+		if (typeof o.mapSourceType === "string" && __LMBMW_ALLOWED_SOURCE_TYPES.indexOf(o.mapSourceType) >= 0 && (o.mapSourceType !== "instances" || mapInstanceDatasource !== "")) {
 			mapSourceType = o.mapSourceType;
 		}
 
@@ -2336,7 +2349,7 @@ if (window.RProfiler) {
 
 	// Function to switch between mapping groups, resources, or services...
 	function selectMapType(newType) {
-		const requestedType = __LMBMW_ALLOWED_SOURCE_TYPES.indexOf(newType) >= 0 ? newType : "groups";
+		const requestedType = __LMBMW_ALLOWED_SOURCE_TYPES.indexOf(newType) >= 0 && (newType !== "instances" || mapInstanceDatasource !== "") ? newType : "groups";
 		if (requestedType === mapSourceType) {
 			syncMapTypeRadiosFromSourceType();
 			return;
@@ -2632,6 +2645,19 @@ if (window.RProfiler) {
 		mapSourceType = mapSourceTypeToken.toLowerCase();
 	}
 
+	// Capture from token the name of the datasource whose instances may be plotted...
+	let mapInstanceDatasourceToken = "##MapInstanceDatasource##";
+	// If the token value wasn't set then use the value hard-coded above at the beginning of this script...
+	if (mapInstanceDatasourceToken.trim() != "" && mapInstanceDatasourceToken != "\#\#MapInstanceDatasource\#\#") {
+		mapInstanceDatasource = mapInstanceDatasourceToken.trim();
+	}
+
+	mapInstanceDatasource = String(mapInstanceDatasource || "").trim();
+	// Mapping instances requires a datasource, so fall back to groups when none is configured...
+	if (mapSourceType === "instances" && mapInstanceDatasource === "") {
+		mapSourceType = "groups";
+	}
+
 	// Capture from token whether to use a LogicMonitor API bearer token or API ID & key...
 	let apiBearerTokenToken = "##apiBearerToken##";
 	let apiIDToken = "##apiID##";
@@ -2844,6 +2870,9 @@ if (window.RProfiler) {
 		markerStyleSelect: getBetterMapElementById("markerStyleSelect"),
 		radioGroups: getBetterMapElementById("radioGroups"),
 		radioResources: getBetterMapElementById("radioResources"),
+		radioInstances: getBetterMapElementById("radioInstances"),
+		mapTypeInstancesOption: getBetterMapElementById("mapTypeInstancesOption"),
+		mapTypeInstancesLabel: getBetterMapElementById("mapTypeInstancesLabel"),
 		radioServices: getBetterMapElementById("radioServices"),
 		mapTypeGroupsLabel: getBetterMapElementById("mapTypeGroupsLabel"),
 		mapTypeResourcesLabel: getBetterMapElementById("mapTypeResourcesLabel"),
@@ -2968,6 +2997,7 @@ if (window.RProfiler) {
 	const groupIcon = '<svg focusable="false" role="img" aria-label="Group" width="22" viewBox="0 0 24 24"><path d="M3 19h17v2H3c-1.1 0-2-.9-2-2V6h2v13zM23 6v9c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2l.01-11c0-1.1.89-2 1.99-2h5l2 2h7c1.1 0 2 .9 2 2zM7 15h14V6h-7.83l-2-2H7v11z"></path><title>Groups</title></svg>';
 	const resourceIcon = '<svg focusable="false" role="img" aria-label="Resource" width="22" viewBox="0 0 24 24"><path d="M17 18C17 17.448 17.448 17 18 17C18.552 17 19 17.448 19 18C19 18.553 18.552 19 18 19C17.448 19 17 18.553 17 18Z"></path><path d="M5 18C5 18.5523 5.44772 19 6 19H9C9.55228 19 10 18.5523 10 18C10 17.4477 9.55228 17 9 17H6C5.44772 17 5 17.4477 5 18Z"></path><path d="M14 18C14 17.448 14.448 17 15 17C15.552 17 16 17.448 16 18C16 18.553 15.552 19 15 19C14.448 19 14 18.553 14 18Z"></path><path d="M5 12C5 11.4477 5.44772 11 6 11H9C9.55228 11 10 11.4477 10 12C10 12.5523 9.55228 13 9 13H6C5.44772 13 5 12.5523 5 12Z"></path><path d="M16 12C16 12.553 15.552 13 15 13C14.448 13 14 12.553 14 12C14 11.448 14.448 11 15 11C15.552 11 16 11.448 16 12Z"></path><path d="M18 13C18.552 13 19 12.553 19 12C19 11.448 18.552 11 18 11C17.448 11 17 11.448 17 12C17 12.553 17.448 13 18 13Z"></path><path d="M10 6C10 5.44772 9.55228 5 9 5H6C5.44772 5 5 5.44772 5 6C5 6.55228 5.44772 7 6 7H9C9.55228 7 10 6.55228 10 6Z"></path><path d="M16 6C16 6.553 15.552 7 15 7C14.448 7 14 6.553 14 6C14 5.448 14.448 5 15 5C15.552 5 16 5.448 16 6Z"></path><path d="M18 7C18.552 7 19 6.553 19 6C19 5.448 18.552 5 18 5C17.448 5 17 5.448 17 6C17 6.553 17.448 7 18 7Z"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M4 2H20C21.103 2 22 2.897 22 4V20C22 21.103 21.103 22 20 22H4C2.897 22 2 21.103 2 20V4C2 2.897 2.897 2 4 2ZM4 16V20H19.997L19.998 16H4ZM4 14H19.998L19.999 10H4V14ZM4 8H19.999L20 4H4V8Z"></path><title>Resources</title></svg>';
 	const serviceIcon = '<svg focusable="false" role="img" aria-label="Service" width="25" viewBox="0 0 20 20"><g id="Vector"><path d="M2 8.99999L9.59918 12.3246C9.8547 12.4364 10.1453 12.4364 10.4008 12.3246L18 8.99999V9.99999L10.8016 13.1493C10.2906 13.3729 9.7094 13.3729 9.19836 13.1493L2 9.99999V8.99999Z"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M16.241 6.64999L10.3624 4.36389C10.1293 4.27323 9.87068 4.27323 9.63755 4.36389L3.75903 6.64999L9.63755 8.93608C9.87068 9.02674 10.1293 9.02674 10.3624 8.93608L16.241 6.64999ZM10.7249 3.43189C10.2586 3.25057 9.74136 3.25057 9.27511 3.43189L2.43795 6.09078C1.92791 6.28913 1.92791 7.01084 2.43795 7.20919L9.27511 9.86808C9.74136 10.0494 10.2586 10.0494 10.7249 9.86808L17.5621 7.20919C18.0721 7.01084 18.0721 6.28913 17.5621 6.09078L10.7249 3.43189Z"></path><path d="M2 12L9.59918 15.3246C9.8547 15.4364 10.1453 15.4364 10.4008 15.3246L18 12V13L10.8016 16.1493C10.2906 16.3729 9.7094 16.3729 9.19836 16.1493L2 13V12Z"></path></g><title>Services</title></svg>';
+	const instanceIcon = '<svg focusable="false" role="img" aria-label="Instance" width="22" viewBox="0 0 24 24"><path d="M14.4442 2.68509C12.7996 2.0039 10.99 1.82567 9.24419 2.17294C7.49836 2.5202 5.89472 3.37737 4.63604 4.63604C3.37737 5.89472 2.5202 7.49836 2.17294 9.24419C1.82567 10.99 2.0039 12.7996 2.68509 14.4442C3.36628 16.0887 4.51983 17.4943 5.99987 18.4832C7.47991 19.4722 9.21997 20 11 20V18C9.61553 18 8.26216 17.5895 7.11101 16.8203C5.95987 16.0511 5.06266 14.9579 4.53285 13.6788C4.00303 12.3997 3.86441 10.9922 4.13451 9.63437C4.4046 8.2765 5.07129 7.02922 6.05026 6.05026C7.02922 5.07129 8.2765 4.4046 9.63437 4.13451C10.9922 3.86441 12.3997 4.00303 13.6788 4.53285C14.9579 5.06266 16.0511 5.95987 16.8203 7.11101C17.5895 8.26216 18 9.61553 18 11H20C20 9.21997 19.4722 7.47991 18.4832 5.99987C17.4943 4.51983 16.0887 3.36628 14.4442 2.68509Z"></path><path d="M22 18C22 15.79 20.2089 14 18 14C15.7911 14 14 15.79 14 18C14 20.2089 15.7911 22 18 22C20.2089 22 22 20.2089 22 18Z"></path><title>Instances</title></svg>';
 	const connectedIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="Connected"><path d="M 12 28 Q 25 17 38 13" fill="none" stroke="#e0351b" stroke-width="3" stroke-linecap="round"/><path d="M 12 28 L 38 40" fill="none" stroke="#85c25d" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="28" r="7" fill="#85c25d"/><circle cx="38" cy="13" r="7" fill="#85c25d"/><circle cx="38" cy="40" r="7" fill="#85c25d"/></svg>';
 	const showConnectionsIcon = '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" data-tooltip="Show connections"><path d="M 12 28 Q 25 17 38 13" fill="none" stroke="#e0351b" stroke-width="4" stroke-linecap="round" stroke-dasharray="4 4"/><path d="M 12 28 L 38 40" fill="none" stroke="#85c25d" stroke-width="4" stroke-linecap="round" stroke-dasharray="4 4"/><circle cx="12" cy="28" r="5" fill="#85c25d" fill-opacity="0.5"/><circle cx="38" cy="13" r="5" fill="#85c25d" fill-opacity="0.5"/><circle cx="38" cy="40" r="5" fill="#85c25d" fill-opacity="0.5"/></svg>';
 	// Animated throbber for when we're updating data...
@@ -3747,6 +3777,13 @@ if (window.RProfiler) {
 	_dom.mapTypeGroupsLabel.innerHTML = groupIcon;
 	_dom.mapTypeResourcesLabel.innerHTML = resourceIcon;
 	_dom.mapTypeServicesLabel.innerHTML = serviceIcon;
+	// The instances option is disabled until a datasource has been configured...
+	if (_dom.mapTypeInstancesOption && _dom.mapTypeInstancesLabel && _dom.radioInstances) {
+		const instancesEnabled = mapInstanceDatasource !== "";
+		_dom.mapTypeInstancesLabel.innerHTML = instanceIcon;
+		_dom.mapTypeInstancesLabel.title = instancesEnabled ? "Instances of " + mapInstanceDatasource : "Set the MapInstanceDatasource token to enable instances";
+		_dom.radioInstances.disabled = !instancesEnabled;
+		_dom.mapTypeInstancesOption.style.opacity = instancesEnabled ? "" : "0.4";	}
 	_dom.showConnectedLabel.innerHTML = connectedIcon;
 
 	// Placeholder for marker cluster info...
@@ -4672,6 +4709,23 @@ if (window.RProfiler) {
 	function buildLocationQuery(offset, propSource, { fieldList, pathOperator, statusFilter, deviceFilter }) {
 		const isGroupMode = mapSourceType === "groups";
 
+		// Instances are located by their own properties, so only the parent devices are queried here, limited by the group path...
+		if (mapSourceType === "instances") {
+			const instanceDeviceFilters = [];
+			const baseDeviceFilter = deviceFilter.replace(/^,/, "");
+			if (baseDeviceFilter !== "") {
+				instanceDeviceFilters.push(baseDeviceFilter);
+			}
+
+			const instancePathFilter = groupPathFilter.replace(/^\*/, "").replace(/\*$/, "");
+			if (groupPathFilter !== "*" && instancePathFilter !== "") {
+				instanceDeviceFilters.push(`systemProperties~"{\\"name\\":\\"system.groups\\",\\"value\\":\\"*${instancePathFilter}*\\"}"`);
+			}
+
+			const instanceFilterParam = instanceDeviceFilters.length > 0 ? `&filter=${encodeURIComponent(instanceDeviceFilters.join(","))}` : "";
+			return `?v=3&size=1000&offset=${offset}&fields=id,displayName,name${instanceFilterParam}`;
+		}
+
 		// Default: fullPath filter with field limiting (used for group queries, or non-group edge cases)...
 		let filterValue = `${propSource}.name:"${mapLocationProperty}",fullPath${pathOperator}"${groupPathFilter}"${statusFilter}${deviceFilter}`;
 
@@ -4726,6 +4780,106 @@ if (window.RProfiler) {
 		}
 
 		return { items, total };
+	}
+
+	// Resolved device/datasource pairs for the instances map type, reused between timed refreshes...
+	var _instanceSourceCache = null;
+
+	// Function to fetch the configured datasource's instances, with their parent devices, as map items...
+	async function fetchInstanceItems({ buildDeviceQuery, signal, reuseSources }) {
+		const datasourceName = mapInstanceDatasource.replace(/"/g, "");
+		const cacheKey = groupPathFilter + "|" + datasourceName;
+		let sources;
+		if (reuseSources && _instanceSourceCache && _instanceSourceCache.key === cacheKey) {
+			sources = _instanceSourceCache.sources;
+		} else {
+			const deviceResult = await fetchPaginatedLMItems({
+				resourcePath: "/device/devices",
+				buildQueryParams: buildDeviceQuery,
+				signal,
+				label: "Updating",
+			});
+
+			// A ddsId of undefined means the device has not been checked for the datasource yet...
+			sources = deviceResult.items.map(device => ({ deviceId: device.id, deviceName: device.displayName || device.name, ddsId: undefined }));
+			_instanceSourceCache = { key: cacheKey, sources };
+		}
+
+		const items = [];
+		let nextIndex = 0;
+		let devicesDone = 0;
+
+		// Function to look up one device's instances of the datasource and add the located ones to the results...
+		async function loadDeviceInstances(source) {
+			try {
+				if (source.ddsId === undefined) {
+					const ddsData = await LMClient({
+						resourcePath: `/device/devices/${source.deviceId}/devicedatasources`,
+						queryParams: `?v=3&size=1&fields=id&filter=${encodeURIComponent('dataSourceName:"' + datasourceName + '"')}`,
+						httpVerb: "GET",
+						signal,
+					});
+					source.ddsId = ddsData && Array.isArray(ddsData.items) && ddsData.items.length > 0 ? ddsData.items[0].id : null;
+				}
+
+				if (source.ddsId === null) return;
+				const instanceResult = await fetchPaginatedLMItems({
+					resourcePath: `/device/devices/${source.deviceId}/devicedatasources/${source.ddsId}/instances`,
+					buildQueryParams: (off) => `?v=3&size=1000&offset=${off}`,
+					signal,
+					label: "Instances",
+					quiet: true,
+				});
+
+				for (const instance of instanceResult.items) {
+					const instanceName = instance.displayName || instance.name || String(instance.id);
+					const item = {
+						id: `${source.deviceId}-${source.ddsId}-${instance.id}`,
+						instanceId: instance.id,
+						name: instanceName,
+						displayName: instanceName,
+						description: instance.description || "",
+						alertStatus: instance.alertStatus,
+						sdtStatus: instance.sdtStatus,
+						customProperties: instance.customProperties || [],
+						autoProperties: instance.autoProperties || [],
+						systemProperties: instance.systemProperties || [],
+						deviceId: source.deviceId,
+						deviceDisplayName: source.deviceName,
+						ddsId: source.ddsId,
+					};
+
+					// Only instances with a value in the location property can be plotted...
+					if (findLocationFromItem(item, mapLocationProperty).address.trim() !== "") {
+						items.push(item);
+					}
+				}
+			} catch (error) {
+				if (error.name === 'AbortError') throw error;
+				console.warn(`Map ${widgetID}: Skipping instances for device ${source.deviceId}.`, error);
+			}
+		}
+
+		// Function for a worker that keeps taking the next device until none remain...
+		async function runWorker() {
+			while (nextIndex < sources.length) {
+				if (signal && signal.aborted) return;
+				const source = sources[nextIndex++];
+				await loadDeviceInstances(source);
+				devicesDone++;
+				if (_dom.refreshStatusArea) {
+					_dom.refreshStatusArea.innerHTML = loadingSpinner + "&nbsp;Updating: " + devicesDone + " of " + sources.length + " resources checked";
+				}
+			}
+		}
+
+		const workers = [];
+		for (let i = 0; i < Math.min(8, sources.length); i++) {
+			workers.push(runWorker());
+		}
+
+		await Promise.all(workers);
+		return items;
 	}
 
 	// Function to load our LogicMonitor data and add pins to the map...
@@ -4871,7 +5025,8 @@ if (window.RProfiler) {
 		}
 
 		// Shared context for query builders...
-		const queryCtx = { fieldList, pathOperator, statusFilter, deviceFilter };
+		// (Instance status is filtered locally, since the device query only finds the instances' parent resources.)...
+		const queryCtx = { fieldList, pathOperator, statusFilter: mapSourceType === "instances" ? "" : statusFilter, deviceFilter };
 
 		// Determine the primary property source for this configuration...
 		const useAutoSysProp = mapSourceType !== "groups" && (mapLocationProperty.match(/^auto\./) || mapLocationProperty.match(/^system\./));
@@ -4881,14 +5036,25 @@ if (window.RProfiler) {
 
 		// Fetch primary location data (custom, auto, or system properties) with pagination...
 		try {
-			const primaryResult = await fetchPaginatedLMItems({
-				resourcePath,
-				buildQueryParams: (off) => buildLocationQuery(off, primaryPropSource, queryCtx),
-				signal: refreshSignal,
-				label: "Updating",
-			});
+			if (mapSourceType === "instances") {
+				const instanceItems = await fetchInstanceItems({
+					buildDeviceQuery: (off) => buildLocationQuery(off, primaryPropSource, queryCtx),
+					signal: refreshSignal,
+					reuseSources: !fullRefresh,
+				});
 
-			groupData = primaryResult.items.filter(matchesSelectedSeverity);
+				groupData = instanceItems.filter(matchesSelectedSeverity);
+			} else {
+				const primaryResult = await fetchPaginatedLMItems({
+					resourcePath,
+					buildQueryParams: (off) => buildLocationQuery(off, primaryPropSource, queryCtx),
+					signal: refreshSignal,
+					label: "Updating",
+				});
+
+				groupData = primaryResult.items.filter(matchesSelectedSeverity);
+			}
+
 			totalGroups = groupData.length;
 			offset = groupData.length;
 		} catch (error) {
@@ -4906,7 +5072,7 @@ if (window.RProfiler) {
 		}
 
 		// Fetch inherited location properties (only applicable for resources/services)...
-		if (mapSourceType !== "groups" && pollInheritedLocations && totalGroups >= 0) {
+		if (mapSourceType !== "groups" && mapSourceType !== "instances" && pollInheritedLocations && totalGroups >= 0) {
 			try {
 				const inheritedResult = await fetchPaginatedLMItems({
 					resourcePath,
@@ -5315,6 +5481,33 @@ if (window.RProfiler) {
 										</button>
 										<div class="drillDownButton" title="Open group in new tab">
 											<a href="/santaba/uiv4/resources/treeNodes/t-dg,id-${itemId}?source=details" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path fill="white" d="M384 64C366.3 64 352 78.3 352 96C352 113.7 366.3 128 384 128L466.7 128L265.3 329.4C252.8 341.9 252.8 362.2 265.3 374.7C277.8 387.2 298.1 387.2 310.6 374.7L512 173.3L512 256C512 273.7 526.3 288 544 288C561.7 288 576 273.7 576 256L576 96C576 78.3 561.7 64 544 64L384 64zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 416C480 398.3 465.7 384 448 384C430.3 384 416 398.3 416 416L416 496C416 504.8 408.8 512 400 512L144 512C135.2 512 128 504.8 128 496L128 240C128 231.2 135.2 224 144 224L224 224C241.7 224 256 209.7 256 192C256 174.3 241.7 160 224 160L144 160z"/></svg></a>
+										</div>
+									</div>
+								</div>
+							`;
+						} else if (mapSourceType == "instances") {
+							// Capture the instance's description, falling back to its parent resource and address...
+							const parentLink = `<a href="/santaba/uiv4/resources/treeNodes/t-d,id-${encodeURIComponent(thisItem.deviceId)}?source=details&tab=alert" target="_blank">${escapeHtml(thisItem.deviceDisplayName)}</a>`;
+							let instanceDescription = escapeHtml(thisItem.description);
+							if (instanceDescription == "") {
+								instanceDescription = "Resource: " + parentLink + "<br/>Address: " + escapeHtml(cachedAddresses[groupID].address);
+							} else {
+								instanceDescription = instanceDescription + "<br/>Resource: " + parentLink;
+							}
+
+							// Keep the description on the pin so the cluster summary can list it after the name...
+							content.dataset.instanceDescription = thisItem.description || "";
+							const instanceUrl = `/santaba/uiv4/resources/treeNodes/t-i,id-${encodeURIComponent(thisItem.instanceId)}?source=details&tab=alert`;
+							content.innerHTML = `
+								<div class="icon ${highestSeverity}">
+									${sevIcon}
+								</div>
+								<div class="details">
+									<div class="groupName"><a href="${instanceUrl}" target="_blank">${escapeHtml(thisItem.displayName)}</a></div>
+									<div class="description">${instanceDescription}${customContent}</div>
+									<div class="features">
+										<div class="drillDownButton" title="Open instance in new tab">
+											<a href="${instanceUrl}" target="_blank" class="link"><svg xmlns="http://www.w3.org/2000/svg" class="infoDialogIcon" viewBox="0 0 640 640"><path fill="white" d="M384 64C366.3 64 352 78.3 352 96C352 113.7 366.3 128 384 128L466.7 128L265.3 329.4C252.8 341.9 252.8 362.2 265.3 374.7C277.8 387.2 298.1 387.2 310.6 374.7L512 173.3L512 256C512 273.7 526.3 288 544 288C561.7 288 576 273.7 576 256L576 96C576 78.3 561.7 64 544 64L384 64zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 416C480 398.3 465.7 384 448 384C430.3 384 416 398.3 416 416L416 496C416 504.8 408.8 512 400 512L144 512C135.2 512 128 504.8 128 496L128 240C128 231.2 135.2 224 144 224L224 224C241.7 224 256 209.7 256 192C256 174.3 241.7 160 224 160L144 160z"/></svg></a>
 										</div>
 									</div>
 								</div>
@@ -5802,6 +5995,11 @@ if (window.RProfiler) {
 		var inner = props.map(function(p) {
 			var name = escapeHtml(p.name);
 			var value = escapeHtml(p.value);
+			// A property without a name (such as an instance description) is shown as plain text with no label...
+			if (!p.name) {
+				return '\x3cdiv class="sidebar-item-prop" title="' + value + '"\x3e' + value + '\x3c/div\x3e';
+			}
+
 			return '\x3cdiv class="sidebar-item-prop" title="' + name + ': ' + value + '"\x3e' +
 				'\x3cspan class="sidebar-item-prop-label"\x3e' + name + ':\x3c/span\x3e ' + value +
 				'\x3c/div\x3e';
@@ -5814,10 +6012,12 @@ if (window.RProfiler) {
 		// device.name is read back out of the marker DOM via textContent, so entities are already decoded by the time we get here and must be re-escaped before returning to markup...
 		var name = escapeHtml(device.name);
 		var link = escapeHtml(device.link);
+		// Instances may have a description to show after the name...
+		var description = device.description ? ' \x3cspan class="cluster-device-description" style="opacity: 0.7; font-size: 0.9em;"\x3e- ' + escapeHtml(device.description) + '\x3c/span\x3e' : "";
 		return '\x3cdiv class="cluster-device-row" style="--device-status-color: var(--' + device.status + '-color);"\x3e' +
 			'\x3cdiv class="cluster-device-dot"\x3e\x3c/div\x3e' +
 			'\x3ca href="' + link + '" target="_blank" class="cluster-device-link"\x3e' +
-				name + device.sdtStatus +
+				name + description + device.sdtStatus +
 			'\x3c/a\x3e' +
 			'\x3cdiv class="cluster-device-actions"\x3e' +
 				'\x3ca href="' + link + '" target="_blank" class="cluster-device-icon"\x3e' +
@@ -5917,6 +6117,11 @@ if (window.RProfiler) {
 			const cached = cachedAddresses[item.id];
 
 			const props = [];
+			// An instance's description is listed first, without a label...
+			if (mapSourceType === "instances" && item.description) {
+				props.push({ name: "", value: item.description });
+			}
+
 			propList.forEach(propName => {
 				const found = findItemProperty(item, propName);
 				if (found) {
@@ -6144,8 +6349,8 @@ if (window.RProfiler) {
 
 			// Create hover content...
 			const getInfoContent = () => {
-				// Groups, resources, and services each use their toolbar icon in the list and its title...
-				const listTypeIcon = mapSourceType === "groups" ? groupIcon : (mapSourceType === "services" ? serviceIcon : resourceIcon);
+				// Groups, resources, services, and instances each use their toolbar icon in the list and its title...
+				const listTypeIcon = mapSourceType === "groups" ? groupIcon : (mapSourceType === "services" ? serviceIcon : (mapSourceType === "instances" ? instanceIcon : resourceIcon));
 				const listTypeLabel = mapSourceType.replace(/^./, char => char.toUpperCase());
 				// Get device details from markers...
 				const deviceDetails = markers.map(marker => {
@@ -6174,6 +6379,7 @@ if (window.RProfiler) {
 
 					return {
 						name: nameLink.textContent,
+						description: content.dataset.instanceDescription || "",
 						link: nameLink.href,
 						status,
 						sdtStatus,

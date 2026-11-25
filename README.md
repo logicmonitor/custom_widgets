@@ -80,7 +80,8 @@ Visibility of the toolbar along the top of the widget can be toggled using the b
 
 Behavior of the widget can be customized using the following optional dashboard tokens:
 
-- **MapSourceType**: Whether to map "`groups`", "`resources`", or "`services`". Default is "`groups`". This sets which of the toolbar's map type options is selected on load. Users can switch between them at any time and their choice is remembered per widget until the "Clear cache" button is used.
+- **MapSourceType**: Whether to map "`groups`", "`resources`", "`services`", or "`instances`". Default is "`groups`". This sets which of the toolbar's map type options is selected on load. Users can switch between them at any time and their choice is remembered per widget until the "Clear cache" button is used. "`instances`" is only available when **MapInstanceDatasource** is set.
+- **MapInstanceDatasource**: The name of a DataSource whose instances can be plotted. When set, an "instances" option is added to the toolbar and each instance is placed using the **MapLocationProperty** value set on that instance (the Group filter limits which resources' instances are checked).
 - **MapLocationProperty**: The property to use for the location of the items on the map. Default is "`location`".
 - **MapGroupPathFilter**: Allows setting a default group path to start. Default is "`\*`".
 - **MapShowWeather**: If weather should be shown by default. Options are "`global`", "`nexrad`", "`xweather`" or "`openweather`". Default is "`global`". (see below for more info about weather options)

@@ -31,7 +31,8 @@
 	* 'MapOverlayOption': Which optional overlay to default to when weather is shown. Options are "none", "earthquakes", "hurricanes", "us-flooding", "us-poweroutages", or "wildfires". Legacy values "us-wildfires" and "outages" are also accepted. Default is "earthquakes".
 	* 'HideMapOptions': If "true" then will hide the options bar by default. Default is "false".
 	* 'ShowMapSidebar': If "true" then will show the sidebar by default. Default is "false".
-	* 'MapSourceType': Whether to map "groups", "resources", or "services". Sets the initial toolbar selection, which the user can change. Default is "groups".
+	* 'MapSourceType': Whether to map "groups", "resources", "services", or "instances". Sets the initial toolbar selection, which the user can change. "instances" requires 'MapInstanceDatasource'. Default is "groups".
+	* 'MapInstanceDatasource': The name of a DataSource whose instances can be plotted, using 'MapLocationProperty' set on each instance. Adds an "instances" option to the toolbar. Default is empty (disabled).
 	* 'MapIgnoreCleared': If "true" then will only show items currently alerting (useful for maps with thousands of markers). Default is "false".
 	* 'MapIgnoreWarnings': If "true" then won't show items in "Warning" status. Default is "false".
 	* 'MapIgnoreErrors': If "true" then won't show items in "Error" status. Default is "false".
@@ -75,6 +76,10 @@
 				// The property to use for the location of the items on the map. Default is "location"...
 				// You can either set it here or in a dashboard token named 'MapLocationProperty'...
 				mapLocationProperty: "location",
+
+				// The name of a datasource whose instances can be plotted (the location is read from an instance-level property). Leave empty to disable the instances map type...
+				// You can either set it here or in a dashboard token named 'MapInstanceDatasource'...
+				mapInstanceDatasource: "",
 
 				// Preferred map style. Available options: "silver" (the default), "standard", "dark", "aubergine", "grey", "silverblue", "satellite", or "satellite-light"...
 				mapStyle: "silverblue",
@@ -214,6 +219,7 @@
 <div id="tokenCaptureArea" style="display: none;">
 	<div id="mapSourceTypeToken">##MapSourceType##</div>
 	<div id="mapLocationPropertyToken">##MapLocationProperty##</div>
+	<div id="mapInstanceDatasourceToken">##MapInstanceDatasource##</div>
 	<div id="mapStyleToken">##MapStyle##</div>
 	<div id="hideMapOptionsByDefaultToken">##HideMapOptions##</div>
 	<div id="showMapSidebarByDefaultToken">##ShowMapSidebar##</div>
