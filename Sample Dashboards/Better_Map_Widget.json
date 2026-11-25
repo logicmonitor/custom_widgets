@@ -73,6 +73,10 @@
       "value": "location"
     },
     {
+      "name": "MapInstanceDatasource",
+      "value": ""
+    },
+    {
       "name": "ShowMapSidebar",
       "value": "false"
     },
